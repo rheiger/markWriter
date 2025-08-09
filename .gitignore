@@ -16,6 +16,8 @@ build/
 dist/
 # Keep project spec (MarkWrite.spec) but ignore others
 !MarkWrite.spec
+!MarkWrite-win.spec
+!MarkWrite-linux.spec
 *.spec
 
 # macOS

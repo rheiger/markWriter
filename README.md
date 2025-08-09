@@ -1,6 +1,6 @@
 # MarkWrite
 
-![Build macOS App](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg)
+![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg)
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
@@ -45,6 +45,9 @@ open dist/MarkWrite.app
 Notes:
 - The editor UI is loaded from a CDN. If you prefer offline usage, vendor the Toast UI JS/CSS locally and adjust `HTML_TEMPLATE` in `markwrite.py`.
 - For distributing to other Macs, you’ll likely want to code sign and notarize the `.app`.
+
+### CI
+This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push/tag and uploads artifacts. Tagging a version `v*` publishes release assets automatically.
 
 ## Roadmap
 - Add support for Windows 11
