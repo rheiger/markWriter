@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout
+    QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QToolBar, QStyle
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -30,8 +30,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <style>
   html, body { height: 100%; margin: 0; }
   #editor-root { height: 100vh; }
-  /* Slightly more “document” feel */
-  .toastui-editor-defaultUI { max-width: 980px; margin: 0 auto; }
+  /* Use full available width */
+  .toastui-editor-defaultUI { width: 100%; margin: 0; }
   /* Match OS light/dark via prefers-color-scheme */
   @media (prefers-color-scheme: dark) {
     body { background: #1e1e1e; color: #ddd; }
@@ -79,10 +79,12 @@ class MainWindow(QMainWindow):
         self.resize(1100, 800)
         self.current_path: Path | None = None
         self._dirty = False
+        self._zoom_factor: float = 1.0
 
         # Central widget
         central = QWidget(self)
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.view = QWebEngineView(central)
         layout.addWidget(self.view)
         central.setLayout(layout)
@@ -95,6 +97,7 @@ class MainWindow(QMainWindow):
         self._build_actions()
         self._build_menus()
         self._connect_shortcuts()
+        self._build_toolbar()
 
         # Track edits (coarse: mark dirty whenever user types: poll)
         # For simplicity we mark dirty on any key input routed to the view.
@@ -128,6 +131,19 @@ class MainWindow(QMainWindow):
         self.act_about = QAction("&About", self)
         self.act_about.triggered.connect(self.show_about)
 
+        # Zoom actions
+        self.act_zoom_in = QAction("Zoom &In", self)
+        self.act_zoom_in.setShortcut(QKeySequence.ZoomIn)
+        self.act_zoom_in.triggered.connect(self.view_zoom_in)
+
+        self.act_zoom_out = QAction("Zoom &Out", self)
+        self.act_zoom_out.setShortcut(QKeySequence.ZoomOut)
+        self.act_zoom_out.triggered.connect(self.view_zoom_out)
+
+        self.act_zoom_reset = QAction("&Actual Size", self)
+        self.act_zoom_reset.setShortcut(QKeySequence("Ctrl+0"))
+        self.act_zoom_reset.triggered.connect(self.view_zoom_reset)
+
     def _build_menus(self):
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addAction(self.act_new)
@@ -140,8 +156,30 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.act_quit)
 
+        view_menu = self.menuBar().addMenu("&View")
+        view_menu.addAction(self.act_zoom_in)
+        view_menu.addAction(self.act_zoom_out)
+        view_menu.addAction(self.act_zoom_reset)
+
         help_menu = self.menuBar().addMenu("&Help")
         help_menu.addAction(self.act_about)
+
+    def _build_toolbar(self):
+        toolbar = QToolBar("Main Toolbar", self)
+        toolbar.setMovable(False)
+        icon_open = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        icon_save = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        self.act_open.setIcon(icon_open)
+        self.act_save.setIcon(icon_save)
+        self.act_save_as.setIcon(icon_save)
+        toolbar.addAction(self.act_open)
+        toolbar.addAction(self.act_save)
+        toolbar.addAction(self.act_save_as)
+        toolbar.addSeparator()
+        toolbar.addAction(self.act_zoom_in)
+        toolbar.addAction(self.act_zoom_out)
+        toolbar.addAction(self.act_zoom_reset)
+        self.addToolBar(toolbar)
 
     def show_about(self):
         """Display a simple About dialog for the application."""
@@ -175,6 +213,24 @@ class MainWindow(QMainWindow):
         if self._dirty:
             name += " •"
         self.setWindowTitle(f"{name} — {APP_NAME}")
+
+    # -------- Zoom controls --------
+    def _apply_zoom(self):
+        # Clamp zoom factor to a reasonable range
+        self._zoom_factor = max(0.5, min(3.0, self._zoom_factor))
+        self.view.setZoomFactor(self._zoom_factor)
+
+    def view_zoom_in(self):
+        self._zoom_factor += 0.1
+        self._apply_zoom()
+
+    def view_zoom_out(self):
+        self._zoom_factor -= 0.1
+        self._apply_zoom()
+
+    def view_zoom_reset(self):
+        self._zoom_factor = 1.0
+        self._apply_zoom()
 
     # -------- File ops --------
     def file_new(self):
