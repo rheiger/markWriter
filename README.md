@@ -2,7 +2,7 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.0.1 (build 000010)`
+- Version: `0.0.2 (build 000011)`
 - Platforms: macOS (working), Windows/Linux planned
 
 ## Features
@@ -18,6 +18,8 @@ A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) usi
 ## Getting Started
 
 See the How-To guide for end users: [How-To: Install and Use MarkWrite on macOS](./How-To.md)
+
+Latest prebuilt app: [Releases](https://github.com/rheiger/markWriter/releases)
 
 ### Run from source (macOS)
 ```bash
@@ -44,6 +46,8 @@ Notes:
 - Add support for Windows 11
 - Add support for Linux
 - Add support for multiple windows/tabs to have more than one document open at the same time
+ - Add regular menus: Edit, View, Window, ...
+ - Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
 
 ## License
 TBD

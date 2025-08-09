@@ -10,8 +10,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.0.1"
-APP_BUILD = "000010"
+APP_VERSION = "0.0.2"
+APP_BUILD = "000011"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -189,6 +189,8 @@ class MainWindow(QMainWindow):
             (
                 f"{APP_NAME} — v{APP_VERSION_FULL}\n\n"
                 "A minimal Markdown editor using Qt WebEngine and Toast UI Editor.\n\n"
+                "Base implementation performed in Cursor with gpt-5-high,\n"
+                "based on idea and requirements by Richie Eiger.\n\n"
                 "Keyboard shortcuts:\n"
                 "- New: Cmd+N\n- Open: Cmd+O\n- Save: Cmd+S\n- Save As: Cmd+Shift+S\n"
             ),

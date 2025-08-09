@@ -2,7 +2,16 @@
 
 This guide explains, step-by-step, how to install and use MarkWrite on a Mac.
 
-MarkWrite is a minimal Markdown editor built with Python and Qt (PySide6). You can either run it directly from source or build a double-clickable macOS app.
+MarkWrite is a minimal Markdown editor built with Python and Qt (PySide6). You can either run it directly from source, download a prebuilt app, or build your own double-clickable macOS app.
+
+---
+
+## Option 0: Download a prebuilt app (recommended)
+
+1) Go to the Releases page: [Latest release](https://github.com/rheiger/markWriter/releases/latest)
+2) Download `MarkWrite-0.0.2-macOS.zip`.
+3) Unzip it and move `MarkWrite.app` to your `Applications` folder.
+4) On first run, you may need to right-click the app and choose “Open” due to Gatekeeper.
 
 ---
 
@@ -67,6 +76,36 @@ If you see that warning:
 
 ---
 
+## Optional: Code signing and notarization (for developers)
+To distribute the app without the Gatekeeper warning, you need an Apple Developer account and a Developer ID Application certificate.
+
+Prerequisites:
+- Xcode command line tools installed (`xcode-select --install`).
+- Apple Developer account and a Developer ID Application signing identity.
+- Set up `notarytool` with a keychain profile (e.g., `AC_PASSWORD`). See Apple’s docs for `xcrun notarytool store-credentials`.
+
+Steps:
+1) Build the app using PyInstaller (see Option 2).
+2) Zip the app for notarization:
+```bash
+ditto -c -k --sequesterRsrc --keepParent dist/MarkWrite.app dist/MarkWrite.zip
+```
+3) Sign the app with hardened runtime:
+```bash
+codesign --force --deep --options runtime --sign "Developer ID Application: YOUR NAME (TEAMID)" dist/MarkWrite.app
+```
+4) Submit for notarization and wait:
+```bash
+xcrun notarytool submit dist/MarkWrite.zip --keychain-profile "AC_PASSWORD" --wait
+```
+5) Staple the ticket to the app:
+```bash
+xcrun stapler staple dist/MarkWrite.app
+```
+Users should now be able to open the app without bypass prompts.
+
+---
+
 ## Basic usage
 - File → New: start a new document
 - File → Open: open an existing `.md` (Markdown) file
@@ -102,4 +141,4 @@ pip install -U -r requirements.txt
 ---
 
 ## Version
-MarkWrite 0.0.1 (build 000010)
+MarkWrite 0.0.2 (build 000011)
