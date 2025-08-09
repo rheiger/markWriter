@@ -1,0 +1,321 @@
+import os
+import sys
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QAction, QKeySequence, QIcon
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout
+)
+from PySide6.QtWebEngineWidgets import QWebEngineView
+
+APP_NAME = "MarkWrite"
+APP_VERSION = "0.0.1"
+APP_BUILD = "000010"
+APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
+HTML_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+/>
+<title>MarkWrite</title>
+
+<!-- Toast UI Editor (WYSIWYG Markdown) via CDN -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css"/>
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  #editor-root { height: 100vh; }
+  /* Slightly more “document” feel */
+  .toastui-editor-defaultUI { max-width: 980px; margin: 0 auto; }
+  /* Match OS light/dark via prefers-color-scheme */
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e1e; color: #ddd; }
+  }
+</style>
+</head>
+<body>
+<div id="editor-root"></div>
+<script>
+  // Initialize WYSIWYG Markdown editor
+  const { Editor } = toastui;
+  const editor = new Editor({
+    el: document.querySelector('#editor-root'),
+    height: '100vh',
+    initialEditType: 'wysiwyg',
+    previewStyle: 'vertical',  // has no effect in wysiwyg, but harmless
+    usageStatistics: false,
+    autofocus: true,
+    toolbarItems: [
+      ['heading', 'bold', 'italic', 'strike'],
+      ['hr', 'quote'],
+      ['ul', 'ol', 'task'],
+      ['table'],
+      ['link', 'image'],
+      ['code', 'codeblock'],
+      ['scrollSync']
+    ]
+  });
+
+  // Expose helpers for Python -> JS bridge via runJavaScript
+  window._markwrite = {
+    setMarkdown: function(md) { editor.setMarkdown(md || ''); },
+    getMarkdown: function() { return editor.getMarkdown(); },
+    getHTML: function() { return editor.getHTML(); }
+  };
+</script>
+</body>
+</html>
+"""
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle(APP_NAME)
+        self.resize(1100, 800)
+        self.current_path: Path | None = None
+        self._dirty = False
+
+        # Central widget
+        central = QWidget(self)
+        layout = QVBoxLayout(central)
+        self.view = QWebEngineView(central)
+        layout.addWidget(self.view)
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+        # Load the editor HTML
+        self.view.setHtml(HTML_TEMPLATE, baseUrl=QUrl("https://local/"))
+
+        # Menus / actions
+        self._build_actions()
+        self._build_menus()
+        self._connect_shortcuts()
+
+        # Track edits (coarse: mark dirty whenever user types: poll)
+        # For simplicity we mark dirty on any key input routed to the view.
+        self.view.installEventFilter(self)
+
+    # -------- UI setup --------
+    def _build_actions(self):
+        self.act_new = QAction("&New", self)
+        self.act_new.setShortcut(QKeySequence.New)
+        self.act_new.triggered.connect(self.file_new)
+
+        self.act_open = QAction("&Open…", self)
+        self.act_open.setShortcut(QKeySequence.Open)
+        self.act_open.triggered.connect(self.file_open)
+
+        self.act_save = QAction("&Save", self)
+        self.act_save.setShortcut(QKeySequence.Save)
+        self.act_save.triggered.connect(self.file_save)
+
+        self.act_save_as = QAction("Save &As…", self)
+        self.act_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.act_save_as.triggered.connect(self.file_save_as)
+
+        self.act_export_html = QAction("Export as &HTML…", self)
+        self.act_export_html.triggered.connect(self.export_html)
+
+        self.act_quit = QAction("&Quit", self)
+        self.act_quit.setShortcut(QKeySequence.Quit)
+        self.act_quit.triggered.connect(self.close)
+
+        self.act_about = QAction("&About", self)
+        self.act_about.triggered.connect(self.show_about)
+
+    def _build_menus(self):
+        file_menu = self.menuBar().addMenu("&File")
+        file_menu.addAction(self.act_new)
+        file_menu.addAction(self.act_open)
+        file_menu.addSeparator()
+        file_menu.addAction(self.act_save)
+        file_menu.addAction(self.act_save_as)
+        file_menu.addSeparator()
+        file_menu.addAction(self.act_export_html)
+        file_menu.addSeparator()
+        file_menu.addAction(self.act_quit)
+
+        help_menu = self.menuBar().addMenu("&Help")
+        help_menu.addAction(self.act_about)
+
+    def show_about(self):
+        """Display a simple About dialog for the application."""
+        QMessageBox.about(
+            self,
+            f"About {APP_NAME}",
+            (
+                f"{APP_NAME} — v{APP_VERSION_FULL}\n\n"
+                "A minimal Markdown editor using Qt WebEngine and Toast UI Editor.\n\n"
+                "Keyboard shortcuts:\n"
+                "- New: Cmd+N\n- Open: Cmd+O\n- Save: Cmd+S\n- Save As: Cmd+Shift+S\n"
+            ),
+        )
+
+    def _connect_shortcuts(self):
+        # Extra typical bindings
+        self.addAction(self.act_save)
+        self.addAction(self.act_open)
+
+    # -------- Dirty tracking --------
+    def eventFilter(self, obj, event):
+        # Mark document potentially dirty on key input in the editor
+        from PySide6.QtCore import QEvent
+        if obj is self.view and event.type() in (QEvent.KeyPress, QEvent.InputMethod):
+            self._dirty = True
+            self._sync_title()
+        return super().eventFilter(obj, event)
+
+    def _sync_title(self):
+        name = self.current_path.name if self.current_path else "Untitled"
+        if self._dirty:
+            name += " •"
+        self.setWindowTitle(f"{name} — {APP_NAME}")
+
+    # -------- File ops --------
+    def file_new(self):
+        if not self._confirm_discard_changes():
+            return
+        self.current_path = None
+        self._dirty = False
+        self._set_markdown("")
+        self._sync_title()
+
+    def file_open(self):
+        if not self._confirm_discard_changes():
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open Markdown", str(Path.home()), "Markdown (*.md *.markdown);;All files (*)"
+        )
+        if not path:
+            return
+        p = Path(path)
+        try:
+            md = p.read_text(encoding="utf-8")
+        except Exception as e:
+            QMessageBox.critical(self, "Open failed", f"Could not open:\n{e}")
+            return
+        self.current_path = p
+        self._set_markdown(md)
+        self._dirty = False
+        self._sync_title()
+
+    def file_save(self):
+        if self.current_path is None:
+            return self.file_save_as()
+        self._get_markdown_and_write(self.current_path)
+
+    def file_save_as(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Markdown",
+            str(self.current_path or Path.home() / "Untitled.md"),
+            "Markdown (*.md *.markdown);;All files (*)",
+        )
+        if not path:
+            return
+        self.current_path = Path(path)
+        self._get_markdown_and_write(self.current_path)
+
+    def export_html(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export HTML",
+            str((self.current_path or Path.home() / "Untitled").with_suffix(".html")),
+            "HTML (*.html);;All files (*)",
+        )
+        if not path:
+            return
+        out = Path(path)
+        self._get_html_and_write(out)
+
+    def closeEvent(self, e):
+        if self._confirm_discard_changes():
+            e.accept()
+        else:
+            e.ignore()
+
+    def _confirm_discard_changes(self):
+        if not self._dirty:
+            return True
+        r = QMessageBox.question(
+            self,
+            "Unsaved changes",
+            "You have unsaved changes. Save before continuing?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes,
+        )
+        if r == QMessageBox.StandardButton.Cancel:
+            return False
+        if r == QMessageBox.StandardButton.Yes:
+            self.file_save()
+            # If still dirty, abort
+            return not self._dirty
+        return True
+
+    # -------- JS bridge helpers --------
+    def _set_markdown(self, text: str):
+        js = f"window._markwrite.setMarkdown({_js_str(text)});"
+        self.view.page().runJavaScript(js)
+
+    def _get_markdown_and_write(self, path: Path):
+        self.view.page().runJavaScript("window._markwrite.getMarkdown();", self._write_markdown_cb(path))
+
+    def _get_html_and_write(self, path: Path):
+        self.view.page().runJavaScript("window._markwrite.getHTML();", self._write_html_cb(path))
+
+    def _write_markdown_cb(self, path: Path):
+        def _cb(md):
+            try:
+                path.write_text(md or "", encoding="utf-8")
+                self._dirty = False
+                self._sync_title()
+            except Exception as e:
+                QMessageBox.critical(self, "Save failed", f"Could not save:\n{e}")
+        return _cb
+
+    def _write_html_cb(self, path: Path):
+        def _cb(html):
+            try:
+                path.write_text(html or "", encoding="utf-8")
+            except Exception as e:
+                QMessageBox.critical(self, "Export failed", f"Could not export:\n{e}")
+        return _cb
+
+
+def _js_str(py_str: str) -> str:
+    """Safely embed a Python string into JS single-quoted string literal."""
+    # Escape backslashes and quotes; also newlines
+    s = py_str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
+    return f"'{s}'"
+
+def main():
+    os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+    os.environ.setdefault("QT_SCALE_FACTOR", "1")
+
+    app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+
+    win = MainWindow()
+    win.show()
+
+    # If launched with a file path (file association / double-click), open it
+    if len(sys.argv) > 1:
+        candidate = Path(sys.argv[1])
+        if candidate.exists():
+            try:
+                md = candidate.read_text(encoding="utf-8")
+                win.current_path = candidate
+                win._set_markdown(md)
+                win._sync_title()
+            except Exception as e:
+                QMessageBox.critical(win, "Open failed", f"Could not open:\n{e}")
+
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
