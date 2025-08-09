@@ -1,5 +1,7 @@
 # MarkWrite
 
+![Build macOS App](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg)
+
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
 - Version: `0.0.2 (build 000011)`
@@ -20,6 +22,8 @@ A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) usi
 See the How-To guide for end users: [How-To: Install and Use MarkWrite on macOS](./How-To.md)
 
 Latest prebuilt app: [Releases](https://github.com/rheiger/markWriter/releases)
+
+Note: v0.0.1 is superseded by v0.0.2. Use the latest release.
 
 ### Run from source (macOS)
 ```bash
