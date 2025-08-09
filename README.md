@@ -17,6 +17,8 @@ A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) usi
 
 ## Getting Started
 
+See the How-To guide for end users: [How-To: Install and Use MarkWrite on macOS](./How-To.md)
+
 ### Run from source (macOS)
 ```bash
 python3 -m venv .venv
