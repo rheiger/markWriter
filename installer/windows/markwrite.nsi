@@ -19,7 +19,8 @@ ShowInstDetails show
 
 Section "Install"
   SetOutPath "$INSTDIR\MarkWrite"
-  File /r "dist\MarkWrite\*.*"
+  ; Use relative path from installer script to the PyInstaller output
+  File /r "..\..\dist\MarkWrite\*.*"
 
   ; Create shortcuts with icon
   !ifexist "${ICO_PATH}"
