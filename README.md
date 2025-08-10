@@ -49,6 +49,9 @@ Notes:
 ### CI
 This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push/tag and uploads artifacts. Tagging a version `v*` publishes release assets automatically.
 
+### Signing & Notarization
+For how to sign and notarize the macOS app locally or in CI (without exposing secrets in the repo), see: [`docs/Signing-Notarization.md`](./docs/Signing-Notarization.md)
+
 ## Roadmap
 - Add support for Windows 11
 - Add support for Linux
