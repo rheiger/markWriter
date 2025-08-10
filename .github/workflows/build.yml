@@ -83,26 +83,37 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements.txt
 
+      - name: Generate app icon
+        run: |
+          python tools/generate_icon.py
+
       - name: CLI smoke test (--version)
         run: |
           python markwrite.py --version
+
+      - name: Prepare version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="latest"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=MarkWrite-$VERSION-windows.zip" >> "$GITHUB_ENV"
 
       - name: Build app with PyInstaller (Windows)
         run: |
           pyinstaller -y MarkWrite-win.spec
 
       - name: Build NSIS installer
-        shell: bash
+        shell: pwsh
         run: |
-          if command -v makensis >/dev/null 2>&1; then
-            echo "NSIS already installed"
-          else
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
             choco install nsis -y
-          fi
-          cd installer/windows
-          makensis markwrite.nsi
-          cd ../..
-          echo "NSIS_EXE=installer/windows/MarkWrite-0.0.2-Setup.exe" >> $GITHUB_ENV
+          }
+          makensis installer\windows\markwrite.nsi
+          echo "NSIS_EXE=installer/windows/MarkWrite-$env:VERSION-Setup.exe" >> $env:GITHUB_ENV
 
       - name: Zip app
         shell: bash
@@ -135,6 +146,7 @@ jobs:
 
   build-linux:
     name: Linux
+    if: false # disabled for now
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
