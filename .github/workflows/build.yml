@@ -25,6 +25,10 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements.txt
 
+      - name: CLI smoke test (--version)
+        run: |
+          python markwrite.py --version
+
       - name: Generate app icon
         run: |
           python tools/generate_icon.py
@@ -79,9 +83,26 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements.txt
 
+      - name: CLI smoke test (--version)
+        run: |
+          python markwrite.py --version
+
       - name: Build app with PyInstaller (Windows)
         run: |
           pyinstaller -y MarkWrite-win.spec
+
+      - name: Build NSIS installer
+        shell: bash
+        run: |
+          if command -v makensis >/dev/null 2>&1; then
+            echo "NSIS already installed"
+          else
+            choco install nsis -y
+          fi
+          cd installer/windows
+          makensis markwrite.nsi
+          cd ../..
+          echo "NSIS_EXE=installer/windows/MarkWrite-0.0.2-Setup.exe" >> $GITHUB_ENV
 
       - name: Zip app
         shell: bash
@@ -98,14 +119,18 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ZIP_NAME }}
-          path: dist/${{ env.ZIP_NAME }}
+          name: windows-artifacts
+          path: |
+            dist/${{ env.ZIP_NAME }}
+            ${{ env.NSIS_EXE }}
 
       - name: Publish GitHub Release (Windows)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: dist/${{ env.ZIP_NAME }}
+          files: |
+            dist/${{ env.ZIP_NAME }}
+            ${{ env.NSIS_EXE }}
           generate_release_notes: true
 
   build-linux:

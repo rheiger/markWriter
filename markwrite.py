@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
@@ -352,6 +353,16 @@ def _js_str(py_str: str) -> str:
     return f"'{s}'"
 
 def main():
+    # Lightweight CLI flags that avoid launching the GUI when not needed
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("path", nargs="?")
+    parser.add_argument("--version", "-v", action="store_true")
+    args, _unknown = parser.parse_known_args()
+
+    if args.version:
+        print(f"{APP_NAME} {APP_VERSION_FULL}")
+        return 0
+
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     os.environ.setdefault("QT_SCALE_FACTOR", "1")
 
@@ -362,8 +373,8 @@ def main():
     win.show()
 
     # If launched with a file path (file association / double-click), open it
-    if len(sys.argv) > 1:
-        candidate = Path(sys.argv[1])
+    if args.path:
+        candidate = Path(args.path)
         if candidate.exists():
             try:
                 md = candidate.read_text(encoding="utf-8")
