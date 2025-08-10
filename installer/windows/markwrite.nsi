@@ -3,9 +3,13 @@
 
 !define APPNAME "MarkWrite"
 !define COMPANY "MarkWrite"
+!ifndef VERSION
 !define VERSION "0.0.2" ; default, can be overridden by /DVERSION=...
+!endif
 !define EXENAME "MarkWrite.exe"
+!ifndef ICO_PATH
 !define ICO_PATH "..\\..\\assets\\MarkWrite.ico"
+!endif
 
 ; Place installer into dist/ for CI artifact pickup
 OutFile "..\\..\\dist\\MarkWrite-${VERSION}-Setup.exe"
