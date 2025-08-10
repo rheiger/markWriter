@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = PROJECT_ROOT / "assets"
 ICONSET_DIR = ASSETS_DIR / "MarkWrite.iconset"
 ICNS_PATH = ASSETS_DIR / "MarkWrite.icns"
+ICO_PATH = ASSETS_DIR / "MarkWrite.ico"
 BASE_PNG = ASSETS_DIR / "icon_1024.png"
 
 
@@ -124,6 +125,11 @@ def build_icns() -> None:
     # Use iconutil (macOS) to compile .iconset into .icns
     os.system(f"iconutil -c icns '{ICONSET_DIR}' -o '{ICNS_PATH}'")
 
+def build_ico_from_base(base: Image.Image) -> None:
+    sizes = [256, 128, 64, 48, 32, 24, 16]
+    images = [base.resize((s, s), Image.LANCZOS) for s in sizes]
+    images[0].save(ICO_PATH, format='ICO', sizes=[(s, s) for s in sizes])
+
 
 def main() -> None:
     ensure_dirs()
@@ -131,7 +137,8 @@ def main() -> None:
     base.save(BASE_PNG)
     save_iconset_from_base(base)
     build_icns()
-    print(f"Generated: {ICNS_PATH}")
+    build_ico_from_base(base)
+    print(f"Generated: {ICNS_PATH} and {ICO_PATH}")
 
 
 if __name__ == "__main__":
