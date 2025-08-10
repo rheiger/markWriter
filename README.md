@@ -7,7 +7,7 @@ A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) usi
 - Version: `0.0.2 (build 000011)`
 - Platforms: macOS (working), Windows/Linux planned
 
-## Features
+## Features ([About](./ABOUT.md))
 - WYSIWYG Markdown editor (Toast UI Editor)
 - Open/Save `.md` files
 - Export to HTML
