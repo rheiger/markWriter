@@ -7,9 +7,7 @@
 !define VERSION "0.0.2" ; default, can be overridden by /DVERSION=...
 !endif
 !define EXENAME "MarkWrite.exe"
-!ifndef ICO_PATH
-!define ICO_PATH "..\\..\\assets\\MarkWrite.ico"
-!endif
+!define ICO_NAME "MarkWrite.ico"
 
 ; Place installer into dist/ for CI artifact pickup
 OutFile "..\\..\\dist\\MarkWrite-${VERSION}-Setup.exe"
@@ -22,14 +20,10 @@ Section "Install"
   ; Use relative path from installer script to the PyInstaller output
   File /r "..\..\dist\MarkWrite\*.*"
 
-  ; Create shortcuts with icon
-  !ifexist "${ICO_PATH}"
-    CreateShortCut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}" "" "${ICO_PATH}"
-    CreateShortCut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}" "" "${ICO_PATH}"
-  !else
-    CreateShortCut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}"
-    CreateShortCut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}"
-  !endif
+  ; Include icon and create shortcuts with icon from install dir
+  File "..\\..\\assets\\${ICO_NAME}"
+  CreateShortCut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}" "" "$INSTDIR\MarkWrite\${ICO_NAME}"
+  CreateShortCut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\MarkWrite\${EXENAME}" "" "$INSTDIR\MarkWrite\${ICO_NAME}"
 
   ; Registry uninstall entry
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
