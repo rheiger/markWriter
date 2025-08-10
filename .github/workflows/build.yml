@@ -112,8 +112,10 @@ jobs:
           if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
             choco install nsis -y
           }
-          makensis installer\windows\markwrite.nsi
-          echo "NSIS_EXE=installer/windows/MarkWrite-$env:VERSION-Setup.exe" >> $env:GITHUB_ENV
+          $version = "$env:VERSION"
+          if ([string]::IsNullOrEmpty($version)) { $version = "latest" }
+          makensis /DVERSION=$version installer\windows\markwrite.nsi
+          echo "NSIS_EXE=dist/MarkWrite-$version-Setup.exe" >> $env:GITHUB_ENV
 
       - name: Zip app
         shell: bash
