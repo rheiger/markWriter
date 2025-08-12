@@ -1,10 +1,12 @@
 # MarkWrite
 
 [![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/rheiger/markWriter?logo=github&label=latest%20release)](https://github.com/rheiger/markWriter/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/rheiger/markWriter/total?logo=github)](https://github.com/rheiger/markWriter/releases)
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.1.1 (build 000020)`
+- Version: `0.1.2 (build 000021)`
 - Platforms: macOS (working), Windows/Linux planned
 
 ## Features ([About](./ABOUT.md))

@@ -12,8 +12,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.1.1"
-APP_BUILD = "000020"
+APP_VERSION = "0.1.2"
+APP_BUILD = "000021"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">

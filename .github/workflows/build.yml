@@ -62,12 +62,7 @@ jobs:
           name: ${{ env.ZIP_NAME }}
           path: dist/${{ env.ZIP_NAME }}
 
-      - name: Publish GitHub Release (macOS)
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          files: dist/${{ env.ZIP_NAME }}
-          generate_release_notes: true
+      # macOS job only builds and uploads artifact; publishing is done in a separate job
 
   build-windows:
     name: Windows
@@ -141,14 +136,7 @@ jobs:
             dist/${{ env.ZIP_NAME }}
             ${{ env.NSIS_EXE }}
 
-      - name: Publish GitHub Release (Windows)
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          files: |
-            dist/${{ env.ZIP_NAME }}
-            ${{ env.NSIS_EXE }}
-          generate_release_notes: true
+      # Windows job only builds and uploads artifacts; publishing is done in a separate job
 
   build-linux:
     name: Linux
@@ -200,4 +188,28 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: dist/${{ env.ZIP_NAME }}
+          generate_release_notes: true
+
+  publish-release:
+    name: Publish Release
+    needs: [build-macos, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: release_assets
+          merge-multiple: true
+
+      - name: List assets to publish
+        run: |
+          ls -lAh release_assets
+
+      - name: Publish GitHub Release (combined)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release_assets/**
           generate_release_notes: true
