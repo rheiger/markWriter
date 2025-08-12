@@ -64,5 +64,5 @@ For how to sign and notarize the macOS app locally or in CI (without exposing se
  - Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
 
 ## License
-TBD
+MIT License — see [`LICENSE`](./LICENSE)
 
