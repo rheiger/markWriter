@@ -1,6 +1,6 @@
 # MarkWrite
 
-[![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)
+[![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main&event=push)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/rheiger/markWriter?logo=github&label=latest%20release)](https://github.com/rheiger/markWriter/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/rheiger/markWriter/total?logo=github)](https://github.com/rheiger/markWriter/releases)
 
