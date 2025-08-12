@@ -1,5 +1,9 @@
 name: Build Desktop Apps
 
+# Required for publishing releases from the workflow
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
