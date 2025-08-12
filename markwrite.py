@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.0.4"
-APP_BUILD = "000013"
+APP_VERSION = "0.0.5"
+APP_BUILD = "000014"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -92,6 +92,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         # Load the editor HTML
+        self._page_loaded: bool = False
+        self._pending_md: str | None = None
+        self.view.loadFinished.connect(self._on_load_finished)
         self.view.setHtml(HTML_TEMPLATE, baseUrl=QUrl("https://local/"))
 
         # Menus / actions
@@ -339,8 +342,19 @@ class MainWindow(QMainWindow):
 
     # -------- JS bridge helpers --------
     def _set_markdown(self, text: str):
+        # If the page is not ready yet, queue markdown to apply after load
+        if not self._page_loaded:
+            self._pending_md = text
+            return
         js = f"window._markwrite.setMarkdown({_js_str(text)});"
         self.view.page().runJavaScript(js)
+
+    def _on_load_finished(self, ok: bool):
+        self._page_loaded = bool(ok)
+        if self._page_loaded and self._pending_md is not None:
+            md = self._pending_md
+            self._pending_md = None
+            self._set_markdown(md)
 
     def _get_markdown_and_write(self, path: Path):
         self.view.page().runJavaScript("window._markwrite.getMarkdown();", self._write_markdown_cb(path))
