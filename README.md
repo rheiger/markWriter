@@ -4,7 +4,7 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.0.2 (build 000011)`
+- Version: `0.0.3 (build 000012)`
 - Platforms: macOS (working), Windows/Linux planned
 
 ## Features ([About](./ABOUT.md))
@@ -45,6 +45,7 @@ open dist/MarkWrite.app
 Notes:
 - The editor UI is loaded from a CDN. If you prefer offline usage, vendor the Toast UI JS/CSS locally and adjust `HTML_TEMPLATE` in `markwrite.py`.
 - For distributing to other Macs, you’ll likely want to code sign and notarize the `.app`.
+- To appear in “Open With…” for `.md` files, the app’s Info.plist declares Markdown document types. Rebuild the app (`pyinstaller -y MarkWrite.spec`) and move `MarkWrite.app` into `/Applications`.
 
 ### CI
 This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push/tag and uploads artifacts. Tagging a version `v*` publishes release assets automatically.

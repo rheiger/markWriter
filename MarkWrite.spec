@@ -50,8 +50,16 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'MarkWrite',
         'CFBundleDisplayName': 'MarkWrite',
-        'CFBundleShortVersionString': '0.0.2',
-        'CFBundleVersion': '000011',
+        'CFBundleShortVersionString': '0.0.3',
+        'CFBundleVersion': '000012',
         'NSHighResolutionCapable': True,
+        'CFBundleDocumentTypes': [
+            {
+                'CFBundleTypeName': 'Markdown Document',
+                'CFBundleTypeRole': 'Editor',
+                'LSHandlerRank': 'Default',
+                'CFBundleTypeExtensions': ['md', 'markdown', 'mdown', 'mkd', 'mkdown', 'mdtxt'],
+            },
+        ],
     },
 )
