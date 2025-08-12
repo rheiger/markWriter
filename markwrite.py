@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.0.3"
-APP_BUILD = "000012"
+APP_VERSION = "0.0.4"
+APP_BUILD = "000013"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -209,6 +209,17 @@ class MainWindow(QMainWindow):
         if obj is self.view and event.type() in (QEvent.KeyPress, QEvent.InputMethod):
             self._dirty = True
             self._sync_title()
+        # Handle macOS Finder "Open With" events
+        if event.type() == QEvent.FileOpen:
+            try:
+                path = Path(event.file())
+                if path.exists():
+                    if self._dirty and not self._confirm_discard_changes():
+                        return True
+                    self._open_path(path)
+                    return True
+            except Exception:
+                pass
         return super().eventFilter(obj, event)
 
     def _sync_title(self):
@@ -236,6 +247,16 @@ class MainWindow(QMainWindow):
         self._apply_zoom()
 
     # -------- File ops --------
+    def _open_path(self, path: Path):
+        try:
+            md = path.read_text(encoding="utf-8")
+        except Exception as e:
+            QMessageBox.critical(self, "Open failed", f"Could not open:\n{e}")
+            return
+        self.current_path = path
+        self._set_markdown(md)
+        self._dirty = False
+        self._sync_title()
     def file_new(self):
         if not self._confirm_discard_changes():
             return
@@ -376,13 +397,10 @@ def main():
     if args.path:
         candidate = Path(args.path)
         if candidate.exists():
-            try:
-                md = candidate.read_text(encoding="utf-8")
-                win.current_path = candidate
-                win._set_markdown(md)
-                win._sync_title()
-            except Exception as e:
-                QMessageBox.critical(win, "Open failed", f"Could not open:\n{e}")
+            win._open_path(candidate)
+
+    # Ensure we receive macOS file-open events
+    app.installEventFilter(win)
 
     sys.exit(app.exec())
 

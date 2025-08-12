@@ -4,7 +4,7 @@
 !define APPNAME "MarkWrite"
 !define COMPANY "MarkWrite"
 !ifndef VERSION
-!define VERSION "0.0.3" ; default, can be overridden by /DVERSION=...
+!define VERSION "0.0.4" ; default, can be overridden by /DVERSION=...
 !endif
 !define EXENAME "MarkWrite.exe"
 !define ICO_NAME "MarkWrite.ico"
