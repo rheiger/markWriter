@@ -4,7 +4,7 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.0.8 (build 000017)`
+- Version: `0.1.0 (build 000019)`
 - Platforms: macOS (working), Windows/Linux planned
 
 ## Features ([About](./ABOUT.md))
@@ -49,6 +49,9 @@ Notes:
 
 ### CI
 This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push/tag and uploads artifacts. Tagging a version `v*` publishes release assets automatically.
+
+### Developer Handbook
+For contributor setup, code style, release process, and CI details, see [`docs/DeveloperHandbook.md`](./docs/DeveloperHandbook.md).
 
 ### Signing & Notarization
 For how to sign and notarize the macOS app locally or in CI (without exposing secrets in the repo), see: [`docs/Signing-Notarization.md`](./docs/Signing-Notarization.md)

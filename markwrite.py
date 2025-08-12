@@ -3,7 +3,7 @@ import sys
 import argparse
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, Signal, QEvent
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QToolBar, QStyle
@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.0.8"
-APP_BUILD = "000017"
+APP_VERSION = "0.1.0"
+APP_BUILD = "000019"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -216,7 +216,6 @@ class MainWindow(QMainWindow):
 
     def event(self, event):
         # Robustly handle macOS Finder "Open With" events at the window level
-        from PySide6.QtCore import QEvent
         if event.type() == QEvent.FileOpen:
             try:
                 path = Path(event.file())
@@ -391,6 +390,19 @@ def _js_str(py_str: str) -> str:
     s = py_str.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
     return f"'{s}'"
 
+class MarkWriteApp(QApplication):
+    fileOpened = Signal(str)
+
+    def event(self, e):
+        if e.type() == QEvent.FileOpen:
+            try:
+                self.fileOpened.emit(e.file())
+                return True
+            except Exception:
+                return True
+        return super().event(e)
+
+
 def main():
     # Lightweight CLI flags that avoid launching the GUI when not needed
     parser = argparse.ArgumentParser(add_help=False)
@@ -405,10 +417,20 @@ def main():
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     os.environ.setdefault("QT_SCALE_FACTOR", "1")
 
-    app = QApplication(sys.argv)
+    app = MarkWriteApp(sys.argv)
     app.setApplicationName(APP_NAME)
 
     win = MainWindow()
+
+    # When Finder sends FileOpen to the application (Open With), forward to window
+    def _on_app_file_opened(path_str: str):
+        p = Path(path_str)
+        if p.exists():
+            if win._dirty and not win._confirm_discard_changes():
+                return
+            win._open_path(p)
+
+    app.fileOpened.connect(_on_app_file_opened)
     win.show()
 
     # If launched with a file path (file association / double-click), open it
