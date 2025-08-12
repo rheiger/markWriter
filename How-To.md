@@ -9,7 +9,7 @@ MarkWrite is a minimal Markdown editor built with Python and Qt (PySide6). You c
 ## Option 0: Download a prebuilt app (recommended)
 
 1) Go to the Releases page: [Latest release](https://github.com/rheiger/markWriter/releases/latest)
-2) Download `MarkWrite-0.0.5-macOS.zip` (older versions are superseded).
+2) Download `MarkWrite-0.0.8-macOS.zip` (older versions are superseded).
 3) Unzip it and move `MarkWrite.app` to your `Applications` folder.
 4) On first run, you may need to right-click the app and choose “Open” due to Gatekeeper.
 
@@ -141,4 +141,4 @@ pip install -U -r requirements.txt
 ---
 
 ## Version
-MarkWrite 0.0.5 (build 000014)
+MarkWrite 0.0.8 (build 000017)
