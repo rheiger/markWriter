@@ -9,10 +9,11 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QToolBar, QStyle
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.1.0"
-APP_BUILD = "000019"
+APP_VERSION = "0.1.1"
+APP_BUILD = "000020"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -148,6 +149,31 @@ class MainWindow(QMainWindow):
         self.act_zoom_reset.setShortcut(QKeySequence("Ctrl+0"))
         self.act_zoom_reset.triggered.connect(self.view_zoom_reset)
 
+        # Edit actions
+        self.act_undo = QAction("&Undo", self)
+        self.act_undo.setShortcut(QKeySequence.Undo)
+        self.act_undo.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.Undo))
+
+        self.act_redo = QAction("&Redo", self)
+        self.act_redo.setShortcut(QKeySequence.Redo)
+        self.act_redo.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.Redo))
+
+        self.act_cut = QAction("Cu&t", self)
+        self.act_cut.setShortcut(QKeySequence.Cut)
+        self.act_cut.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.Cut))
+
+        self.act_copy = QAction("&Copy", self)
+        self.act_copy.setShortcut(QKeySequence.Copy)
+        self.act_copy.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.Copy))
+
+        self.act_paste = QAction("&Paste", self)
+        self.act_paste.setShortcut(QKeySequence.Paste)
+        self.act_paste.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.Paste))
+
+        self.act_select_all = QAction("Select &All", self)
+        self.act_select_all.setShortcut(QKeySequence.SelectAll)
+        self.act_select_all.triggered.connect(lambda: self.view.triggerPageAction(QWebEnginePage.SelectAll))
+
     def _build_menus(self):
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addAction(self.act_new)
@@ -167,6 +193,16 @@ class MainWindow(QMainWindow):
 
         help_menu = self.menuBar().addMenu("&Help")
         help_menu.addAction(self.act_about)
+
+        edit_menu = self.menuBar().addMenu("&Edit")
+        edit_menu.addAction(self.act_undo)
+        edit_menu.addAction(self.act_redo)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.act_cut)
+        edit_menu.addAction(self.act_copy)
+        edit_menu.addAction(self.act_paste)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.act_select_all)
 
     def _build_toolbar(self):
         toolbar = QToolBar("Main Toolbar", self)
