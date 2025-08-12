@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.0.5"
-APP_BUILD = "000014"
+APP_VERSION = "0.0.6"
+APP_BUILD = "000015"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -212,7 +212,11 @@ class MainWindow(QMainWindow):
         if obj is self.view and event.type() in (QEvent.KeyPress, QEvent.InputMethod):
             self._dirty = True
             self._sync_title()
-        # Handle macOS Finder "Open With" events
+        return super().eventFilter(obj, event)
+
+    def event(self, event):
+        # Robustly handle macOS Finder "Open With" events at the window level
+        from PySide6.QtCore import QEvent
         if event.type() == QEvent.FileOpen:
             try:
                 path = Path(event.file())
@@ -222,8 +226,8 @@ class MainWindow(QMainWindow):
                     self._open_path(path)
                     return True
             except Exception:
-                pass
-        return super().eventFilter(obj, event)
+                return True
+        return super().event(event)
 
     def _sync_title(self):
         name = self.current_path.name if self.current_path else "Untitled"
@@ -413,8 +417,6 @@ def main():
         if candidate.exists():
             win._open_path(candidate)
 
-    # Ensure we receive macOS file-open events
-    app.installEventFilter(win)
 
     sys.exit(app.exec())
 
