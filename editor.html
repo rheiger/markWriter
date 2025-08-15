@@ -28,9 +28,32 @@
       filter: invert(1) hue-rotate(180deg);
     }
   }
+  
+  /* Button styling */
+  #mermaid-btn, #render-mermaid-btn {
+    transition: all 0.2s ease;
+  }
+  #mermaid-btn:hover, #render-mermaid-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  @media (prefers-color-scheme: dark) {
+    #mermaid-btn, #render-mermaid-btn {
+      background: #495057 !important;
+      color: #fff !important;
+    }
+  }
 </style>
 </head>
 <body>
+<div style="padding: 10px; border-bottom: 1px solid #ddd; background: #f8f9fa;">
+  <button id="mermaid-btn" style="padding: 8px 16px; margin-right: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    📊 Insert Mermaid Diagram
+  </button>
+  <button id="render-mermaid-btn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    🔄 Render Diagrams
+  </button>
+</div>
 <div id="editor-root"></div>
 <script>
   function initializeEditor() {
@@ -74,44 +97,88 @@
         ['link', 'image'],
         ['code', 'codeblock'],
         ['scrollSync']
-      ],
-      customRenderer: {
-        codeBlock: function(node, { entering }) {
-          if (entering && node.literal && node.literal.trim().startsWith('mermaid')) {
-            const code = node.literal.replace(/^mermaid\s*\n/, '');
-            const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
-            const container = document.createElement('div');
-            container.className = 'mermaid';
-            container.id = id;
-            container.textContent = code;
-            
-            setTimeout(() => {
-              mermaid.render(id, code).then(({ svg }) => {
-                container.innerHTML = svg;
-              }).catch(error => {
-                console.error('Mermaid rendering error:', error);
-                container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
-              });
-            }, 100);
-            
-            return container;
-          }
-          return null;
-        }
-      }
+      ]
     });
 
+    // Add button event listeners
+    document.getElementById('mermaid-btn').addEventListener('click', function() {
+      const diagramCode = prompt('Enter Mermaid diagram code:');
+      if (diagramCode) {
+        const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+        const container = document.createElement('div');
+        container.className = 'mermaid';
+        container.id = id;
+        container.style.margin = '20px 0';
+        container.style.textAlign = 'center';
+        container.textContent = diagramCode;
+        
+        // Insert at current cursor position
+        const range = editor.getRange();
+        editor.insertNode(range, container);
+        
+        // Render the diagram
+        setTimeout(() => {
+          mermaid.render(id, diagramCode).then(({ svg }) => {
+            container.innerHTML = svg;
+          }).catch(error => {
+            console.error('Mermaid rendering error:', error);
+            container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+          });
+        }, 100);
+      }
+    });
+    
+    document.getElementById('render-mermaid-btn').addEventListener('click', function() {
+      renderExistingMermaidDiagrams();
+    });
+    
+    // Function to find and render existing Mermaid diagrams
+    function renderExistingMermaidDiagrams() {
+      // Look for code blocks with mermaid language
+      const codeBlocks = document.querySelectorAll('pre code');
+      codeBlocks.forEach((codeBlock, index) => {
+        const code = codeBlock.textContent;
+        if (code.trim().startsWith('mermaid')) {
+          const mermaidCode = code.replace(/^mermaid\s*\n/, '');
+          const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+          
+          // Create container for the diagram
+          const container = document.createElement('div');
+          container.className = 'mermaid';
+          container.id = id;
+          container.style.margin = '20px 0';
+          container.style.textAlign = 'center';
+          
+          // Replace the code block with the diagram container
+          const preElement = codeBlock.parentElement;
+          preElement.parentElement.insertBefore(container, preElement.nextSibling);
+          
+          // Render the diagram
+          setTimeout(() => {
+            mermaid.render(id, mermaidCode).then(({ svg }) => {
+              container.innerHTML = svg;
+            }).catch(error => {
+              console.error('Mermaid rendering error:', error);
+              container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+            });
+          }, 100);
+        }
+      });
+    }
+    
     window._markwrite = {
       setMarkdown: function(md) {
         editor.setMarkdown(md || '');
+        // Render Mermaid diagrams after content is set
         setTimeout(() => {
-          mermaid.init(undefined, '.mermaid');
-        }, 200);
+          renderExistingMermaidDiagrams();
+        }, 500);
       },
       getMarkdown: function() { return editor.getMarkdown(); },
       getHTML: function() { return editor.getHTML(); },
+      // New helper for rendering Mermaid diagrams
       renderMermaid: function() {
-        mermaid.init(undefined, '.mermaid');
+        renderExistingMermaidDiagrams();
       }
     };
 
