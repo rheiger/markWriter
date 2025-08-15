@@ -25,9 +25,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 />
 <title>MarkWrite</title>
 
-<!-- Toast UI Editor (WYSIWYG Markdown) via CDN -->
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css"/>
-<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
+<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
+<script src="assets/js/toastui-editor-all.min.js"></script>
+
+<!-- Mermaid.js for diagram rendering -->
+<script src="assets/js/mermaid.min.js"></script>
 
 <style>
   html, body { height: 100%; margin: 0; }
@@ -38,11 +41,35 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   @media (prefers-color-scheme: dark) {
     body { background: #1e1e1e; color: #ddd; }
   }
+
+  /* Mermaid diagram styling */
+  .mermaid {
+    text-align: center;
+    margin: 20px 0;
+  }
+
+  /* Dark mode support for Mermaid */
+  @media (prefers-color-scheme: dark) {
+    .mermaid {
+      filter: invert(1) hue-rotate(180deg);
+    }
+  }
 </style>
 </head>
 <body>
 <div id="editor-root"></div>
 <script>
+  // Initialize Mermaid
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+    securityLevel: 'loose',
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true
+    }
+  });
+
   // Initialize WYSIWYG Markdown editor
   const { Editor } = toastui;
   const editor = new Editor({
@@ -60,15 +87,61 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       ['link', 'image'],
       ['code', 'codeblock'],
       ['scrollSync']
-    ]
+    ],
+    // Custom renderer for Mermaid diagrams
+    customRenderer: {
+      codeBlock: function(node, { entering }) {
+        if (entering && node.literal && node.literal.trim().startsWith('mermaid')) {
+          const code = node.literal.replace(/^mermaid\s*\n/, '');
+          const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+
+          // Create container for Mermaid diagram
+          const container = document.createElement('div');
+          container.className = 'mermaid';
+          container.id = id;
+          container.textContent = code;
+
+          // Render the diagram
+          setTimeout(() => {
+            mermaid.render(id, code).then(({ svg }) => {
+              container.innerHTML = svg;
+            }).catch(error => {
+              console.error('Mermaid rendering error:', error);
+              container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+            });
+          }, 100);
+
+          return container;
+        }
+        return null; // Use default rendering for non-mermaid code blocks
+      }
+    }
   });
 
   // Expose helpers for Python -> JS bridge via runJavaScript
   window._markwrite = {
-    setMarkdown: function(md) { editor.setMarkdown(md || ''); },
+    setMarkdown: function(md) {
+      editor.setMarkdown(md || '');
+      // Re-render Mermaid diagrams after content is set
+      setTimeout(() => {
+        mermaid.init(undefined, '.mermaid');
+      }, 200);
+    },
     getMarkdown: function() { return editor.getMarkdown(); },
-    getHTML: function() { return editor.getHTML(); }
+    getHTML: function() { return editor.getHTML(); },
+    // New helper for rendering Mermaid diagrams
+    renderMermaid: function() {
+      mermaid.init(undefined, '.mermaid');
+    }
   };
+
+  // Listen for theme changes to update Mermaid theme
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    const theme = e.matches ? 'dark' : 'default';
+    mermaid.initialize({ theme: theme });
+    // Re-render existing diagrams with new theme
+    mermaid.init(undefined, '.mermaid');
+  });
 </script>
 </body>
 </html>

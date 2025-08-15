@@ -45,7 +45,7 @@ open dist/MarkWrite.app
 ```
 
 Notes:
-- The editor UI is loaded from a CDN. If you prefer offline usage, vendor the Toast UI JS/CSS locally and adjust `HTML_TEMPLATE` in `markwrite.py`.
+- **Offline-first**: The editor UI is now bundled locally - no internet dependency required. Mermaid diagrams are also supported.
 - For distributing to other Macs, you’ll likely want to code sign and notarize the `.app`.
 - To appear in “Open With…” for `.md` files, the app’s Info.plist declares Markdown document types. Rebuild the app (`pyinstaller -y MarkWrite.spec`) and move `MarkWrite.app` into `/Applications`.
 

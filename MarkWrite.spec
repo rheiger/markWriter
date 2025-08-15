@@ -5,7 +5,10 @@ a = Analysis(
     ['markwrite.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets/css', 'assets/css'),
+        ('assets/js', 'assets/js'),
+    ],
     hiddenimports=['PySide6.QtWebEngineWidgets'],
     hookspath=[],
     hooksconfig={},
