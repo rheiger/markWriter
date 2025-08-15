@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('assets/css', 'assets/css'),
         ('assets/js', 'assets/js'),
+        ('editor.html', '.'),
     ],
     hiddenimports=['PySide6.QtWebEngineWidgets'],
     hookspath=[],

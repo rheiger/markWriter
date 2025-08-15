@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>MarkWrite</title>
+
+<!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
+<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
+<script src="assets/js/toastui-editor-all.min.js"></script>
+
+<!-- Mermaid.js for diagram rendering -->
+<script src="assets/js/mermaid.min.js"></script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  #editor-root { height: 100vh; }
+  .toastui-editor-defaultUI { width: 100%; margin: 0; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e1e; color: #ddd; }
+  }
+  .mermaid {
+    text-align: center;
+    margin: 20px 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .mermaid {
+      filter: invert(1) hue-rotate(180deg);
+    }
+  }
+</style>
+</head>
+<body>
+<div id="editor-root"></div>
+<script>
+  function initializeEditor() {
+    console.log('Initializing editor...');
+    console.log('mermaid available:', typeof mermaid);
+    console.log('toastui available:', typeof toastui);
+    
+    if (typeof mermaid === 'undefined') {
+      console.error('Mermaid not loaded!');
+      return;
+    }
+    
+    if (typeof toastui === 'undefined') {
+      console.error('Toast UI not loaded!');
+      return;
+    }
+    
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+
+    const { Editor } = toastui;
+    const editor = new Editor({
+      el: document.querySelector('#editor-root'),
+      height: '100vh',
+      initialEditType: 'wysiwyg',
+      previewStyle: 'vertical',
+      usageStatistics: false,
+      autofocus: true,
+      toolbarItems: [
+        ['heading', 'bold', 'italic', 'strike'],
+        ['hr', 'quote'],
+        ['ul', 'ol', 'task'],
+        ['table'],
+        ['link', 'image'],
+        ['code', 'codeblock'],
+        ['scrollSync']
+      ],
+      customRenderer: {
+        codeBlock: function(node, { entering }) {
+          if (entering && node.literal && node.literal.trim().startsWith('mermaid')) {
+            const code = node.literal.replace(/^mermaid\s*\n/, '');
+            const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+            const container = document.createElement('div');
+            container.className = 'mermaid';
+            container.id = id;
+            container.textContent = code;
+            
+            setTimeout(() => {
+              mermaid.render(id, code).then(({ svg }) => {
+                container.innerHTML = svg;
+              }).catch(error => {
+                console.error('Mermaid rendering error:', error);
+                container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+              });
+            }, 100);
+            
+            return container;
+          }
+          return null;
+        }
+      }
+    });
+
+    window._markwrite = {
+      setMarkdown: function(md) {
+        editor.setMarkdown(md || '');
+        setTimeout(() => {
+          mermaid.init(undefined, '.mermaid');
+        }, 200);
+      },
+      getMarkdown: function() { return editor.getMarkdown(); },
+      getHTML: function() { return editor.getHTML(); },
+      renderMermaid: function() {
+        mermaid.init(undefined, '.mermaid');
+      }
+    };
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      const theme = e.matches ? 'dark' : 'default';
+      mermaid.initialize({ theme: theme });
+      mermaid.init(undefined, '.mermaid');
+    });
+  }
+  
+  initializeEditor();
+</script>
+</body>
+</html>

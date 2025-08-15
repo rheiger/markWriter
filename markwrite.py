@@ -26,11 +26,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <title>MarkWrite</title>
 
 <!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
-<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
-<script src="assets/js/toastui-editor-all.min.js"></script>
+<link rel="stylesheet" href="css/toastui-editor.min.css"/>
+<script src="js/toastui-editor-all.min.js"></script>
 
 <!-- Mermaid.js for diagram rendering -->
-<script src="assets/js/mermaid.min.js"></script>
+<script src="js/mermaid.min.js"></script>
+
+
 
 <style>
   html, body { height: 100%; margin: 0; }
@@ -59,21 +61,37 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <body>
 <div id="editor-root"></div>
 <script>
-  // Initialize Mermaid
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
-    securityLevel: 'loose',
-    flowchart: {
-      useMaxWidth: true,
-      htmlLabels: true
-    }
-  });
+  // Wait for all scripts to load
+  function initializeEditor() {
+    console.log('Initializing editor...');
+    console.log('mermaid available:', typeof mermaid);
+    console.log('toastui available:', typeof toastui);
 
-  // Initialize WYSIWYG Markdown editor
-  const { Editor } = toastui;
-  const editor = new Editor({
-    el: document.querySelector('#editor-root'),
+    if (typeof mermaid === 'undefined') {
+      console.error('Mermaid not loaded!');
+      return;
+    }
+
+    if (typeof toastui === 'undefined') {
+      console.error('Toast UI not loaded!');
+      return;
+    }
+
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+
+    // Initialize WYSIWYG Markdown editor
+    const { Editor } = toastui;
+    const editor = new Editor({
+      el: document.querySelector('#editor-root'),
     height: '100vh',
     initialEditType: 'wysiwyg',
     previewStyle: 'vertical',  // has no effect in wysiwyg, but harmless
@@ -142,6 +160,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     // Re-render existing diagrams with new theme
     mermaid.init(undefined, '.mermaid');
   });
+
+  // Call the initialization function
+  initializeEditor();
 </script>
 </body>
 </html>
@@ -169,7 +190,20 @@ class MainWindow(QMainWindow):
         self._page_loaded: bool = False
         self._pending_md: str | None = None
         self.view.loadFinished.connect(self._on_load_finished)
-        self.view.setHtml(HTML_TEMPLATE, baseUrl=QUrl("https://local/"))
+        # Load the editor HTML with proper base URL for local assets
+        assets_path = Path(__file__).parent / "assets"
+        print(f"Assets path: {assets_path}")
+        print(f"Assets path exists: {assets_path.exists()}")
+        print(f"CSS file exists: {(assets_path / 'css' / 'toastui-editor.min.css').exists()}")
+        print(f"JS file exists: {(assets_path / 'js' / 'mermaid.min.js').exists()}")
+
+        # Load the editor HTML from local file for proper asset loading
+        editor_path = Path(__file__).parent / "editor.html"
+        if editor_path.exists():
+            self.view.load(QUrl.fromLocalFile(str(editor_path)))
+        else:
+            # Fallback to embedded HTML if file doesn't exist
+            self.view.setHtml(HTML_TEMPLATE, baseUrl=QUrl.fromLocalFile(str(assets_path)))
 
         # Menus / actions
         self._build_actions()
