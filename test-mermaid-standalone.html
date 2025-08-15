@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Mermaid Test - Standalone</title>
+
+<!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
+<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
+<script src="assets/js/toastui-editor-all.min.js"></script>
+
+<!-- Mermaid.js for diagram rendering -->
+<script src="assets/js/mermaid.min.js"></script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  #editor-root { height: 100%; }
+  .toastui-editor-defaultUI { width: 100%; margin: 0; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e1e; color: #ddd; }
+  }
+  .mermaid {
+    text-align: center;
+    margin: 20px 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .mermaid {
+      filter: invert(1) hue-rotate(180deg);
+    }
+  }
+
+  /* Fix outer pane and scrolling issues */
+  body {
+    overflow: hidden;
+  }
+
+  #editor-root {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Ensure Toast UI Editor takes full height and doesn't create extra scrollbars */
+  .toastui-editor-defaultUI {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  .toastui-editor-contents {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Remove any extra scrollbars */
+  .toastui-editor-defaultUI .toastui-editor-main {
+    overflow: hidden !important;
+  }
+
+  /* Debug info */
+  .debug-info {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 1000;
+  }
+
+</style>
+</head>
+<body>
+<div id="editor-root"></div>
+<div class="debug-info" id="debug-info">
+  <div>Initializing...</div>
+</div>
+
+<script>
+  let editor = null;
+  let mermaidButton = null;
+  let debugInfo = document.getElementById('debug-info');
+
+  function updateDebugInfo(message) {
+    debugInfo.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+    console.log(message);
+  }
+
+  function initializeEditor() {
+    updateDebugInfo('Initializing editor...');
+    updateDebugInfo('mermaid available: ' + typeof mermaid);
+    updateDebugInfo('toastui available: ' + typeof toastui);
+
+    if (typeof mermaid === 'undefined') {
+      updateDebugInfo('ERROR: Mermaid not loaded!');
+      return;
+    }
+
+    if (typeof toastui === 'undefined') {
+      updateDebugInfo('ERROR: Toast UI not loaded!');
+      return;
+    }
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+
+    const { Editor } = toastui;
+    editor = new Editor({
+      el: document.querySelector('#editor-root'),
+      height: '100vh',
+      initialEditType: 'wysiwyg',
+      previewStyle: 'vertical',
+      usageStatistics: false,
+      autofocus: true,
+      toolbarItems: [
+        ['heading', 'bold', 'italic', 'strike'],
+        ['hr', 'quote'],
+        ['ul', 'ol', 'task'],
+        ['table'],
+        ['link', 'image'],
+        ['code', 'codeblock'],
+        ['scrollSync']
+      ]
+    });
+
+    updateDebugInfo('Editor created successfully');
+
+    // Wait for editor to be fully initialized before adding Mermaid button
+    setTimeout(() => {
+      addMermaidButton();
+      renderExistingMermaidDiagrams();
+    }, 2000);
+  }
+
+  function addMermaidButton() {
+    updateDebugInfo('Adding Mermaid button...');
+
+    // Create Mermaid button
+    mermaidButton = document.createElement('button');
+    mermaidButton.className = 'toastui-editor-toolbar-icons';
+    mermaidButton.title = 'Insert Mermaid Diagram';
+    mermaidButton.innerHTML = '📊';
+    mermaidButton.style.cssText = 'width: 32px; height: 32px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; margin: 0 2px; border-radius: 4px;';
+
+    // Add hover effect
+    mermaidButton.addEventListener('mouseenter', () => {
+      mermaidButton.style.backgroundColor = '#e9ecef';
+    });
+    mermaidButton.addEventListener('mouseleave', () => {
+      mermaidButton.style.backgroundColor = 'transparent';
+    });
+
+    // Add click handler
+    mermaidButton.addEventListener('click', function() {
+      const diagramCode = prompt('Enter Mermaid diagram code:');
+      if (diagramCode) {
+        insertMermaidDiagram(diagramCode);
+      }
+    });
+
+    // Try to find the toolbar and insert the button
+    insertButtonIntoToolbar();
+  }
+
+  function insertButtonIntoToolbar() {
+    updateDebugInfo('Looking for toolbar...');
+
+    // Try multiple selectors to find the toolbar
+    const selectors = [
+      '.toastui-editor-toolbar',
+      '.toastui-editor-defaultUI .toastui-editor-toolbar',
+      '[data-testid="toolbar"]',
+      '.toastui-editor-defaultUI .toastui-editor-toolbar-group:last-child'
+    ];
+
+    let toolbar = null;
+    for (const selector of selectors) {
+      toolbar = document.querySelector(selector);
+      if (toolbar) {
+        updateDebugInfo('Found toolbar with selector: ' + selector);
+        break;
+      }
+    }
+
+    if (!toolbar) {
+      updateDebugInfo('Toolbar not found, retrying in 1 second...');
+      setTimeout(insertButtonIntoToolbar, 1000);
+      return;
+    }
+
+    // Try to insert the button in different ways
+    try {
+      // Method 1: Look for the last toolbar group
+      const toolbarGroups = toolbar.querySelectorAll('.toastui-editor-toolbar-group');
+      if (toolbarGroups.length > 0) {
+        const lastGroup = toolbarGroups[toolbarGroups.length - 1];
+        lastGroup.appendChild(mermaidButton);
+        updateDebugInfo('Mermaid button added to last toolbar group successfully');
+        return;
+      }
+
+      // Method 2: Look for the last button and insert after it
+      const lastButton = toolbar.querySelector('button:last-child');
+      if (lastButton) {
+        lastButton.parentNode.insertBefore(mermaidButton, lastButton.nextSibling);
+        updateDebugInfo('Mermaid button added after last button');
+        return;
+      }
+
+      // Method 3: Add directly to toolbar
+      toolbar.appendChild(mermaidButton);
+      updateDebugInfo('Mermaid button added to toolbar (fallback)');
+
+    } catch (e) {
+      updateDebugInfo('Failed to insert Mermaid button: ' + e.message);
+      // Retry after a delay
+      setTimeout(insertButtonIntoToolbar, 1000);
+    }
+  }
+
+  function insertMermaidDiagram(diagramCode) {
+    if (!editor) {
+      updateDebugInfo('ERROR: Editor not initialized');
+      return;
+    }
+
+    const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+    const container = document.createElement('div');
+    container.className = 'mermaid';
+    container.id = id;
+    container.style.margin = '20px 0';
+    container.style.textAlign = 'center';
+    container.style.border = '1px solid #ddd';
+    container.style.padding = '20px';
+    container.style.backgroundColor = '#f8f9fa';
+    container.style.borderRadius = '8px';
+    container.style.minHeight = '100px';
+
+    // Insert at current cursor position
+    const range = editor.getRange();
+    editor.insertNode(range, container);
+
+    // Render the diagram
+    setTimeout(() => {
+      mermaid.render(id, diagramCode).then(({ svg }) => {
+        container.innerHTML = svg;
+        updateDebugInfo('Mermaid diagram inserted and rendered successfully: ' + id);
+      }).catch(error => {
+        updateDebugInfo('Mermaid rendering error: ' + error.message);
+        container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+      });
+    }, 100);
+  }
+
+  function renderExistingMermaidDiagrams() {
+    updateDebugInfo('Looking for existing Mermaid diagrams...');
+
+    // Wait a bit more for content to be fully loaded
+    setTimeout(() => {
+      findAndRenderMermaidDiagrams();
+    }, 1000);
+  }
+
+  function findAndRenderMermaidDiagrams() {
+    // Try multiple approaches to find the editor content
+    let editorContent = document.querySelector('.toastui-editor-contents');
+    if (!editorContent) {
+      editorContent = document.querySelector('.toastui-editor-main');
+    }
+    if (!editorContent) {
+      editorContent = document.querySelector('[data-testid="editor"]');
+    }
+    if (!editorContent) {
+      editorContent = document.querySelector('#editor-root');
+    }
+
+    if (!editorContent) {
+      updateDebugInfo('Editor content not found, retrying...');
+      setTimeout(findAndRenderMermaidDiagrams, 1000);
+      return;
+    }
+
+    updateDebugInfo('Found editor content: ' + editorContent.className);
+
+    // Find all code blocks - try multiple selectors
+    let codeBlocks = editorContent.querySelectorAll('pre code');
+    if (codeBlocks.length === 0) {
+      codeBlocks = editorContent.querySelectorAll('code');
+    }
+    if (codeBlocks.length === 0) {
+      codeBlocks = editorContent.querySelectorAll('pre');
+    }
+
+    updateDebugInfo('Found ' + codeBlocks.length + ' code blocks in editor');
+
+    let renderedCount = 0;
+
+    codeBlocks.forEach((codeBlock, index) => {
+      const code = codeBlock.textContent || codeBlock.innerText;
+      updateDebugInfo('Processing code block ' + index + ': ' + code.substring(0, 100));
+
+      if (code && code.trim().startsWith('mermaid')) {
+        const mermaidCode = code.replace(/^mermaid\s*\n/, '');
+        const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+
+        updateDebugInfo('Rendering Mermaid diagram: ' + id);
+
+        // Create container for the diagram
+        const container = document.createElement('div');
+        container.className = 'mermaid';
+        container.id = id;
+        container.style.margin = '20px 0';
+        container.style.textAlign = 'center';
+        container.style.border = '1px solid #ddd';
+        container.style.padding = '20px';
+        container.style.backgroundColor = '#f8f9fa';
+        container.style.borderRadius = '8px';
+        container.style.minHeight = '100px';
+
+        // Insert the container after the code block's parent (the pre element)
+        const preElement = codeBlock.parentElement;
+        if (preElement && preElement.parentElement) {
+          preElement.parentElement.insertBefore(container, preElement.nextSibling);
+
+          // Hide the original code block
+          preElement.style.display = 'none';
+
+          // Render the diagram
+          setTimeout(() => {
+            mermaid.render(id, mermaidCode).then(({ svg }) => {
+              container.innerHTML = svg;
+              updateDebugInfo('Mermaid diagram rendered successfully: ' + id);
+              renderedCount++;
+            }).catch(error => {
+              updateDebugInfo('Mermaid rendering error: ' + error.message);
+              container.innerHTML = '<p style="color: red;">Error rendering diagram: ' + error.message + '</p>';
+            });
+          }, 100);
+        }
+      }
+    });
+
+    updateDebugInfo('Rendered ' + renderedCount + ' Mermaid diagrams');
+
+    // If no diagrams were found, try again after a delay
+    if (renderedCount === 0) {
+      updateDebugInfo('No Mermaid diagrams found, will retry...');
+      setTimeout(findAndRenderMermaidDiagrams, 2000);
+    }
+  }
+
+  // Initialize the editor
+  initializeEditor();
+
+  // Handle theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    const theme = e.matches ? 'dark' : 'default';
+    mermaid.initialize({ theme: theme });
+    mermaid.init(undefined, '.mermaid');
+  });
+</script>
+</body>
+</html>
