@@ -57,8 +57,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'MarkWrite',
         'CFBundleDisplayName': 'MarkWrite',
-        'CFBundleShortVersionString': '0.1.3',
-        'CFBundleVersion': '000022',
+        'CFBundleShortVersionString': '0.1.4',
+        'CFBundleVersion': '000023',
         'NSHighResolutionCapable': True,
         'CFBundleDocumentTypes': [
             {

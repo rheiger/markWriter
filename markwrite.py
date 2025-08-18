@@ -12,8 +12,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.1.3"
-APP_BUILD = "000022"
+APP_VERSION = "0.1.4"
+APP_BUILD = "000023"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -96,7 +96,9 @@ class MainWindow(QMainWindow):
         self._page_loaded: bool = False
         self._pending_md: str | None = None
         self.view.loadFinished.connect(self._on_load_finished)
-        self.view.setHtml(HTML_TEMPLATE, baseUrl=QUrl("https://local/"))
+        # Use a file URL that will work in the built app
+        base_url = QUrl.fromLocalFile(os.path.join(os.path.dirname(sys.executable), "..", "Resources"))
+        self.view.setHtml(HTML_TEMPLATE, baseUrl=base_url)
 
         # Menus / actions
         self._build_actions()
