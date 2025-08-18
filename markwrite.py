@@ -12,8 +12,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.1.2"
-APP_BUILD = "000021"
+APP_VERSION = "0.1.3"
+APP_BUILD = "000022"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -25,9 +25,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 />
 <title>MarkWrite</title>
 
-<!-- Toast UI Editor (WYSIWYG Markdown) via CDN -->
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css"/>
-<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
+<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
+<script src="assets/js/toastui-editor-all.min.js"></script>
 
 <style>
   html, body { height: 100%; margin: 0; }
