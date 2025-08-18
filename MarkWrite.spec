@@ -12,7 +12,7 @@ a = Analysis(
         ('assets/MarkWrite.ico', 'assets'),
         ('assets/icon_1024.png', 'assets'),
         ('assets/MarkWrite.iconset', 'assets/MarkWrite.iconset'),
-        ('editor_offline.html', '.'),
+        ('test_simple.html', '.'),
     ],
     hiddenimports=['PySide6.QtWebEngineWidgets'],
     hookspath=[],
@@ -58,8 +58,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'MarkWrite',
         'CFBundleDisplayName': 'MarkWrite',
-        'CFBundleShortVersionString': '0.1.5',
-        'CFBundleVersion': '000024',
+        'CFBundleShortVersionString': '0.1.6',
+        'CFBundleVersion': '000025',
         'NSHighResolutionCapable': True,
         'CFBundleDocumentTypes': [
             {

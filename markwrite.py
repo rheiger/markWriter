@@ -12,8 +12,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.1.5"
-APP_BUILD = "000024"
+APP_VERSION = "0.1.6"
+APP_BUILD = "000025"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -99,11 +99,11 @@ class MainWindow(QMainWindow):
         # Load the HTML file from the app bundle
         if getattr(sys, 'frozen', False):
             # Running in built app
-            html_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "editor_offline.html")
+            html_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "test_simple.html")
             self.view.load(QUrl.fromLocalFile(html_path))
         else:
             # Running from source
-            html_path = os.path.join(os.getcwd(), "editor_offline.html")
+            html_path = os.path.join(os.getcwd(), "test_simple.html")
             self.view.load(QUrl.fromLocalFile(html_path))
 
         # Menus / actions
