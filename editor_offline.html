@@ -17,7 +17,6 @@
     height: 100%; 
     margin: 0; 
     padding: 0; 
-    overflow: hidden; 
   }
   
   #editor-root { 
@@ -27,27 +26,9 @@
     padding: 0; 
   }
   
-  /* Let Toast UI Editor use its natural layout */
+  /* Minimal styling - let Toast UI Editor handle its own layout */
   .toastui-editor-defaultUI { 
     width: 100% !important; 
-    margin: 0 !important; 
-    padding: 0 !important; 
-  }
-  
-  /* Ensure the editor container doesn't overflow */
-  .toastui-editor {
-    margin: 0 !important; 
-    padding: 0 !important; 
-  }
-  
-  /* Make sure tab selectors are visible by adjusting the editor height */
-  .toastui-editor-defaultUI .toastui-editor-main {
-    height: calc(100vh - 120px) !important; /* Leave space for toolbar + tabs */
-  }
-  
-  /* Ensure content area fits properly */
-  .toastui-editor-contents {
-    height: 100% !important;
   }
   
   /* Match OS light/dark via prefers-color-scheme */
@@ -63,7 +44,7 @@
   const { Editor } = toastui;
   const editor = new Editor({
     el: document.querySelector('#editor-root'),
-    height: 'calc(100vh - 120px)', // Leave space for toolbar + tab selectors
+    height: '100%', // Use default height behavior
     initialEditType: 'wysiwyg',
     previewStyle: 'vertical',  // has no effect in wysiwyg, but harmless
     usageStatistics: false,
