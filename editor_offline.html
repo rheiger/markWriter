@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+/>
+<title>MarkWrite</title>
+
+<!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
+<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
+<script src="assets/js/toastui-editor-all.min.js"></script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  #editor-root { height: 100vh; }
+  /* Use full available width */
+  .toastui-editor-defaultUI { width: 100%; margin: 0; }
+  /* Match OS light/dark via prefers-color-scheme */
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e1e; color: #ddd; }
+  }
+</style>
+</head>
+<body>
+<div id="editor-root"></div>
+<script>
+  // Initialize WYSIWYG Markdown editor
+  const { Editor } = toastui;
+  const editor = new Editor({
+    el: document.querySelector('#editor-root'),
+    height: '100vh',
+    initialEditType: 'wysiwyg',
+    previewStyle: 'vertical',  // has no effect in wysiwyg, but harmless
+    usageStatistics: false,
+    autofocus: true,
+    toolbarItems: [
+      ['heading', 'bold', 'italic', 'strike'],
+      ['hr', 'quote'],
+      ['ul', 'ol', 'task'],
+      ['table'],
+      ['link', 'image'],
+      ['code', 'codeblock'],
+      ['scrollSync']
+    ]
+  });
+
+  // Expose helpers for Python -> JS bridge via runJavaScript
+  window._markwrite = {
+    setMarkdown: function(md) { editor.setMarkdown(md || ''); },
+    getMarkdown: function() { return editor.getMarkdown(); },
+    getHTML: function() { return editor.getHTML(); }
+  };
+</script>
+</body>
+</html>
