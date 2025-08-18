@@ -17,6 +17,7 @@
     height: 100%; 
     margin: 0; 
     padding: 0; 
+    overflow: hidden; /* Prevent outer scrollbars */
   }
   
   #editor-root { 
@@ -24,11 +25,17 @@
     width: 100vw; 
     margin: 0; 
     padding: 0; 
+    overflow: hidden; /* Prevent outer scrollbars */
   }
   
   /* Minimal styling - let Toast UI Editor handle its own layout */
   .toastui-editor-defaultUI { 
     width: 100% !important; 
+  }
+  
+  /* Ensure the editor container doesn't create outer scrollbars */
+  .toastui-editor {
+    overflow: hidden !important;
   }
   
   /* Match OS light/dark via prefers-color-scheme */
