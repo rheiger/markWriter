@@ -6,8 +6,9 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.1.2 (build 000021)`
-- Platforms: macOS (working), Windows/Linux planned
+- Version: `0.2.1 (build 000030)`
+- Platforms: macOS ✅, Windows ✅, Linux planned
+- **Full offline functionality** - no internet connection required
 
 ## Features ([About](./ABOUT.md))
 - WYSIWYG Markdown editor (Toast UI Editor)
@@ -45,7 +46,7 @@ open dist/MarkWrite.app
 ```
 
 Notes:
-- The editor UI is loaded from a CDN. If you prefer offline usage, vendor the Toast UI JS/CSS locally and adjust `HTML_TEMPLATE` in `markwrite.py`.
+- **Offline-first design** - All editor assets are bundled locally, no CDN dependencies
 - For distributing to other Macs, you’ll likely want to code sign and notarize the `.app`.
 - To appear in “Open With…” for `.md` files, the app’s Info.plist declares Markdown document types. Rebuild the app (`pyinstaller -y MarkWrite.spec`) and move `MarkWrite.app` into `/Applications`.
 
@@ -59,11 +60,22 @@ For contributor setup, code style, release process, and CI details, see [`docs/D
 For how to sign and notarize the macOS app locally or in CI (without exposing secrets in the repo), see: [`docs/Signing-Notarization.md`](./docs/Signing-Notarization.md)
 
 ## Roadmap
-- Add support for Windows 11
+- ✅ Windows support (completed in v0.2.1)
 - Add support for Linux
 - Add support for multiple windows/tabs to have more than one document open at the same time
  - Add regular menus: Edit, View, Window, ...
  - Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
+
+## License & Dependencies
+
+**MarkWrite**: MIT License — see [`LICENSE`](./LICENSE)
+
+**Bundled Libraries**:
+- **Toast UI Editor**: MIT License - [NHN Cloud FE Development Lab](https://github.com/nhn/tui.editor)
+- **Mermaid.js**: MIT License - [Mermaid Contributors](https://github.com/mermaid-js/mermaid)
+- **DOMPurify**: Apache 2.0 + Mozilla Public License 2.0 - [Cure53](https://github.com/cure53/DOMPurify)
+
+All bundled libraries are compatible with MIT licensing and are properly attributed.
 
 ## License
 MIT License — see [`LICENSE`](./LICENSE)
