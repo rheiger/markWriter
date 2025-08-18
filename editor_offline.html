@@ -27,28 +27,27 @@
     padding: 0; 
   }
   
-  /* Make Toast UI Editor fill window but leave space for tab selectors */
+  /* Let Toast UI Editor use its natural layout */
   .toastui-editor-defaultUI { 
     width: 100% !important; 
-    height: calc(100vh - 40px) !important; /* Leave 40px for tab selectors */
     margin: 0 !important; 
     padding: 0 !important; 
   }
   
-  /* Ensure editor content area fills available space */
-  .toastui-editor-main {
-    height: calc(100vh - 100px) !important; /* Account for toolbar + tab selectors */
+  /* Ensure the editor container doesn't overflow */
+  .toastui-editor {
+    margin: 0 !important; 
+    padding: 0 !important; 
   }
   
+  /* Make sure tab selectors are visible by adjusting the editor height */
+  .toastui-editor-defaultUI .toastui-editor-main {
+    height: calc(100vh - 120px) !important; /* Leave space for toolbar + tabs */
+  }
+  
+  /* Ensure content area fits properly */
   .toastui-editor-contents {
     height: 100% !important;
-    overflow-y: auto !important;
-  }
-  
-  /* Remove any default margins/padding that might cause scrollbars */
-  .toastui-editor {
-    margin: 0 !important;
-    padding: 0 !important;
   }
   
   /* Match OS light/dark via prefers-color-scheme */
@@ -64,7 +63,7 @@
   const { Editor } = toastui;
   const editor = new Editor({
     el: document.querySelector('#editor-root'),
-    height: '100vh',
+    height: 'calc(100vh - 120px)', // Leave space for toolbar + tab selectors
     initialEditType: 'wysiwyg',
     previewStyle: 'vertical',  // has no effect in wysiwyg, but harmless
     usageStatistics: false,
