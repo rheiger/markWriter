@@ -1,5 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.building.build_main import Analysis, PYZ, EXE, BUNDLE
+# Import PyInstaller classes - handle both old and new versions
+try:
+    from PyInstaller.building.build_main import Analysis, PYZ, EXE, BUNDLE
+except ImportError:
+    try:
+        from PyInstaller.building.build_main import Analysis, PYZ, EXE
+        from PyInstaller.building.osx import BUNDLE
+    except ImportError:
+        # Fallback: these classes should be available when running through PyInstaller
+        pass
 
 a = Analysis(
     ['markwrite.py'],
