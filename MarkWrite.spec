@@ -33,9 +33,18 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+# Create EXE (required for COLLECT, but won't be written to disk)
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='MarkWrite',
+)
+
 # Create a collection of all files
 coll = COLLECT(
-    a.scripts,
+    exe,
     a.binaries,
     a.datas,
     a.zipfiles,
