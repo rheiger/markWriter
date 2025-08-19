@@ -5,7 +5,15 @@ a = Analysis(
     ['markwrite.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets'), ('editor_offline.html', '.')],
+    datas=[
+        ('assets/css', 'assets/css'),
+        ('assets/js', 'assets/js'),
+        ('assets/MarkWrite.icns', 'assets'),
+        ('assets/MarkWrite.ico', 'assets'),
+        ('assets/icon_1024.png', 'assets'),
+        ('assets/MarkWrite.iconset', 'assets/MarkWrite.iconset'),
+        ('editor_offline.html', '.'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,4 +43,25 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+# macOS app bundle
+app = APP(
+    exe,
+    name='MarkWrite',
+    icon='assets/MarkWrite.icns',
+    bundle_identifier='com.markwrite.app',
+    info_plist={
+        'CFBundleDocumentTypes': [
+            {
+                'CFBundleTypeName': 'Markdown Document',
+                'CFBundleTypeExtensions': ['md', 'markdown'],
+                'CFBundleTypeRole': 'Editor',
+                'LSHandlerRank': 'Owner',
+            }
+        ],
+        'CFBundleShortVersionString': '0.2.2',
+        'CFBundleVersion': '000031',
+        'NSHighResolutionCapable': True,
+    },
 )
