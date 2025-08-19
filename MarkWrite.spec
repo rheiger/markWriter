@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.building.build_main import Analysis, PYZ, EXE, APP
+from PyInstaller.building.build_main import Analysis, PYZ, EXE, BUNDLE
 
 a = Analysis(
     ['markwrite.py'],
@@ -46,7 +46,7 @@ exe = EXE(
 )
 
 # macOS app bundle
-app = APP(
+app = BUNDLE(
     exe,
     name='MarkWrite',
     icon='assets/MarkWrite.icns',
