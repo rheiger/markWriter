@@ -33,30 +33,11 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name='MarkWrite',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
+# Note: EXE is not needed for macOS app bundles - BUNDLE handles everything
 
 # macOS app bundle
 app = BUNDLE(
-    exe,
+    a,
     name='MarkWrite',
     icon='assets/MarkWrite.icns',
     bundle_identifier='com.markwrite.app',
