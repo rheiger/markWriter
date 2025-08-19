@@ -33,11 +33,18 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-# Note: EXE is not needed for macOS app bundles - BUNDLE handles everything
+# Create a collection of all files
+coll = COLLECT(
+    a.scripts,
+    a.binaries,
+    a.datas,
+    a.zipfiles,
+    name='MarkWrite',
+)
 
 # macOS app bundle
 app = BUNDLE(
-    a,
+    coll,
     name='MarkWrite',
     icon='assets/MarkWrite.icns',
     bundle_identifier='com.markwrite.app',

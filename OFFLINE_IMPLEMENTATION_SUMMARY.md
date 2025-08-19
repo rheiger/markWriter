@@ -13,7 +13,7 @@ Successfully implemented offline functionality for MarkWrite, eliminating all ex
 ### 2. Code Changes
 - **Updated `markwrite.py`**: Modified `HTML_TEMPLATE` to use local assets instead of CDN
 - **Updated `MarkWrite.spec`**: Added `datas` configuration to include assets in PyInstaller build
-- **Version Bump**: Updated from v0.1.2 (build 000021) to v0.2.3 (build 000032)
+- **Version Bump**: Updated from v0.1.2 (build 000021) to v0.2.4 (build 000033)
 
 ### 3. Build Configuration
 - **PyInstaller Spec**: Updated to include all asset directories and files
@@ -50,7 +50,7 @@ Created `test_offline.py` to verify:
 - ✅ Mac app builds successfully with PyInstaller
 - ✅ All assets are included in the final bundle
 - ✅ App runs without internet connection
-- ✅ Version 0.2.3 (build 000032) confirmed working
+- ✅ Version 0.2.4 (build 000033) confirmed working
 
 ## Benefits
 
