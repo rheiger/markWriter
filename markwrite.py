@@ -12,8 +12,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 
 APP_NAME = "MarkWrite"
-APP_VERSION = "0.2.1"
-APP_BUILD = "000030"
+APP_VERSION = "0.2.2"
+APP_BUILD = "000031"
 APP_VERSION_FULL = f"{APP_VERSION} (build {APP_BUILD})"
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -26,8 +26,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <title>MarkWrite</title>
 
 <!-- Toast UI Editor (WYSIWYG Markdown) - Local Assets -->
-<link rel="stylesheet" href="assets/css/toastui-editor.min.css"/>
-<script src="assets/js/toastui-editor-all.min.js"></script>
+<link rel="stylesheet" href="_internal/assets/css/toastui-editor.min.css"/>
+<script src="_internal/assets/js/toastui-editor-all.min.js"></script>
 
 <style>
   html, body { height: 100%; margin: 0; }
@@ -96,15 +96,33 @@ class MainWindow(QMainWindow):
         self._page_loaded: bool = False
         self._pending_md: str | None = None
         self.view.loadFinished.connect(self._on_load_finished)
+        
         # Load the HTML file from the app bundle
         if getattr(sys, 'frozen', False):
             # Running in built app
-            html_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "editor_offline.html")
-            self.view.load(QUrl.fromLocalFile(html_path))
+            if sys.platform == "darwin":  # macOS
+                html_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "editor_offline.html")
+            else:  # Windows/Linux
+                # Try multiple possible locations for the HTML file
+                possible_paths = [
+                    os.path.join(os.path.dirname(sys.executable), "editor_offline.html"),  # Same directory as exe
+                    os.path.join(os.path.dirname(sys.executable), "_internal", "editor_offline.html"),  # _internal subdirectory
+                ]
+                
+                html_path = None
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        html_path = path
+                        break
+                
+                if html_path is None:
+                    # Fallback to the first path
+                    html_path = possible_paths[0]
         else:
             # Running from source
             html_path = os.path.join(os.getcwd(), "editor_offline.html")
-            self.view.load(QUrl.fromLocalFile(html_path))
+        
+        self.view.load(QUrl.fromLocalFile(html_path))
 
         # Menus / actions
         self._build_actions()
@@ -393,11 +411,13 @@ class MainWindow(QMainWindow):
         if not self._page_loaded:
             self._pending_md = text
             return
+        
         js = f"window._markwrite.setMarkdown({_js_str(text)});"
         self.view.page().runJavaScript(js)
 
     def _on_load_finished(self, ok: bool):
         self._page_loaded = bool(ok)
+        
         if self._page_loaded and self._pending_md is not None:
             md = self._pending_md
             self._pending_md = None
@@ -481,7 +501,9 @@ def main():
     if args.path:
         candidate = Path(args.path)
         if candidate.exists():
-            win._open_path(candidate)
+            # Use a timer to ensure the editor is fully loaded before opening the file
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: win._open_path(candidate))
 
 
     sys.exit(app.exec())

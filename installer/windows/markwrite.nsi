@@ -4,7 +4,7 @@
 !define APPNAME "MarkWrite"
 !define COMPANY "MarkWrite"
 !ifndef VERSION
-!define VERSION "0.0.5" ; default, can be overridden by /DVERSION=...
+!define VERSION "0.2.2" ; default, can be overridden by /DVERSION=...
 !endif
 !define EXENAME "MarkWrite.exe"
 !define ICO_NAME "MarkWrite.ico"
@@ -18,7 +18,7 @@ ShowInstDetails show
 Section "Install"
   SetOutPath "$INSTDIR\MarkWrite"
   ; Use relative path from installer script to the PyInstaller output
-  File /r "..\..\dist\MarkWrite\*.*"
+  File /r "..\..\dist\MarkWrite\*"
 
   ; Include icon and create shortcuts with icon from install dir
   File "..\\..\\assets\\${ICO_NAME}"
