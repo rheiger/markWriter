@@ -9,6 +9,7 @@ It pairs a native Qt (PySide6) shell with a modern WYSIWYG Markdown editor (Toas
 - Open/Save `.md`, export to `.html`
 - Zoom controls and a responsive layout
 - PyInstaller packaging for easy distribution
+- MacOS (15+) and MS Windows ready
 
 ## Technology
 - Python 3.11+
@@ -17,11 +18,11 @@ It pairs a native Qt (PySide6) shell with a modern WYSIWYG Markdown editor (Toas
 - PyInstaller for macOS/Windows/Linux bundles
 
 ## Credits
-- Base implementation performed in Cursor with gpt-5-high
-- Idea and requirements by Richie Eiger
+- Base implementation performed in Cursor with AI support
+- Idea and management by Richie Eiger
 
 ## Roadmap (short)
-- Windows and Linux builds (CI included)
+- Linux builds (CI included)
 - App settings (fonts, sizes, theme)
 - Standard desktop menus (Edit, View, Window, …)
 - Multi‑window/tabs
@@ -30,4 +31,4 @@ It pairs a native Qt (PySide6) shell with a modern WYSIWYG Markdown editor (Toas
 - See Releases: https://github.com/rheiger/markWriter/releases
 
 ## License
-- TBD
+- MIT

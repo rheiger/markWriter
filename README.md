@@ -63,8 +63,8 @@ For how to sign and notarize the macOS app locally or in CI (without exposing se
 - ✅ Windows support (completed in v0.2.1)
 - Add support for Linux
 - Add support for multiple windows/tabs to have more than one document open at the same time
- - Add regular menus: Edit, View, Window, ...
- - Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
+- Add regular menus: Edit, View, Window, ...
+- Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
 
 ## License & Dependencies
 
@@ -76,7 +76,3 @@ For how to sign and notarize the macOS app locally or in CI (without exposing se
 - **DOMPurify**: Apache 2.0 + Mozilla Public License 2.0 - [Cure53](https://github.com/cure53/DOMPurify)
 
 All bundled libraries are compatible with MIT licensing and are properly attributed.
-
-## License
-MIT License — see [`LICENSE`](./LICENSE)
-
