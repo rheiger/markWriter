@@ -40,7 +40,7 @@ open dist/MarkWrite.app
 3) Commit with a release message and tag `vX.Y.Z`.
 4) Push main and tags; CI will build artifacts and publish on tags.
 
-**Current version**: v0.2.3 (build 000032)
+**Current version**: v0.2.4 (build 000033)
 
 ## CI overview
 - Workflow: `.github/workflows/build.yml`

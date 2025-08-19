@@ -14,7 +14,7 @@ It pairs a native Qt (PySide6) shell with a modern WYSIWYG Markdown editor (Toas
 ## Technology
 - Python 3.11+
 - PySide6 (Qt 6) + Qt WebEngine
-- Toast UI Editor (via CDN for now)
+- Toast UI Editor (fully offline, bundled locally)
 - PyInstaller for macOS/Windows/Linux bundles
 
 ## Credits

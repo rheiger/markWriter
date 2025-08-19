@@ -6,7 +6,7 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.2.3 (build 000032)`
+- Version: `0.2.4 (build 000033)`
 - Platforms: macOS ✅, Windows ✅, Linux planned
 - **Full offline functionality** - no internet connection required
 
@@ -26,7 +26,7 @@ See the How-To guide for end users: [How-To: Install and Use MarkWrite on macOS]
 
 Latest prebuilt app: [Releases](https://github.com/rheiger/markWriter/releases)
 
-Note: v0.0.1 is superseded by v0.0.2. Use the latest release.
+Note: Use the latest release for the most up-to-date features and offline functionality.
 
 ### Run from source (macOS)
 ```bash
@@ -55,6 +55,9 @@ This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push
 
 ### Developer Handbook
 For contributor setup, code style, release process, and CI details, see [`docs/DeveloperHandbook.md`](./docs/DeveloperHandbook.md).
+
+### Changelog
+For a detailed history of changes and new features, see [`CHANGELOG.md`](./CHANGELOG.md).
 
 ### Signing & Notarization
 For how to sign and notarize the macOS app locally or in CI (without exposing secrets in the repo), see: [`docs/Signing-Notarization.md`](./docs/Signing-Notarization.md)

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+from PyInstaller.building.build_main import Analysis, PYZ, EXE, APP
 
 a = Analysis(
     ['markwrite.py'],
@@ -60,8 +60,8 @@ app = APP(
                 'LSHandlerRank': 'Owner',
             }
         ],
-        'CFBundleShortVersionString': '0.2.3',
-        'CFBundleVersion': '000032',
+        'CFBundleShortVersionString': '0.2.4',
+        'CFBundleVersion': '000033',
         'NSHighResolutionCapable': True,
     },
 )

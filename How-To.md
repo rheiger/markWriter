@@ -9,7 +9,7 @@ MarkWrite is a minimal Markdown editor built with Python and Qt (PySide6). You c
 ## Option 0: Download a prebuilt app (recommended)
 
 1) Go to the Releases page: [Latest release](https://github.com/rheiger/markWriter/releases/latest)
-2) Download `MarkWrite-0.0.8-macOS.zip` (older versions are superseded).
+2) Download the latest `MarkWrite-*.zip` for your platform.
 3) Unzip it and move `MarkWrite.app` to your `Applications` folder.
 4) On first run, you may need to right-click the app and choose “Open” due to Gatekeeper.
 
@@ -117,8 +117,8 @@ Tip: An • (dot) next to the filename in the title bar means you have unsaved c
 
 ---
 
-## Internet requirement (for now)
-The editor UI (Toast UI Editor) is loaded from a CDN. You need an internet connection for the editor to appear. Offline assets may be added in a future version.
+## Offline functionality
+The editor UI (Toast UI Editor) is now fully offline with all assets bundled locally. No internet connection is required for the editor to appear.
 
 ---
 
@@ -141,4 +141,4 @@ pip install -U -r requirements.txt
 ---
 
 ## Version
-MarkWrite 0.0.8 (build 000017)
+MarkWrite 0.2.4 (build 000033)
