@@ -60,8 +60,8 @@ app = APP(
                 'LSHandlerRank': 'Owner',
             }
         ],
-        'CFBundleShortVersionString': '0.2.2',
-        'CFBundleVersion': '000031',
+        'CFBundleShortVersionString': '0.2.3',
+        'CFBundleVersion': '000032',
         'NSHighResolutionCapable': True,
     },
 )

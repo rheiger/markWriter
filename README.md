@@ -6,7 +6,7 @@
 
 A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
 
-- Version: `0.2.2 (build 000031)`
+- Version: `0.2.3 (build 000032)`
 - Platforms: macOS ✅, Windows ✅, Linux planned
 - **Full offline functionality** - no internet connection required
 
