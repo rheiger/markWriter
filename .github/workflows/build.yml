@@ -41,6 +41,15 @@ jobs:
         run: |
           pyinstaller -y MarkWrite.spec
 
+      - name: Debug - List dist contents
+        run: |
+          echo "=== Contents of dist directory ==="
+          ls -la dist/
+          echo "=== Contents of dist/MarkWrite directory ==="
+          ls -la dist/MarkWrite/ || echo "MarkWrite directory not found"
+          echo "=== Contents of dist/MarkWrite.app directory ==="
+          ls -la dist/MarkWrite.app/ || echo "MarkWrite.app directory not found"
+
       - name: Prepare zip name
         shell: bash
         run: |
