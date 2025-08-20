@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 # Import PyInstaller classes - handle both old and new versions
 try:
-    from PyInstaller.building.build_main import Analysis, PYZ, EXE, BUNDLE
+    from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE
 except ImportError:
     try:
-        from PyInstaller.building.build_main import Analysis, PYZ, EXE
+        from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
         from PyInstaller.building.osx import BUNDLE
     except ImportError:
         # Fallback: these classes should be available when running through PyInstaller
@@ -69,5 +69,8 @@ app = BUNDLE(
         'CFBundleShortVersionString': '0.2.4',
         'CFBundleVersion': '000033',
         'NSHighResolutionCapable': True,
+        'CFBundleExecutable': 'MarkWrite',
+        'CFBundleName': 'MarkWrite',
+        'CFBundlePackageType': 'APPL',
     },
 )
