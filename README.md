@@ -64,9 +64,14 @@ For how to sign and notarize the macOS app locally or in CI (without exposing se
 
 ## Roadmap
 - ✅ Windows support (completed in v0.2.1)
+- Complete rewrite using `rust` -> `Tauri` -> `react` for improved performance, optimized ressource usage, stability and mainly UX
+- Add regular menus: ✅ About, ✅ File, Edit, View, Window, ..., Help
+- Add support to render embedded `mermaid` diagrams
+- Add support to render embedded `draw.io` diagrams
+- Add support for plugins
+- Add support for quick-edit/show other formats like `json` and `xml`, with focus on userfriendly display 
 - Add support for Linux
-- Add support for multiple windows/tabs to have more than one document open at the same time
-- Add regular menus: Edit, View, Window, ...
+- Add support for multiple windows and tabs in windows to have more than one document open at the same time
 - Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
 
 ## License & Dependencies
