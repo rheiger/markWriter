@@ -1,0 +1,36 @@
+{
+  "name": "markwriter-v2",
+  "private": true,
+  "version": "2.0.0-alpha.1",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run frontend:dev\" \"npm run tauri:dev\" --names \"frontend,tauri\" --prefix-colors \"blue,green\"",
+    "build": "npm run frontend:build && npm run tauri:build",
+    "
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:test": "cd frontend && npm run test",
+    "frontend:lint": "cd frontend && npm run lint",
+    "frontend:format": "cd frontend && npm run format",
+    
+    "tauri:dev": "cd src-tauri && cargo tauri dev",
+    "tauri:build": "cd src-tauri && cargo tauri build",
+    "tauri:test": "cd src-tauri && cargo test",
+    "tauri:lint": "cd src-tauri && cargo clippy",
+    "tauri:format": "cd src-tauri && cargo fmt",
+    
+    "test": "npm run frontend:test && npm run tauri:test",
+    "lint": "npm run frontend:lint && npm run tauri:lint",
+    "format": "npm run frontend:format && npm run tauri:format",
+    
+    "clean": "rm -rf frontend/dist frontend/node_modules src-tauri/target",
+    "setup": "npm install && cd frontend && npm install && cd ../src-tauri && cargo build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
