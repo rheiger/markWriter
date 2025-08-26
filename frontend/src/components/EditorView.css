@@ -1,0 +1,151 @@
+.editor-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.editor-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+}
+
+.editor-placeholder-content {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.editor-placeholder h2 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.editor-placeholder p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Toast UI Editor Theme Overrides */
+.editor-container .toastui-editor-defaultUI {
+  border: none;
+  font-family: var(--font-family, inherit);
+}
+
+.editor-container .toastui-editor-defaultUI-toolbar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem;
+}
+
+.editor-container .toastui-editor-toolbar-icons {
+  color: var(--text-primary);
+}
+
+.editor-container .toastui-editor-toolbar-icons:hover {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.editor-container .toastui-editor .ProseMirror {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family, inherit);
+  font-size: var(--font-size, 14px);
+  line-height: 1.6;
+  padding: 1rem;
+}
+
+.editor-container .toastui-editor-md-container {
+  background: var(--bg-primary);
+}
+
+.editor-container .toastui-editor-md-preview {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 1rem;
+}
+
+.editor-container .toastui-editor-md-splitter {
+  background: var(--border-color);
+}
+
+/* Code blocks */
+.editor-container .toastui-editor-md-preview pre,
+.editor-container .toastui-editor .ProseMirror pre {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.editor-container .toastui-editor-md-preview code,
+.editor-container .toastui-editor .ProseMirror code {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-sm);
+}
+
+/* Tables */
+.editor-container .toastui-editor-md-preview table,
+.editor-container .toastui-editor .ProseMirror table {
+  border-collapse: collapse;
+  border: 1px solid var(--border-color);
+}
+
+.editor-container .toastui-editor-md-preview th,
+.editor-container .toastui-editor-md-preview td,
+.editor-container .toastui-editor .ProseMirror th,
+.editor-container .toastui-editor .ProseMirror td {
+  border: 1px solid var(--border-color);
+  padding: 0.5rem;
+}
+
+.editor-container .toastui-editor-md-preview th,
+.editor-container .toastui-editor .ProseMirror th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+/* Blockquotes */
+.editor-container .toastui-editor-md-preview blockquote,
+.editor-container .toastui-editor .ProseMirror blockquote {
+  border-left: 4px solid var(--accent-primary);
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+/* Links */
+.editor-container .toastui-editor-md-preview a,
+.editor-container .toastui-editor .ProseMirror a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.editor-container .toastui-editor-md-preview a:hover,
+.editor-container .toastui-editor .ProseMirror a:hover {
+  color: var(--accent-hover);
+}
+
+/* Selection styling */
+.editor-container .toastui-editor .ProseMirror ::selection {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.editor-container .toastui-editor .ProseMirror ::-moz-selection {
+  background: var(--accent-primary);
+  color: white;
+}
