@@ -57,8 +57,7 @@
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       },
-      "allowDowngrades": false,
-      "createUpdaterArtifacts": true
+      "allowDowngrades": false
     },
     "linux": {
       "deb": {
@@ -85,6 +84,9 @@
     },
     "notification": {
       "all": true
+    },
+    "shell": {
+      "open": true
     },
     "updater": {
       "active": true,
