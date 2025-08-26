@@ -1,0 +1,93 @@
+[package]
+name = "markwriter"
+version = "2.0.0-alpha.1"
+description = "A modern Markdown editor built with Tauri"
+authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
+license = "MIT"
+repository = "https://github.com/rheiger/markWriter"
+default-run = "markwriter"
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [
+    "macos-private-api",
+    "protocol-asset", 
+    "shell-open"
+] }
+tauri-plugin-fs = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-notification = "2.0"
+tauri-plugin-updater = "2.0"
+tauri-plugin-window-state = "2.0"
+
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# File system utilities
+dirs = "5.0"
+notify = "6.1"
+walkdir = "2.4"
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+
+# Configuration and validation
+toml = "0.8"
+validator = { version = "0.16", features = ["derive"] }
+
+# Optional database support (can be disabled with --no-default-features)
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "sqlite",
+    "macros",
+    "migrate",
+    "chrono",
+    "uuid",
+], optional = true }
+
+# Security
+ammonia = "4.0"      # HTML sanitization
+
+# Compression for backups
+flate2 = "1.0"
+base64 = "0.21"
+
+[features]
+default = ["database"]
+database = ["sqlx"]
+
+[[bin]]
+name = "markwriter"
+path = "src/main.rs"
+
+# Development optimizations
+[profile.dev]
+debug = 1
+incremental = true
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 1
+
+# Production optimizations
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true
+opt-level = "z"  # Optimize for size
