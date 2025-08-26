@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run frontend:dev\" \"npm run tauri:dev\" --names \"frontend,tauri\" --prefix-colors \"blue,green\"",
     "build": "npm run frontend:build && npm run tauri:build",
-    "
+    
     "frontend:dev": "cd frontend && npm run dev",
     "frontend:build": "cd frontend && npm run build",
     "frontend:test": "cd frontend && npm run test",
