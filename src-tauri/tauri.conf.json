@@ -1,0 +1,101 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.json",
+  "productName": "MarkWriter",
+  "version": "2.0.0-alpha.1",
+  "identifier": "com.markwriter.app",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:5173"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MarkWriter",
+        "label": "main",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "maximized": false,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' tauri:; script-src 'self' 'unsafe-inline' tauri:; style-src 'self' 'unsafe-inline' tauri:; img-src 'self' data: tauri: asset:; font-src 'self' data:;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "MarkWriter Team",
+    "copyright": "Copyright © 2025 MarkWriter Team",
+    "category": "Productivity",
+    "shortDescription": "A modern Markdown editor",
+    "longDescription": "A minimal, cross-platform Markdown editor built with Rust and Tauri for improved performance, security, and extensibility.",
+    "externalBin": [],
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.15",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "hardenedRuntime": true,
+      "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "allowDowngrades": false,
+      "createUpdaterArtifacts": true
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": false,
+        "files": {}
+      }
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": [
+        {
+          "allow": ["$DOCUMENT/**", "$DESKTOP/**", "$DOWNLOAD/**", "$HOME/Documents/**", "$APPDATA/../**"],
+          "deny": ["$APPDATA/markwriter/config/**"]
+        }
+      ]
+    },
+    "dialog": {
+      "open": true,
+      "save": true
+    },
+    "notification": {
+      "all": true
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/rheiger/markWriter/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGMTQ5NEYyNEUyQ0E4NUM="
+    },
+    "window-state": {
+      "filename": "window-state.json"
+    }
+  }
+}
