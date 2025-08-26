@@ -1,19 +1,39 @@
 {
-  "$schema": "https://schema.tauri.app/config/2.0.json",
   "productName": "MarkWriter",
   "version": "2.0.0-alpha.1",
   "identifier": "com.markwriter.app",
   "build": {
-    "frontendDist": "../frontend/dist",
-    "devUrl": "http://localhost:5173"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../frontend/dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   },
   "app": {
     "windows": [
       {
         "title": "MarkWriter",
+        "label": "main",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
   }
 }
