@@ -1,0 +1,95 @@
+.loading-spinner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+[data-theme="dark"] .loading-spinner-overlay {
+  background: rgba(26, 26, 26, 0.8);
+}
+
+.loading-spinner {
+  display: inline-block;
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.spinner-ring {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  margin: 8px;
+  border: 3px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: var(--accent-primary) transparent transparent transparent;
+}
+
+.spinner-ring:nth-child(1) {
+  animation-delay: -0.45s;
+}
+
+.spinner-ring:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.spinner-ring:nth-child(3) {
+  animation-delay: -0.15s;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-ring {
+    animation-duration: 2s;
+  }
+}
+
+/* Alternative simple spinner for low-power devices */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+  }
+
+  .spinner-ring {
+    display: none;
+  }
+
+  .spinner-ring:first-child {
+    display: block;
+    width: 24px;
+    height: 24px;
+    margin: 4px;
+    border-width: 2px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+}
