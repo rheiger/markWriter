@@ -1,0 +1,167 @@
+.error-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  max-width: 400px;
+  min-width: 300px;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.error-toast.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.error-toast.hiding {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.error-toast-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--error);
+  color: white;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+
+.error-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.error-message {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.error-close {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.error-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.error-close:focus {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* Animation variants */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Different error types (future enhancement) */
+.error-toast.warning .error-toast-content {
+  background: var(--warning);
+  color: var(--text-primary);
+}
+
+.error-toast.info .error-toast-content {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.error-toast.success .error-toast-content {
+  background: var(--success);
+  color: white;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .error-toast {
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    min-width: auto;
+    max-width: none;
+    transform: translateY(-100%);
+  }
+
+  .error-toast.visible {
+    transform: translateY(0);
+  }
+
+  .error-toast.hiding {
+    transform: translateY(-100%);
+  }
+
+  .error-toast-content {
+    padding: 0.875rem;
+  }
+
+  .error-message {
+    font-size: 0.85rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .error-toast {
+    transition: opacity 0.2s ease;
+    transform: none;
+  }
+
+  .error-toast.visible {
+    opacity: 1;
+  }
+
+  .error-toast.hiding {
+    opacity: 0;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .error-toast-content {
+    border: 2px solid white;
+  }
+
+  .error-close {
+    border: 1px solid white;
+  }
+}
