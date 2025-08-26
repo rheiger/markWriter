@@ -24,7 +24,8 @@
     "format": "npm run frontend:format && npm run tauri:format",
     
     "clean": "rm -rf frontend/dist frontend/node_modules src-tauri/target",
-    "setup": "npm install && cd frontend && npm install && cd ../src-tauri && cargo build"
+    "setup": "npm install && cargo install tauri-cli && cd frontend && npm install --legacy-peer-deps && cd ../src-tauri && cargo build",
+    "setup:quick": "npm install && cd frontend && npm install --legacy-peer-deps"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
