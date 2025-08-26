@@ -1,67 +1,41 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(async () => ({
   plugins: [react()],
+
+  // Path resolution for TypeScript imports
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+
+  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
+  //
+  // 1. prevent vite from obscuring rust errors
+  clearScreen: false,
   
-  // Tauri expects a fixed port for development
+  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 5173,
     strictPort: true,
-    host: '0.0.0.0',
+    host: "0.0.0.0", // Allow external access for development
   },
-
-  // Build configuration
+  
+  // 3. to make use of `TAURI_DEBUG` and other env variables
+  // https://tauri.app/v1/api/config#buildconfig.beforedevcommand
+  envPrefix: ["VITE_", "TAURI_"],
+  
+  // 4. Build configuration
   build: {
-    target: 'esnext',
-    minify: 'esbuild',
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          editor: ['@toast-ui/react-editor', '@toast-ui/editor'],
-          ui: ['lucide-react', 'clsx'],
-        },
-      },
-    },
+    // Tauri supports es2021
+    target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
+    // don't minify for debug builds
+    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    // produce sourcemaps for debug builds
+    sourcemap: !!process.env.TAURI_DEBUG,
   },
-
-  // Path resolution
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@/components': path.resolve(__dirname, './src/components'),
-      '@/hooks': path.resolve(__dirname, './src/hooks'),
-      '@/store': path.resolve(__dirname, './src/store'),
-      '@/types': path.resolve(__dirname, './src/types'),
-      '@/utils': path.resolve(__dirname, './src/utils'),
-    },
-  },
-
-  // Dependencies optimization
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'zustand',
-      'react-router-dom',
-      '@tauri-apps/api',
-      '@tauri-apps/plugin-fs',
-      '@tauri-apps/plugin-dialog',
-      '@tauri-apps/plugin-notification',
-    ],
-  },
-
-  // Development features
-  esbuild: {
-    target: 'esnext',
-  },
-
-  // CSS configuration
-  css: {
-    postcss: './postcss.config.js',
-  },
-})
+}));
