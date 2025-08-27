@@ -9,7 +9,7 @@ import './App.css'
 
 const App: React.FC = () => {
   const { currentDocument, isLoading, error, createNewDocument } = useAppStore()
-  const { theme, setTheme } = useTheme()
+  const { theme } = useTheme()
   const editorViewRef = useRef<EditorViewRef>(null)
 
   // Initialize the application
@@ -27,14 +27,9 @@ const App: React.FC = () => {
     }
   }, [theme, currentDocument, createNewDocument])
 
-  // Get editor reference for MenuBar
-  const getEditorRef = () => {
-    return editorViewRef.current?.getEditorRef()
-  }
-
   return (
     <div className="app">
-      <MenuBar editorRef={getEditorRef()} />
+      <MenuBar editorViewRef={editorViewRef} />
       
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
