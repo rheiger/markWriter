@@ -26,5 +26,25 @@
     "security": {
       "csp": null
     }
+  },
+  "plugins": {
+    "dialog": {
+      "all": true,
+      "ask": true,
+      "confirm": true,
+      "message": true,
+      "open": true,
+      "save": true
+    },
+    "fs": {
+      "all": true,
+      "readFile": true,
+      "writeFile": true,
+      "readTextFile": true,
+      "writeTextFile": true,
+      "exists": true,
+      "mkdir": true,
+      "readDir": true
+    }
   }
 }
