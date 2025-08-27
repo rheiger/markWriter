@@ -1,12 +1,21 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, forwardRef } from 'react'
 import { Editor } from '@toast-ui/react-editor'
 import { useAppStore } from '../store/useAppStore'
 import '@toast-ui/editor/dist/toastui-editor.css'
 import './EditorView.css'
 
-export const EditorView: React.FC = () => {
+export interface EditorViewRef {
+  getEditorRef: () => React.RefObject<Editor>
+}
+
+export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
   const editorRef = useRef<Editor>(null)
   const { currentDocument, updateDocumentContent, config } = useAppStore()
+  
+  // Expose editor ref to parent components
+  React.useImperativeHandle(ref, () => ({
+    getEditorRef: () => editorRef
+  }))
   
   // Initialize editor content when document changes
   useEffect(() => {
@@ -74,4 +83,6 @@ export const EditorView: React.FC = () => {
       </div>
     </div>
   )
-}
+})
+
+EditorView.displayName = 'EditorView'
