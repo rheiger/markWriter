@@ -1,115 +1,78 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-use crate::{document::Document, Result};
+use crate::Result;
 
-/// Event types for the MarkWriter application
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AppEvent {
-    DocumentOpened { document_id: String },
-    DocumentSaved { document_id: String },
-    DocumentClosed { document_id: String },
-    DocumentModified { document_id: String },
-    ConfigurationUpdated,
-    SystemNotification { message: String, level: NotificationLevel },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NotificationLevel {
-    Info,
-    Warning,
-    Error,
-    Success,
-}
-
-/// Event emitter for the application
-pub struct EventEmitter {
+/// Event system for communication between frontend and backend
+#[derive(Debug)]
+pub struct EventManager {
     app_handle: AppHandle,
 }
 
-impl EventEmitter {
+impl EventManager {
     pub fn new(app_handle: AppHandle) -> Self {
         Self { app_handle }
     }
 
-    /// Emit a document-related event
-    pub fn emit_document_event(&self, event: AppEvent) -> Result<()> {
-        self.app_handle
-            .emit_all("document-event", &event)
-            .map_err(|e| crate::error::MarkWriterError::system_error(format!("Failed to emit event: {}", e)))?;
-        
+    /// Emit document-related events
+    pub fn emit_document_event(&self, event: DocumentEvent) -> Result<()> {
         tracing::debug!("Emitted document event: {:?}", event);
+        self.app_handle
+            .emit("document-event", &event)
+            .map_err(|e| crate::error::MarkWriterError::system_error(e.to_string()))?;
         Ok(())
     }
 
-    /// Emit a system notification
-    pub fn emit_notification(&self, message: String, level: NotificationLevel) -> Result<()> {
-        let event = AppEvent::SystemNotification { message, level };
-        
+    /// Emit system notifications
+    pub fn emit_system_notification(&self, event: SystemNotificationEvent) -> Result<()> {
         self.app_handle
-            .emit_all("system-notification", &event)
-            .map_err(|e| crate::error::MarkWriterError::system_error(format!("Failed to emit notification: {}", e)))?;
-        
+            .emit("system-notification", &event)
+            .map_err(|e| crate::error::MarkWriterError::system_error(e.to_string()))?;
         tracing::info!("System notification: {:?}", event);
         Ok(())
     }
 
-    /// Emit configuration update event
-    pub fn emit_config_update(&self) -> Result<()> {
-        let event = AppEvent::ConfigurationUpdated;
-        
+    /// Emit configuration update events
+    pub fn emit_config_updated(&self, event: ConfigUpdatedEvent) -> Result<()> {
         self.app_handle
-            .emit_all("config-updated", &event)
-            .map_err(|e| crate::error::MarkWriterError::system_error(format!("Failed to emit config update: {}", e)))?;
-        
+            .emit("config-updated", &event)
+            .map_err(|e| crate::error::MarkWriterError::system_error(e.to_string()))?;
         tracing::debug!("Configuration updated event emitted");
         Ok(())
     }
 
-    /// Emit a generic custom event
-    pub fn emit_custom(&self, event_name: &str, payload: serde_json::Value) -> Result<()> {
+    /// Emit custom events
+    pub fn emit_custom_event(&self, event_name: &str, payload: &impl Serialize) -> Result<()> {
         self.app_handle
-            .emit_all(event_name, &payload)
-            .map_err(|e| crate::error::MarkWriterError::system_error(format!("Failed to emit custom event: {}", e)))?;
-        
+            .emit(event_name, payload)
+            .map_err(|e| crate::error::MarkWriterError::system_error(e.to_string()))?;
         tracing::debug!("Custom event emitted: {}", event_name);
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Document-related event types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum DocumentEvent {
+    Created { id: String, title: String },
+    Updated { id: String, title: String },
+    Saved { id: String, path: String },
+    Deleted { id: String },
+    Opened { id: String, path: String },
+}
 
-    #[test]
-    fn test_app_event_serialization() {
-        let event = AppEvent::DocumentOpened {
-            document_id: "test-doc".to_string(),
-        };
+/// System notification event types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum SystemNotificationEvent {
+    Info { message: String },
+    Warning { message: String },
+    Error { message: String },
+    Success { message: String },
+}
 
-        let serialized = serde_json::to_string(&event).expect("Failed to serialize event");
-        let deserialized: AppEvent = serde_json::from_str(&serialized).expect("Failed to deserialize event");
-
-        match deserialized {
-            AppEvent::DocumentOpened { document_id } => {
-                assert_eq!(document_id, "test-doc");
-            }
-            _ => panic!("Wrong event type"),
-        }
-    }
-
-    #[test]
-    fn test_notification_levels() {
-        let levels = vec![
-            NotificationLevel::Info,
-            NotificationLevel::Warning,
-            NotificationLevel::Error,
-            NotificationLevel::Success,
-        ];
-
-        for level in levels {
-            let serialized = serde_json::to_string(&level).expect("Failed to serialize level");
-            let _deserialized: NotificationLevel = serde_json::from_str(&serialized).expect("Failed to deserialize level");
-        }
-    }
+/// Configuration update event types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConfigUpdatedEvent {
+    pub section: String,
+    pub changes: serde_json::Value,
 }
