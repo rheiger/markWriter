@@ -42,7 +42,7 @@
   border-radius: 0 !important;
 }
 
-/* CRITICAL: Toast UI Editor Toolbar - AGGRESSIVE FIXES */
+/* CRITICAL: Toast UI Editor Toolbar - MAXIMUM VISIBILITY */
 .toastui-editor-defaultUI-toolbar,
 .editor-container .toastui-editor-defaultUI-toolbar,
 div[class*="toastui-editor"] .toastui-editor-defaultUI-toolbar {
@@ -55,7 +55,7 @@ div[class*="toastui-editor"] .toastui-editor-defaultUI-toolbar {
   min-height: 40px !important;
 }
 
-/* CRITICAL: Toolbar Buttons and Icons - MAXIMUM VISIBILITY */
+/* ENHANCED: Toolbar Icons with Proper Unicode Symbols */
 .toastui-editor-toolbar-icons,
 .toastui-editor-toolbar-divider,
 .toastui-editor-toolbar-group button,
@@ -65,77 +65,91 @@ div[class*="toastui-editor"] .toastui-editor-defaultUI-toolbar {
 .editor-container .toastui-editor-toolbar-divider,
 .editor-container .toastui-editor-toolbar-group button,
 .editor-container .toastui-editor-toolbar-item button,
-.editor-container .toastui-editor-defaultUI-toolbar button,
-div[class*="toastui-editor"] .toastui-editor-toolbar-icons,
-div[class*="toastui-editor"] .toastui-editor-toolbar-group button,
-div[class*="toastui-editor"] button {
+.editor-container .toastui-editor-defaultUI-toolbar button {
   color: var(--text-primary) !important;
   background: transparent !important;
   border: 1px solid transparent !important;
   border-radius: 4px !important;
   padding: 6px !important;
   margin: 0 2px !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   line-height: 1 !important;
-  min-width: 24px !important;
-  min-height: 24px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  font-family: system-ui !important;
+}
+
+/* ENHANCED: Better Icon Symbols */
+.toastui-editor-toolbar-icons[title*="Bold"]::before,
+button[title*="Bold"]::before { content: "𝐁" !important; font-weight: 900; }
+
+.toastui-editor-toolbar-icons[title*="Italic"]::before,
+button[title*="Italic"]::before { content: "𝐼" !important; font-style: italic; }
+
+.toastui-editor-toolbar-icons[title*="Heading"]::before,
+button[title*="Heading"]::before { content: "𝐇" !important; }
+
+.toastui-editor-toolbar-icons[title*="Strike"]::before,
+button[title*="Strike"]::before { content: "S̶" !important; }
+
+.toastui-editor-toolbar-icons[title*="HR"]::before,
+button[title*="HR"]::before { content: "―" !important; }
+
+.toastui-editor-toolbar-icons[title*="Quote"]::before,
+button[title*="Quote"]::before { content: """ !important; }
+
+.toastui-editor-toolbar-icons[title*="UL"]::before,
+.toastui-editor-toolbar-icons[title*="Bullet"]::before,
+button[title*="UL"]::before,
+button[title*="Bullet"]::before { content: "•" !important; }
+
+.toastui-editor-toolbar-icons[title*="OL"]::before,
+.toastui-editor-toolbar-icons[title*="Ordered"]::before,
+button[title*="OL"]::before,
+button[title*="Ordered"]::before { content: "1." !important; }
+
+.toastui-editor-toolbar-icons[title*="Task"]::before,
+button[title*="Task"]::before { content: "☑" !important; }
+
+.toastui-editor-toolbar-icons[title*="Table"]::before,
+button[title*="Table"]::before { content: "⚏" !important; }
+
+.toastui-editor-toolbar-icons[title*="Image"]::before,
+button[title*="Image"]::before { content: "🖼" !important; }
+
+.toastui-editor-toolbar-icons[title*="Link"]::before,
+button[title*="Link"]::before { content: "🔗" !important; }
+
+.toastui-editor-toolbar-icons[title*="Code"]::before,
+button[title*="Code"]::before { content: "<>" !important; font-family: monospace; }
+
+.toastui-editor-toolbar-icons[title*="Code Block"]::before,
+button[title*="Code Block"]::before { content: "{ }" !important; font-family: monospace; }
+
+/* Hide default SVG content and text */
+.toastui-editor-toolbar-icons svg,
+.toastui-editor-toolbar-group button svg,
+.toastui-editor-toolbar-item button svg {
+  display: none !important;
+}
+
+.toastui-editor-toolbar-icons span,
+.toastui-editor-toolbar-group button span,
+.toastui-editor-toolbar-item button span {
+  display: none !important;
 }
 
 /* Hover states for toolbar buttons */
 .toastui-editor-toolbar-icons:hover,
 .toastui-editor-toolbar-group button:hover,
 .toastui-editor-toolbar-item button:hover,
-.toastui-editor-defaultUI-toolbar button:hover,
-.editor-container .toastui-editor-toolbar-icons:hover,
-.editor-container .toastui-editor-toolbar-group button:hover,
-.editor-container .toastui-editor-toolbar-item button:hover,
-.editor-container .toastui-editor-defaultUI-toolbar button:hover {
+.toastui-editor-defaultUI-toolbar button:hover {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-hover) !important;
   color: var(--text-primary) !important;
-}
-
-/* CRITICAL: Toolbar Icons SVG - Force visibility */
-.toastui-editor-toolbar-icons svg,
-.toastui-editor-toolbar-group button svg,
-.toastui-editor-toolbar-item button svg,
-.editor-container .toastui-editor-toolbar-icons svg,
-.editor-container .toastui-editor-toolbar-group button svg,
-.editor-container .toastui-editor-toolbar-item button svg,
-div[class*="toastui-editor"] svg {
-  fill: var(--text-primary) !important;
-  stroke: var(--text-primary) !important;
-  width: 16px !important;
-  height: 16px !important;
-  opacity: 1 !important;
-  display: inline-block !important;
-}
-
-/* FALLBACK: Text labels for toolbar buttons */
-.toastui-editor-toolbar-icons[title]::after,
-.toastui-editor-toolbar-group button[title]::after,
-.toastui-editor-toolbar-item button[title]::after {
-  content: attr(title) !important;
-  font-size: 10px !important;
-  color: var(--text-primary) !important;
-  position: absolute !important;
-  bottom: -2px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  white-space: nowrap !important;
-  pointer-events: none !important;
-}
-
-/* Ensure toolbar text is visible */
-.toastui-editor-toolbar-icons span,
-.toastui-editor-toolbar-group button span,
-.toastui-editor-toolbar-item button span,
-div[class*="toastui-editor"] span {
-  color: var(--text-primary) !important;
-  font-size: 12px !important;
 }
 
 /* Toolbar Separators */
@@ -170,13 +184,13 @@ div[class*="toastui-editor"] span {
   background: var(--bg-tertiary) !important;
 }
 
-/* Editor Content Areas */
+/* Editor Content Areas with Zoom Support */
 .toastui-editor .ProseMirror,
 .editor-container .toastui-editor .ProseMirror {
   background: var(--bg-primary) !important;
   color: var(--text-primary) !important;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
-  font-size: 14px !important;
+  font-size: var(--editor-font-size, 14px) !important;
   line-height: 1.6 !important;
   padding: 16px !important;
   border: none !important;
@@ -194,6 +208,7 @@ div[class*="toastui-editor"] span {
   color: var(--text-primary) !important;
   padding: 16px !important;
   border: none !important;
+  font-size: var(--editor-font-size, 14px) !important;
 }
 
 .toastui-editor-md-splitter,
@@ -202,7 +217,7 @@ div[class*="toastui-editor"] span {
   width: 1px !important;
 }
 
-/* CODE BLOCKS - CRITICAL STYLING */
+/* CODE BLOCKS */
 .toastui-editor-md-preview pre,
 .toastui-editor .ProseMirror pre,
 .editor-container .toastui-editor-md-preview pre,
@@ -213,6 +228,7 @@ div[class*="toastui-editor"] span {
   color: var(--text-primary) !important;
   padding: 16px !important;
   overflow-x: auto !important;
+  font-size: calc(var(--editor-font-size, 14px) * 0.9) !important;
 }
 
 .toastui-editor-md-preview code,
@@ -223,11 +239,11 @@ div[class*="toastui-editor"] span {
   color: var(--text-primary) !important;
   padding: 2px 6px !important;
   border-radius: 4px !important;
-  font-size: 13px !important;
+  font-size: calc(var(--editor-font-size, 14px) * 0.9) !important;
   border: 1px solid var(--border-color) !important;
 }
 
-/* TABLES - CRITICAL HEADER FIXES */
+/* TABLES */
 .toastui-editor-md-preview table,
 .toastui-editor .ProseMirror table,
 .editor-container .toastui-editor-md-preview table,
@@ -236,6 +252,7 @@ div[class*="toastui-editor"] span {
   border: 1px solid var(--border-color) !important;
   width: 100% !important;
   margin: 16px 0 !important;
+  font-size: var(--editor-font-size, 14px) !important;
 }
 
 .toastui-editor-md-preview th,
@@ -251,7 +268,7 @@ div[class*="toastui-editor"] span {
   text-align: left !important;
 }
 
-/* TABLE HEADERS - MAXIMUM VISIBILITY FIXES */
+/* TABLE HEADERS */
 .toastui-editor-md-preview th,
 .toastui-editor .ProseMirror th,
 .editor-container .toastui-editor-md-preview th,
@@ -281,6 +298,7 @@ div[class*="toastui-editor"] span {
   background: var(--bg-secondary) !important;
   color: var(--text-secondary) !important;
   font-style: italic !important;
+  font-size: var(--editor-font-size, 14px) !important;
 }
 
 /* Links */
@@ -310,6 +328,7 @@ div[class*="toastui-editor"] span {
 .editor-container .toastui-editor .ProseMirror ol {
   margin: 16px 0 !important;
   padding-left: 24px !important;
+  font-size: var(--editor-font-size, 14px) !important;
 }
 
 .toastui-editor-md-preview li,
@@ -319,7 +338,7 @@ div[class*="toastui-editor"] span {
   margin: 4px 0 !important;
 }
 
-/* Headings */
+/* Headings with font scaling */
 .toastui-editor-md-preview h1,
 .toastui-editor-md-preview h2,
 .toastui-editor-md-preview h3,
@@ -354,7 +373,7 @@ div[class*="toastui-editor"] span {
 .toastui-editor .ProseMirror h1,
 .editor-container .toastui-editor-md-preview h1,
 .editor-container .toastui-editor .ProseMirror h1 {
-  font-size: 2rem !important;
+  font-size: calc(var(--editor-font-size, 14px) * 2) !important;
   border-bottom: 2px solid var(--border-color) !important;
   padding-bottom: 8px !important;
 }
@@ -363,9 +382,37 @@ div[class*="toastui-editor"] span {
 .toastui-editor .ProseMirror h2,
 .editor-container .toastui-editor-md-preview h2,
 .editor-container .toastui-editor .ProseMirror h2 {
-  font-size: 1.5rem !important;
+  font-size: calc(var(--editor-font-size, 14px) * 1.5) !important;
   border-bottom: 1px solid var(--border-color) !important;
   padding-bottom: 4px !important;
+}
+
+.toastui-editor-md-preview h3,
+.toastui-editor .ProseMirror h3,
+.editor-container .toastui-editor-md-preview h3,
+.editor-container .toastui-editor .ProseMirror h3 {
+  font-size: calc(var(--editor-font-size, 14px) * 1.3) !important;
+}
+
+.toastui-editor-md-preview h4,
+.toastui-editor .ProseMirror h4,
+.editor-container .toastui-editor-md-preview h4,
+.editor-container .toastui-editor .ProseMirror h4 {
+  font-size: calc(var(--editor-font-size, 14px) * 1.2) !important;
+}
+
+.toastui-editor-md-preview h5,
+.toastui-editor .ProseMirror h5,
+.editor-container .toastui-editor-md-preview h5,
+.editor-container .toastui-editor .ProseMirror h5 {
+  font-size: calc(var(--editor-font-size, 14px) * 1.1) !important;
+}
+
+.toastui-editor-md-preview h6,
+.toastui-editor .ProseMirror h6,
+.editor-container .toastui-editor-md-preview h6,
+.editor-container .toastui-editor .ProseMirror h6 {
+  font-size: var(--editor-font-size, 14px) !important;
 }
 
 /* Selection styling */
@@ -454,16 +501,6 @@ div[class*="toastui-editor"] span {
 .editor-container .toastui-editor-popup button:hover {
   background: var(--accent-hover) !important;
 }
-
-/* EMERGENCY FALLBACK: If SVG icons don't work, show text labels */
-.toastui-editor-toolbar-icons:empty::before { content: "B" !important; } /* Bold */
-.toastui-editor-toolbar-icons[aria-label*="italic"]:empty::before { content: "I" !important; }
-.toastui-editor-toolbar-icons[aria-label*="heading"]:empty::before { content: "H" !important; }
-.toastui-editor-toolbar-icons[aria-label*="strike"]:empty::before { content: "S" !important; }
-.toastui-editor-toolbar-icons[aria-label*="list"]:empty::before { content: "•" !important; }
-.toastui-editor-toolbar-icons[aria-label*="table"]:empty::before { content: "□" !important; }
-.toastui-editor-toolbar-icons[aria-label*="link"]:empty::before { content: "🔗" !important; }
-.toastui-editor-toolbar-icons[aria-label*="code"]:empty::before { content: "<>" !important; }
 
 /* Force all text in toolbar to be visible */
 .toastui-editor-defaultUI-toolbar * {
