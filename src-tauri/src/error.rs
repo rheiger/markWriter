@@ -89,25 +89,6 @@ impl MarkWriterError {
     }
 }
 
-// Standard error trait implementations
-impl std::fmt::Display for MarkWriterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MarkWriterError::FileError { message } => write!(f, "File error: {}", message),
-            MarkWriterError::PermissionError { message } => write!(f, "Permission error: {}", message),
-            MarkWriterError::InvalidInput { message } => write!(f, "Invalid input: {}", message),
-            MarkWriterError::ConfigError { message } => write!(f, "Configuration error: {}", message),
-            MarkWriterError::DocumentError { message } => write!(f, "Document error: {}", message),
-            MarkWriterError::SystemError { message } => write!(f, "System error: {}", message),
-            MarkWriterError::NetworkError { message } => write!(f, "Network error: {}", message),
-            MarkWriterError::SerializationError { message } => write!(f, "Serialization error: {}", message),
-            MarkWriterError::InternalError { message } => write!(f, "Internal error: {}", message),
-        }
-    }
-}
-
-impl std::error::Error for MarkWriterError {}
-
 // Conversion from std::io::Error
 impl From<std::io::Error> for MarkWriterError {
     fn from(err: std::io::Error) -> Self {
