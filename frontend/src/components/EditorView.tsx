@@ -7,6 +7,7 @@ import { defaultKeymap } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
 import { marked } from 'marked'
 import { useAppStore } from '../store/useAppStore'
+import './EditorView.css'
 
 export interface EditorViewRef {
   getMarkdown: () => string
@@ -61,14 +62,14 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       extensions: [
         markdown(),
         keymap.of([...defaultKeymap, ...searchKeymap]),
-        EditorView.updateListener.of((update) => {
+        CodeMirrorView.updateListener.of((update) => {
           if (update.docChanged) {
             const content = update.state.doc.toString()
             updateDocumentContent(content)
             updatePreview(content)
           }
         }),
-        EditorView.theme({
+        CodeMirrorView.theme({
           '&': {
             fontSize: '14px',
             fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
@@ -139,14 +140,14 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         extensions: [
           markdown(),
           keymap.of([...defaultKeymap, ...searchKeymap]),
-          EditorView.updateListener.of((update) => {
+          CodeMirrorView.updateListener.of((update) => {
             if (update.docChanged) {
               const newContent = update.state.doc.toString()
               updateDocumentContent(newContent)
               updatePreview(newContent)
             }
           }),
-          EditorView.theme({
+          CodeMirrorView.theme({
             '&': {
               fontSize: '14px',
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
@@ -258,6 +259,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         </div>
         <div 
           ref={previewRef}
+          className="markwriter-preview"
           style={{ 
             flex: 1, 
             overflow: 'auto',
