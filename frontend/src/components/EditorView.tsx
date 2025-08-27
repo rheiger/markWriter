@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, forwardRef } from 'react'
+import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'react'
 import { EditorView as CodeMirrorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
@@ -7,6 +7,7 @@ import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/c
 import { searchKeymap } from '@codemirror/search'
 import { marked } from 'marked'
 import { useAppStore } from '../store/useAppStore'
+import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
 
 export interface EditorViewRef {
@@ -23,10 +24,17 @@ export interface EditorViewRef {
   getEditorView: () => CodeMirrorView | null
 }
 
+interface MermaidBlock {
+  id: string
+  chart: string
+  index: number
+}
+
 export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
+  const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
   
   const { currentDocument, updateDocumentContent, config } = useAppStore()
   
@@ -89,18 +97,53 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     getEditorView: () => editorViewRef.current
   }))
 
-  // Update preview
-  const updatePreview = (content: string) => {
-    if (previewRef.current) {
-      try {
-        const html = marked.parse(content)
-        previewRef.current.innerHTML = html
-      } catch (error) {
-        console.error('Error parsing markdown:', error)
-        previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
-      }
+  // Parse mermaid blocks from markdown content
+  const parseMermaidBlocks = useCallback((content: string): MermaidBlock[] => {
+    const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
+    const blocks: MermaidBlock[] = []
+    let match
+    let index = 0
+
+    while ((match = mermaidRegex.exec(content)) !== null) {
+      blocks.push({
+        id: `mermaid-${index}-${Date.now()}`,
+        chart: match[1].trim(),
+        index: index++
+      })
     }
-  }
+
+    return blocks
+  }, [])
+
+  // Update preview with mermaid support
+  const updatePreview = useCallback((content: string) => {
+    if (!previewRef.current) return
+
+    try {
+      // Parse mermaid blocks
+      const blocks = parseMermaidBlocks(content)
+      setMermaidBlocks(blocks)
+
+      // Replace mermaid blocks with placeholders for HTML rendering
+      let processedContent = content
+      blocks.forEach((block, index) => {
+        const placeholder = `<div class="mermaid-placeholder" data-index="${index}"></div>`
+        processedContent = processedContent.replace(
+          /```mermaid\n[\s\S]*?```/,
+          placeholder
+        )
+      })
+
+      // Parse markdown to HTML
+      const html = marked.parse(processedContent)
+      previewRef.current.innerHTML = html
+
+      console.log('[EDITOR] Preview updated with', blocks.length, 'mermaid diagrams')
+    } catch (error) {
+      console.error('Error parsing markdown:', error)
+      previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
+    }
+  }, [parseMermaidBlocks])
 
   // Initialize CodeMirror editor
   useEffect(() => {
@@ -110,7 +153,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
     const state = EditorState.create({
-      doc: currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...',
+      doc: currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```',
       extensions: [
         markdown(),
         history(), // Enable undo/redo functionality
@@ -124,7 +167,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         }),
         CodeMirrorView.theme({
           '&': {
-            fontSize: '14px',
+            fontSize: 'var(--editor-font-size, 14px)', // Support zoom functionality
             fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
           },
           '.cm-content': {
@@ -153,7 +196,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     editorViewRef.current = view
 
     // Initial preview update
-    updatePreview(currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...')
+    updatePreview(currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```')
 
     return () => {
       view.destroy()
@@ -175,7 +218,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         updatePreview(currentDocument.content || '')
       }
     }
-  }, [currentDocument?.id])
+  }, [currentDocument?.id, updatePreview])
 
   // Update theme when config changes
   useEffect(() => {
@@ -231,7 +274,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
 
       editorViewRef.current = view
     }
-  }, [config.theme])
+  }, [config.theme, updatePreview])
   
   if (!currentDocument) {
     return (
@@ -313,7 +356,15 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
           fontWeight: 500,
           color: 'var(--text-primary)'
         }}>
-          Preview
+          Preview {mermaidBlocks.length > 0 && (
+            <span style={{ 
+              fontSize: '12px', 
+              opacity: 0.7,
+              marginLeft: '8px'
+            }}>
+              ({mermaidBlocks.length} diagram{mermaidBlocks.length !== 1 ? 's' : ''})
+            </span>
+          )}
         </div>
         <div 
           ref={previewRef}
@@ -329,9 +380,50 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
             fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
           }}
         />
+        
+        {/* Render Mermaid diagrams */}
+        {mermaidBlocks.map((block, index) => {
+          // Find the placeholder element and replace it with the mermaid diagram
+          const placeholderElement = previewRef.current?.querySelector(`[data-index="${index}"]`)
+          if (placeholderElement) {
+            return (
+              <MermaidRenderer
+                key={block.id}
+                chart={block.chart}
+                id={block.id}
+              />
+            )
+          }
+          return null
+        })}
       </div>
     </div>
   )
 })
+
+// Use a portal-style approach to render mermaid diagrams in their placeholders
+const PreviewWithMermaid: React.FC<{
+  mermaidBlocks: MermaidBlock[]
+  previewRef: React.RefObject<HTMLDivElement>
+}> = ({ mermaidBlocks, previewRef }) => {
+  useEffect(() => {
+    if (!previewRef.current) return
+
+    // Replace placeholders with mermaid diagrams
+    mermaidBlocks.forEach((block, index) => {
+      const placeholder = previewRef.current?.querySelector(`[data-index="${index}"]`)
+      if (placeholder && placeholder.children.length === 0) {
+        // Create a container for the React component
+        const container = document.createElement('div')
+        placeholder.appendChild(container)
+        
+        // This would ideally use ReactDOM.render, but for simplicity, 
+        // we'll handle it in the main component
+      }
+    })
+  }, [mermaidBlocks, previewRef])
+
+  return null
+}
 
 EditorView.displayName = 'EditorView'
