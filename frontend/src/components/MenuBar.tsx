@@ -32,15 +32,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const handleNew = async () => {
     try {
       await createNewDocument()
-      console.log('Created new document')
+      console.log('[MENU] Created new document')
     } catch (error) {
-      console.error('Failed to create new document:', error)
+      console.error('[MENU] Failed to create new document:', error)
     }
     setActiveMenu(null)
   }
 
   const handleOpen = async () => {
     try {
+      console.log('[MENU] Opening file dialog...')
       const selected = await open({
         multiple: false,
         filters: [
@@ -51,12 +52,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         ]
       })
       
+      console.log('[MENU] File dialog result:', selected)
+      
       if (selected && typeof selected === 'string') {
+        console.log('[MENU] Opening document:', selected)
         await openDocument(selected)
-        console.log('Opened document:', selected)
+        console.log('[MENU] Document opened successfully')
       }
     } catch (error) {
-      console.error('Failed to open file:', error)
+      console.error('[MENU] Failed to open file:', error)
+      // Show user-friendly error
+      alert(`Failed to open file: ${error}`)
     }
     setActiveMenu(null)
   }
@@ -64,19 +70,23 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const handleSave = async () => {
     try {
       if (currentDocument?.path) {
+        console.log('[MENU] Saving document to:', currentDocument.path)
         await saveDocument()
-        console.log('Saved document')
+        console.log('[MENU] Document saved successfully')
       } else {
+        console.log('[MENU] No path available, using Save As')
         await handleSaveAs()
       }
     } catch (error) {
-      console.error('Failed to save document:', error)
+      console.error('[MENU] Failed to save document:', error)
+      alert(`Failed to save document: ${error}`)
     }
     setActiveMenu(null)
   }
 
   const handleSaveAs = async () => {
     try {
+      console.log('[MENU] Opening Save As dialog...')
       const selected = await save({
         filters: [
           {
@@ -86,18 +96,23 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         ]
       })
       
+      console.log('[MENU] Save As dialog result:', selected)
+      
       if (selected) {
+        console.log('[MENU] Saving document as:', selected)
         await saveDocumentAs(selected)
-        console.log('Saved document as:', selected)
+        console.log('[MENU] Document saved as successfully')
       }
     } catch (error) {
-      console.error('Failed to save file:', error)
+      console.error('[MENU] Failed to save file:', error)
+      alert(`Failed to save file: ${error}`)
     }
     setActiveMenu(null)
   }
 
   const handleExportHTML = async () => {
     try {
+      console.log('[MENU] Opening Export HTML dialog...')
       const selected = await save({
         filters: [
           {
@@ -107,12 +122,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         ]
       })
       
+      console.log('[MENU] Export dialog result:', selected)
+      
       if (selected) {
+        console.log('[MENU] Exporting document as HTML:', selected)
         await exportDocument(selected, 'html')
-        console.log('Exported document as HTML:', selected)
+        console.log('[MENU] Document exported successfully')
       }
     } catch (error) {
-      console.error('Failed to export file:', error)
+      console.error('[MENU] Failed to export file:', error)
+      alert(`Failed to export file: ${error}`)
     }
     setActiveMenu(null)
   }
@@ -121,7 +140,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     try {
       await invoke('quit_app')
     } catch (error) {
-      console.error('Failed to quit app:', error)
+      console.error('[MENU] Failed to quit app:', error)
     }
   }
 
@@ -131,12 +150,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     if (editorInstance && typeof editorInstance.exec === 'function') {
       try {
         editorInstance.exec('undo')
-        console.log('Executed undo')
+        console.log('[MENU] Executed undo')
       } catch (error) {
-        console.error('Undo failed:', error)
+        console.error('[MENU] Undo failed:', error)
       }
     } else {
-      console.warn('Editor instance not available for undo')
+      console.warn('[MENU] Editor instance not available for undo')
     }
     setActiveMenu(null)
   }
@@ -146,12 +165,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     if (editorInstance && typeof editorInstance.exec === 'function') {
       try {
         editorInstance.exec('redo')
-        console.log('Executed redo')
+        console.log('[MENU] Executed redo')
       } catch (error) {
-        console.error('Redo failed:', error)
+        console.error('[MENU] Redo failed:', error)
       }
     } else {
-      console.warn('Editor instance not available for redo')
+      console.warn('[MENU] Editor instance not available for redo')
     }
     setActiveMenu(null)
   }
@@ -201,35 +220,62 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     setActiveMenu(null)
   }
 
-  // Fixed zoom handlers - use CSS custom properties for proper editor scaling
+  // FIXED: Enhanced zoom handlers with stronger CSS targeting
   const handleZoomIn = () => {
-    const editorContainer = document.querySelector('.editor-container') as HTMLElement
-    if (editorContainer) {
-      const currentSize = parseInt(getComputedStyle(editorContainer).getPropertyValue('--editor-font-size') || '14', 10)
+    const editorContainers = [
+      document.querySelector('.editor-container'),
+      document.querySelector('.toastui-editor'),
+      document.querySelector('.toastui-editor-defaultUI')
+    ].filter(Boolean) as HTMLElement[]
+
+    editorContainers.forEach(container => {
+      const currentSize = parseInt(getComputedStyle(container).getPropertyValue('--editor-font-size') || '14', 10)
       const newSize = Math.min(currentSize + 2, 24)
-      editorContainer.style.setProperty('--editor-font-size', `${newSize}px`)
-      console.log('Zoomed in, font size:', newSize)
-    }
+      container.style.setProperty('--editor-font-size', `${newSize}px`)
+      console.log('[MENU] Zoomed in, font size:', newSize)
+    })
+    
+    // Force editor to re-render font size
+    document.documentElement.style.setProperty('--global-editor-font-size', 
+      `${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--global-editor-font-size') || '14', 10) + 2}px`)
+    
     setActiveMenu(null)
   }
 
   const handleZoomOut = () => {
-    const editorContainer = document.querySelector('.editor-container') as HTMLElement
-    if (editorContainer) {
-      const currentSize = parseInt(getComputedStyle(editorContainer).getPropertyValue('--editor-font-size') || '14', 10)
+    const editorContainers = [
+      document.querySelector('.editor-container'),
+      document.querySelector('.toastui-editor'),
+      document.querySelector('.toastui-editor-defaultUI')
+    ].filter(Boolean) as HTMLElement[]
+
+    editorContainers.forEach(container => {
+      const currentSize = parseInt(getComputedStyle(container).getPropertyValue('--editor-font-size') || '14', 10)
       const newSize = Math.max(currentSize - 2, 10)
-      editorContainer.style.setProperty('--editor-font-size', `${newSize}px`)
-      console.log('Zoomed out, font size:', newSize)
-    }
+      container.style.setProperty('--editor-font-size', `${newSize}px`)
+      console.log('[MENU] Zoomed out, font size:', newSize)
+    })
+    
+    // Force editor to re-render font size
+    document.documentElement.style.setProperty('--global-editor-font-size', 
+      `${Math.max(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--global-editor-font-size') || '14', 10) - 2, 10)}px`)
+    
     setActiveMenu(null)
   }
 
   const handleActualSize = () => {
-    const editorContainer = document.querySelector('.editor-container') as HTMLElement
-    if (editorContainer) {
-      editorContainer.style.setProperty('--editor-font-size', '14px')
-      console.log('Reset to actual size: 14px')
-    }
+    const editorContainers = [
+      document.querySelector('.editor-container'),
+      document.querySelector('.toastui-editor'),
+      document.querySelector('.toastui-editor-defaultUI')
+    ].filter(Boolean) as HTMLElement[]
+
+    editorContainers.forEach(container => {
+      container.style.setProperty('--editor-font-size', '14px')
+    })
+    
+    document.documentElement.style.setProperty('--global-editor-font-size', '14px')
+    console.log('[MENU] Reset to actual size: 14px')
     setActiveMenu(null)
   }
 
@@ -246,64 +292,76 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
 
   const closeMenus = () => setActiveMenu(null)
 
-  // Handle keyboard shortcuts
+  // ENHANCED: Keyboard shortcut handling with Toast UI conflict prevention
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
+      // Prevent Toast UI Editor from intercepting our shortcuts
       if (modKey) {
+        let shouldPrevent = false
+        let actionToExecute: (() => void) | null = null
+
         switch (e.key) {
           case 'n':
-            e.preventDefault()
-            handleNew()
+            shouldPrevent = true
+            actionToExecute = handleNew
             break
           case 'o':
-            e.preventDefault()
-            handleOpen()
+            shouldPrevent = true
+            actionToExecute = handleOpen
             break
           case 's':
-            e.preventDefault()
-            if (e.shiftKey) {
-              handleSaveAs()
-            } else {
-              handleSave()
-            }
+            shouldPrevent = true
+            actionToExecute = e.shiftKey ? handleSaveAs : handleSave
             break
           case 'q':
             if (isMac) {
-              e.preventDefault()
-              handleQuit()
+              shouldPrevent = true
+              actionToExecute = handleQuit
             }
             break
           case 'z':
             if (e.shiftKey) {
-              e.preventDefault()
-              handleRedo()
+              shouldPrevent = true
+              actionToExecute = handleRedo
             } else {
-              e.preventDefault()
-              handleUndo()
+              shouldPrevent = true
+              actionToExecute = handleUndo
             }
             break
           case '=':
           case '+':
-            e.preventDefault()
-            handleZoomIn()
+            shouldPrevent = true
+            actionToExecute = handleZoomIn
             break
           case '-':
-            e.preventDefault()
-            handleZoomOut()
+            shouldPrevent = true
+            actionToExecute = handleZoomOut
             break
           case '0':
-            e.preventDefault()
-            handleActualSize()
+            shouldPrevent = true
+            actionToExecute = handleActualSize
             break
+        }
+
+        if (shouldPrevent) {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+          
+          // Execute action after preventing default
+          if (actionToExecute) {
+            setTimeout(actionToExecute, 0)
+          }
         }
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    // Capture phase to intercept before Toast UI Editor
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
   }, [currentDocument])
 
   return (
