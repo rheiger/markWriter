@@ -97,11 +97,11 @@ fn setup_app(app: &mut App, app_state: AppState) -> Result<()> {
 }
 
 /// Set up global event handlers
-fn setup_event_handlers(app_handle: AppHandle) -> Result<()> {
+fn setup_event_handlers(_app_handle: AppHandle) -> Result<()> {
     tracing::debug!("Setting up event handlers");
     
     // Example: Handle window events
-    let app_handle_clone = app_handle.clone();
+    // Note: Removing unused app_handle_clone variable
     tokio::spawn(async move {
         // Add any background tasks or event listeners here
         tracing::debug!("Background event handlers started");
