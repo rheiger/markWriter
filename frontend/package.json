@@ -30,6 +30,7 @@
     "@codemirror/commands": "^6.3.3",
     "@codemirror/search": "^6.5.5",
     "marked": "^9.1.6",
+    "mermaid": "^10.6.1",
     "lucide-react": "^0.263.1",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0"
