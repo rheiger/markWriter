@@ -37,16 +37,7 @@
       "save": true
     },
     "fs": {
-      "scope": [
-        "$DESKTOP/*",
-        "$DOCUMENT/*",
-        "$DOWNLOAD/*",
-        "$HOME/*",
-        "$RESOURCE/*",
-        "$APP/*",
-        "$LOG/*",
-        "$TEMP/*"
-      ]
+      "requireLiteralLeadingDot": false
     }
   }
 }
