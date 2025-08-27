@@ -23,8 +23,13 @@
     "react-dom": "^18.2.0",
     "zustand": "^4.4.0",
     "react-router-dom": "^6.15.0",
-    "@toast-ui/react-editor": "^3.2.3",
-    "@toast-ui/editor": "^3.2.2",
+    "@codemirror/state": "^6.3.3",
+    "@codemirror/view": "^6.22.0",
+    "@codemirror/lang-markdown": "^6.2.4",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/commands": "^6.3.3",
+    "@codemirror/search": "^6.5.5",
+    "marked": "^9.1.6",
     "lucide-react": "^0.263.1",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0"
@@ -32,6 +37,7 @@
   "devDependencies": {
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
+    "@types/marked": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.3",
@@ -46,12 +52,6 @@
     "vite": "^4.4.5",
     "vitest": "^0.34.0",
     "@vitest/ui": "^0.34.0"
-  },
-  "overrides": {
-    "@toast-ui/react-editor": {
-      "react": "^18.2.0",
-      "react-dom": "^18.2.0"
-    }
   },
   "engines": {
     "node": ">=18.0.0",
