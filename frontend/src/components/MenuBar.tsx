@@ -1,15 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAppStore, useTheme } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import { Editor } from '@toast-ui/react-editor'
+import { EditorViewRef } from './EditorView'
 import './MenuBar.css'
 
 interface MenuBarProps {
-  editorRef?: React.RefObject<Editor>
+  editorViewRef?: React.RefObject<EditorViewRef>
 }
 
-export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
+export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const {
     currentDocument,
     createNewDocument,
@@ -22,9 +22,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
 
+  // Helper function to get editor instance
+  const getEditorInstance = () => {
+    const editorRef = editorViewRef?.current?.getEditorRef()
+    return editorRef?.current?.getInstance()
+  }
+
   // File menu handlers
   const handleNew = async () => {
-    await createNewDocument()
+    try {
+      await createNewDocument()
+      console.log('Created new document')
+    } catch (error) {
+      console.error('Failed to create new document:', error)
+    }
     setActiveMenu(null)
   }
 
@@ -42,6 +53,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
       
       if (selected && typeof selected === 'string') {
         await openDocument(selected)
+        console.log('Opened document:', selected)
       }
     } catch (error) {
       console.error('Failed to open file:', error)
@@ -50,10 +62,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
   }
 
   const handleSave = async () => {
-    if (currentDocument?.path) {
-      await saveDocument()
-    } else {
-      await handleSaveAs()
+    try {
+      if (currentDocument?.path) {
+        await saveDocument()
+        console.log('Saved document')
+      } else {
+        await handleSaveAs()
+      }
+    } catch (error) {
+      console.error('Failed to save document:', error)
     }
     setActiveMenu(null)
   }
@@ -71,6 +88,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
       
       if (selected) {
         await saveDocumentAs(selected)
+        console.log('Saved document as:', selected)
       }
     } catch (error) {
       console.error('Failed to save file:', error)
@@ -91,6 +109,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
       
       if (selected) {
         await exportDocument(selected, 'html')
+        console.log('Exported document as HTML:', selected)
       }
     } catch (error) {
       console.error('Failed to export file:', error)
@@ -108,64 +127,61 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
 
   // Edit menu handlers - Toast UI Editor integration
   const handleUndo = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      if (editorInstance && typeof editorInstance.exec === 'function') {
+    const editorInstance = getEditorInstance()
+    if (editorInstance && typeof editorInstance.exec === 'function') {
+      try {
         editorInstance.exec('undo')
+        console.log('Executed undo')
+      } catch (error) {
+        console.error('Undo failed:', error)
       }
+    } else {
+      console.warn('Editor instance not available for undo')
     }
     setActiveMenu(null)
   }
 
   const handleRedo = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      if (editorInstance && typeof editorInstance.exec === 'function') {
+    const editorInstance = getEditorInstance()
+    if (editorInstance && typeof editorInstance.exec === 'function') {
+      try {
         editorInstance.exec('redo')
+        console.log('Executed redo')
+      } catch (error) {
+        console.error('Redo failed:', error)
       }
+    } else {
+      console.warn('Editor instance not available for redo')
     }
     setActiveMenu(null)
   }
 
   const handleCut = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      // For Toast UI Editor, we'll use the browser's built-in cut
-      document.execCommand('cut')
-    }
+    // Use browser's built-in cut
+    document.execCommand('cut')
     setActiveMenu(null)
   }
 
   const handleCopy = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      // Use browser's built-in copy
-      document.execCommand('copy')
-    }
+    // Use browser's built-in copy
+    document.execCommand('copy')
     setActiveMenu(null)
   }
 
   const handlePaste = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      // Use browser's built-in paste
-      document.execCommand('paste')
-    }
+    // Use browser's built-in paste
+    document.execCommand('paste')
     setActiveMenu(null)
   }
 
   const handleSelectAll = () => {
-    if (editorRef?.current) {
-      const editorInstance = editorRef.current.getInstance()
-      // Use browser's built-in select all
-      document.execCommand('selectAll')
-    }
+    // Use browser's built-in select all
+    document.execCommand('selectAll')
     setActiveMenu(null)
   }
 
   const handleFind = () => {
-    // TODO: Implement find/replace functionality
-    // For now, just use browser's built-in find
+    // Use browser's built-in find
     if (navigator.userAgent.includes('Mac')) {
       // Use Cmd+F on Mac
       const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true })
@@ -185,25 +201,35 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorRef }) => {
     setActiveMenu(null)
   }
 
+  // Fixed zoom handlers - only affect editor content
   const handleZoomIn = () => {
-    // Implement zoom functionality
-    const currentZoom = parseFloat(document.body.style.zoom || '1')
-    const newZoom = Math.min(currentZoom + 0.1, 2.0)
-    document.body.style.zoom = newZoom.toString()
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement
+    if (editorContainer) {
+      const currentZoom = parseFloat(editorContainer.style.fontSize || '14px')
+      const newSize = Math.min(currentZoom + 2, 24)
+      editorContainer.style.fontSize = `${newSize}px`
+      console.log('Zoomed in, font size:', newSize)
+    }
     setActiveMenu(null)
   }
 
   const handleZoomOut = () => {
-    // Implement zoom functionality  
-    const currentZoom = parseFloat(document.body.style.zoom || '1')
-    const newZoom = Math.max(currentZoom - 0.1, 0.5)
-    document.body.style.zoom = newZoom.toString()
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement
+    if (editorContainer) {
+      const currentZoom = parseFloat(editorContainer.style.fontSize || '14px')
+      const newSize = Math.max(currentZoom - 2, 10)
+      editorContainer.style.fontSize = `${newSize}px`
+      console.log('Zoomed out, font size:', newSize)
+    }
     setActiveMenu(null)
   }
 
   const handleActualSize = () => {
-    // Reset zoom to 100%
-    document.body.style.zoom = '1'
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement
+    if (editorContainer) {
+      editorContainer.style.fontSize = '14px'
+      console.log('Reset to actual size')
+    }
     setActiveMenu(null)
   }
 
