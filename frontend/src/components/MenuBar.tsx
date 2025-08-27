@@ -22,12 +22,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
 
-  // Helper function to get editor instance
-  const getEditorInstance = () => {
-    const editorRef = editorViewRef?.current?.getEditorRef()
-    return editorRef?.current?.getInstance()
-  }
-
   // File menu handlers
   const handleNew = async () => {
     try {
@@ -144,71 +138,115 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     }
   }
 
-  // Edit menu handlers - Toast UI Editor integration
+  // Edit menu handlers - CodeMirror 6 integration
   const handleUndo = () => {
-    const editorInstance = getEditorInstance()
-    if (editorInstance && typeof editorInstance.exec === 'function') {
+    if (editorViewRef?.current) {
       try {
-        editorInstance.exec('undo')
+        editorViewRef.current.undo()
         console.log('[MENU] Executed undo')
       } catch (error) {
         console.error('[MENU] Undo failed:', error)
       }
     } else {
-      console.warn('[MENU] Editor instance not available for undo')
+      console.warn('[MENU] Editor reference not available for undo')
     }
     setActiveMenu(null)
   }
 
   const handleRedo = () => {
-    const editorInstance = getEditorInstance()
-    if (editorInstance && typeof editorInstance.exec === 'function') {
+    if (editorViewRef?.current) {
       try {
-        editorInstance.exec('redo')
+        editorViewRef.current.redo()
         console.log('[MENU] Executed redo')
       } catch (error) {
         console.error('[MENU] Redo failed:', error)
       }
     } else {
-      console.warn('[MENU] Editor instance not available for redo')
+      console.warn('[MENU] Editor reference not available for redo')
     }
     setActiveMenu(null)
   }
 
-  const handleCut = () => {
-    // Use browser's built-in cut
-    document.execCommand('cut')
+  const handleCut = async () => {
+    if (editorViewRef?.current) {
+      try {
+        const selection = editorViewRef.current.getSelection()
+        if (selection) {
+          await navigator.clipboard.writeText(selection)
+          editorViewRef.current.insertText('') // Replace selection with empty string
+          console.log('[MENU] Cut selection to clipboard')
+        }
+      } catch (error) {
+        console.error('[MENU] Cut failed:', error)
+      }
+    }
     setActiveMenu(null)
   }
 
-  const handleCopy = () => {
-    // Use browser's built-in copy
-    document.execCommand('copy')
+  const handleCopy = async () => {
+    if (editorViewRef?.current) {
+      try {
+        const selection = editorViewRef.current.getSelection()
+        if (selection) {
+          await navigator.clipboard.writeText(selection)
+          console.log('[MENU] Copied selection to clipboard')
+        }
+      } catch (error) {
+        console.error('[MENU] Copy failed:', error)
+      }
+    }
     setActiveMenu(null)
   }
 
-  const handlePaste = () => {
-    // Use browser's built-in paste
-    document.execCommand('paste')
+  const handlePaste = async () => {
+    if (editorViewRef?.current) {
+      try {
+        const text = await navigator.clipboard.readText()
+        editorViewRef.current.insertText(text)
+        console.log('[MENU] Pasted from clipboard')
+      } catch (error) {
+        console.error('[MENU] Paste failed:', error)
+      }
+    }
     setActiveMenu(null)
   }
 
   const handleSelectAll = () => {
-    // Use browser's built-in select all
-    document.execCommand('selectAll')
+    if (editorViewRef?.current) {
+      try {
+        editorViewRef.current.selectAll()
+        console.log('[MENU] Selected all text')
+      } catch (error) {
+        console.error('[MENU] Select All failed:', error)
+      }
+    }
     setActiveMenu(null)
   }
 
   const handleFind = () => {
-    // Use browser's built-in find
-    if (navigator.userAgent.includes('Mac')) {
-      // Use Cmd+F on Mac
-      const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true })
-      document.dispatchEvent(event)
-    } else {
-      // Use Ctrl+F on Windows/Linux
-      const event = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true })
-      document.dispatchEvent(event)
+    if (editorViewRef?.current) {
+      try {
+        // Focus the editor first
+        editorViewRef.current.focus()
+        
+        // Use keyboard shortcut to trigger CodeMirror's built-in search
+        const isMac = navigator.userAgent.includes('Mac')
+        const event = new KeyboardEvent('keydown', { 
+          key: 'f', 
+          [isMac ? 'metaKey' : 'ctrlKey']: true,
+          bubbles: true
+        })
+        
+        // Get the editor view and dispatch the event to it
+        const editorView = editorViewRef.current.getEditorView()
+        if (editorView?.dom) {
+          editorView.dom.dispatchEvent(event)
+        }
+        
+        console.log('[MENU] Triggered find dialog')
+      } catch (error) {
+        console.error('[MENU] Find failed:', error)
+      }
     }
     setActiveMenu(null)
   }
@@ -220,62 +258,64 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     setActiveMenu(null)
   }
 
-  // FIXED: Enhanced zoom handlers with stronger CSS targeting
+  // Updated zoom handlers for CodeMirror 6
   const handleZoomIn = () => {
-    const editorContainers = [
-      document.querySelector('.editor-container'),
-      document.querySelector('.toastui-editor'),
-      document.querySelector('.toastui-editor-defaultUI')
-    ].filter(Boolean) as HTMLElement[]
-
-    editorContainers.forEach(container => {
-      const currentSize = parseInt(getComputedStyle(container).getPropertyValue('--editor-font-size') || '14', 10)
-      const newSize = Math.min(currentSize + 2, 24)
-      container.style.setProperty('--editor-font-size', `${newSize}px`)
-      console.log('[MENU] Zoomed in, font size:', newSize)
-    })
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement
+    const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
     
-    // Force editor to re-render font size
-    document.documentElement.style.setProperty('--global-editor-font-size', 
-      `${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--global-editor-font-size') || '14', 10) + 2}px`)
-    
+    if (editorContainer || previewPane) {
+      // Get current font sizes or use defaults
+      const currentEditorSize = parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue('--editor-font-size') || '14', 10
+      )
+      const currentPreviewSize = parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
+      )
+      
+      // Increase font sizes (max 24px for editor, 26px for preview)
+      const newEditorSize = Math.min(currentEditorSize + 2, 24)
+      const newPreviewSize = Math.min(currentPreviewSize + 2, 26)
+      
+      // Set CSS variables
+      document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
+      document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
+      
+      console.log('[MENU] Zoomed in - Editor:', newEditorSize, 'Preview:', newPreviewSize)
+    }
     setActiveMenu(null)
   }
 
   const handleZoomOut = () => {
-    const editorContainers = [
-      document.querySelector('.editor-container'),
-      document.querySelector('.toastui-editor'),
-      document.querySelector('.toastui-editor-defaultUI')
-    ].filter(Boolean) as HTMLElement[]
-
-    editorContainers.forEach(container => {
-      const currentSize = parseInt(getComputedStyle(container).getPropertyValue('--editor-font-size') || '14', 10)
-      const newSize = Math.max(currentSize - 2, 10)
-      container.style.setProperty('--editor-font-size', `${newSize}px`)
-      console.log('[MENU] Zoomed out, font size:', newSize)
-    })
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement
+    const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
     
-    // Force editor to re-render font size
-    document.documentElement.style.setProperty('--global-editor-font-size', 
-      `${Math.max(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--global-editor-font-size') || '14', 10) - 2, 10)}px`)
-    
+    if (editorContainer || previewPane) {
+      // Get current font sizes or use defaults
+      const currentEditorSize = parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue('--editor-font-size') || '14', 10
+      )
+      const currentPreviewSize = parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
+      )
+      
+      // Decrease font sizes (min 10px for editor, 12px for preview)
+      const newEditorSize = Math.max(currentEditorSize - 2, 10)
+      const newPreviewSize = Math.max(currentPreviewSize - 2, 12)
+      
+      // Set CSS variables
+      document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
+      document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
+      
+      console.log('[MENU] Zoomed out - Editor:', newEditorSize, 'Preview:', newPreviewSize)
+    }
     setActiveMenu(null)
   }
 
   const handleActualSize = () => {
-    const editorContainers = [
-      document.querySelector('.editor-container'),
-      document.querySelector('.toastui-editor'),
-      document.querySelector('.toastui-editor-defaultUI')
-    ].filter(Boolean) as HTMLElement[]
-
-    editorContainers.forEach(container => {
-      container.style.setProperty('--editor-font-size', '14px')
-    })
-    
-    document.documentElement.style.setProperty('--global-editor-font-size', '14px')
-    console.log('[MENU] Reset to actual size: 14px')
+    // Reset to default sizes
+    document.documentElement.style.setProperty('--editor-font-size', '14px')
+    document.documentElement.style.setProperty('--preview-font-size', '16px')
+    console.log('[MENU] Reset to actual size - Editor: 14px, Preview: 16px')
     setActiveMenu(null)
   }
 
@@ -292,13 +332,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
 
   const closeMenus = () => setActiveMenu(null)
 
-  // ENHANCED: Keyboard shortcut handling with Toast UI conflict prevention
+  // Keyboard shortcut handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
-      // Prevent Toast UI Editor from intercepting our shortcuts
       if (modKey) {
         let shouldPrevent = false
         let actionToExecute: (() => void) | null = null
@@ -331,6 +370,22 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               actionToExecute = handleUndo
             }
             break
+          case 'x':
+            shouldPrevent = true
+            actionToExecute = handleCut
+            break
+          case 'c':
+            shouldPrevent = true
+            actionToExecute = handleCopy
+            break
+          case 'v':
+            shouldPrevent = true
+            actionToExecute = handlePaste
+            break
+          case 'a':
+            shouldPrevent = true
+            actionToExecute = handleSelectAll
+            break
           case '=':
           case '+':
             shouldPrevent = true
@@ -349,9 +404,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         if (shouldPrevent) {
           e.preventDefault()
           e.stopPropagation()
-          e.stopImmediatePropagation()
           
-          // Execute action after preventing default
+          // Execute action
           if (actionToExecute) {
             setTimeout(actionToExecute, 0)
           }
@@ -359,9 +413,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       }
     }
 
-    // Capture phase to intercept before Toast UI Editor
-    document.addEventListener('keydown', handleKeyDown, true)
-    return () => document.removeEventListener('keydown', handleKeyDown, true)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [currentDocument])
 
   return (
