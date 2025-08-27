@@ -1,283 +1,302 @@
 # AI Agent Guidelines for MarkWriter Project
 
-**Version**: 1.0  
-**Last Updated**: August 26, 2025  
+**Version**: 1.1  
+**Last Updated**: August 27, 2025  
 **Target Version**: v0.2.1 → v2.0.0  
 
 ## Project Overview
 
-MarkWriter is a minimal, cross-platform Markdown editor built with Python and Qt (PySide6), featuring Toast UI Editor in a Qt WebEngine view. The project is currently at **v0.2.4** and planning a comprehensive architectural rewrite to Rust+Tauri+React for v2.0.0.
+MarkWriter is a minimal, cross-platform Markdown editor that has successfully completed its **Phase 2 rewrite from Python+Qt to Rust+Tauri+React**. The project is currently at **v2.0.0-alpha.1** with full feature parity achieved and ready for **Phase 3 advanced features**.
 
-### Current State
-- **Technology Stack**: Python 3.11+, PySide6, Qt WebEngine, Toast UI Editor
-- **Platforms**: macOS ✅, Windows ✅, Linux (planned)  
-- **Features**: WYSIWYG Markdown editing, file operations, HTML export, offline functionality
-- **Architecture**: Single-window application with embedded web view
+### Current State ✅ PHASE 2 COMPLETE!
+- **Technology Stack**: Rust (Tauri) + React + TypeScript + Zustand
+- **Platforms**: macOS ✅, Windows ✅, Linux ✅  
+- **Features**: WYSIWYG Markdown editing (Toast UI), file operations, HTML export, theme system
+- **Architecture**: Modern desktop app with native performance and web UI flexibility
 
-### Strategic Direction
-- **Major Rewrite (v2.0.0)**: Complete transition to Rust+Tauri+React architecture
-- **Incremental Improvements**: Enhance current Python version while planning migration
-- **Focus Areas**: Performance, security, extensibility, modern UX
+### Strategic Direction 🎯 PHASE 3 EXECUTION
+- **CodeMirror 6 Migration**: Replace Toast UI Editor to enable advanced features
+- **Mermaid Diagrams**: Implement embedded diagram support (primary user request)
+- **Advanced Features**: Plugin system, multi-window support, enhanced UX
+- **Performance & Polish**: Optimization, cross-platform testing, v2.0.0 release
 
 ## Repository Structure & Key Files
 
 ```
 markWriter/
-├── markwrite.py              # Main Python application (18KB)
-├── editor_offline.html       # Toast UI Editor integration
-├── CHANGELOG.md             # Version history and changes
-├── README.md                # Project documentation
-├── requirements.txt         # Python dependencies
-├── MarkWrite*.spec         # PyInstaller build specs
-├── docs/
-│   ├── DeveloperHandbook.md
-│   ├── FinalRecommendationForRewrite.md  # Tauri evaluation
-│   └── Signing-Notarization.md
-├── assets/                  # Local Toast UI Editor assets
-├── installer/               # Windows NSIS installer
-└── .github/                 # CI/CD workflows
+├── frontend/                # React+TypeScript frontend
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── stores/         # Zustand state management
+│   │   └── types/          # TypeScript definitions
+│   ├── package.json        # Frontend dependencies
+│   └── vite.config.ts      # Build configuration
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── lib.rs          # Tauri commands
+│   │   ├── main.rs         # Application entry
+│   │   └── models/         # Data structures
+│   ├── Cargo.toml          # Rust dependencies
+│   └── tauri.conf.json     # App configuration
+├── README-v2.md            # v2.0 documentation
+├── AGENTS.md               # This file
+├── FRONTEND_IMPLEMENTATION.md  # Implementation details
+└── legacy files/           # Original Python implementation
 ```
 
 ## Issue Tracking & Project Management
 
 ### Current Issue Classification
 
-**🚀 EPIC Issues** (Major architectural work):
-- **#3**: Rust+Tauri+React Rewrite (Primary epic for v2.0.0)
+**✅ EPIC COMPLETE**:
+- **#3**: Rust+Tauri+React Rewrite - **PHASE 2 COMPLETE**
 
-**🛠️ Current Stack Issues** (Python/Qt improvements):
-- **#10**: Complete Menu System (Edit, View, Window, Help)
+**🔥 IMMEDIATE PRIORITY** (Critical Path):
+- **#16**: CodeMirror 6 Migration - **Ready to Execute** (6-8 days)
+- **#1**: Embedded Mermaid Diagrams - **Blocked by #16** (2-3 days post-migration)
+
+**📋 PHASE 3 READY** (Unblocked by completed rewrite):
+- **#10**: Complete Menu System - **Core complete, advanced features ready**
+- **#9**: Settings & Preferences System - **Foundation complete, UI needed**
+- **#8**: Multiple Windows & Tabs Support - **Architecture ready**
+- **#6**: Plugin System Architecture - **Foundation in place**
+- **#5**: Draw.io Diagram Support - **Ready after CodeMirror**
+
+**🛠️ ENHANCEMENT TRACK**:
 - **#7**: Multi-Format Support (JSON/XML)
+- **#4**: Linux Platform Support - **May be complete**
 
-**🚫 Blocked by Rewrite**:
-- **#1**: Embedded Mermaid Diagrams
-- **#5**: Draw.io Diagram Support  
-- **#6**: Plugin System Architecture
-- **#8**: Multiple Windows & Tabs Support
-
-**🔬 Research & Planning**:
-- **#12**: Tauri framework research (⚠️ PRIORITY)
-- **#13**: Architecture design (depends on #12)
+**🎯 STRATEGIC PLANNING**:
+- **#15**: Migrate from Toast UI Editor to CodeMirror 6 - **Strategic decision documented**
 
 ### Workflow Best Practices
-1. **Check Dependencies**: Always review issue dependencies before starting work
-2. **Update Status**: Use GitHub issue assignments and comments for progress tracking
-3. **Follow Conventions**: Use emoji prefixes and consistent labeling
-4. **Documentation**: Update relevant docs when making architectural decisions
+1. **Check Dependencies**: Focus on critical path (#16 → #1)
+2. **Update Status**: Use GitHub issue assignments and progress tracking
+3. **Follow Priorities**: CodeMirror migration enables most advanced features
+4. **Document Decisions**: Update relevant docs and architectural decisions
 
 ## Technical Guidelines
 
 ### Code Quality Standards
 
-**Python Code (Current)**:
-```python
-# Follow existing patterns in markwrite.py
-# - Use type hints: `path: Path | None`
-# - Handle exceptions gracefully with user-friendly messages
-# - Maintain Qt best practices for event handling
-# - Keep WebEngine bridge methods isolated and testable
+**React/TypeScript (Frontend)**:
+```typescript
+// Follow existing patterns in frontend/src/
+// - Use TypeScript strict mode with proper typing
+// - Zustand for state management with Tauri integration
+// - React 18+ patterns with hooks and function components
+// - Tailwind CSS for consistent styling
+```
+
+**Rust (Backend)**:
+```rust
+// Follow existing patterns in src-tauri/src/
+// - Use serde for JSON serialization
+// - Tauri command patterns for frontend communication
+// - Error handling with Result<T, E> patterns
+// - Safe async operations with tokio
 ```
 
 **Architecture Decisions**:
-- Maintain backward compatibility during transition
-- Prioritize security and performance
+- Maintain separation between frontend UI and backend logic
+- Use Tauri commands for secure file operations
+- Implement proper error handling and user feedback
 - Follow cross-platform development best practices
-- Document API changes and migration paths
 
 ### Testing Strategy
 - **Manual Testing**: Cross-platform validation (macOS, Windows, Linux)
-- **Integration Testing**: WebEngine bridge functionality
-- **Performance Testing**: Startup time, memory usage, file operations
-- **User Acceptance Testing**: Document workflow validation
+- **Integration Testing**: Tauri command functionality
+- **Performance Testing**: Startup time, memory usage, large documents
+- **User Workflow Testing**: Document creation/editing/export workflows
 
 ## Agent Roles & Responsibilities
 
-### 🏗️ **Architecture Agent** (Primary for Rewrite)
+### 🏗️ **Architecture Agent** (Strategic & Technical Leadership)
 **Primary Objectives:**
-- Drive architecture based on current best practices
-- Research and validate Tauri framework capabilities (#12)
-- Design system architecture for v2.0.0 (#13)
-- Create technical specifications and migration plans
+- Drive modern architecture based on current best practices
+- Lead CodeMirror 6 migration technical implementation (#16)
+- Design plugin system architecture for future extensibility
+- Make technology decisions aligned with v2.0.0 goals
+
+**Current Focus:**
+- **CodeMirror 6 Migration**: Technical implementation and integration
+- **Mermaid Architecture**: Design diagram rendering system
+- **Plugin System Foundation**: Prepare architecture for extensibility
+- **Performance Optimization**: Ensure v2.0 performance targets
 
 **Key Deliverables:**
-- Architecture diagrams and specifications
-- Technology evaluation reports (see `docs/FinalRecommendationForRewrite.md`)
-- API design and plugin system architecture
-- Migration roadmap and timeline estimates
-
-**Focus Areas:**
-- Security model and sandboxing
-- Cross-platform compatibility
-- Performance optimization
-- Plugin system design
+- CodeMirror 6 migration implementation
+- Mermaid diagram rendering system
+- Plugin architecture specification
+- Performance optimization strategy
 
 ### 🔧 **Development Agent** (Implementation Focus)
 **Primary Objectives:**
-- Most coding and unit testing
-- Implement current-stack improvements while rewrite is planned
-- Create proof-of-concepts for new architecture
+- Most coding and unit testing for Phase 3 features
+- Implement CodeMirror 6 editor replacement
+- Create Mermaid diagram rendering components
 - Maintain code quality and testing standards
 
+**Current Focus:**
+- **CodeMirror 6 Implementation**: Replace Toast UI Editor components
+- **React Component Development**: Modern editor and preview components
+- **Tauri Integration**: Backend services for file operations
+- **Cross-platform Testing**: Ensure functionality across platforms
+
 **Key Deliverables:**
-- Feature implementations on current Python stack
-- Rust+Tauri proof-of-concepts
-- Unit tests and integration tests
-- Bug fixes and performance improvements
+- CodeMirrorEditor.tsx component
+- MermaidRenderer.tsx component  
+- Enhanced preview pane implementation
+- Comprehensive test coverage
 
-**Focus Areas:**
-- Python/Qt feature implementation
-- Rust/Tauri learning and prototyping
-- Cross-platform testing and validation
-- Performance optimization
-
-### 📋 **Project Management Agent** (GitHub & Process)
+### 📋 **Project Management Agent** (GitHub & Process Excellence)
 **Primary Objectives:**
-- Support contributors managing project and repo
-- Ensure GitHub best practices
-- Track progress from v0.2.1 to v2.0.0
-- Maintain issue organization and dependencies
+- Support contributors managing project and repo aligned with best practices
+- Track critical path progress (#16 → #1 → advanced features)
+- Ensure GitHub workflow optimization and release planning
+- Coordinate Phase 3 feature development
+
+**Current Focus:**
+- **Critical Path Management**: Monitor #16 (CodeMirror) → #1 (Mermaid) progress
+- **Issue Dependency Tracking**: Update blockers and enable parallel work
+- **Release Planning**: Coordinate v2.0.0-beta and final release timeline
+- **Documentation Maintenance**: Keep project docs current with development
 
 **Key Deliverables:**
-- Issue management and organization
-- Project milestone tracking
-- GitHub workflow optimization
-- Release planning and coordination
+- GitHub issue organization and dependency management
+- Release milestone planning and coordination
+- Progress tracking and status reporting
+- Contributor onboarding and process documentation
 
-**Focus Areas:**
-- Issue dependency management
-- GitHub Actions and CI/CD
-- Release processes and documentation
-- Contributor onboarding
+## Development Priorities (Immediate - 3 months)
 
-## Development Priorities (v0.2.1 → v2.0.0)
+### 🔥 **Critical Path (Next 2-3 weeks)**
+**HIGHEST PRIORITY:**
 
-### Phase 1: Research & Foundation (Immediate - 2 months)
+1. **CodeMirror 6 Migration** (#16) - **6-8 development days**
+   - **Phase 1**: Dependencies and basic setup (1-2 days)
+   - **Phase 2**: Core editor replacement (2-3 days) 
+   - **Phase 3**: Feature migration and theme integration (2-3 days)
+   - **Phase 4**: Testing and optimization (1-2 days)
+
+2. **Mermaid Diagrams** (#1) - **2-3 development days** (Post-CodeMirror)
+   - Mermaid.js integration with CodeMirror preview
+   - Theme-aware diagram rendering
+   - Export functionality with embedded diagrams
+
+### 🚀 **Phase 3 Advanced Features (Parallel Development)**
 **HIGH PRIORITY:**
-1. **Complete Tauri Research** (#12) - CRITICAL PATH
-   - Technical capabilities validation
-   - Performance benchmarking vs current Python stack
-   - Cross-platform compatibility assessment
-   - Go/no-go decision for rewrite
 
-2. **Architecture Design** (#13) - Depends on #12
-   - System architecture diagrams
-   - API specification documentation
-   - Plugin system design
-   - Migration strategy planning
+3. **Settings UI Implementation** (#9) - **3-4 days**
+   - Settings dialog/modal component
+   - Font selection and editor preferences
+   - Theme and behavior customization
 
-### Phase 2: Current Stack Improvements (Parallel - 1-2 months)
-**MEDIUM PRIORITY:**
-1. **Complete Menu System** (#10)
-   - Edit menu (undo/redo, cut/copy/paste, find/replace)
-   - View menu (zoom, fullscreen, panels)
-   - Window menu (minimize/maximize, new window)
-   - Help menu (documentation, shortcuts, updates)
+4. **Enhanced Menu System** (#10) - **2-3 days** 
+   - Find/Replace functionality
+   - Advanced View menu options
+   - Window management features
 
-2. **Multi-Format Support** (#7)
-   - JSON syntax highlighting and formatting
-   - XML syntax highlighting and formatting
-   - User-friendly display modes
+### 🔧 **Additional Enhancements (Medium Priority)**
+5. **Multi-window Support** (#8) - **5-7 days**
+   - Tab system implementation
+   - Multiple window management
+   - Document state synchronization
 
-### Phase 3: Rewrite Implementation (6-12 months)
-**Blocked until Phase 1 completion:**
-1. **Foundation**: Tauri project setup, basic React UI, Rust backend
-2. **Core Features**: Toast UI integration, file operations, menu systems
-3. **Advanced Features**: Embedded diagrams (#1, #5), plugin system (#6)
-4. **Multi-window Support** (#8) and enhanced UX
-
-### Phase 4: Migration & Release (2-3 months)
-1. **User Migration**: Data migration tools, documentation
-2. **Testing & Validation**: Cross-platform testing, performance validation
-3. **Release Preparation**: Packaging, distribution, documentation
+6. **Plugin System Foundation** (#6) - **4-6 days**
+   - Plugin architecture implementation
+   - Extension API definition
+   - Sample plugins and documentation
 
 ## Decision-Making Framework
 
-### Technology Choices
-**Current Evaluation Status:**
-- ✅ **Tauri Framework**: Comprehensive evaluation completed (see `docs/FinalRecommendationForRewrite.md`)
-- ⚠️ **Final Decision Pending**: Awaiting practical proof-of-concept validation (#12)
-- 🔄 **Fallback Options**: Continue Python stack improvements if Tauri proves unsuitable
+### Technology Choices ✅ DECISIONS COMPLETE
+**Current Status:**
+- ✅ **Rust+Tauri+React**: Architecture complete and validated
+- ✅ **Toast UI → CodeMirror 6**: Strategic decision made (#15), implementation ready (#16)
+- ✅ **Zustand State Management**: Implemented and working
+- ✅ **Tailwind CSS**: Styling system in place
 
 ### Architecture Principles
-1. **Security First**: Memory-safe backends, process isolation, capability-based permissions
-2. **Performance**: Bundle size optimization, startup time, memory efficiency
-3. **Extensibility**: Plugin system architecture, modular design
-4. **Cross-Platform**: Consistent UX across macOS, Windows, Linux
-5. **Maintainability**: Modern development practices, clear API boundaries
+1. **Performance First**: Native Rust backend with optimized React frontend
+2. **Modern UX**: React-based interface with contemporary design patterns
+3. **Extensibility**: CodeMirror 6 plugin architecture foundation
+4. **Cross-Platform**: Consistent experience across macOS, Windows, Linux
+5. **Security**: Tauri security model with process isolation
 
-### Risk Management
-**High-Impact Risks:**
-- Rust learning curve delays (6-12 months investment)
-- Cross-platform compatibility issues
-- Performance degradation during transition
-- User workflow disruption
+### Risk Management ✅ MAJOR RISKS RESOLVED
+**Resolved Risks:**
+- ✅ **Architecture Risk**: Rust+Tauri+React fully validated and implemented
+- ✅ **Performance Risk**: Demonstrated improvement over Python version
+- ✅ **Cross-platform Risk**: Tauri provides excellent platform integration
 
-**Mitigation Strategies:**
-- Incremental migration approach
-- Parallel development tracks
-- Comprehensive testing protocols
-- User feedback integration
+**Current Risks:**
+- **CodeMirror Migration**: Potential feature regression (Mitigation: thorough testing)
+- **Timeline Risk**: Feature complexity estimates (Mitigation: incremental development)
 
 ## Communication & Collaboration
 
 ### Issue Management
-- **Use clear, descriptive titles** with emoji prefixes
-- **Reference dependencies** explicitly in issue descriptions
-- **Update progress regularly** through comments and status changes
-- **Link related issues** and PRs for context
+- **Focus on Critical Path**: #16 → #1 dependency chain is highest priority
+- **Update Progress Regularly**: Daily updates on CodeMirror migration progress
+- **Document Technical Decisions**: Especially editor integration patterns
+- **Link Related Work**: Connect issues and PRs for better context
 
 ### Documentation Standards
-- **Update CHANGELOG.md** for user-facing changes
-- **Maintain README.md** accuracy with current features and roadmap
-- **Document architectural decisions** in dedicated files
-- **Create migration guides** for major changes
-
-### Code Review Process
-- **Focus on architecture alignment** with long-term goals
-- **Validate cross-platform compatibility** 
-- **Ensure security best practices**
-- **Maintain performance standards**
+- **Keep Implementation Docs Current**: Update FRONTEND_IMPLEMENTATION.md
+- **Document Migration Process**: Create CodeMirror migration guide
+- **Maintain Architecture Decisions**: Document plugin system design
+- **Update User Documentation**: Prepare for v2.0.0 release
 
 ## Resources & References
 
 ### Key Documentation
-- [`docs/FinalRecommendationForRewrite.md`](./docs/FinalRecommendationForRewrite.md) - Comprehensive Tauri evaluation
-- [`docs/DeveloperHandbook.md`](./docs/DeveloperHandbook.md) - Contributor setup and processes
-- [`CHANGELOG.md`](./CHANGELOG.md) - Version history and feature tracking
+- [`README-v2.md`](./README-v2.md) - v2.0 project documentation
+- [`FRONTEND_IMPLEMENTATION.md`](./FRONTEND_IMPLEMENTATION.md) - React implementation details
+- [`CHANGELOG.md`](./CHANGELOG.md) - Version history tracking
 
 ### External Resources
-- [Tauri Framework Documentation](https://tauri.app/)
-- [Toast UI Editor](https://github.com/nhn/tui.editor)
-- [Rust Learning Resources](https://www.rust-lang.org/learn)
-- [PySide6 Documentation](https://doc.qt.io/qtforpython-6/)
+- [Tauri Framework Documentation](https://tauri.app/) - Native app framework
+- [CodeMirror 6 Documentation](https://codemirror.net/docs/) - **CRITICAL** for #16
+- [Mermaid.js Documentation](https://mermaid-js.github.io/mermaid/) - For #1 implementation
+- [React 18 Documentation](https://react.dev/) - Frontend framework
+- [Zustand Documentation](https://docs.pmnd.rs/zustand/) - State management
 
 ### Project Links
 - **Repository**: https://github.com/rheiger/markWriter
 - **Project Board**: https://github.com/users/rheiger/projects/3
-- **Releases**: https://github.com/rheiger/markWriter/releases
+- **Current Branch**: `v2-development`
+- **Issues**: Focus on #16 (CodeMirror) and #1 (Mermaid)
 
 ---
 
 ## Agent-Specific Quick Start
 
-### For Architecture Agents
-1. **Start with #12**: Complete Tauri research and evaluation
-2. **Review existing analysis**: Study `docs/FinalRecommendationForRewrite.md`
-3. **Create proof-of-concept**: Validate technical assumptions
-4. **Design system architecture**: Focus on plugin system and security model
+### For Architecture Agents 🏗️
+1. **IMMEDIATE**: Lead CodeMirror 6 migration (#16) - **Critical Path**
+2. **Study existing code**: Review frontend/src/ React implementation patterns
+3. **Plan Mermaid integration**: Design diagram rendering architecture (#1)
+4. **Design plugin system**: Prepare extensibility foundation (#6)
 
-### For Development Agents
-1. **Set up development environment**: Python 3.11+, PySide6, current toolchain
-2. **Focus on current stack**: Issues #10 (menus) and #7 (multi-format support)
-3. **Learn Rust/Tauri**: Prepare for rewrite implementation
-4. **Maintain test coverage**: Ensure quality throughout transition
+### For Development Agents 🔧
+1. **IMMEDIATE**: Implement CodeMirror 6 editor replacement (#16)
+2. **Set up development environment**: `npm run setup`, `npm run dev`
+3. **Focus on editor components**: Replace Toast UI with CodeMirror
+4. **Prepare Mermaid components**: Ready for post-migration implementation
 
-### For Project Management Agents
-1. **Review issue dependencies**: Understand current blocking relationships
-2. **Monitor critical path**: Track #12 → #13 → rewrite implementation
-3. **Coordinate release planning**: Balance current improvements with rewrite timeline
-4. **Facilitate communication**: Ensure architectural decisions are documented and shared
+### For Project Management Agents 📋
+1. **Track critical path**: Monitor #16 → #1 progress daily
+2. **Update issue dependencies**: Ensure blockers are current and accurate
+3. **Plan v2.0.0 release**: Coordinate feature completion and testing
+4. **Facilitate communication**: Keep architectural decisions documented
 
 ---
 
-*This document serves as the primary reference for AI agents working on the MarkWriter project. Keep it updated as the project evolves and new decisions are made.*
+## 🎯 **Current Status Summary**
+
+**✅ ACHIEVED**: Complete Rust+Tauri+React rewrite with feature parity  
+**🔥 PRIORITY**: CodeMirror 6 migration (#16) - Ready to execute  
+**🎯 TARGET**: Mermaid diagrams (#1) - Major user-requested feature  
+**🚀 GOAL**: v2.0.0-beta.1 with advanced features in ~1 month  
+
+*This document reflects the current Phase 3 state where foundation is complete and advanced feature implementation is the primary focus.*
