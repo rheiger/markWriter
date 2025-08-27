@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useAppStore, useTheme } from './store/useAppStore'
-import { EditorView } from './components/EditorView'
+import { EditorView, EditorViewRef } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
 import { StatusBar } from './components/StatusBar'
 import { ErrorToast } from './components/ErrorToast'
@@ -10,6 +10,7 @@ import './App.css'
 const App: React.FC = () => {
   const { currentDocument, isLoading, error, createNewDocument } = useAppStore()
   const { theme, setTheme } = useTheme()
+  const editorViewRef = useRef<EditorViewRef>(null)
 
   // Initialize the application
   useEffect(() => {
@@ -26,13 +27,18 @@ const App: React.FC = () => {
     }
   }, [theme, currentDocument, createNewDocument])
 
+  // Get editor reference for MenuBar
+  const getEditorRef = () => {
+    return editorViewRef.current?.getEditorRef()
+  }
+
   return (
     <div className="app">
-      <MenuBar />
+      <MenuBar editorRef={getEditorRef()} />
       
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
-        <EditorView />
+        <EditorView ref={editorViewRef} />
       </main>
       
       <StatusBar />
