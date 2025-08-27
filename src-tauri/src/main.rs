@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use regex::Regex;
+use std::sync::OnceLock;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Document {
@@ -11,6 +13,33 @@ pub struct Document {
     pub content: String,
     pub path: Option<String>,
     pub last_modified: String,
+}
+
+// Lazy static regex patterns to avoid runtime compilation panics
+static H1_REGEX: OnceLock<Regex> = OnceLock::new();
+static H2_REGEX: OnceLock<Regex> = OnceLock::new();
+static H3_REGEX: OnceLock<Regex> = OnceLock::new();
+static BOLD_REGEX: OnceLock<Regex> = OnceLock::new();
+static ITALIC_REGEX: OnceLock<Regex> = OnceLock::new();
+
+fn get_h1_regex() -> &'static Regex {
+    H1_REGEX.get_or_init(|| Regex::new(r"(?m)^# (.+)$").unwrap())
+}
+
+fn get_h2_regex() -> &'static Regex {
+    H2_REGEX.get_or_init(|| Regex::new(r"(?m)^## (.+)$").unwrap())
+}
+
+fn get_h3_regex() -> &'static Regex {
+    H3_REGEX.get_or_init(|| Regex::new(r"(?m)^### (.+)$").unwrap())
+}
+
+fn get_bold_regex() -> &'static Regex {
+    BOLD_REGEX.get_or_init(|| Regex::new(r"\*\*(.+?)\*\*").unwrap())
+}
+
+fn get_italic_regex() -> &'static Regex {
+    ITALIC_REGEX.get_or_init(|| Regex::new(r"\*(.+?)\*").unwrap())
 }
 
 // Create a new document
@@ -193,24 +222,22 @@ async fn export_document(_id: String, content: String, path: String, format: Str
     }
 }
 
-// Basic markdown to HTML conversion (placeholder)
+// Basic markdown to HTML conversion (safe implementation)
 fn markdown_to_html(markdown: &str) -> String {
-    // This is a very basic implementation
+    // This is a very basic implementation with error handling
     // In a real app, you'd use a proper markdown parser like comrak or pulldown-cmark
     let mut html = markdown.to_string();
     
-    // Headers
-    html = regex::Regex::new(r"^# (.+)$").unwrap().replace_all(&html, "<h1>$1</h1>").to_string();
-    html = regex::Regex::new(r"^## (.+)$").unwrap().replace_all(&html, "<h2>$1</h2>").to_string();
-    html = regex::Regex::new(r"^### (.+)$").unwrap().replace_all(&html, "<h3>$1</h3>").to_string();
+    // Headers - using lazy static patterns to avoid runtime panic
+    html = get_h1_regex().replace_all(&html, "<h1>$1</h1>").to_string();
+    html = get_h2_regex().replace_all(&html, "<h2>$1</h2>").to_string();
+    html = get_h3_regex().replace_all(&html, "<h3>$1</h3>").to_string();
     
-    // Bold
-    html = regex::Regex::new(r"\*\*(.+?)\*\*").unwrap().replace_all(&html, "<strong>$1</strong>").to_string();
+    // Bold and Italic - safe regex patterns
+    html = get_bold_regex().replace_all(&html, "<strong>$1</strong>").to_string();
+    html = get_italic_regex().replace_all(&html, "<em>$1</em>").to_string();
     
-    // Italic
-    html = regex::Regex::new(r"\*(.+?)\*").unwrap().replace_all(&html, "<em>$1</em>").to_string();
-    
-    // Line breaks to paragraphs
+    // Line breaks to paragraphs - safe string processing
     let lines: Vec<&str> = html.lines().collect();
     let mut paragraphs = Vec::new();
     let mut current_paragraph = Vec::new();
