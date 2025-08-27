@@ -1,15 +1,14 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, MarkWriterError>;
-
+/// Custom error types for MarkWriter application
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MarkWriterError {
     #[error("File operation failed: {message}")]
     FileError { message: String },
     
     #[error("Permission denied: {message}")]
-    PermissionDenied { message: String },
+    PermissionError { message: String },
     
     #[error("Invalid input: {message}")]
     InvalidInput { message: String },
@@ -34,111 +33,118 @@ pub enum MarkWriterError {
 }
 
 impl MarkWriterError {
+    // Convenience constructors
     pub fn file_error(message: impl Into<String>) -> Self {
         Self::FileError {
             message: message.into(),
         }
     }
-    
-    pub fn permission_denied(message: impl Into<String>) -> Self {
-        Self::PermissionDenied {
+
+    pub fn permission_error(message: impl Into<String>) -> Self {
+        Self::PermissionError {
             message: message.into(),
         }
     }
-    
+
     pub fn invalid_input(message: impl Into<String>) -> Self {
         Self::InvalidInput {
             message: message.into(),
         }
     }
-    
+
     pub fn config_error(message: impl Into<String>) -> Self {
         Self::ConfigError {
             message: message.into(),
         }
     }
-    
+
     pub fn document_error(message: impl Into<String>) -> Self {
         Self::DocumentError {
             message: message.into(),
         }
     }
-    
+
     pub fn system_error(message: impl Into<String>) -> Self {
         Self::SystemError {
             message: message.into(),
         }
     }
-    
+
     pub fn network_error(message: impl Into<String>) -> Self {
         Self::NetworkError {
             message: message.into(),
         }
     }
-    
+
     pub fn serialization_error(message: impl Into<String>) -> Self {
         Self::SerializationError {
             message: message.into(),
         }
     }
-    
+
     pub fn internal_error(message: impl Into<String>) -> Self {
         Self::InternalError {
             message: message.into(),
         }
     }
-    
-    /// Get user-friendly error message
-    pub fn user_message(&self) -> String {
+}
+
+// Standard error trait implementations
+impl std::fmt::Display for MarkWriterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MarkWriterError::FileError { message } => format!("File operation failed: {}", message),
-            MarkWriterError::PermissionDenied { message } => format!("Access denied: {}", message),
-            MarkWriterError::InvalidInput { message } => format!("Invalid input: {}", message),
-            MarkWriterError::ConfigError { message } => format!("Configuration error: {}", message),
-            MarkWriterError::DocumentError { message } => format!("Document error: {}", message),
-            MarkWriterError::SystemError { message } => format!("System error: {}", message),
-            MarkWriterError::NetworkError { message } => format!("Network error: {}", message),
-            MarkWriterError::SerializationError { .. } => "Data processing error".to_string(),
-            MarkWriterError::InternalError { .. } => "An internal error occurred".to_string(),
+            MarkWriterError::FileError { message } => write!(f, "File error: {}", message),
+            MarkWriterError::PermissionError { message } => write!(f, "Permission error: {}", message),
+            MarkWriterError::InvalidInput { message } => write!(f, "Invalid input: {}", message),
+            MarkWriterError::ConfigError { message } => write!(f, "Configuration error: {}", message),
+            MarkWriterError::DocumentError { message } => write!(f, "Document error: {}", message),
+            MarkWriterError::SystemError { message } => write!(f, "System error: {}", message),
+            MarkWriterError::NetworkError { message } => write!(f, "Network error: {}", message),
+            MarkWriterError::SerializationError { message } => write!(f, "Serialization error: {}", message),
+            MarkWriterError::InternalError { message } => write!(f, "Internal error: {}", message),
         }
     }
 }
 
-// Implement conversions from common error types
+impl std::error::Error for MarkWriterError {}
+
+// Conversion from std::io::Error
 impl From<std::io::Error> for MarkWriterError {
     fn from(err: std::io::Error) -> Self {
-        Self::file_error(err.to_string())
+        MarkWriterError::file_error(err.to_string())
     }
 }
 
+// Conversion from serde_json::Error
 impl From<serde_json::Error> for MarkWriterError {
     fn from(err: serde_json::Error) -> Self {
-        Self::serialization_error(err.to_string())
+        MarkWriterError::serialization_error(err.to_string())
     }
 }
 
+// Conversion from toml deserialization errors
 impl From<toml::de::Error> for MarkWriterError {
     fn from(err: toml::de::Error) -> Self {
-        Self::config_error(err.to_string())
+        MarkWriterError::config_error(err.to_string())
     }
 }
 
+// Conversion from toml serialization errors
 impl From<toml::ser::Error> for MarkWriterError {
     fn from(err: toml::ser::Error) -> Self {
-        Self::config_error(err.to_string())
+        MarkWriterError::config_error(err.to_string())
     }
 }
 
-#[cfg(feature = "database")]
-impl From<sqlx::Error> for MarkWriterError {
-    fn from(err: sqlx::Error) -> Self {
-        Self::system_error(format!("Database error: {}", err))
-    }
-}
-
-// Tauri command error conversion
+// Conversion to Tauri Error for command handlers
 impl From<MarkWriterError> for tauri::Error {
     fn from(err: MarkWriterError) -> Self {
-        tauri::Error::Command(tauri::CommandError::new(err.to_string()))
+        tauri::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            err.to_string(),
+        ))
     }
 }
+
+// Type alias for convenience
+pub type Result<T> = std::result::Result<T, MarkWriterError>;
