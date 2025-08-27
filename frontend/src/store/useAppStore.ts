@@ -114,7 +114,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       setLoading(true)
       setError(null)
       
+      console.log('[STORE] Creating new document...')
       const result = await invoke('create_document') as any
+      console.log('[STORE] Create document result:', result)
       
       const newDoc: Document = {
         id: result.id,
@@ -126,8 +128,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       
       setCurrentDocument(newDoc)
+      console.log('[STORE] New document created successfully')
     } catch (error) {
-      console.error('Failed to create document:', error)
+      console.error('[STORE] Failed to create document:', error)
       setError(error instanceof Error ? error.message : 'Failed to create document')
     } finally {
       setLoading(false)
@@ -140,7 +143,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       setLoading(true)
       setError(null)
       
+      console.log('[STORE] Opening document:', path)
       const result = await invoke('open_document', { path }) as any
+      console.log('[STORE] Open document result:', result)
       
       const doc: Document = {
         id: result.id,
@@ -153,8 +158,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       setCurrentDocument(doc)
       addRecentDocument(doc)
+      console.log('[STORE] Document opened successfully:', result.path)
     } catch (error) {
-      console.error('Failed to open document:', error)
+      console.error('[STORE] Failed to open document:', error)
       setError(error instanceof Error ? error.message : 'Failed to open document')
     } finally {
       setLoading(false)
@@ -162,28 +168,37 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   saveDocument: async () => {
-    const { currentDocument, setDocumentDirty, addRecentDocument, setError, setLoading } = get()
-    if (!currentDocument) return
+    const { currentDocument, setDocumentDirty, setError, setLoading } = get()
+    if (!currentDocument) {
+      console.warn('[STORE] No current document to save')
+      return
+    }
     
     try {
       setLoading(true)
       setError(null)
       
-      const result = await invoke('save_document', {
-        id: currentDocument.id,
-        content: currentDocument.content,
-      }) as any
+      console.log('[STORE] Saving document:', currentDocument.path)
       
-      setDocumentDirty(false)
-      
-      // Update document with saved path if new
-      if (result.path && !currentDocument.path) {
-        const updatedDoc = { ...currentDocument, path: result.path }
-        get().setCurrentDocument(updatedDoc)
-        addRecentDocument(updatedDoc)
+      if (currentDocument.path) {
+        // Save to existing file using the file system API
+        await invoke('save_document', {
+          id: currentDocument.id,
+          content: currentDocument.content,
+        })
+        
+        // Write the content to the file path
+        const fs = await import('@tauri-apps/plugin-fs')
+        await fs.writeTextFile(currentDocument.path, currentDocument.content)
+        
+        setDocumentDirty(false)
+        console.log('[STORE] Document saved successfully to:', currentDocument.path)
+      } else {
+        console.log('[STORE] No path available, document needs to be saved with Save As')
+        // This will be handled by the MenuBar calling saveDocumentAs
       }
     } catch (error) {
-      console.error('Failed to save document:', error)
+      console.error('[STORE] Failed to save document:', error)
       setError(error instanceof Error ? error.message : 'Failed to save document')
     } finally {
       setLoading(false)
@@ -192,21 +207,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   saveDocumentAs: async (path) => {
     const { currentDocument, setCurrentDocument, setDocumentDirty, addRecentDocument, setError, setLoading } = get()
-    if (!currentDocument) return
+    if (!currentDocument) {
+      console.warn('[STORE] No current document to save')
+      return
+    }
     
     try {
       setLoading(true)
       setError(null)
       
+      console.log('[STORE] Saving document as:', path)
       const result = await invoke('save_document_as', {
         id: currentDocument.id,
         content: currentDocument.content,
         path,
       }) as any
       
+      console.log('[STORE] Save as result:', result)
+      
       const updatedDoc: Document = {
         ...currentDocument,
-        path: result.path,
+        path: result.path || path,
         title: result.title || path.split('/').pop() || 'Untitled',
         isDirty: false,
       }
@@ -214,8 +235,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       setCurrentDocument(updatedDoc)
       setDocumentDirty(false)
       addRecentDocument(updatedDoc)
+      console.log('[STORE] Document saved as:', result.path)
     } catch (error) {
-      console.error('Failed to save document as:', error)
+      console.error('[STORE] Failed to save document as:', error)
       setError(error instanceof Error ? error.message : 'Failed to save document')
     } finally {
       setLoading(false)
@@ -224,20 +246,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   exportDocument: async (path, format) => {
     const { currentDocument, setError, setLoading } = get()
-    if (!currentDocument) return
+    if (!currentDocument) {
+      console.warn('[STORE] No current document to export')
+      return
+    }
     
     try {
       setLoading(true)
       setError(null)
       
+      console.log('[STORE] Exporting document as', format, 'to:', path)
       await invoke('export_document', {
         id: currentDocument.id,
         content: currentDocument.content,
         path,
         format,
       })
+      console.log('[STORE] Document exported successfully')
     } catch (error) {
-      console.error('Failed to export document:', error)
+      console.error('[STORE] Failed to export document:', error)
       setError(error instanceof Error ? error.message : 'Failed to export document')
     } finally {
       setLoading(false)
