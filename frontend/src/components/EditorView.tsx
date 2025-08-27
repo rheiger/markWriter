@@ -120,14 +120,14 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     if (!previewRef.current) return
 
     try {
-      // Parse mermaid blocks
+      // Parse mermaid blocks first
       const blocks = parseMermaidBlocks(content)
       setMermaidBlocks(blocks)
 
       // Replace mermaid blocks with placeholders for HTML rendering
       let processedContent = content
       blocks.forEach((block, index) => {
-        const placeholder = `<div class="mermaid-placeholder" data-index="${index}"></div>`
+        const placeholder = `<div class="mermaid-placeholder" data-mermaid-index="${index}">[Mermaid Diagram ${index + 1}]</div>`
         processedContent = processedContent.replace(
           /```mermaid\n[\s\S]*?```/,
           placeholder
@@ -141,7 +141,9 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       console.log('[EDITOR] Preview updated with', blocks.length, 'mermaid diagrams')
     } catch (error) {
       console.error('Error parsing markdown:', error)
-      previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
+      if (previewRef.current) {
+        previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
+      }
     }
   }, [parseMermaidBlocks])
 
@@ -152,8 +154,10 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     const isDark = config.theme === 'dark' || 
       (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
+    const defaultContent = currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```\n\n```mermaid\nsequenceDiagram\n    participant A as Alice\n    participant B as Bob\n    A->>B: Hello Bob!\n    B-->>A: Hello Alice!\n```'
+
     const state = EditorState.create({
-      doc: currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```',
+      doc: defaultContent,
       extensions: [
         markdown(),
         history(), // Enable undo/redo functionality
@@ -196,12 +200,12 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     editorViewRef.current = view
 
     // Initial preview update
-    updatePreview(currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```')
+    updatePreview(defaultContent)
 
     return () => {
       view.destroy()
     }
-  }, []) // Only run once on mount
+  }, [updatePreview]) // Only run once on mount
 
   // Update content when document changes
   useEffect(() => {
@@ -366,64 +370,37 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
             </span>
           )}
         </div>
-        <div 
-          ref={previewRef}
-          className="markwriter-preview"
-          style={{ 
-            flex: 1, 
-            overflow: 'auto',
-            padding: '16px',
-            backgroundColor: 'var(--bg-primary)',
-            color: 'var(--text-primary)',
-            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-            lineHeight: '1.6',
-            fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
-          }}
-        />
-        
-        {/* Render Mermaid diagrams */}
-        {mermaidBlocks.map((block, index) => {
-          // Find the placeholder element and replace it with the mermaid diagram
-          const placeholderElement = previewRef.current?.querySelector(`[data-index="${index}"]`)
-          if (placeholderElement) {
-            return (
-              <MermaidRenderer
-                key={block.id}
-                chart={block.chart}
-                id={block.id}
-              />
-            )
-          }
-          return null
-        })}
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          backgroundColor: 'var(--bg-primary)',
+          position: 'relative'
+        }}>
+          {/* HTML Preview */}
+          <div 
+            ref={previewRef}
+            className="markwriter-preview"
+            style={{ 
+              padding: '16px',
+              color: 'var(--text-primary)',
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
+              lineHeight: '1.6',
+              fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
+            }}
+          />
+          
+          {/* Overlay Mermaid diagrams over placeholders */}
+          {mermaidBlocks.map((block, index) => (
+            <MermaidRenderer
+              key={block.id}
+              chart={block.chart}
+              id={`${block.id}-${index}`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
 })
-
-// Use a portal-style approach to render mermaid diagrams in their placeholders
-const PreviewWithMermaid: React.FC<{
-  mermaidBlocks: MermaidBlock[]
-  previewRef: React.RefObject<HTMLDivElement>
-}> = ({ mermaidBlocks, previewRef }) => {
-  useEffect(() => {
-    if (!previewRef.current) return
-
-    // Replace placeholders with mermaid diagrams
-    mermaidBlocks.forEach((block, index) => {
-      const placeholder = previewRef.current?.querySelector(`[data-index="${index}"]`)
-      if (placeholder && placeholder.children.length === 0) {
-        // Create a container for the React component
-        const container = document.createElement('div')
-        placeholder.appendChild(container)
-        
-        // This would ideally use ReactDOM.render, but for simplicity, 
-        // we'll handle it in the main component
-      }
-    })
-  }, [mermaidBlocks, previewRef])
-
-  return null
-}
 
 EditorView.displayName = 'EditorView'
