@@ -64,9 +64,7 @@ pub async fn create_app() -> Result<tauri::Builder<tauri::Wry>> {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_window_state::Builder::default().build());
+        .plugin(tauri_plugin_shell::init());
 
     Ok(app)
 }
@@ -78,8 +76,8 @@ fn setup_app(app: &mut App, app_state: AppState) -> Result<()> {
     // Store the application state
     app.manage(app_state);
 
-    // Set up the main window
-    if let Some(window) = app.get_window("main") {
+    // Set up the main window - Updated for Tauri v2
+    if let Some(window) = app.get_webview_window("main") {
         tracing::info!("Main window created successfully");
         
         // Set window title with version
@@ -92,7 +90,7 @@ fn setup_app(app: &mut App, app_state: AppState) -> Result<()> {
     }
 
     // Initialize event handlers
-    setup_event_handlers(app.handle())?;
+    setup_event_handlers(app.handle().clone())?;
 
     tracing::info!("Application setup completed successfully");
     Ok(())
