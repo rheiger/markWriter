@@ -3,7 +3,7 @@ import { EditorView as CodeMirrorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { defaultKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
 import { marked } from 'marked'
 import { useAppStore } from '../store/useAppStore'
@@ -12,6 +12,15 @@ import './EditorView.css'
 export interface EditorViewRef {
   getMarkdown: () => string
   setMarkdown: (content: string) => void
+  // CodeMirror 6 specific methods for menu integration
+  undo: () => void
+  redo: () => void
+  focus: () => void
+  getSelection: () => string
+  insertText: (text: string) => void
+  selectAll: () => void
+  // Editor instance access for advanced operations
+  getEditorView: () => CodeMirrorView | null
 }
 
 export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
@@ -21,7 +30,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
   
   const { currentDocument, updateDocumentContent, config } = useAppStore()
   
-  // Expose editor methods to parent components
+  // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
     getMarkdown: () => editorViewRef.current?.state.doc.toString() || '',
     setMarkdown: (content: string) => {
@@ -34,7 +43,50 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
           }
         })
       }
-    }
+    },
+    undo: () => {
+      if (editorViewRef.current) {
+        undo(editorViewRef.current)
+      }
+    },
+    redo: () => {
+      if (editorViewRef.current) {
+        redo(editorViewRef.current)
+      }
+    },
+    focus: () => {
+      if (editorViewRef.current) {
+        editorViewRef.current.focus()
+      }
+    },
+    getSelection: () => {
+      if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        return editorViewRef.current.state.doc.sliceString(selection.from, selection.to)
+      }
+      return ''
+    },
+    insertText: (text: string) => {
+      if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: {
+            from: selection.from,
+            to: selection.to,
+            insert: text
+          },
+          selection: { anchor: selection.from + text.length }
+        })
+      }
+    },
+    selectAll: () => {
+      if (editorViewRef.current) {
+        editorViewRef.current.dispatch({
+          selection: { anchor: 0, head: editorViewRef.current.state.doc.length }
+        })
+      }
+    },
+    getEditorView: () => editorViewRef.current
   }))
 
   // Update preview
@@ -61,7 +113,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       doc: currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...',
       extensions: [
         markdown(),
-        keymap.of([...defaultKeymap, ...searchKeymap]),
+        history(), // Enable undo/redo functionality
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         CodeMirrorView.updateListener.of((update) => {
           if (update.docChanged) {
             const content = update.state.doc.toString()
@@ -139,7 +192,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         doc: content,
         extensions: [
           markdown(),
-          keymap.of([...defaultKeymap, ...searchKeymap]),
+          history(), // Enable undo/redo functionality
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
           CodeMirrorView.updateListener.of((update) => {
             if (update.docChanged) {
               const newContent = update.state.doc.toString()
@@ -149,7 +203,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
           }),
           CodeMirrorView.theme({
             '&': {
-              fontSize: '14px',
+              fontSize: 'var(--editor-font-size, 14px)', // Support zoom functionality
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
             },
             '.cm-content': {
@@ -206,13 +260,16 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
   }
   
   return (
-    <div style={{ 
-      flex: 1, 
-      display: 'flex', 
-      flexDirection: 'row', 
-      overflow: 'hidden',
-      backgroundColor: 'var(--bg-primary)'
-    }}>
+    <div 
+      className="editor-container" 
+      style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'row', 
+        overflow: 'hidden',
+        backgroundColor: 'var(--bg-primary)'
+      }}
+    >
       {/* Editor Pane */}
       <div style={{ 
         flex: 1, 
@@ -235,7 +292,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
           style={{ 
             flex: 1, 
             overflow: 'hidden',
-            backgroundColor: 'var(--bg-primary)'
+            backgroundColor: 'var(--bg-primary)',
+            fontSize: 'var(--editor-font-size, 14px)' // Support zoom
           }} 
         />
       </div>
@@ -267,7 +325,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
             backgroundColor: 'var(--bg-primary)',
             color: 'var(--text-primary)',
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-            lineHeight: '1.6'
+            lineHeight: '1.6',
+            fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
           }}
         />
       </div>
