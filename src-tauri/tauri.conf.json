@@ -20,12 +20,19 @@
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "center": true
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "visible": true,
+        "closable": true,
+        "minimizable": true,
+        "maximizable": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": false
   },
   "plugins": {
     "fs": {

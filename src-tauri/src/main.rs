@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use regex::Regex;
 use std::sync::OnceLock;
+// Menu system temporarily disabled for Tauri 2 compatibility
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Document {
@@ -61,7 +62,7 @@ async fn create_document() -> Result<Document, String> {
 #[tauri::command]
 async fn open_document(path: Option<String>) -> Result<Document, String> {
     println!("[TAURI] Opening document, path: {:?}", path);
-    
+
     if let Some(file_path) = path {
         match std::fs::read_to_string(&file_path) {
             Ok(content) => {
@@ -70,7 +71,7 @@ async fn open_document(path: Option<String>) -> Result<Document, String> {
                     .and_then(|n| n.to_str())
                     .unwrap_or("Untitled")
                     .to_string();
-                    
+
                 let doc = Document {
                     id: uuid::Uuid::new_v4().to_string(),
                     title,
@@ -96,21 +97,30 @@ async fn open_document(path: Option<String>) -> Result<Document, String> {
 
 // Save document to existing path
 #[tauri::command]
-async fn save_document(_id: String, content: String) -> Result<HashMap<String, String>, String> {
-    println!("[TAURI] Save document called with content length: {}", content.len());
-    // This should use the existing document path from the frontend state
-    // For now, return success - the frontend should handle path management
-    let mut response = HashMap::new();
-    response.insert("status".to_string(), "saved".to_string());
-    println!("[TAURI] Document saved successfully");
-    Ok(response)
+async fn save_document(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
+    println!("[TAURI] Save document called with content length: {} to path: {}", content.len(), path);
+
+    match std::fs::write(&path, &content) {
+        Ok(_) => {
+            let mut response = HashMap::new();
+            response.insert("status".to_string(), "saved".to_string());
+            response.insert("path".to_string(), path.clone());
+            println!("[TAURI] Document saved successfully to: {}", path);
+            Ok(response)
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to save file: {}", e);
+            println!("[TAURI] Error: {}", error_msg);
+            Err(error_msg)
+        }
+    }
 }
 
 // Save document to new path
 #[tauri::command]
 async fn save_document_as(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
     println!("[TAURI] Save document as: {}", path);
-    
+
     match std::fs::write(&path, &content) {
         Ok(_) => {
             let title = std::path::Path::new(&path)
@@ -118,12 +128,12 @@ async fn save_document_as(_id: String, content: String, path: String) -> Result<
                 .and_then(|n| n.to_str())
                 .unwrap_or("Untitled")
                 .to_string();
-                
+
             let mut response = HashMap::new();
             response.insert("path".to_string(), path.clone());
             response.insert("title".to_string(), title);
             response.insert("status".to_string(), "saved".to_string());
-            
+
             println!("[TAURI] Successfully saved as: {}", path);
             Ok(response)
         }
@@ -139,7 +149,7 @@ async fn save_document_as(_id: String, content: String, path: String) -> Result<
 #[tauri::command]
 async fn export_document(_id: String, content: String, path: String, format: String) -> Result<(), String> {
     println!("[TAURI] Export document as {} to: {}", format, path);
-    
+
     match format.as_str() {
         "html" => {
             // Convert markdown to HTML (basic implementation)
@@ -151,19 +161,19 @@ async fn export_document(_id: String, content: String, path: String, format: Str
     <meta charset="UTF-8">
     <title>Exported Document</title>
     <style>
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 40px 20px; 
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
             line-height: 1.6;
             color: #333;
         }}
         h1, h2, h3, h4, h5, h6 {{ color: #2c3e50; margin-top: 2em; }}
-        pre {{ 
-            background: #f8f9fa; 
-            padding: 15px; 
-            border-radius: 5px; 
+        pre {{
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
             border-left: 4px solid #007acc;
             overflow-x: auto;
         }}
@@ -201,7 +211,7 @@ async fn export_document(_id: String, content: String, path: String, format: Str
 </html>"#,
                 html_content
             );
-            
+
             match std::fs::write(&path, html) {
                 Ok(_) => {
                     println!("[TAURI] Successfully exported HTML to: {}", path);
@@ -227,21 +237,21 @@ fn markdown_to_html(markdown: &str) -> String {
     // This is a very basic implementation with error handling
     // In a real app, you'd use a proper markdown parser like comrak or pulldown-cmark
     let mut html = markdown.to_string();
-    
+
     // Headers - using lazy static patterns to avoid runtime panic
     html = get_h1_regex().replace_all(&html, "<h1>$1</h1>").to_string();
     html = get_h2_regex().replace_all(&html, "<h2>$1</h2>").to_string();
     html = get_h3_regex().replace_all(&html, "<h3>$1</h3>").to_string();
-    
+
     // Bold and Italic - safe regex patterns
     html = get_bold_regex().replace_all(&html, "<strong>$1</strong>").to_string();
     html = get_italic_regex().replace_all(&html, "<em>$1</em>").to_string();
-    
+
     // Line breaks to paragraphs - safe string processing
     let lines: Vec<&str> = html.lines().collect();
     let mut paragraphs = Vec::new();
     let mut current_paragraph = Vec::new();
-    
+
     for line in lines {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -258,7 +268,7 @@ fn markdown_to_html(markdown: &str) -> String {
             current_paragraph.push(trimmed);
         }
     }
-    
+
     if !current_paragraph.is_empty() {
         let paragraph = current_paragraph.join(" ");
         if !paragraph.starts_with('<') {
@@ -267,7 +277,7 @@ fn markdown_to_html(markdown: &str) -> String {
             paragraphs.push(paragraph);
         }
     }
-    
+
     paragraphs.join("\n")
 }
 
@@ -280,16 +290,35 @@ async fn quit_app(app_handle: tauri::AppHandle) -> Result<(), String> {
 }
 
 // Show about dialog
-#[tauri::command] 
+#[tauri::command]
 async fn show_about_dialog() -> Result<(), String> {
     println!("[TAURI] Show about dialog");
     // TODO: Implement proper about dialog
     Ok(())
 }
 
+// Get document statistics
+#[tauri::command]
+async fn get_document_stats(content: String) -> Result<HashMap<String, usize>, String> {
+    println!("[TAURI] Getting document statistics");
+
+    let lines: Vec<&str> = content.lines().collect();
+    let words: Vec<&str> = content.split_whitespace().collect();
+    let chars: Vec<char> = content.chars().collect();
+
+    let mut stats = HashMap::new();
+    stats.insert("lines".to_string(), lines.len());
+    stats.insert("words".to_string(), words.len());
+    stats.insert("characters".to_string(), chars.len());
+
+    Ok(stats)
+}
+
+// Menu system temporarily disabled for Tauri 2 compatibility
+
 fn main() {
     println!("[TAURI] Starting MarkWriter application");
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -300,8 +329,13 @@ fn main() {
             save_document_as,
             export_document,
             quit_app,
-            show_about_dialog
+            show_about_dialog,
+            get_document_stats
         ])
+        .setup(|_app| {
+            println!("[TAURI] Application setup completed");
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

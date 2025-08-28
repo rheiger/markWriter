@@ -23,12 +23,12 @@ export interface AppState {
   // Document state
   currentDocument: Document | null
   recentDocuments: Document[]
-  
+
   // UI state
   config: AppConfig
   isLoading: boolean
   error: string | null
-  
+
   // Actions
   setCurrentDocument: (doc: Document | null) => void
   updateDocumentContent: (content: string) => void
@@ -37,7 +37,7 @@ export interface AppState {
   updateConfig: (config: Partial<AppConfig>) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
-  
+
   // Tauri command wrappers
   createNewDocument: () => Promise<void>
   openDocument: (path?: string) => Promise<void>
@@ -63,10 +63,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   config: defaultConfig,
   isLoading: false,
   error: null,
-  
+
   // Basic setters
   setCurrentDocument: (doc) => set({ currentDocument: doc }),
-  
+
   updateDocumentContent: (content) => {
     const current = get().currentDocument
     if (current) {
@@ -80,7 +80,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       })
     }
   },
-  
+
   setDocumentDirty: (dirty) => {
     const current = get().currentDocument
     if (current) {
@@ -89,7 +89,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       })
     }
   },
-  
+
   addRecentDocument: (doc) => {
     const current = get().recentDocuments
     const filtered = current.filter(d => d.id !== doc.id)
@@ -97,27 +97,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       recentDocuments: [doc, ...filtered].slice(0, 10) // Keep only 10 recent
     })
   },
-  
+
   updateConfig: (newConfig) => {
     set({
       config: { ...get().config, ...newConfig }
     })
   },
-  
+
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
-  
+
   // Tauri command wrappers with error handling
   createNewDocument: async () => {
     const { setCurrentDocument, setError, setLoading } = get()
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('[STORE] Creating new document...')
+      console.log('[STORE] About to invoke create_document command...')
+
       const result = await invoke('create_document') as any
       console.log('[STORE] Create document result:', result)
-      
+
       const newDoc: Document = {
         id: result.id,
         title: result.title || 'Untitled',
@@ -126,27 +128,32 @@ export const useAppStore = create<AppState>((set, get) => ({
         isDirty: false,
         lastModified: new Date(result.last_modified || Date.now()),
       }
-      
+
       setCurrentDocument(newDoc)
       console.log('[STORE] New document created successfully')
     } catch (error) {
       console.error('[STORE] Failed to create document:', error)
+      console.error('[STORE] Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      })
       setError(error instanceof Error ? error.message : 'Failed to create document')
     } finally {
       setLoading(false)
     }
   },
-  
+
   openDocument: async (path) => {
     const { setCurrentDocument, addRecentDocument, setError, setLoading } = get()
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('[STORE] Opening document:', path)
       const result = await invoke('open_document', { path }) as any
       console.log('[STORE] Open document result:', result)
-      
+
       const doc: Document = {
         id: result.id,
         title: result.title || 'Untitled',
@@ -155,7 +162,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         isDirty: false,
         lastModified: new Date(result.last_modified || Date.now()),
       }
-      
+
       setCurrentDocument(doc)
       addRecentDocument(doc)
       console.log('[STORE] Document opened successfully:', result.path)
@@ -166,31 +173,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       setLoading(false)
     }
   },
-  
+
   saveDocument: async () => {
     const { currentDocument, setDocumentDirty, setError, setLoading } = get()
     if (!currentDocument) {
       console.warn('[STORE] No current document to save')
       return
     }
-    
+
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('[STORE] Saving document:', currentDocument.path)
-      
+
       if (currentDocument.path) {
-        // Save to existing file using the file system API
+        // Save to existing file using the Tauri command
         await invoke('save_document', {
           id: currentDocument.id,
           content: currentDocument.content,
+          path: currentDocument.path
         })
-        
-        // Write the content to the file path
-        const fs = await import('@tauri-apps/plugin-fs')
-        await fs.writeTextFile(currentDocument.path, currentDocument.content)
-        
+
         setDocumentDirty(false)
         console.log('[STORE] Document saved successfully to:', currentDocument.path)
       } else {
@@ -204,34 +208,34 @@ export const useAppStore = create<AppState>((set, get) => ({
       setLoading(false)
     }
   },
-  
+
   saveDocumentAs: async (path) => {
     const { currentDocument, setCurrentDocument, setDocumentDirty, addRecentDocument, setError, setLoading } = get()
     if (!currentDocument) {
       console.warn('[STORE] No current document to save')
       return
     }
-    
+
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('[STORE] Saving document as:', path)
       const result = await invoke('save_document_as', {
         id: currentDocument.id,
         content: currentDocument.content,
         path,
       }) as any
-      
+
       console.log('[STORE] Save as result:', result)
-      
+
       const updatedDoc: Document = {
         ...currentDocument,
         path: result.path || path,
         title: result.title || path.split('/').pop() || 'Untitled',
         isDirty: false,
       }
-      
+
       setCurrentDocument(updatedDoc)
       setDocumentDirty(false)
       addRecentDocument(updatedDoc)
@@ -243,18 +247,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       setLoading(false)
     }
   },
-  
+
   exportDocument: async (path, format) => {
     const { currentDocument, setError, setLoading } = get()
     if (!currentDocument) {
       console.warn('[STORE] No current document to export')
       return
     }
-    
+
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('[STORE] Exporting document as', format, 'to:', path)
       await invoke('export_document', {
         id: currentDocument.id,
@@ -262,6 +266,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         path,
         format,
       })
+
       console.log('[STORE] Document exported successfully')
     } catch (error) {
       console.error('[STORE] Failed to export document:', error)
@@ -275,10 +280,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 // Hook for theme management
 export const useTheme = () => {
   const { config, updateConfig } = useAppStore()
-  
+
   const setTheme = (theme: 'light' | 'dark' | 'system') => {
     updateConfig({ theme })
-    
+
     // Apply theme to document
     if (theme === 'system') {
       document.documentElement.removeAttribute('data-theme')
@@ -286,7 +291,7 @@ export const useTheme = () => {
       document.documentElement.setAttribute('data-theme', theme)
     }
   }
-  
+
   return {
     theme: config.theme,
     setTheme,

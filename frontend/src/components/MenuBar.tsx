@@ -18,22 +18,26 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     saveDocumentAs,
     exportDocument,
   } = useAppStore()
-  
+
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
 
   // File menu handlers
   const handleNew = async () => {
+    console.log('[DEBUG] handleNew called')
     try {
+      console.log('[MENU] Creating new document...')
       await createNewDocument()
-      console.log('[MENU] Created new document')
+      console.log('[MENU] Created new document successfully')
     } catch (error) {
       console.error('[MENU] Failed to create new document:', error)
+      alert(`Failed to create new document: ${error}`)
     }
     setActiveMenu(null)
   }
 
   const handleOpen = async () => {
+    console.log('[DEBUG] handleOpen called')
     try {
       console.log('[MENU] Opening file dialog...')
       const selected = await open({
@@ -45,9 +49,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
           }
         ]
       })
-      
+
       console.log('[MENU] File dialog result:', selected)
-      
+
       if (selected && typeof selected === 'string') {
         console.log('[MENU] Opening document:', selected)
         await openDocument(selected)
@@ -55,13 +59,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       }
     } catch (error) {
       console.error('[MENU] Failed to open file:', error)
-      // Show user-friendly error
       alert(`Failed to open file: ${error}`)
     }
     setActiveMenu(null)
   }
 
   const handleSave = async () => {
+    console.log('[DEBUG] handleSave called')
     try {
       if (currentDocument?.path) {
         console.log('[MENU] Saving document to:', currentDocument.path)
@@ -79,6 +83,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   }
 
   const handleSaveAs = async () => {
+    console.log('[DEBUG] handleSaveAs called')
     try {
       console.log('[MENU] Opening Save As dialog...')
       const selected = await save({
@@ -89,9 +94,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
           }
         ]
       })
-      
+
       console.log('[MENU] Save As dialog result:', selected)
-      
+
       if (selected) {
         console.log('[MENU] Saving document as:', selected)
         await saveDocumentAs(selected)
@@ -105,6 +110,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   }
 
   const handleExportHTML = async () => {
+    console.log('[DEBUG] handleExportHTML called')
     try {
       console.log('[MENU] Opening Export HTML dialog...')
       const selected = await save({
@@ -115,9 +121,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
           }
         ]
       })
-      
+
       console.log('[MENU] Export dialog result:', selected)
-      
+
       if (selected) {
         console.log('[MENU] Exporting document as HTML:', selected)
         await exportDocument(selected, 'html')
@@ -228,21 +234,21 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       try {
         // Focus the editor first
         editorViewRef.current.focus()
-        
+
         // Use keyboard shortcut to trigger CodeMirror's built-in search
         const isMac = navigator.userAgent.includes('Mac')
-        const event = new KeyboardEvent('keydown', { 
-          key: 'f', 
+        const event = new KeyboardEvent('keydown', {
+          key: 'f',
           [isMac ? 'metaKey' : 'ctrlKey']: true,
           bubbles: true
         })
-        
+
         // Get the editor view and dispatch the event to it
         const editorView = editorViewRef.current.getEditorView()
         if (editorView?.dom) {
           editorView.dom.dispatchEvent(event)
         }
-        
+
         console.log('[MENU] Triggered find dialog')
       } catch (error) {
         console.error('[MENU] Find failed:', error)
@@ -262,7 +268,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const handleZoomIn = () => {
     const editorContainer = document.querySelector('.editor-container') as HTMLElement
     const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
-    
+
     if (editorContainer || previewPane) {
       // Get current font sizes or use defaults
       const currentEditorSize = parseInt(
@@ -271,15 +277,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       const currentPreviewSize = parseInt(
         getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
       )
-      
+
       // Increase font sizes (max 24px for editor, 26px for preview)
       const newEditorSize = Math.min(currentEditorSize + 2, 24)
       const newPreviewSize = Math.min(currentPreviewSize + 2, 26)
-      
+
       // Set CSS variables
       document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
       document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
-      
+
       console.log('[MENU] Zoomed in - Editor:', newEditorSize, 'Preview:', newPreviewSize)
     }
     setActiveMenu(null)
@@ -288,7 +294,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   const handleZoomOut = () => {
     const editorContainer = document.querySelector('.editor-container') as HTMLElement
     const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
-    
+
     if (editorContainer || previewPane) {
       // Get current font sizes or use defaults
       const currentEditorSize = parseInt(
@@ -297,15 +303,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       const currentPreviewSize = parseInt(
         getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
       )
-      
+
       // Decrease font sizes (min 10px for editor, 12px for preview)
       const newEditorSize = Math.max(currentEditorSize - 2, 10)
       const newPreviewSize = Math.max(currentPreviewSize - 2, 12)
-      
+
       // Set CSS variables
       document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
       document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
-      
+
       console.log('[MENU] Zoomed out - Editor:', newEditorSize, 'Preview:', newPreviewSize)
     }
     setActiveMenu(null)
@@ -404,7 +410,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         if (shouldPrevent) {
           e.preventDefault()
           e.stopPropagation()
-          
+
           // Execute action
           if (actionToExecute) {
             setTimeout(actionToExecute, 0)
@@ -438,16 +444,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               <span className="shortcut">⌘O</span>
             </button>
             <div className="menu-separator" />
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleSave}
               disabled={!currentDocument}
             >
               <span>Save</span>
               <span className="shortcut">⌘S</span>
             </button>
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleSaveAs}
               disabled={!currentDocument}
             >
@@ -455,8 +461,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               <span className="shortcut">⇧⌘S</span>
             </button>
             <div className="menu-separator" />
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleExportHTML}
               disabled={!currentDocument}
             >
@@ -481,16 +487,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         </button>
         {activeMenu === 'edit' && (
           <div className="menu-dropdown">
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleUndo}
               disabled={!currentDocument}
             >
               <span>Undo</span>
               <span className="shortcut">⌘Z</span>
             </button>
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleRedo}
               disabled={!currentDocument}
             >
@@ -498,24 +504,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               <span className="shortcut">⇧⌘Z</span>
             </button>
             <div className="menu-separator" />
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleCut}
               disabled={!currentDocument}
             >
               <span>Cut</span>
               <span className="shortcut">⌘X</span>
             </button>
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleCopy}
               disabled={!currentDocument}
             >
               <span>Copy</span>
               <span className="shortcut">⌘C</span>
             </button>
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handlePaste}
               disabled={!currentDocument}
             >
@@ -523,8 +529,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               <span className="shortcut">⌘V</span>
             </button>
             <div className="menu-separator" />
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleSelectAll}
               disabled={!currentDocument}
             >
@@ -532,8 +538,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
               <span className="shortcut">⌘A</span>
             </button>
             <div className="menu-separator" />
-            <button 
-              className="menu-option" 
+            <button
+              className="menu-option"
               onClick={handleFind}
               disabled={!currentDocument}
             >

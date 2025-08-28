@@ -10,6 +10,16 @@ import { useAppStore } from '../store/useAppStore'
 import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
 
+// Simple markdown to HTML conversion for WYSIWYG mode
+const markdown_to_html = (markdown: string): string => {
+  try {
+    return marked(markdown)
+  } catch (error) {
+    console.error('Error converting markdown to HTML:', error)
+    return markdown
+  }
+}
+
 export interface EditorViewRef {
   getMarkdown: () => string
   setMarkdown: (content: string) => void
@@ -35,9 +45,10 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
   const previewRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
-  
+  const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
+
   const { currentDocument, updateDocumentContent, config } = useAppStore()
-  
+
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
     getMarkdown: () => editorViewRef.current?.state.doc.toString() || '',
@@ -126,7 +137,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
 
       // Replace mermaid blocks with placeholders for HTML rendering
       let processedContent = content
-      blocks.forEach((block, index) => {
+      blocks.forEach((_, index) => {
         const placeholder = `<div class="mermaid-placeholder" data-mermaid-index="${index}">[Mermaid Diagram ${index + 1}]</div>`
         processedContent = processedContent.replace(
           /```mermaid\n[\s\S]*?```/,
@@ -149,13 +160,28 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
 
   // Initialize CodeMirror editor
   useEffect(() => {
-    if (!editorRef.current) return
+    console.log('[EDITOR] useEffect triggered for editor initialization')
+    console.log('[EDITOR] editorRef.current:', editorRef.current)
+    console.log('[EDITOR] currentDocument:', currentDocument)
 
-    const isDark = config.theme === 'dark' || 
+    // Wait for DOM to be ready
+    const timer = setTimeout(() => {
+      if (!editorRef.current) {
+        console.error('[EDITOR] No editor ref available after delay')
+        return
+      }
+
+    const isDark = config.theme === 'dark' ||
       (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-    const defaultContent = currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it?}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]\n```\n\n```mermaid\nsequenceDiagram\n    participant A as Alice\n    participant B as Bob\n    A->>B: Hello Bob!\n    B-->>A: Hello Alice!\n```'
+    console.log('[EDITOR] Theme is dark:', isDark)
+    console.log('[EDITOR] Config theme:', config.theme)
 
+    const defaultContent = currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it working?}\n    B -->|Yes| C[Great!]\n    B -->|No| D[Let\'s fix it]\n    D --> E[Debug]\n    E --> F[Fix]\n    F --> C\n```'
+
+    console.log('[EDITOR] Creating CodeMirror editor with content length:', defaultContent.length)
+
+    // Create CodeMirror editor state
     const state = EditorState.create({
       doc: defaultContent,
       extensions: [
@@ -164,9 +190,10 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         CodeMirrorView.updateListener.of((update) => {
           if (update.docChanged) {
-            const content = update.state.doc.toString()
-            updateDocumentContent(content)
-            updatePreview(content)
+            const newContent = update.state.doc.toString()
+            console.log('[EDITOR] Content changed, length:', newContent.length)
+            updateDocumentContent(newContent)
+            updatePreview(newContent)
           }
         }),
         CodeMirrorView.theme({
@@ -192,20 +219,28 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       ]
     })
 
+    // Create and mount the editor
     const view = new CodeMirrorView({
       state,
       parent: editorRef.current
     })
 
     editorViewRef.current = view
+    console.log('[EDITOR] CodeMirror editor created successfully')
 
     // Initial preview update
     updatePreview(defaultContent)
 
+    }, 100) // 100ms delay to ensure DOM is ready
+
     return () => {
-      view.destroy()
+      clearTimeout(timer)
+      console.log('[EDITOR] Cleaning up CodeMirror editor')
+      if (editorViewRef.current) {
+        editorViewRef.current.destroy()
+      }
     }
-  }, [updatePreview]) // Only run once on mount
+  }, [currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
 
   // Update content when document changes
   useEffect(() => {
@@ -222,79 +257,29 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         updatePreview(currentDocument.content || '')
       }
     }
-  }, [currentDocument?.id, updatePreview])
 
-  // Update theme when config changes
-  useEffect(() => {
-    if (editorViewRef.current) {
-      const isDark = config.theme === 'dark' || 
-        (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-      
-      // Recreate editor with new theme
-      const content = editorViewRef.current.state.doc.toString()
-      const parent = editorViewRef.current.dom.parentNode
-      editorViewRef.current.destroy()
-
-      const state = EditorState.create({
-        doc: content,
-        extensions: [
-          markdown(),
-          history(), // Enable undo/redo functionality
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-          CodeMirrorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              const newContent = update.state.doc.toString()
-              updateDocumentContent(newContent)
-              updatePreview(newContent)
-            }
-          }),
-          CodeMirrorView.theme({
-            '&': {
-              fontSize: 'var(--editor-font-size, 14px)', // Support zoom functionality
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-            },
-            '.cm-content': {
-              padding: '16px',
-              minHeight: '100%'
-            },
-            '.cm-focused': {
-              outline: 'none'
-            },
-            '.cm-editor': {
-              height: '100%'
-            },
-            '.cm-scroller': {
-              fontFamily: 'inherit'
-            }
-          }),
-          ...(isDark ? [oneDark] : [])
-        ]
-      })
-
-      const view = new CodeMirrorView({
-        state,
-        parent: parent as Element
-      })
-
-      editorViewRef.current = view
+    // Also update WYSIWYG preview if in WYSIWYG mode
+    if (editorMode === 'wysiwyg' && currentDocument && previewRef.current) {
+      const html = markdown_to_html(currentDocument.content);
+      previewRef.current.innerHTML = html;
     }
-  }, [config.theme, updatePreview])
-  
+  }, [currentDocument?.id, currentDocument?.content, editorMode, updatePreview])
+
   if (!currentDocument) {
     return (
-      <div style={{ 
-        flex: 1, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-secondary)'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <h2 style={{ 
-            margin: '0 0 1rem 0', 
-            color: 'var(--text-primary)', 
-            fontWeight: 600 
+          <h2 style={{
+            margin: '0 0 1rem 0',
+            color: 'var(--text-primary)',
+            fontWeight: 600
           }}>
             Welcome to MarkWriter
           </h2>
@@ -305,99 +290,243 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       </div>
     )
   }
-  
-  return (
-    <div 
-      className="editor-container" 
-      style={{ 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'row', 
+
+    return (
+    <div
+      className="editor-container"
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: editorMode === 'wysiwyg' ? 'column' : 'row',
         overflow: 'hidden',
-        backgroundColor: 'var(--bg-primary)'
+        backgroundColor: 'var(--bg-primary)',
+        position: 'relative'
       }}
     >
-      {/* Editor Pane */}
-      <div style={{ 
-        flex: 1, 
-        display: 'flex',
-        flexDirection: 'column',
-        borderRight: '1px solid var(--border-color)'
-      }}>
-        <div style={{
-          padding: '8px 16px',
-          backgroundColor: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-color)',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--text-primary)'
-        }}>
-          Markdown
-        </div>
-        <div 
-          ref={editorRef} 
-          style={{ 
-            flex: 1, 
-            overflow: 'hidden',
-            backgroundColor: 'var(--bg-primary)',
-            fontSize: 'var(--editor-font-size, 14px)' // Support zoom
-          }} 
-        />
-      </div>
-      
-      {/* Preview Pane */}
-      <div style={{ 
-        flex: 1, 
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          padding: '8px 16px',
-          backgroundColor: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-color)',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--text-primary)'
-        }}>
-          Preview {mermaidBlocks.length > 0 && (
-            <span style={{ 
-              fontSize: '12px', 
-              opacity: 0.7,
-              marginLeft: '8px'
+      {editorMode === 'markdown' ? (
+        <>
+          {/* Editor Pane */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--border-color)'
+          }}>
+            <div style={{
+              padding: '8px 16px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderBottom: '1px solid var(--border-color)',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: 'var(--text-primary)'
             }}>
-              ({mermaidBlocks.length} diagram{mermaidBlocks.length !== 1 ? 's' : ''})
-            </span>
-          )}
-        </div>
+              Markdown
+            </div>
+            <div
+              ref={editorRef}
+              style={{
+                flex: 1,
+                overflow: 'hidden',
+                backgroundColor: 'var(--bg-primary)',
+                fontSize: 'var(--editor-font-size, 14px)' // Support zoom
+              }}
+            />
+          </div>
+
+          {/* Preview Pane */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '8px 16px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderBottom: '1px solid var(--border-color)',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: 'var(--text-primary)'
+            }}>
+              Preview {mermaidBlocks.length > 0 && (
+                <span style={{
+                  fontSize: '12px',
+                  opacity: 0.7,
+                  marginLeft: '8px'
+                }}>
+                  ({mermaidBlocks.length} diagram{mermaidBlocks.length !== 1 ? 's' : ''})
+                </span>
+              )}
+            </div>
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              backgroundColor: 'var(--bg-primary)',
+              position: 'relative'
+            }}>
+              {/* HTML Preview */}
+              <div
+                ref={previewRef}
+                className="markwriter-preview"
+                style={{
+                  padding: '16px',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
+                  lineHeight: '1.6',
+                  fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
+                }}
+              />
+
+              {/* Overlay Mermaid diagrams over placeholders */}
+              {mermaidBlocks.map((block, index) => (
+                <MermaidRenderer
+                  key={block.id}
+                  chart={block.chart}
+                  id={`${block.id}-${index}`}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        /* WYSIWYG Mode - Full Window Editing */
         <div style={{
           flex: 1,
-          overflow: 'auto',
-          backgroundColor: 'var(--bg-primary)',
-          position: 'relative'
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}>
-          {/* HTML Preview */}
-          <div 
+          <div style={{
+            padding: '8px 16px',
+            backgroundColor: 'var(--bg-secondary)',
+            borderBottom: '1px solid var(--border-color)',
+            fontSize: '14px',
+            fontWeight: 500,
+            color: 'var(--text-primary)'
+          }}>
+            WYSIWYG Editor
+          </div>
+          <div
             ref={previewRef}
             className="markwriter-preview"
-            style={{ 
+            contentEditable={true}
+            suppressContentEditableWarning={true}
+            onInput={(e) => {
+              // Get the text content and update the document
+              const textContent = e.currentTarget.innerText || '';
+              updateDocumentContent(textContent);
+
+              // Also update the markdown editor if it exists
+              if (editorViewRef.current) {
+                const currentContent = editorViewRef.current.state.doc.toString();
+                if (currentContent !== textContent) {
+                  editorViewRef.current.dispatch({
+                    changes: {
+                      from: 0,
+                      to: editorViewRef.current.state.doc.length,
+                      insert: textContent
+                    }
+                  });
+                }
+              }
+            }}
+            onKeyDown={(e) => {
+              // Handle special keys for better editing experience
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                document.execCommand('insertLineBreak', false);
+              }
+            }}
+            style={{
+              flex: 1,
+              overflow: 'auto',
+              backgroundColor: 'var(--bg-primary)',
               padding: '16px',
               color: 'var(--text-primary)',
               fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
               lineHeight: '1.6',
-              fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
+              fontSize: 'var(--preview-font-size, 16px)',
+              outline: 'none',
+              border: 'none',
+              direction: 'ltr', // Force left-to-right text direction
+              textAlign: 'left', // Force left alignment
+              whiteSpace: 'normal', // Normal text wrapping
+              wordWrap: 'break-word',
+              display: 'block', // Ensure proper block display
+              unicodeBidi: 'embed', // Force left-to-right embedding
+              writingMode: 'horizontal-tb' // Force horizontal writing mode
+            }}
+            dangerouslySetInnerHTML={{
+              __html: currentDocument?.content ? markdown_to_html(currentDocument.content) : ''
             }}
           />
-          
-          {/* Overlay Mermaid diagrams over placeholders */}
-          {mermaidBlocks.map((block, index) => (
-            <MermaidRenderer
-              key={block.id}
-              chart={block.chart}
-              id={`${block.id}-${index}`}
-            />
-          ))}
         </div>
+      )}
+
+      {/* Editor Mode Tabs */}
+      <div style={{
+        position: 'absolute',
+        bottom: '0',
+        right: '16px',
+        display: 'flex',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderBottom: 'none',
+        borderRadius: '6px 6px 0 0',
+        overflow: 'hidden'
+      }}>
+        <button
+          onClick={() => {
+            // When switching to markdown, ensure the editor has the latest content
+            if (editorViewRef.current && currentDocument) {
+              const currentContent = editorViewRef.current.state.doc.toString();
+              if (currentContent !== currentDocument.content) {
+                editorViewRef.current.dispatch({
+                  changes: {
+                    from: 0,
+                    to: editorViewRef.current.state.doc.length,
+                    insert: currentDocument.content || ''
+                  }
+                });
+              }
+            }
+            setEditorMode('markdown');
+          }}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            background: editorMode === 'markdown' ? 'var(--bg-primary)' : 'transparent',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Markdown
+        </button>
+        <button
+          onClick={() => {
+            // When switching to WYSIWYG, ensure the preview has the latest content
+            if (currentDocument && previewRef.current) {
+              const html = markdown_to_html(currentDocument.content);
+              previewRef.current.innerHTML = html;
+            }
+            setEditorMode('wysiwyg');
+          }}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            background: editorMode === 'wysiwyg' ? 'var(--bg-primary)' : 'transparent',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+            transition: 'all 0.2s ease'
+          }}
+        >
+          WYSIWYG
+        </button>
       </div>
     </div>
   )

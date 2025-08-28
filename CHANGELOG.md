@@ -10,6 +10,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - CHANGELOG.md file for better version tracking
 
+## [2.0.0-alpha.1] - 2025-08-27
+
+### Added
+- Complete React + TypeScript frontend rewrite
+- CodeMirror 6 integration for Markdown editing
+- Zustand state management with Tauri integration
+- Comprehensive toolbar with file operations and formatting tools
+- Tab system for Markdown and WYSIWYG modes
+- Theme system (Light/Dark/System) with CSS variables
+- Mermaid diagram support in Markdown preview
+
+### Changed
+- Migrated from Python+Qt to Rust+Tauri+React architecture
+- Replaced Toast UI Editor with CodeMirror 6
+- Updated build system to use Vite and modern tooling
+- Implemented native desktop app with web UI flexibility
+
+### Fixed
+- Resolved blank window issue with proper component initialization
+- Fixed variable scope issues in EditorView component
+- Corrected editor reference management in useEffect cleanup
+- Added timeout delay for proper DOM initialization
+
+### Known Issues
+- **CRITICAL**: File operations (Open, Save, Save As) completely broken due to CSP and dialog permissions
+- **CRITICAL**: WYSIWYG mode shows blank content and cannot accept text input
+- **HIGH**: Content synchronization broken between Markdown and WYSIWYG modes
+- **MEDIUM**: Persistent console errors related to Tauri security configuration
+
+### Technical Notes
+- UI now fully visible and functional
+- Core editing functionality working in Markdown mode
+- Sample content with Mermaid diagrams loads correctly
+- Application architecture solid but security configuration needs fixing
+
 ## [0.2.4] - 2024-12-19
 
 ### Fixed

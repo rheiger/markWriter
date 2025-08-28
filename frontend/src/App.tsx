@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { useAppStore, useTheme } from './store/useAppStore'
 import { EditorView, EditorViewRef } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
+import { Toolbar } from './components/Toolbar'
 import { StatusBar } from './components/StatusBar'
 import { ErrorToast } from './components/ErrorToast'
 import { LoadingSpinner } from './components/LoadingSpinner'
@@ -30,14 +31,15 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <MenuBar editorViewRef={editorViewRef} />
-      
+      <Toolbar editorViewRef={editorViewRef} />
+
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
         <EditorView ref={editorViewRef} />
       </main>
-      
+
       <StatusBar />
-      
+
       {error && <ErrorToast message={error} />}
     </div>
   )

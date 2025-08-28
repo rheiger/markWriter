@@ -1,8 +1,8 @@
 # AI Agent Guidelines for MarkWriter Project
 
-**Version**: 1.2  
-**Last Updated**: August 27, 2025  
-**Target Version**: v0.2.1 → v2.0.0  
+**Version**: 1.3
+**Last Updated**: August 27, 2025
+**Target Version**: v0.2.1 → v2.0.0
 
 ## Project Overview
 
@@ -10,7 +10,7 @@ MarkWriter is a minimal, cross-platform Markdown editor that has successfully co
 
 ### Current State ✅ PHASE 2 COMPLETE + CODEMIRROR 6 MIGRATION COMPLETE!
 - **Technology Stack**: Rust (Tauri) + React + TypeScript + Zustand + **CodeMirror 6**
-- **Platforms**: macOS ✅, Windows ✅, Linux ✅  
+- **Platforms**: macOS ✅, Windows ✅, Linux ✅
 - **Features**: CodeMirror 6 Markdown editing, file operations, HTML export, theme system
 - **Architecture**: Modern desktop app with native performance and web UI flexibility
 
@@ -122,7 +122,7 @@ markWriter/
 
 **Current Focus:**
 - **Mermaid Implementation**: Design and implement diagram rendering system
-- **Plugin System Foundation**: Prepare architecture for extensibility  
+- **Plugin System Foundation**: Prepare architecture for extensibility
 - **Performance Optimization**: Ensure v2.0 performance targets
 - **Advanced Feature Planning**: Coordinate Phase 3 development
 
@@ -190,7 +190,7 @@ markWriter/
    - Font selection and editor preferences
    - Theme and behavior customization
 
-4. **Enhanced Menu System** (#10) - **2-3 days** 
+4. **Enhanced Menu System** (#10) - **2-3 days**
    - Advanced View menu options
    - Window management features
 
@@ -234,7 +234,7 @@ markWriter/
 
 ### Issue Management
 - **Focus on Mermaid Implementation**: #1 is now the highest priority
-- **Update Progress Regularly**: Daily updates on Mermaid implementation progress  
+- **Update Progress Regularly**: Daily updates on Mermaid implementation progress
 - **Document Technical Decisions**: Especially diagram integration patterns
 - **Link Related Work**: Connect issues and PRs for better context
 
@@ -290,9 +290,9 @@ markWriter/
 
 ## 🎯 **Current Status Summary**
 
-**✅ ACHIEVED**: Complete CodeMirror 6 migration with menu integration  
-**🚀 PRIORITY**: Mermaid diagrams (#1) - **READY FOR IMMEDIATE IMPLEMENTATION**  
-**🎯 TARGET**: Mermaid diagrams working in 2-3 days  
-**🚀 GOAL**: v2.0.0-beta.1 with Mermaid support in ~1 week  
+**✅ ACHIEVED**: Complete CodeMirror 6 migration with menu integration
+**🚀 PRIORITY**: Mermaid diagrams (#1) - **READY FOR IMMEDIATE IMPLEMENTATION**
+**🎯 TARGET**: Mermaid diagrams working in 2-3 days
+**🚀 GOAL**: v2.0.0-beta.1 with Mermaid support in ~1 week
 
 *This document reflects the current Phase 3 state where CodeMirror 6 migration is complete and Mermaid diagram implementation is the immediate priority.*
