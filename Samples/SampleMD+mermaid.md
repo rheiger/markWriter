@@ -1,6 +1,6 @@
 # Generate Report Flow Context Diagram
 
-Adding a change in the raw text view.
+Adding a change in the raw text view. Adding **more** text in MARKDOWN pane.
 
 ## Overview
 
@@ -8,7 +8,7 @@ This document describes the comprehensive flow from when a client visits the `/g
 
 ## Header 2 inserted (here)
 
-This is nice and **bold** is working like _italic._ But strikethrough is not working. Now trying ~~strikethrough~~ from the raw text view.
+This is nice and **bold** is working like _italic._ But strikethrough is not working. Now trying ~strikethrough~ from the raw text view.
 
 Let’s add a line below.
 
@@ -48,18 +48,14 @@ Is **not** working
     *   Language parameter extraction (defaults to 'CH\_de')
         
     *   Optional provider/model overrides
+        
 
-And this ~~strikethrough text~~
+And this ~strikethrough text~
 
-- [ ] Task item
+*   \[ \] Task item
+    
 
-| Header | Header | Header |
-| --- | --- | --- |
-|  |  |  |
-|  |  |  |
-|  |  |  |
-|  |  |  |
-
+<table style="min-width: 75px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody><tr><th colspan="1" rowspan="1"><p>Header</p></th><th colspan="1" rowspan="1"><p>Header</p></th><th colspan="1" rowspan="1"><p>Header</p></th></tr><tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr><tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr><tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr><tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr></tbody></table>
 
 ### 2\. File Processing Phase
 
@@ -370,3 +366,5 @@ graph TB
     
 
 This flow represents a robust, production-ready system that handles the complete lifecycle of assessment report generation, from file upload through PDF delivery, with comprehensive error handling, monitoring, and security measures.
+
+*   New edit

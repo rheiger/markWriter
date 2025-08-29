@@ -25,6 +25,9 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
 import MarkdownIt from 'markdown-it'
 import TurndownService from 'turndown'
+// @ts-expect-error types
+import { gfm } from 'turndown-plugin-gfm'
+import mermaid from 'mermaid'
 import Strike from '@tiptap/extension-strike'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -71,7 +74,7 @@ interface MermaidBlock {
 export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
-  const wysiwygRef = useRef<HTMLDivElement>(null)
+  const previewScrollRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
   const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
@@ -81,12 +84,20 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   const isSyncingFromEditor = useRef(false)
   const isSyncingFromPreview = useRef(false)
   const positionMarkerRef = useRef<HTMLDivElement>(null)
+  const wysiwygContainerRef = useRef<HTMLDivElement>(null)
+  const isUpdatingFromTiptap = useRef(false)
+  const isUpdatingFromMarkdown = useRef(false)
 
   const { currentDocument, updateDocumentContent, config } = useAppStore()
 
   // Markdown <-> HTML converter for initial Tiptap content
   const md = React.useMemo(() => new MarkdownIt({ html: false, linkify: true, breaks: true }), [])
-  const turndown = React.useMemo(() => new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' }), [])
+  const turndown = React.useMemo(() => {
+    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
+    // enable GitHub-flavored markdown (tables, strikethrough, task lists)
+    td.use(gfm)
+    return td
+  }, [])
 
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
@@ -115,6 +126,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
     ],
     content: currentDocument?.content ? md.render(currentDocument.content) : '',
     onUpdate: ({ editor }) => {
+      if (isUpdatingFromMarkdown.current) return
+      isUpdatingFromTiptap.current = true
       const html = editor.getHTML()
       const markdownFromHtml = turndown.turndown(html)
       updateDocumentContent(markdownFromHtml)
@@ -126,18 +139,46 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           })
         }
       }
+      isUpdatingFromTiptap.current = false
     },
     editable: true,
     autofocus: false,
   })
 
+  // Helper to convert markdown → HTML for WYSIWYG and map mermaid fences
+  const toWysiwygHtml = useCallback((markdownText: string): string => {
+    let html = md.render(markdownText || '')
+    html = html.replace(/<pre><code class=\"language-mermaid\">([\s\S]*?)<\\/code><\\/pre>/g, (_m, code) => {
+      const decoded = code
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      return `<div class=\"mermaid\">${decoded}</div>`
+    })
+    return html
+  }, [md])
+
   // Keep tiptap in sync when switching documents
   useEffect(() => {
     if (tiptap && currentDocument) {
-      const html = md.render(currentDocument.content || '')
-      if (tiptap.getHTML() !== html) tiptap.commands.setContent(html)
+      if (isUpdatingFromTiptap.current) return
+      const html = toWysiwygHtml(currentDocument.content || '')
+      if (tiptap.getHTML() !== html) {
+        isUpdatingFromMarkdown.current = true
+        tiptap.commands.setContent(html)
+        isUpdatingFromMarkdown.current = false
+      }
+      // Render mermaid after setContent
+      requestAnimationFrame(() => {
+        if (!wysiwygContainerRef.current) return
+        const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: isDark ? 'dark' : 'default' })
+        mermaid.init(undefined, wysiwygContainerRef.current.querySelectorAll('div.mermaid'))
+      })
     }
-  }, [tiptap, currentDocument?.id, currentDocument?.content])
+  }, [tiptap, currentDocument?.id, currentDocument?.content, config.theme, toWysiwygHtml])
 
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
@@ -435,6 +476,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
     console.log('[EDITOR] CodeMirror editor created successfully')
 
     // Initial preview update
+    // Force equal split at mount
+    setSplitPos(50)
     updatePreview(defaultContent)
 
     }, 100) // 100ms delay to ensure DOM is ready
@@ -501,7 +544,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   // Scroll synchronization between editor and preview
   useEffect(() => {
     const cm = editorViewRef.current?.scrollDOM
-    const pv = previewRef.current
+    const pv = previewScrollRef.current
     if (!cm || !pv) return
 
     const onCmScroll = () => {
@@ -573,6 +616,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           {/* Editor Pane */}
           <div style={{
             flexBasis: `${splitPos}%`,
+            minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             borderRight: '1px solid var(--border-color)'
@@ -591,7 +635,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
               ref={editorRef}
               style={{
                 flex: 1,
-                overflow: 'hidden',
+                overflow: 'auto',
                 backgroundColor: 'var(--bg-primary)',
                 fontSize: 'var(--editor-font-size, 14px)' // Support zoom
               }}
@@ -624,6 +668,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           {/* Preview Pane */}
           <div style={{
             flexBasis: `${100 - splitPos}%`,
+            minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
@@ -646,7 +691,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
                 </span>
               )}
             </div>
-            <div style={{
+            <div ref={previewScrollRef} style={{
               flex: 1,
               overflow: 'auto',
               backgroundColor: 'var(--bg-primary)',
@@ -699,7 +744,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           }}>
             WYSIWYG Editor
           </div>
-          <div style={{ flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
+          <div ref={wysiwygContainerRef} style={{ flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
             <EditorContent editor={tiptap} />
           </div>
         </div>
