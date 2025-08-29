@@ -25,6 +25,13 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
 import MarkdownIt from 'markdown-it'
 import TurndownService from 'turndown'
+import Strike from '@tiptap/extension-strike'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { Table } from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
 
 
 export interface EditorViewRef {
@@ -49,6 +56,10 @@ export interface EditorViewRef {
   toggleBlockquote: () => void
   toggleCodeBlock: () => void
   setLink: (url?: string) => void
+  // Additional actions for toolbar
+  toggleStrike?: () => void
+  toggleTask?: () => void
+  insertTable?: (rows: number, cols: number) => void
 }
 
 interface MermaidBlock {
@@ -94,6 +105,13 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
       HardBreak,
       HorizontalRule,
       Code,
+      Strike,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: currentDocument?.content ? md.render(currentDocument.content) : '',
     onUpdate: ({ editor }) => {
@@ -119,7 +137,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
       const html = md.render(currentDocument.content || '')
       if (tiptap.getHTML() !== html) tiptap.commands.setContent(html)
     }
-  }, [tiptap, currentDocument?.id])
+  }, [tiptap, currentDocument?.id, currentDocument?.content])
 
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
@@ -287,7 +305,10 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           selection: { anchor: selection.from + insert.length }
         })
       }
-    }
+    },
+    toggleStrike: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleStrike().run() },
+    toggleTask: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleTaskList().run() },
+    insertTable: (rows: number, cols: number) => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run() }
   }))
 
   // Parse mermaid blocks from markdown content
@@ -394,7 +415,10 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
             height: '100%'
           },
           '.cm-scroller': {
-            fontFamily: 'inherit'
+            fontFamily: 'inherit',
+            overflowX: 'hidden', // prevent horizontal scrolling, wrap instead
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
           }
         }),
         ...(isDark ? [oneDark] : [])
@@ -582,7 +606,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
               const onMove = (ev: MouseEvent) => {
                 if (!isDraggingSplit.current || !container) return
                 const rect = container.getBoundingClientRect()
-                const x = Math.min(Math.max(ev.clientX - rect.left, 200), rect.width - 200)
+                const x = Math.min(Math.max(ev.clientX - rect.left, rect.width * 0.2), rect.width * 0.8)
                 const pct = (x / rect.width) * 100
                 setSplitPos(Math.min(Math.max(pct, 20), 80))
               }

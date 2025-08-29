@@ -93,6 +93,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   const insertStrikethrough = () => {
+    if (editorViewRef && (editorViewRef.current as any)?.toggleStrike) {
+      ;(editorViewRef.current as any).toggleStrike()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('~~strikethrough text~~')
     }
@@ -131,18 +135,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   const insertTable = (rows: number, cols: number) => {
+    // Try WYSIWYG table first
+    const api: any = editorViewRef?.current
+    if (api && api.insertTable) {
+      api.insertTable(rows, cols)
+      setShowTableMenu(false)
+      return
+    }
     if (editorViewRef?.current) {
       let table = '\n'
-
-      // Header row
       table += '| ' + Array(cols).fill('Header').join(' | ') + ' |\n'
       table += '| ' + Array(cols).fill('---').join(' | ') + ' |\n'
-
-      // Data rows
-      for (let i = 0; i < rows; i++) {
-        table += '| ' + Array(cols).fill('').join(' | ') + ' |\n'
-      }
-
+      for (let i = 0; i < rows; i++) table += '| ' + Array(cols).fill('').join(' | ') + ' |\n'
       editorViewRef.current.insertText(table)
     }
     setShowTableMenu(false)
@@ -169,6 +173,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   const insertCheckbox = () => {
+    if (editorViewRef && (editorViewRef.current as any)?.toggleTask) {
+      (editorViewRef.current as any).toggleTask()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('\n- [ ] Task item\n')
     }
