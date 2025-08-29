@@ -9,6 +9,22 @@ import { marked } from 'marked'
 import { useAppStore } from '../store/useAppStore'
 import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import Link from '@tiptap/extension-link'
+import BulletList from '@tiptap/extension-bullet-list'
+import OrderedList from '@tiptap/extension-ordered-list'
+import ListItem from '@tiptap/extension-list-item'
+import Heading from '@tiptap/extension-heading'
+import Blockquote from '@tiptap/extension-blockquote'
+import HardBreak from '@tiptap/extension-hard-break'
+import HorizontalRule from '@tiptap/extension-horizontal-rule'
+import Code from '@tiptap/extension-code'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { lowlight } from 'lowlight'
+import MarkdownIt from 'markdown-it'
+import TurndownService from 'turndown'
 
 
 export interface EditorViewRef {
@@ -40,6 +56,54 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
 
   const { currentDocument, updateDocumentContent, config } = useAppStore()
+
+  // Markdown <-> HTML converter for initial Tiptap content
+  const md = React.useMemo(() => new MarkdownIt({ html: false, linkify: true, breaks: true }), [])
+  const turndown = React.useMemo(() => new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' }), [])
+
+  // Tiptap editor instance (WYSIWYG)
+  const tiptap = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false,
+      }),
+      CodeBlockLowlight.configure({ lowlight }),
+      Placeholder.configure({ placeholder: 'Start writing…' }),
+      Link,
+      BulletList,
+      OrderedList,
+      ListItem,
+      Heading.configure({ levels: [1,2,3,4,5,6] }),
+      Blockquote,
+      HardBreak,
+      HorizontalRule,
+      Code,
+    ],
+    content: currentDocument?.content ? md.render(currentDocument.content) : '',
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML()
+      const markdownFromHtml = turndown.turndown(html)
+      updateDocumentContent(markdownFromHtml)
+      if (editorViewRef.current) {
+        const currentContent = editorViewRef.current.state.doc.toString()
+        if (currentContent !== markdownFromHtml) {
+          editorViewRef.current.dispatch({
+            changes: { from: 0, to: editorViewRef.current.state.doc.length, insert: markdownFromHtml }
+          })
+        }
+      }
+    },
+    editable: true,
+    autofocus: false,
+  })
+
+  // Keep tiptap in sync when switching documents
+  useEffect(() => {
+    if (tiptap && currentDocument) {
+      const html = md.render(currentDocument.content || '')
+      if (tiptap.getHTML() !== html) tiptap.commands.setContent(html)
+    }
+  }, [tiptap, currentDocument?.id])
 
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
@@ -425,48 +489,9 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
           }}>
             WYSIWYG Editor
           </div>
-          <div
-            ref={wysiwygRef}
-            className="markwriter-preview"
-            contentEditable={true}
-            suppressContentEditableWarning={true}
-            onInput={(e) => {
-              const textContent = e.currentTarget.textContent || ''
-              updateDocumentContent(textContent)
-
-              if (editorViewRef.current) {
-                const currentContent = editorViewRef.current.state.doc.toString()
-                if (currentContent !== textContent) {
-                  editorViewRef.current.dispatch({
-                    changes: {
-                      from: 0,
-                      to: editorViewRef.current.state.doc.length,
-                      insert: textContent
-                    }
-                  })
-                }
-              }
-            }}
-            style={{
-              flex: 1,
-              overflow: 'auto',
-              backgroundColor: 'var(--bg-primary)',
-              padding: '16px',
-              color: 'var(--text-primary)',
-              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-              lineHeight: '1.6',
-              fontSize: 'var(--preview-font-size, 16px)',
-              outline: 'none',
-              border: 'none',
-              direction: 'ltr',
-              textAlign: 'left',
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
-              display: 'block',
-              unicodeBidi: 'embed',
-              writingMode: 'horizontal-tb'
-            }}
-          />
+          <div style={{ flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
+            <EditorContent editor={tiptap} />
+          </div>
         </div>
       )}
 
