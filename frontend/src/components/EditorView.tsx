@@ -10,15 +10,6 @@ import { useAppStore } from '../store/useAppStore'
 import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
 
-// Simple markdown to HTML conversion for WYSIWYG mode
-const markdown_to_html = (markdown: string): string => {
-  try {
-    return marked(markdown)
-  } catch (error) {
-    console.error('Error converting markdown to HTML:', error)
-    return markdown
-  }
-}
 
 export interface EditorViewRef {
   getMarkdown: () => string
@@ -40,9 +31,10 @@ interface MermaidBlock {
   index: number
 }
 
-export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
+export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const wysiwygRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
   const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
@@ -242,6 +234,26 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
     }
   }, [currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
 
+  // Ensure preview and editor are restored when switching back to markdown
+  useEffect(() => {
+    if (editorMode === 'markdown') {
+      // Reattach editor DOM if needed
+      if (editorRef.current && editorViewRef.current) {
+        try {
+          if (editorViewRef.current.dom.parentElement !== editorRef.current) {
+            editorRef.current.appendChild(editorViewRef.current.dom)
+          }
+        } catch {}
+      }
+      // Defer preview update until ref is mounted
+      requestAnimationFrame(() => {
+        if (currentDocument) {
+          updatePreview(currentDocument.content || '')
+        }
+      })
+    }
+  }, [editorMode, currentDocument?.id, updatePreview])
+
   // Update content when document changes
   useEffect(() => {
     if (editorViewRef.current && currentDocument) {
@@ -258,10 +270,17 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
       }
     }
 
-    // Also update WYSIWYG preview if in WYSIWYG mode
-    if (editorMode === 'wysiwyg' && currentDocument && previewRef.current) {
-      const html = markdown_to_html(currentDocument.content);
-      previewRef.current.innerHTML = html;
+    // Keep WYSIWYG view in sync with plain text (no HTML injection)
+    if (
+      editorMode === 'wysiwyg' &&
+      currentDocument &&
+      wysiwygRef.current &&
+      document.activeElement !== wysiwygRef.current
+    ) {
+      const desired = currentDocument.content || ''
+      if (wysiwygRef.current.textContent !== desired) {
+        wysiwygRef.current.textContent = desired
+      }
     }
   }, [currentDocument?.id, currentDocument?.content, editorMode, updatePreview])
 
@@ -407,18 +426,16 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
             WYSIWYG Editor
           </div>
           <div
-            ref={previewRef}
+            ref={wysiwygRef}
             className="markwriter-preview"
             contentEditable={true}
             suppressContentEditableWarning={true}
             onInput={(e) => {
-              // Get the text content and update the document
-              const textContent = e.currentTarget.innerText || '';
-              updateDocumentContent(textContent);
+              const textContent = e.currentTarget.textContent || ''
+              updateDocumentContent(textContent)
 
-              // Also update the markdown editor if it exists
               if (editorViewRef.current) {
-                const currentContent = editorViewRef.current.state.doc.toString();
+                const currentContent = editorViewRef.current.state.doc.toString()
                 if (currentContent !== textContent) {
                   editorViewRef.current.dispatch({
                     changes: {
@@ -426,15 +443,8 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
                       to: editorViewRef.current.state.doc.length,
                       insert: textContent
                     }
-                  });
+                  })
                 }
-              }
-            }}
-            onKeyDown={(e) => {
-              // Handle special keys for better editing experience
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                document.execCommand('insertLineBreak', false);
               }
             }}
             style={{
@@ -448,16 +458,13 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
               fontSize: 'var(--preview-font-size, 16px)',
               outline: 'none',
               border: 'none',
-              direction: 'ltr', // Force left-to-right text direction
-              textAlign: 'left', // Force left alignment
-              whiteSpace: 'normal', // Normal text wrapping
+              direction: 'ltr',
+              textAlign: 'left',
+              whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
-              display: 'block', // Ensure proper block display
-              unicodeBidi: 'embed', // Force left-to-right embedding
-              writingMode: 'horizontal-tb' // Force horizontal writing mode
-            }}
-            dangerouslySetInnerHTML={{
-              __html: currentDocument?.content ? markdown_to_html(currentDocument.content) : ''
+              display: 'block',
+              unicodeBidi: 'embed',
+              writingMode: 'horizontal-tb'
             }}
           />
         </div>
@@ -491,6 +498,19 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
               }
             }
             setEditorMode('markdown');
+            // Re-mount CodeMirror view if needed and refresh preview
+            requestAnimationFrame(() => {
+              if (editorRef.current && editorViewRef.current) {
+                try {
+                  if (editorViewRef.current.dom.parentElement !== editorRef.current) {
+                    editorRef.current.appendChild(editorViewRef.current.dom)
+                  }
+                } catch {}
+              }
+              if (currentDocument) {
+                updatePreview(currentDocument.content || '')
+              }
+            })
           }}
           style={{
             padding: '8px 16px',
@@ -507,10 +527,20 @@ export const EditorView = forwardRef<EditorViewRef, {}>((props, ref) => {
         </button>
         <button
           onClick={() => {
-            // When switching to WYSIWYG, ensure the preview has the latest content
-            if (currentDocument && previewRef.current) {
-              const html = markdown_to_html(currentDocument.content);
-              previewRef.current.innerHTML = html;
+            // When switching to WYSIWYG, render formatted HTML once
+            if (currentDocument && wysiwygRef.current) {
+              try {
+                wysiwygRef.current.innerHTML = marked.parse(currentDocument.content || '')
+              } catch {
+                wysiwygRef.current.textContent = currentDocument.content || ''
+              }
+              // focus caret at end
+              const range = document.createRange()
+              const sel = window.getSelection()
+              range.selectNodeContents(wysiwygRef.current)
+              range.collapse(false)
+              sel?.removeAllRanges()
+              sel?.addRange(range)
             }
             setEditorMode('wysiwyg');
           }}

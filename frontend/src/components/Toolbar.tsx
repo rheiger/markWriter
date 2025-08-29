@@ -14,7 +14,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
     openDocument,
     saveDocument,
     saveDocumentAs,
-    exportDocument,
   } = useAppStore()
 
   const [showHeadingsMenu, setShowHeadingsMenu] = useState(false)
