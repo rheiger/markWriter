@@ -72,21 +72,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   // Text formatting
-  const insertHeading = (level: number) => {
-    if (editorViewRef?.current) {
-      const prefix = '#'.repeat(level) + ' '
-      editorViewRef.current.insertText(prefix)
-    }
-    setShowHeadingsMenu(false)
-  }
-
   const insertBold = () => {
+    if (editorViewRef?.current?.toggleBold) {
+      editorViewRef.current.toggleBold()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('**bold text**')
     }
   }
 
   const insertItalic = () => {
+    if (editorViewRef?.current?.toggleItalic) {
+      editorViewRef.current.toggleItalic()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('*italic text*')
     }
@@ -99,12 +99,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   const insertHorizontalRule = () => {
+    if (editorViewRef?.current?.insertHorizontalRule) {
+      editorViewRef.current.insertHorizontalRule()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('\n---\n')
     }
   }
 
   const insertLink = () => {
+    if (editorViewRef?.current?.setLink) {
+      editorViewRef.current.setLink()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('[link text](url)')
     }
@@ -141,12 +149,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
   }
 
   const insertBulletList = () => {
+    if (editorViewRef?.current?.toggleBulletList) {
+      editorViewRef.current.toggleBulletList()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('\n- List item\n')
     }
   }
 
   const insertNumberedList = () => {
+    if (editorViewRef?.current?.toggleOrderedList) {
+      editorViewRef.current.toggleOrderedList()
+      return
+    }
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('\n1. List item\n')
     }
@@ -156,6 +172,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
     if (editorViewRef?.current) {
       editorViewRef.current.insertText('\n- [ ] Task item\n')
     }
+  }
+
+  const insertHeading = (level: number) => {
+    if (editorViewRef?.current?.setHeadingLevel) {
+      editorViewRef.current.setHeadingLevel(level)
+      setShowHeadingsMenu(false)
+      return
+    }
+    if (editorViewRef?.current) {
+      const prefix = '#'.repeat(level) + ' '
+      editorViewRef.current.insertText(prefix)
+    }
+    setShowHeadingsMenu(false)
   }
 
   return (

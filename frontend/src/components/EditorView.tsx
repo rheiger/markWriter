@@ -39,6 +39,16 @@ export interface EditorViewRef {
   selectAll: () => void
   // Editor instance access for advanced operations
   getEditorView: () => CodeMirrorView | null
+  // WYSIWYG formatting controls
+  toggleBold: () => void
+  toggleItalic: () => void
+  setHeadingLevel: (level: number) => void // 0 -> paragraph
+  toggleBulletList: () => void
+  toggleOrderedList: () => void
+  insertHorizontalRule: () => void
+  toggleBlockquote: () => void
+  toggleCodeBlock: () => void
+  setLink: (url?: string) => void
 }
 
 interface MermaidBlock {
@@ -54,6 +64,12 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
   const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
+  const [splitPos, setSplitPos] = useState<number>(50)
+  const isDraggingSplit = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isSyncingFromEditor = useRef(false)
+  const isSyncingFromPreview = useRef(false)
+  const positionMarkerRef = useRef<HTMLDivElement>(null)
 
   const { currentDocument, updateDocumentContent, config } = useAppStore()
 
@@ -161,7 +177,117 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
         })
       }
     },
-    getEditorView: () => editorViewRef.current
+    getEditorView: () => editorViewRef.current,
+    toggleBold: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleBold().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'bold text'
+        const insert = `**${selected}**`
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: { anchor: selection.from + insert.length }
+        })
+      }
+    },
+    toggleItalic: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleItalic().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'italic text'
+        const insert = `*${selected}*`
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: { anchor: selection.from + insert.length }
+        })
+      }
+    },
+    setHeadingLevel: (level: number) => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        if (level === 0) tiptap.chain().focus().setParagraph().run()
+        else tiptap.chain().focus().setHeading({ level: Math.min(Math.max(level,1),6) as 1|2|3|4|5|6 }).run()
+      } else if (editorViewRef.current) {
+        const hash = level > 0 ? '#'.repeat(level) + ' ' : ''
+        const selection = editorViewRef.current.state.selection.main
+        const lineStart = editorViewRef.current.state.doc.lineAt(selection.from).from
+        editorViewRef.current.dispatch({
+          changes: { from: lineStart, to: lineStart, insert: hash },
+          selection: { anchor: selection.from + hash.length, head: selection.to + hash.length }
+        })
+      }
+    },
+    toggleBulletList: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleBulletList().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: '\n- ' },
+          selection: { anchor: selection.from + 3 }
+        })
+      }
+    },
+    toggleOrderedList: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleOrderedList().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: '\n1. ' },
+          selection: { anchor: selection.from + 4 }
+        })
+      }
+    },
+    insertHorizontalRule: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().setHorizontalRule().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: '\n---\n' },
+          selection: { anchor: selection.from + 5 }
+        })
+      }
+    },
+    toggleBlockquote: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleBlockquote().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: '\n> ' },
+          selection: { anchor: selection.from + 3 }
+        })
+      }
+    },
+    toggleCodeBlock: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleCodeBlock().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: '\n```\ncode here\n```\n' },
+          selection: { anchor: selection.from + 5 }
+        })
+      }
+    },
+    setLink: (url?: string) => {
+      const href = url ?? (typeof window !== 'undefined' ? window.prompt('Enter URL', 'https://') || '' : '')
+      if (editorMode === 'wysiwyg' && tiptap) {
+        if (href) tiptap.chain().focus().setLink({ href }).run()
+        else tiptap.chain().focus().unsetLink().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'link text'
+        const insert = href ? `[${selected}](${href})` : selected
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: { anchor: selection.from + insert.length }
+        })
+      }
+    }
   }))
 
   // Parse mermaid blocks from markdown content
@@ -348,6 +474,37 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
     }
   }, [currentDocument?.id, currentDocument?.content, editorMode, updatePreview])
 
+  // Scroll synchronization between editor and preview
+  useEffect(() => {
+    const cm = editorViewRef.current?.scrollDOM
+    const pv = previewRef.current
+    if (!cm || !pv) return
+
+    const onCmScroll = () => {
+      if (isSyncingFromPreview.current) return
+      isSyncingFromEditor.current = true
+      const ratio = cm.scrollTop / Math.max(1, cm.scrollHeight - cm.clientHeight)
+      pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight)
+      if (positionMarkerRef.current) positionMarkerRef.current.style.top = `${ratio * 100}%`
+      isSyncingFromEditor.current = false
+    }
+
+    const onPvScroll = () => {
+      if (isSyncingFromEditor.current) return
+      isSyncingFromPreview.current = true
+      const ratio = pv.scrollTop / Math.max(1, pv.scrollHeight - pv.clientHeight)
+      cm.scrollTop = ratio * (cm.scrollHeight - cm.clientHeight)
+      isSyncingFromPreview.current = false
+    }
+
+    cm.addEventListener('scroll', onCmScroll)
+    pv.addEventListener('scroll', onPvScroll)
+    return () => {
+      cm.removeEventListener('scroll', onCmScroll)
+      pv.removeEventListener('scroll', onPvScroll)
+    }
+  }, [editorMode])
+
   if (!currentDocument) {
     return (
       <div style={{
@@ -385,12 +542,13 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
         backgroundColor: 'var(--bg-primary)',
         position: 'relative'
       }}
+      ref={containerRef}
     >
       {editorMode === 'markdown' ? (
         <>
           {/* Editor Pane */}
           <div style={{
-            flex: 1,
+            flexBasis: `${splitPos}%`,
             display: 'flex',
             flexDirection: 'column',
             borderRight: '1px solid var(--border-color)'
@@ -416,9 +574,32 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
             />
           </div>
 
+          {/* Splitter */}
+          <div
+            onMouseDown={() => {
+              isDraggingSplit.current = true
+              const container = containerRef.current
+              const onMove = (ev: MouseEvent) => {
+                if (!isDraggingSplit.current || !container) return
+                const rect = container.getBoundingClientRect()
+                const x = Math.min(Math.max(ev.clientX - rect.left, 200), rect.width - 200)
+                const pct = (x / rect.width) * 100
+                setSplitPos(Math.min(Math.max(pct, 20), 80))
+              }
+              const onUp = () => {
+                isDraggingSplit.current = false
+                window.removeEventListener('mousemove', onMove)
+                window.removeEventListener('mouseup', onUp)
+              }
+              window.addEventListener('mousemove', onMove)
+              window.addEventListener('mouseup', onUp)
+            }}
+            style={{ width: '6px', cursor: 'col-resize', background: 'var(--bg-secondary)' }}
+          />
+
           {/* Preview Pane */}
           <div style={{
-            flex: 1,
+            flexBasis: `${100 - splitPos}%`,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
@@ -458,6 +639,11 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
                   lineHeight: '1.6',
                   fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
                 }}
+              />
+              {/* Position marker */}
+              <div
+                ref={positionMarkerRef}
+                style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.25, pointerEvents: 'none' }}
               />
 
               {/* Overlay Mermaid diagrams over placeholders */}
