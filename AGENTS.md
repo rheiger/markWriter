@@ -290,9 +290,32 @@ markWriter/
 
 ## 🎯 **Current Status Summary**
 
-**✅ ACHIEVED**: Complete CodeMirror 6 migration with menu integration
-**🚀 PRIORITY**: Mermaid diagrams (#1) - **READY FOR IMMEDIATE IMPLEMENTATION**
-**🎯 TARGET**: Mermaid diagrams working in 2-3 days
-**🚀 GOAL**: v2.0.0-beta.1 with Mermaid support in ~1 week
+**✅ Recently Fixed/Improved**
+- Initial Markdown/Preview splitter now defaults to 50/50 on load
+- Splitter is draggable with clamped bounds (20–80%) and panes have `min-width: 0`
+- Long lines in Markdown wrap (no horizontal scroll)
+- Tiptap-based WYSIWYG integrated; toolbar wired for bold/italic/headings/lists/HR/blockquote/code block
 
-*This document reflects the current Phase 3 state where CodeMirror 6 migration is complete and Mermaid diagram implementation is the immediate priority.*
+**🟡 In Progress / Partial**
+- Scroll sync: basic ratio sync is in place but needs refinement for accuracy and edge-cases
+- Caret handling across mode switches improved; needs verification on large docs
+
+**🔴 Still Open (Key Bugs)**
+- WYSIWYG: Mermaid code fences not rendering as diagrams
+- WYSIWYG: Tables not rendering correctly (shown as raw HTML in some cases)
+- WYSIWYG: Task list/checkbox fidelity requires polishing
+- Preview highlight of current Markdown selection not implemented
+
+**What We Tried**
+- Converted Mermaid fences in WYSIWYG to `<div class="mermaid">` and invoked `mermaid.init` after Tiptap updates (not sufficient in all cases)
+- Enabled GFM in Turndown for Markdown round-trip (strike/table/task list) and included Tiptap Table/Task/Strike extensions
+
+**Next Steps (Actionable)**
+1. Implement a dedicated Tiptap Mermaid Node with a NodeView that renders via the same preview pipeline (or reuses `MermaidRenderer`), avoiding raw HTML paths
+2. Use the preview parser logic to identify Mermaid blocks and mount rendered SVG inside the NodeView
+3. For tables, prefer Tiptap’s Table schema on import: either
+   - import Markdown via a Markdown-to-Tiptap plugin (e.g., tiptap-markdown), or
+   - normalize markdown-it HTML to a structure the Table extension parses reliably
+4. Improve scroll sync by mapping CM6 visible ranges to nearest block anchors in Preview instead of linear ratio
+
+**Hint for Implementers**: Tables and Mermaid render perfectly in the Preview. Mirror that approach in WYSIWYG via a custom Tiptap Node/NodeView and the same parsing/rendering helpers.

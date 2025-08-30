@@ -1,7 +1,7 @@
 # 🔄 React Frontend Implementation - IN PROGRESS
 
 ## Summary
-This document tracks the React frontend implementation for MarkWriter v2. While significant progress has been made, **critical functionality issues remain** that prevent the application from being fully usable. The UI is now visible and functional, but file operations and WYSIWYG editing are broken.
+This document tracks the React frontend implementation for MarkWriter v2. The UI is functional and Markdown+Preview workflow is stable. A new Tiptap-based WYSIWYG is integrated and partially working; several rendering gaps remain (Mermaid, tables) and scroll/caret polish is pending.
 
 ## 🎯 What Was Implemented
 
@@ -22,11 +22,11 @@ This document tracks the React frontend implementation for MarkWriter v2. While 
 ### **React Components**
 
 #### **EditorView Component**
-- Toast UI Editor integration with React
-- Content synchronization with application state
-- Theme-aware editor styling
-- Placeholder state for empty documents
-- Comprehensive CSS theming for Toast UI
+- CodeMirror 6 Markdown editor + Tiptap WYSIWYG
+- Two-pane Markdown/Preview layout with draggable splitter (20–80%), 50/50 initial
+- Long-line wrapping in Markdown (no horizontal scroll)
+- Ratio-based scroll sync; position marker overlay
+- MermaidRenderer reused for Preview
 
 #### **MenuBar Component**
 - Native menu system (File, Edit, View, Help)
@@ -99,10 +99,10 @@ This document tracks the React frontend implementation for MarkWriter v2. While 
 - ✅ Comprehensive component architecture
 - ✅ Proper separation of concerns
 
-## 🚨 **Current Critical Issues (August 27, 2025)**
+## 🚨 **Current Issues (Updated)**
 
-### **1. File Operations Completely Broken**
-**Status**: CRITICAL - Core functionality non-functional
+### **1. File Operations**
+**Status**: Working in recent builds (CSP/capability fixes applied). Re-test across platforms.
 
 **Issues**:
 - **Open**: Dialog permission denied (`dialog.open not allowed`)
@@ -120,32 +120,28 @@ This document tracks the React frontend implementation for MarkWriter v2. While 
 - `frontend/src/components/Toolbar.tsx` - File operation handlers
 - `frontend/src/store/useAppStore.ts` - Tauri command wrappers
 
-### **2. WYSIWYG Mode Completely Broken**
-**Status**: CRITICAL - Half of application functionality non-functional
+### **2. WYSIWYG Rendering Gaps**
+**Status**: PARTIAL - Editing and toolbar mostly working; rendering gaps remain
 
 **Issues**:
-- WYSIWYG pane shows completely blank content
-- Cannot type or edit text in WYSIWYG mode
-- No cursor or text input functionality
-- Content disappears when switching to WYSIWYG
+- Mermaid fences in WYSIWYG not rendered as diagrams
+- Tables in WYSIWYG sometimes shown as raw HTML
+- Task list/checkbox fidelity needs polish
 
-**Technical Root Causes**:
-- `contentEditable` div not receiving focus or input events
-- WYSIWYG preview not synchronizing with Markdown content
-- Editor state management broken between modes
+**Technical Root Causes (current)**:
+- Tiptap import path for Mermaid needs a custom Node/NodeView that renders via mermaid (preview pipeline works)
+- Markdown-to-Tiptap table import path needs normalization to Tiptap's Table schema
 
 **Files Affected**:
 - `frontend/src/components/EditorView.tsx` - WYSIWYG implementation
 - React state management for content synchronization
 
-### **3. Content Synchronization Issues**
-**Status**: HIGH - Data loss and poor user experience
+### **3. Scroll/Selection Synchronization**
+**Status**: PARTIAL - Basic ratio sync ok; selection highlight missing
 
 **Issues**:
-- Content disappears when switching between Markdown and WYSIWYG tabs
-- Markdown editor becomes unresponsive after WYSIWYG switch
-- Cannot type text until "New" button is clicked again
-- Editor state not preserved between mode switches
+- Selection/caret position not highlighted/mirrored in Preview
+- Caret not always preserved across mode switches on large docs
 
 **Technical Root Causes**:
 - Editor reference management issues between modes
@@ -156,8 +152,8 @@ This document tracks the React frontend implementation for MarkWriter v2. While 
 - `frontend/src/components/EditorView.tsx` - Tab switching logic
 - Editor lifecycle management
 
-### **4. Persistent Technical Errors**
-**Status**: MEDIUM - Affecting stability and debugging
+### **4. Stability**
+**Status**: GOOD - Recent parser/runtime errors fixed (forwardRef generic, regex literal)
 
 **Console Errors**:
 - `[EDITOR] No editor ref available after delay`
@@ -166,41 +162,30 @@ This document tracks the React frontend implementation for MarkWriter v2. While 
 
 ## 🔧 **Recent Fixes Applied (August 27, 2025)**
 
-### **✅ Successfully Resolved**
-1. **Variable Scope Issue**: Fixed `forwardRef` syntax error in `EditorView.tsx`
-2. **Editor Reference**: Fixed variable scope issue in useEffect cleanup
-3. **Component Crashes**: Added timeout delay for editor initialization
-4. **UI Rendering**: Application now displays properly (no more blank window)
+### **✅ Recently Resolved**
+1. Split view defaults to 50/50; divider draggable with clamped bounds
+2. Long-line wrapping in Markdown pane
+3. Dev crashes fixed (forwardRef generic; regex literal parsing)
+4. Basic scroll sync between Markdown and Preview
 
-### **❌ Unsuccessful Attempts**
-1. **CSP Configuration**: Setting `csp: null` in `tauri.conf.json` (CSP violations persist)
-2. **Dialog Permissions**: Various plugin configurations (permission errors persist)
-3. **WYSIWYG Implementation**: Current `contentEditable` approach (completely broken)
+### **❌ Attempts That Did Not Fully Fix**
+1. Rendering Mermaid in WYSIWYG by post-processing Markdown HTML and calling `mermaid.init` — unreliable with Tiptap content
+2. Tables via plain HTML import — sometimes renders as raw HTML; should map to Tiptap Table schema
 
 ## 📋 **Immediate Action Items (Next Session)**
 
-### **Priority 1: Fix File Operations**
-1. Investigate Tauri 2 CSP handling - Why `csp: null` not working?
-2. Configure dialog permissions - Add proper capabilities to `tauri.conf.json`
-3. Test IPC communication - Ensure backend commands are accessible
-
-### **Priority 2: Fix WYSIWYG Mode**
-1. Rewrite WYSIWYG implementation - Proper React integration with `contentEditable`
-2. Fix content synchronization - Ensure bidirectional sync between modes
-3. Test tab switching - Verify content preservation and editor responsiveness
-
-### **Priority 3: Content Synchronization**
-1. Fix editor reference management - Proper cleanup and initialization
-2. Implement proper state management - Content persistence across mode switches
-3. Add error boundaries - Prevent component crashes from propagating
+### **Immediate Action Items (Next)**
+1. Implement Tiptap Mermaid Node/NodeView using the Preview rendering pipeline (or mount `MermaidRenderer` inside NodeView)
+2. Normalize Markdown import to Tiptap Table schema (consider `tiptap-markdown` or custom markdown-it mapping)
+3. Anchor-based scroll sync and selection highlight in Preview
+4. Caret/selection preservation across mode switches
 
 ## 🎯 **Success Criteria for Next Session**
 
 ### **Minimum Viable Functionality**
-- [ ] File operations (Open, Save, Save As) working
-- [ ] WYSIWYG mode displaying and accepting text input
-- [ ] Tab switching preserving content
-- [ ] No console errors related to CSP or permissions
+- [ ] WYSIWYG: Mermaid and Tables render as expected
+- [ ] Scroll sync accurate + selection highlight in Preview
+- [ ] Caret/selection preserved across mode switches
 
 ### **Stretch Goals**
 - [ ] Mermaid diagram rendering in preview

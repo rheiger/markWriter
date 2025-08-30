@@ -71,7 +71,7 @@ interface MermaidBlock {
   index: number
 }
 
-export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
+export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -148,14 +148,15 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
   // Helper to convert markdown → HTML for WYSIWYG and map mermaid fences
   const toWysiwygHtml = useCallback((markdownText: string): string => {
     let html = md.render(markdownText || '')
-    html = html.replace(/<pre><code class=\"language-mermaid\">([\s\S]*?)<\\/code><\\/pre>/g, (_m, code) => {
-      const decoded = code
+    const re = new RegExp('<pre><code class="language-mermaid">([\\s\\S]*?)<\\/code><\\/pre>', 'g')
+    html = html.replace(re, (_m, code) => {
+      const decoded = String(code)
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-      return `<div class=\"mermaid\">${decoded}</div>`
+      return `<div class="mermaid">${decoded}</div>`
     })
     return html
   }, [md])
@@ -527,18 +528,7 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
       }
     }
 
-    // Keep WYSIWYG view in sync with plain text (no HTML injection)
-    if (
-      editorMode === 'wysiwyg' &&
-      currentDocument &&
-      wysiwygRef.current &&
-      document.activeElement !== wysiwygRef.current
-    ) {
-      const desired = currentDocument.content || ''
-      if (wysiwygRef.current.textContent !== desired) {
-        wysiwygRef.current.textContent = desired
-      }
-    }
+    // WYSIWYG content is managed by Tiptap; no manual DOM sync here
   }, [currentDocument?.id, currentDocument?.content, editorMode, updatePreview])
 
   // Scroll synchronization between editor and preview
@@ -807,17 +797,11 @@ export const EditorView = forwardRef<EditorViewRef, {}>((_props, ref) => {
         </button>
         <button
           onClick={() => {
-            // When switching to WYSIWYG, render formatted HTML once
-            if (currentDocument && wysiwygRef.current) {
-              try {
-                wysiwygRef.current.innerHTML = marked.parse(currentDocument.content || '')
-              } catch {
-                wysiwygRef.current.textContent = currentDocument.content || ''
-              }
-              // focus caret at end
+            // When switching to WYSIWYG, content already mirrored by effect; just set caret to end
+            if (wysiwygContainerRef.current) {
               const range = document.createRange()
               const sel = window.getSelection()
-              range.selectNodeContents(wysiwygRef.current)
+              range.selectNodeContents(wysiwygContainerRef.current)
               range.collapse(false)
               sel?.removeAllRanges()
               sel?.addRange(range)

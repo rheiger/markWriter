@@ -8,7 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- CHANGELOG.md file for better version tracking
+- WYSIWYG editor based on Tiptap
+- Ratio-based scroll sync between Markdown and Preview
+- Draggable splitter with clamped bounds; 50/50 initial layout
+
+### Changed
+- Markdown editor wraps long lines (no horizontal scroll)
+- Toolbar wired to WYSIWYG for bold/italic/headings/lists/HR/blockquote/code block
+
+### Fixed
+- Dev crashes from invalid forwardRef generics and regex literal parsing
+
+### Known Issues
+- WYSIWYG: Mermaid code fences do not render as diagrams yet
+- WYSIWYG: Tables not rendering consistently (raw HTML blocks)
+- Scroll sync needs anchor-based refinement and selection highlight in Preview
+- Caret/selection preservation between modes needs improvement
 
 ## [2.0.0-alpha.1] - 2025-08-27
 
