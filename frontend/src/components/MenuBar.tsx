@@ -24,6 +24,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     saveDocumentAs,
     exportDocument,
   } = useAppStore()
+  const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
+  const defaultTextSize = editorMode === 'markdown' ? 14 : 16
 
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
@@ -279,9 +281,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     setActiveMenu(null)
   }
 
-  const handleZoomIn = () => { updateConfig({ fontSize: Math.min(config.fontSize + 2, 32) }); setActiveMenu(null) }
-  const handleZoomOut = () => { updateConfig({ fontSize: Math.max(config.fontSize - 2, 10) }); setActiveMenu(null) }
-  const handleActualSize = () => { updateConfig({ fontSize: 14 }); setActiveMenu(null) }
+  const handleZoomIn = () => { updateConfig({ [fontSizeKey]: Math.min(config[fontSizeKey] + 2, 32) }); setActiveMenu(null) }
+  const handleZoomOut = () => { updateConfig({ [fontSizeKey]: Math.max(config[fontSizeKey] - 2, 10) }); setActiveMenu(null) }
+  const handleActualSize = () => { updateConfig({ [fontSizeKey]: defaultTextSize }); setActiveMenu(null) }
   const handleAbout = () => { setAboutOpen(true); setActiveMenu(null) }
 
   const toggleMenu = (menuName: string) => {

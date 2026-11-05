@@ -18,6 +18,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
     saveDocument,
     saveDocumentAs,
   } = useAppStore()
+  const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
+  const defaultTextSize = editorMode === 'markdown' ? 14 : 16
 
   const [showHeadingsMenu, setShowHeadingsMenu] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
@@ -254,9 +256,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
 
       {/* View Controls */}
       <div className="toolbar-section">
-        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: Math.min((config?.fontSize ?? 14) + 2, 32) })} title="Zoom In">🔍+</button>
-        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: Math.max((config?.fontSize ?? 14) - 2, 10) })} title="Zoom Out">🔍-</button>
-        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: 14 })} title="Actual Size">🔍</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ [fontSizeKey]: Math.min((config?.[fontSizeKey] ?? defaultTextSize) + 2, 32) })} title="Zoom In">🔍+</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ [fontSizeKey]: Math.max((config?.[fontSizeKey] ?? defaultTextSize) - 2, 10) })} title="Zoom Out">🔍-</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ [fontSizeKey]: defaultTextSize })} title="Actual Size">🔍</button>
       </div>
 
       <div className="toolbar-separator" />
@@ -357,7 +359,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
       {/* Display text size; never changes document formatting. */}
       <div className="toolbar-section">
         <select className="font-size" aria-label="Text size" title="Editor text size (pixels)"
-          value={config?.fontSize ?? 14} onChange={event => updateConfig({ fontSize: Number(event.target.value) })}>
+          value={config?.[fontSizeKey] ?? defaultTextSize} onChange={event => updateConfig({ [fontSizeKey]: Number(event.target.value) })}>
           {Array.from({ length: 23 }, (_, index) => index + 10).map(size => <option key={size} value={size}>{size}px</option>)}
         </select>
       </div>

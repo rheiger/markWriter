@@ -134,11 +134,7 @@ export const useAppStore = create<AppState>((set, get) => {
     updateConfig: config => {
       try {
         const previous = get().config
-        const next = parsePreferences({ version: 1, config: { ...previous, ...config,
-          ...(config.fontSize !== undefined && config.renderedFontSize === undefined ? {
-            renderedFontSize: Math.max(10, Math.min(32, previous.renderedFontSize + config.fontSize - previous.fontSize)),
-          } : {}),
-        } })
+        const next = parsePreferences({ version: 1, config: { ...previous, ...config } })
         set({ config: next })
       } catch (error) { set({ error: errorMessage(error, 'Invalid preferences') }) }
     },
