@@ -1,4 +1,5 @@
 import { createRef } from 'react'
+import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
@@ -141,6 +142,16 @@ describe('document fidelity with real editors', () => {
     act(() => { editor.commands.insertContentAt(1, 'Edited ') })
     const doc = new DOMParser().parseFromString(toWysiwygHtml(useAppStore.getState().currentDocument!.content), 'text/html')
     expect(doc.querySelector('code.language-typescript')?.textContent).toBe('const literal = "```";\n')
+  })
+
+  it('retains the existing sample document structure over an edited round-trip', async () => {
+    const source = readFileSync('../Samples/SampleMD+mermaid.md', 'utf8')
+    const { editor } = await mount(source)
+    act(() => { editor.commands.insertContentAt(1, 'Corpus edit ') })
+    const expected = editor.getJSON()
+    const serialized = useAppStore.getState().currentDocument!.content
+    act(() => { editor.commands.setContent(toWysiwygHtml(serialized), { emitUpdate: false }) })
+    expect(editor.getJSON()).toEqual(expected)
   })
 
 })

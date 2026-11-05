@@ -56,4 +56,13 @@ describe('save and dirty state', () => {
     expect(useAppStore.getState().currentDocument!.content).toBe('Unsaved')
   })
 
+  it('keeps unsaved content and exposes native write errors', async () => {
+    useAppStore.getState().updateDocumentContent('Unsaved')
+    call.mockRejectedValueOnce('Permission denied')
+    await useAppStore.getState().saveDocument()
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(true)
+    expect(useAppStore.getState().currentDocument!.content).toBe('Unsaved')
+    expect(useAppStore.getState().error).toContain('Permission denied')
+  })
+
 })

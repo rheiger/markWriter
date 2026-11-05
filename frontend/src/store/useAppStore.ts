@@ -3,6 +3,11 @@ import { confirm } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { createHtmlExport } from '../lib/htmlExport'
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message
+  return typeof error === 'string' && error ? error : fallback
+}
+
 // Types for our application state
 export interface Document {
   id: string
@@ -140,7 +145,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : 'No stack trace'
       })
-      setError(error instanceof Error ? error.message : 'Failed to create document')
+      setError(errorMessage(error, 'Failed to create document'))
     } finally {
       setLoading(false)
     }
@@ -170,7 +175,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('[STORE] Document opened successfully:', result.path)
     } catch (error) {
       console.error('[STORE] Failed to open document:', error)
-      setError(error instanceof Error ? error.message : 'Failed to open document')
+      setError(errorMessage(error, 'Failed to open document'))
     } finally {
       setLoading(false)
     }
@@ -209,7 +214,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch (error) {
       console.error('[STORE] Failed to save document:', error)
-      setError(error instanceof Error ? error.message : 'Failed to save document')
+      setError(errorMessage(error, 'Failed to save document'))
     } finally {
       setLoading(false)
     }
@@ -254,7 +259,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('[STORE] Document saved as:', result.path)
     } catch (error) {
       console.error('[STORE] Failed to save document as:', error)
-      setError(error instanceof Error ? error.message : 'Failed to save document')
+      setError(errorMessage(error, 'Failed to save document'))
     } finally {
       setLoading(false)
     }
@@ -285,7 +290,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('[STORE] Document exported successfully')
     } catch (error) {
       console.error('[STORE] Failed to export document:', error)
-      setError(error instanceof Error ? error.message : 'Failed to export document')
+      setError(errorMessage(error, 'Failed to export document'))
     } finally {
       setLoading(false)
     }
