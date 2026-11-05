@@ -174,4 +174,37 @@ describe('document fidelity with real editors', () => {
     expect(doc.querySelectorAll('th')).toHaveLength(3)
   })
 
+  it('deletes WYSIWYG selections through the Cut API without creating empty text nodes', async () => {
+    const { ref, editor } = await mount('Selected text')
+    act(() => ref.current!.selectAll())
+    expect(() => act(() => ref.current!.insertText(''))).not.toThrow()
+    expect(editor.getText().trim()).toBe('')
+  })
+
+  it('preserves literal multiline paste through a WYSIWYG round-trip', async () => {
+    const { ref, editor } = await mount('')
+    act(() => ref.current!.insertText('<b>literal</b>\nSecond line'))
+    const serialized = ref.current!.getMarkdown()
+    act(() => { editor.commands.setContent(toWysiwygHtml(serialized), { emitUpdate: false }) })
+    expect(editor.getText().trim()).toBe('<b>literal</b>\nSecond line')
+  })
+
+  it('applies task and strike formatting in Markdown mode', async () => {
+    const { ref } = await mount('Task text')
+    await markdown(ref)
+    act(() => ref.current!.toggleTask!())
+    expect(ref.current!.getMarkdown()).toBe('- [ ] Task text')
+    act(() => ref.current!.toggleTask!())
+    expect(ref.current!.getMarkdown()).toBe('Task text')
+    act(() => { ref.current!.selectAll(); ref.current!.toggleStrike!() })
+    expect(ref.current!.getMarkdown()).toBe('~~Task text~~')
+  })
+
+  it('retains completed tasks when adding task formatting to mixed Markdown lines', async () => {
+    const { ref } = await mount('- [x] Done\nPlain\n- Bullet')
+    await markdown(ref)
+    act(() => { ref.current!.selectAll(); ref.current!.toggleTask!() })
+    expect(ref.current!.getMarkdown()).toBe('- [x] Done\n- [ ] Plain\n- [ ] Bullet')
+  })
+
 })

@@ -8,6 +8,7 @@ import { searchKeymap } from '@codemirror/search'
 import { useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { JSONContent } from '@tiptap/core'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -255,7 +256,14 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
     },
     insertText: (text: string) => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.commands.insertContent({ type: 'text', text }); return
+        if (!text) { tiptap.commands.deleteSelection(); return }
+        const content: JSONContent[] = []
+        text.split(/\r\n?|\n/).forEach((line, index) => {
+          if (index) content.push({ type: 'hardBreak' })
+          if (line) content.push({ type: 'text', text: line })
+        })
+        tiptap.commands.insertContent(content)
+        return
       }
       if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
@@ -438,8 +446,36 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
         })
       }
     },
-    toggleStrike: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleStrike().run() },
-    toggleTask: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleTaskList().run() },
+    toggleStrike: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleStrike().run()
+      } else if (editorViewRef.current) {
+        const view = editorViewRef.current
+        const { from, to } = view.state.selection.main
+        const selected = view.state.doc.sliceString(from, to) || 'strikethrough text'
+        const insert = selected.startsWith('~~') && selected.endsWith('~~')
+          ? selected.slice(2, -2) : `~~${selected}~~`
+        view.dispatch({ changes: { from, to, insert }, selection: { anchor: from, head: from + insert.length } })
+      }
+    },
+    toggleTask: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleTaskList().run()
+      } else if (editorViewRef.current) {
+        const view = editorViewRef.current
+        const { from, to } = view.state.selection.main
+        const start = view.state.doc.lineAt(from)
+        const end = view.state.doc.lineAt(to > from && view.state.doc.lineAt(to).from === to ? to - 1 : to)
+        const lines = Array.from({ length: end.number - start.number + 1 }, (_, index) => view.state.doc.line(start.number + index))
+        const task = /^(\s*)[-*+]\s+\[[ xX]\]\s?/
+        const remove = lines.every(line => task.test(line.text))
+        view.dispatch({ changes: lines.map(line => ({
+          from: line.from, to: line.to,
+          insert: remove ? line.text.replace(task, '$1') : task.test(line.text) ? line.text
+            : line.text.replace(/^(\s*)(?:[-*+]\s+)?(.*)$/, '$1- [ ] $2'),
+        })) })
+      }
+    },
     insertTable: (rows: number, cols: number) => {
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
