@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useAppStore, useTheme } from '../store/useAppStore'
+import { useAppStore, useTheme, confirmDiscardChanges } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { EditorViewRef } from './EditorView'
@@ -138,6 +138,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
 
   const handleQuit = async () => {
     try {
+      if (!await confirmDiscardChanges()) return
       await invoke('quit_app')
     } catch (error) {
       console.error('[MENU] Failed to quit app:', error)

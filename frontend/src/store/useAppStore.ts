@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import { confirm } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
+import { createHtmlExport } from '../lib/htmlExport'
 
 // Types for our application state
 export interface Document {
@@ -69,12 +71,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateDocumentContent: (content) => {
     const current = get().currentDocument
-    if (current) {
+    if (current && current.content !== content) {
       set({
         currentDocument: {
           ...current,
           content,
-          isDirty: current.content !== content,
+          isDirty: true,
           lastModified: new Date(),
         }
       })
@@ -109,6 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Tauri command wrappers with error handling
   createNewDocument: async () => {
+    if (!await confirmDiscardChanges()) return
     const { setCurrentDocument, setError, setLoading } = get()
     try {
       setLoading(true)
@@ -118,7 +121,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.log('[STORE] About to invoke create_document command...')
 
       const result = await invoke('create_document') as any
-      console.log('[STORE] Create document result:', result)
 
       const newDoc: Document = {
         id: result.id,
@@ -145,6 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   openDocument: async (path) => {
+    if (!await confirmDiscardChanges()) return
     const { setCurrentDocument, addRecentDocument, setError, setLoading } = get()
     try {
       setLoading(true)
@@ -152,7 +155,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       console.log('[STORE] Opening document:', path)
       const result = await invoke('open_document', { path }) as any
-      console.log('[STORE] Open document result:', result)
 
       const doc: Document = {
         id: result.id,
@@ -175,7 +177,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveDocument: async () => {
-    const { currentDocument, setDocumentDirty, setError, setLoading } = get()
+    const { currentDocument, setError, setLoading } = get()
     if (!currentDocument) {
       console.warn('[STORE] No current document to save')
       return
@@ -195,7 +197,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           path: currentDocument.path
         })
 
-        setDocumentDirty(false)
+        set(state => {
+          const latest = state.currentDocument
+          if (latest?.id !== currentDocument.id) return {}
+          return { currentDocument: { ...latest, isDirty: latest.content !== currentDocument.content } }
+        })
         console.log('[STORE] Document saved successfully to:', currentDocument.path)
       } else {
         console.log('[STORE] No path available, document needs to be saved with Save As')
@@ -210,7 +216,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveDocumentAs: async (path) => {
-    const { currentDocument, setCurrentDocument, setDocumentDirty, addRecentDocument, setError, setLoading } = get()
+    const { currentDocument, addRecentDocument, setError, setLoading } = get()
     if (!currentDocument) {
       console.warn('[STORE] No current document to save')
       return
@@ -236,8 +242,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         isDirty: false,
       }
 
-      setCurrentDocument(updatedDoc)
-      setDocumentDirty(false)
+      set(state => {
+        const latest = state.currentDocument
+        if (latest?.id !== currentDocument.id) return {}
+        return { currentDocument: {
+          ...latest, path: updatedDoc.path, title: updatedDoc.title,
+          isDirty: latest.content !== currentDocument.content,
+        } }
+      })
       addRecentDocument(updatedDoc)
       console.log('[STORE] Document saved as:', result.path)
     } catch (error) {
@@ -260,7 +272,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       setError(null)
 
       console.log('[STORE] Exporting document as', format, 'to:', path)
+      if (format !== 'html') throw new Error(`Unsupported export format: ${format}`)
+      const html = await createHtmlExport(currentDocument.content)
       await invoke('export_document', {
+        html,
         id: currentDocument.id,
         content: currentDocument.content,
         path,
@@ -276,6 +291,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 }))
+
+// Shared by New, Open, menu Quit and the native window close handler.
+export async function confirmDiscardChanges(): Promise<boolean> {
+  if (!useAppStore.getState().currentDocument?.isDirty) return true
+  return confirm('Discard unsaved changes?', {
+    title: 'Unsaved changes', kind: 'warning', okLabel: 'Discard', cancelLabel: 'Keep editing',
+  })
+}
 
 // Hook for theme management
 export const useTheme = () => {

@@ -3,8 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use regex::Regex;
-use std::sync::OnceLock;
+use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -14,33 +13,6 @@ pub struct Document {
     pub content: String,
     pub path: Option<String>,
     pub last_modified: String,
-}
-
-// Lazy static regex patterns to avoid runtime compilation panics
-static H1_REGEX: OnceLock<Regex> = OnceLock::new();
-static H2_REGEX: OnceLock<Regex> = OnceLock::new();
-static H3_REGEX: OnceLock<Regex> = OnceLock::new();
-static BOLD_REGEX: OnceLock<Regex> = OnceLock::new();
-static ITALIC_REGEX: OnceLock<Regex> = OnceLock::new();
-
-fn get_h1_regex() -> &'static Regex {
-    H1_REGEX.get_or_init(|| Regex::new(r"(?m)^# (.+)$").unwrap())
-}
-
-fn get_h2_regex() -> &'static Regex {
-    H2_REGEX.get_or_init(|| Regex::new(r"(?m)^## (.+)$").unwrap())
-}
-
-fn get_h3_regex() -> &'static Regex {
-    H3_REGEX.get_or_init(|| Regex::new(r"(?m)^### (.+)$").unwrap())
-}
-
-fn get_bold_regex() -> &'static Regex {
-    BOLD_REGEX.get_or_init(|| Regex::new(r"\*\*(.+?)\*\*").unwrap())
-}
-
-fn get_italic_regex() -> &'static Regex {
-    ITALIC_REGEX.get_or_init(|| Regex::new(r"\*(.+?)\*").unwrap())
 }
 
 // Create a new document
@@ -95,12 +67,26 @@ async fn open_document(path: Option<String>) -> Result<Document, String> {
     }
 }
 
+// Write in the destination directory and replace only after a complete, flushed write.
+fn write_document(path: &str, content: &str) -> std::io::Result<()> {
+    let destination = std::path::Path::new(path);
+    let parent = destination.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    if let Ok(metadata) = std::fs::metadata(destination) {
+        temporary.as_file().set_permissions(metadata.permissions())?;
+    }
+    temporary.write_all(content.as_bytes())?;
+    temporary.as_file().sync_all()?;
+    temporary.persist(destination).map_err(|error| error.error)?;
+    Ok(())
+}
+
 // Save document to existing path
 #[tauri::command]
 async fn save_document(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
     println!("[TAURI] Save document called with content length: {} to path: {}", content.len(), path);
 
-    match std::fs::write(&path, &content) {
+    match write_document(&path, &content) {
         Ok(_) => {
             let mut response = HashMap::new();
             response.insert("status".to_string(), "saved".to_string());
@@ -121,7 +107,7 @@ async fn save_document(_id: String, content: String, path: String) -> Result<Has
 async fn save_document_as(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
     println!("[TAURI] Save document as: {}", path);
 
-    match std::fs::write(&path, &content) {
+    match write_document(&path, &content) {
         Ok(_) => {
             let title = std::path::Path::new(&path)
                 .file_name()
@@ -145,140 +131,13 @@ async fn save_document_as(_id: String, content: String, path: String) -> Result<
     }
 }
 
-// Export document as HTML
+// HTML is rendered by the same frontend parser as Preview, with inline diagram SVG.
 #[tauri::command]
-async fn export_document(_id: String, content: String, path: String, format: String) -> Result<(), String> {
-    println!("[TAURI] Export document as {} to: {}", format, path);
-
-    match format.as_str() {
-        "html" => {
-            // Convert markdown to HTML (basic implementation)
-            let html_content = markdown_to_html(&content);
-            let html = format!(
-                r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Exported Document</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.6;
-            color: #333;
-        }}
-        h1, h2, h3, h4, h5, h6 {{ color: #2c3e50; margin-top: 2em; }}
-        pre {{
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #007acc;
-            overflow-x: auto;
-        }}
-        code {{
-            background: #f8f9fa;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 0.9em;
-        }}
-        blockquote {{
-            border-left: 4px solid #ddd;
-            margin: 0;
-            padding-left: 20px;
-            color: #666;
-        }}
-        table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }}
-        th, td {{
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }}
-        th {{
-            background-color: #f8f9fa;
-            font-weight: 600;
-        }}
-    </style>
-</head>
-<body>
-{}
-</body>
-</html>"#,
-                html_content
-            );
-
-            match std::fs::write(&path, html) {
-                Ok(_) => {
-                    println!("[TAURI] Successfully exported HTML to: {}", path);
-                    Ok(())
-                }
-                Err(e) => {
-                    let error_msg = format!("Failed to export HTML: {}", e);
-                    println!("[TAURI] Error: {}", error_msg);
-                    Err(error_msg)
-                }
-            }
-        }
-        _ => {
-            let error_msg = format!("Unsupported export format: {}", format);
-            println!("[TAURI] Error: {}", error_msg);
-            Err(error_msg)
-        }
+async fn export_document(path: String, format: String, html: String) -> Result<(), String> {
+    if format != "html" {
+        return Err(format!("Unsupported export format: {}", format));
     }
-}
-
-// Basic markdown to HTML conversion (safe implementation)
-fn markdown_to_html(markdown: &str) -> String {
-    // This is a very basic implementation with error handling
-    // In a real app, you'd use a proper markdown parser like comrak or pulldown-cmark
-    let mut html = markdown.to_string();
-
-    // Headers - using lazy static patterns to avoid runtime panic
-    html = get_h1_regex().replace_all(&html, "<h1>$1</h1>").to_string();
-    html = get_h2_regex().replace_all(&html, "<h2>$1</h2>").to_string();
-    html = get_h3_regex().replace_all(&html, "<h3>$1</h3>").to_string();
-
-    // Bold and Italic - safe regex patterns
-    html = get_bold_regex().replace_all(&html, "<strong>$1</strong>").to_string();
-    html = get_italic_regex().replace_all(&html, "<em>$1</em>").to_string();
-
-    // Line breaks to paragraphs - safe string processing
-    let lines: Vec<&str> = html.lines().collect();
-    let mut paragraphs = Vec::new();
-    let mut current_paragraph = Vec::new();
-
-    for line in lines {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            if !current_paragraph.is_empty() {
-                let paragraph = current_paragraph.join(" ");
-                if !paragraph.starts_with('<') {
-                    paragraphs.push(format!("<p>{}</p>", paragraph));
-                } else {
-                    paragraphs.push(paragraph);
-                }
-                current_paragraph.clear();
-            }
-        } else {
-            current_paragraph.push(trimmed);
-        }
-    }
-
-    if !current_paragraph.is_empty() {
-        let paragraph = current_paragraph.join(" ");
-        if !paragraph.starts_with('<') {
-            paragraphs.push(format!("<p>{}</p>", paragraph));
-        } else {
-            paragraphs.push(paragraph);
-        }
-    }
-
-    paragraphs.join("\n")
+    write_document(&path, &html).map_err(|error| format!("Failed to export HTML: {}", error))
 }
 
 // Quit application
@@ -338,4 +197,37 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn file_save_save_as_reopen_preserves_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("original.md").to_string_lossy().into_owned();
+        let copy = dir.path().join("copy.md").to_string_lossy().into_owned();
+        let source = "# Grüße\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n";
+        let doc = create_document().await.unwrap();
+        save_document_as(doc.id.clone(), source.into(), original.clone()).await.unwrap();
+        let reopened = open_document(Some(original.clone())).await.unwrap();
+        assert_eq!(reopened.content, source);
+        let edited = format!("{}\nEdited", source);
+        save_document(doc.id.clone(), edited.clone(), original.clone()).await.unwrap();
+        assert_eq!(open_document(Some(original)).await.unwrap().content, edited);
+        save_document_as(doc.id, edited.clone(), copy.clone()).await.unwrap();
+        assert_eq!(open_document(Some(copy)).await.unwrap().content, edited);
+    }
+
+    #[tokio::test]
+    async fn export_writes_complete_html_and_reports_io_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("export.html").to_string_lossy().into_owned();
+        let html = "<!DOCTYPE html><html><body><table></table><svg></svg></body></html>";
+        export_document(path.clone(), "html".into(), html.into()).await.unwrap();
+        assert_eq!(std::fs::read_to_string(path).unwrap(), html);
+        assert!(export_document(dir.path().to_string_lossy().into_owned(), "html".into(), html.into()).await.is_err());
+        assert!(open_document(Some(dir.path().join("missing.md").to_string_lossy().into_owned())).await.is_err());
+    }
 }

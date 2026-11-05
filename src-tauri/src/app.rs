@@ -117,9 +117,8 @@ mod tests {
     #[tokio::test]
     async fn test_app_creation() {
         setup_logging().expect("Failed to setup logging");
-        let app_builder = create_app().await.expect("Failed to create app");
+        let _app_builder = create_app().await.expect("Failed to create app");
         
         // Basic test to ensure the app builder is created without errors
-        assert!(true); // If we get here, the app was created successfully
     }
 }

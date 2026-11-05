@@ -228,7 +228,7 @@ pub struct SystemInfo {
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
-    use tokio::io::AsyncWriteExt;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_create_document() {
@@ -245,7 +245,7 @@ mod tests {
         // Create a temporary file
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let test_content = "# Test Document\n\nThis is a test.";
-        temp_file.write_all(test_content.as_bytes()).await.expect("Failed to write temp file");
+        temp_file.write_all(test_content.as_bytes()).expect("Failed to write temp file");
         
         let path = temp_file.path().to_string_lossy().to_string();
         let document = open_document(path).await.expect("Failed to open document");

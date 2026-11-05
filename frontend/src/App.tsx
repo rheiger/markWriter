@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react'
-import { useAppStore, useTheme } from './store/useAppStore'
+import { useAppStore, useTheme, confirmDiscardChanges } from './store/useAppStore'
 import { EditorView, EditorViewRef } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
 import { Toolbar } from './components/Toolbar'
 import { StatusBar } from './components/StatusBar'
 import { ErrorToast } from './components/ErrorToast'
 import { LoadingSpinner } from './components/LoadingSpinner'
+import { isTauri, invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import './App.css'
 
 const App: React.FC = () => {
@@ -29,6 +31,24 @@ const App: React.FC = () => {
     didInitRef.current = true
     if (!currentDocument) createNewDocument()
   }, [currentDocument, createNewDocument])
+
+  useEffect(() => {
+    if (!isTauri()) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    getCurrentWindow().onCloseRequested(async event => {
+      if (!useAppStore.getState().currentDocument?.isDirty) return
+      event.preventDefault()
+      try {
+        if (await confirmDiscardChanges()) await invoke('quit_app')
+      } catch (error) {
+        useAppStore.getState().setError(String(error))
+      }
+    }).then(stop => { if (disposed) stop(); else unlisten = stop }).catch(error => {
+      useAppStore.getState().setError(String(error))
+    })
+    return () => { disposed = true; unlisten?.() }
+  }, [])
 
   return (
     <div className="app">

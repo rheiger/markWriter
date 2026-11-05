@@ -278,7 +278,7 @@ pub struct DocumentStats {
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
-    use tokio::io::AsyncWriteExt;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_document_creation() {
@@ -295,7 +295,7 @@ mod tests {
     async fn test_document_from_file() {
         let content = "# Test Document\n\nThis is a test document.";
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
-        temp_file.write_all(content.as_bytes()).await.expect("Failed to write temp file");
+        temp_file.write_all(content.as_bytes()).expect("Failed to write temp file");
         
         let doc = Document::from_file(temp_file.path(), content.to_string())
             .await
@@ -303,7 +303,7 @@ mod tests {
         
         assert_eq!(doc.content, content);
         assert!(doc.path.is_some());
-        assert_eq!(doc.metadata.word_count, 6);
+        assert_eq!(doc.metadata.word_count, 8);
         assert_eq!(doc.metadata.line_count, 3);
     }
 
