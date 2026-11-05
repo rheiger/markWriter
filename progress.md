@@ -59,3 +59,5 @@
 - Final source run 42088770234 targets c2b5696. Frontend and Linux tests/build pass; Windows tests pass and build is running; macOS is queued. Watch handle 23734. Broad goal remains active for application-interaction qualification beyond macOS.
 
 - Added real-native application acceptance harness and Windows/Linux CI steps: unchanged/edited mode cycles, actual Save As/Save/reopen, three-diagram export and Markdown table insertion. Builds have separate app identity/frontend output. Normal production assets exclude the test bridge; this check, 37 tests, lint and both frontend builds pass. Desktop test execution is not yet claimed.
+
+- Application-acceptance CI run 42090781282 at 6038c20 is active. Frontend passed; Linux stopped during apt setup before any app tests (renamed package). Windows production tests passed and build is running; macOS is queued. Local fixes prepared, not pushed yet so Windows can report its independent result.

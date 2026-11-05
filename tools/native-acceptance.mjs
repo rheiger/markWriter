@@ -46,10 +46,13 @@ for (const stream of [driver.stdout, driver.stderr]) stream.on('data', chunk => 
 let session
 
 async function request(method, path, body) {
-  const response = await fetch(`http://127.0.0.1:4444${path}`, {
-    method, headers: { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(60000),
-  })
+  let response
+  try {
+    response = await fetch(`http://127.0.0.1:4444${path}`, {
+      method, headers: { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(60000),
+    })
+  } catch (error) { throw new Error(`${method} ${path}: ${error}`, { cause: error }) }
   const result = await response.json()
   if (!response.ok || result.value?.error) throw new Error(JSON.stringify(result))
   return result.value
@@ -89,12 +92,15 @@ async function preview() {
 }
 
 try {
-  await waitFor(() => request('GET', '/status'), 'driver startup')
+  await waitFor(async () => (await request('GET', '/status')).ready === true, 'driver startup')
+  console.log('Native driver ready; creating desktop session')
   const created = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: binaryPath } } } })
   session = created.sessionId
+  console.log('Desktop session created; waiting for application')
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'application startup')
   assert.equal((await action('open', sourcePath)).document.content, source)
+  console.log('Native fixture opened; checking unchanged mode cycles')
   for (let cycle = 0; cycle < 5; cycle++) {
     await mode('Markdown'); await preview(); await mode('WYSIWYG')
     assert.equal((await snapshot()).document.content, source)
@@ -102,6 +108,7 @@ try {
   }
   await action('saveAs', savedPath)
   assert.equal(await readFile(savedPath, 'utf8'), source)
+  console.log('Unchanged cycles and byte-identical Save As passed; editing WYSIWYG')
 
   // Edit through the actual contenteditable DOM; store and conversion run normally.
   assert.equal(await run('const p=[...document.querySelectorAll(".tiptap p")].find(e=>e.textContent==="A paragraph."); const range=document.createRange(); range.setStart(p,0); range.collapse(true); const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range); p.parentElement.focus(); return document.execCommand("insertText", false, "Edited ");'), true)

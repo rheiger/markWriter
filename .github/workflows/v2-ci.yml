@@ -71,7 +71,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf webkit2gtk-driver xvfb
+          if apt-cache show webkitgtk-webdriver > /dev/null 2>&1; then
+            native_webdriver_package=webkitgtk-webdriver
+          else
+            native_webdriver_package=webkit2gtk-driver
+          fi
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf "$native_webdriver_package" xvfb
       - name: Select stable Rust
         run: |
           rustup toolchain install stable --profile minimal
@@ -112,6 +117,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/setup-edge-driver.ps1
+      - name: Prepare Windows tests at normal user privilege
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/setup-windows-acceptance.ps1
       - name: Exercise Linux desktop application
         if: runner.os == 'Linux'
         run: xvfb-run -a node tools/native-acceptance.mjs
@@ -120,9 +129,11 @@ jobs:
       - name: Exercise Windows desktop application
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node tools/native-acceptance.mjs
+        run: |
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/native-acceptance.mjs"
+          exit $LASTEXITCODE
       - name: Retain native application acceptance evidence
-        if: always() && runner.os != 'macOS'
+        if: always() && runner.os != 'macOS' && hashFiles('native-acceptance-results/**') != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-acceptance-${{ runner.os }}
@@ -133,7 +144,7 @@ jobs:
         shell: pwsh
         run: ./tools/diagnose-windows-loader.ps1
       - name: Save native build cache
-        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: always() && steps.cargo-cache.outputs.cache-primary-key != '' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
