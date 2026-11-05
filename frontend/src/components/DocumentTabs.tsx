@@ -44,3 +44,17 @@ export function UnsavedDialog() {
     </div>
   </Modal>
 }
+
+export function RecoveryNotice() {
+  const { currentDocument: doc, openDocument } = useAppStore()
+  if (!doc?.conflictPath) return null
+  return <div className="recovery-notice" role="status">
+    <span>Recovery copy of {doc.conflictPath}. The original file is unchanged.</span>
+    <button onClick={() => void openDocument(doc.conflictPath)}>Open disk version</button>
+    <button onClick={() => {
+      const state = useAppStore.getState()
+      const documents = state.documents.map(d => d.id === doc.id ? { ...d, conflictPath: undefined, diskContent: undefined } : d)
+      useAppStore.setState({ documents, currentDocument: documents.find(d => d.id === state.currentDocument?.id) ?? null })
+    }}>Keep recovery copy</button>
+  </div>
+}

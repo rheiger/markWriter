@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import App from '../App'
 import { useAppStore } from '../store/useAppStore'
+import { defaultConfig } from '../lib/preferences'
 import { version } from '../../package.json'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: vi.fn() }))
@@ -17,7 +18,7 @@ describe('application view controls', () => {
     useAppStore.setState({
       documents: [], currentDocument: null,
       error: null, isLoading: false,
-      config: { theme: 'light', fontSize: 14, fontFamily: 'monospace', autoSave: false, wordWrap: true },
+      config: { ...defaultConfig, theme: 'light' },
     })
     useAppStore.getState().setCurrentDocument({ id: 'controls', title: 'Controls', content: source, isDirty: false, lastModified: new Date() })
   })

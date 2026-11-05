@@ -4,6 +4,7 @@ import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
+import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 
 interface MenuBarProps {
@@ -27,6 +28,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
 
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
 
   // File menu handlers
@@ -299,6 +301,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         let actionToExecute: (() => void) | null = null
 
         switch (e.key) {
+          case ',':
+            shouldPrevent = true
+            actionToExecute = () => setSettingsOpen(true)
+            break
           case 'w':
             shouldPrevent = true
             actionToExecute = () => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id) }
@@ -389,6 +395,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
   return (
     <div className="menu-bar">
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {/* File Menu */}
       <div className="menu-item">
         <button
@@ -435,6 +442,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
               <span>Export as HTML...</span>
             </button>
             <div className="menu-separator" />
+            <button className="menu-option" onClick={() => { closeMenus(); setSettingsOpen(true) }}>Settings…</button>
             <button className="menu-option" onClick={handleQuit}>
               <span>Quit</span>
               <span className="shortcut">⌘Q</span>

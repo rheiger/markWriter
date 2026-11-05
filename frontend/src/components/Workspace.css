@@ -9,3 +9,11 @@
 .workspace-dialog h2 { margin-top: 0; font-size: 20px; }
 .workspace-dialog button, .workspace-dialog select, .workspace-dialog input { color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 7px 10px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.settings-fields { display: grid; gap: 12px; }
+.settings-fields label { display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 14px; }
+.settings-fields input:not([type=checkbox]) { width: 240px; max-width: 50vw; }
+.settings-fields input[type=checkbox] { margin-right: auto; }
+.settings-note { color: var(--text-secondary); font-size: 13px; }
+.recovery-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 16px; font-size: 13px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
+.recovery-notice span { flex: 1; }
+.recovery-notice button { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; }

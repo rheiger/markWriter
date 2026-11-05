@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
+import { flushWorkspace, snapshotWorkspace } from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -15,18 +16,16 @@ export interface Document {
   content: string
   path?: string
   isDirty: boolean
+  conflictPath?: string
+  diskContent?: string
+  mode?: 'markdown' | 'wysiwyg'
   revision?: number
   savedContent?: string
   lastModified: Date
 }
 
-export interface AppConfig {
-  theme: 'light' | 'dark' | 'system'
-  fontSize: number
-  fontFamily: string
-  autoSave: boolean
-  wordWrap: boolean
-}
+export type { AppConfig } from '../lib/preferences'
+import { type AppConfig, defaultConfig, parsePreferences } from '../lib/preferences'
 
 export interface AppState {
   documents: Document[]
@@ -62,21 +61,13 @@ export interface AppState {
   exportDocument: (path: string, format: string, snapshot?: Document | null) => Promise<void>
 }
 
-// Default configuration
-const defaultConfig: AppConfig = {
-  theme: 'system',
-  fontSize: 14,
-  fontFamily: 'Monaco, Menlo, Consolas, monospace',
-  autoSave: true,
-  wordWrap: true,
-}
-
 // The active document is an alias to an object in documents, never a separate text buffer.
 function workspace(documents: Document[], activeId?: string | null) {
   return { documents, currentDocument: documents.find(doc => doc.id === activeId) ?? null }
 }
 const saving = new Map<string, Promise<boolean>>()
 const destinations = new Map<string, string>()
+let closing = false
 
 export const useAppStore = create<AppState>((set, get) => {
   const replace = (id: string, update: (doc: Document) => Document) => set(state => {
@@ -139,7 +130,17 @@ export const useAppStore = create<AppState>((set, get) => {
       if (doc) replace(doc.id, latest => ({ ...latest, isDirty: dirty }))
     },
     addRecentDocument: doc => set(state => ({ recentDocuments: [doc, ...state.recentDocuments.filter(d => d.path !== doc.path)].slice(0, 10) })),
-    updateConfig: config => set(state => ({ config: { ...state.config, ...config } })),
+    updateConfig: config => {
+      try {
+        const previous = get().config
+        const next = parsePreferences({ version: 1, config: { ...previous, ...config,
+          ...(config.fontSize !== undefined && config.renderedFontSize === undefined ? {
+            renderedFontSize: Math.max(10, Math.min(32, previous.renderedFontSize + config.fontSize - previous.fontSize)),
+          } : {}),
+        } })
+        set({ config: next })
+      } catch (error) { set({ error: errorMessage(error, 'Invalid preferences') }) }
+    },
     setLoading: isLoading => set({ isLoading }), setError: error => set({ error }),
     createNewDocument: async () => {
       try {
@@ -174,6 +175,9 @@ export const useAppStore = create<AppState>((set, get) => {
       return !get().documents.some(d => d.isDirty)
     },
     closeDocument: async id => {
+      if (closing) return false
+      closing = true
+      try {
       const doc = get().documents.find(d => d.id === id)
       if (!doc) return true
       const decision = doc.isDirty ? await decideUnsaved(doc) : 'discard'
@@ -181,12 +185,17 @@ export const useAppStore = create<AppState>((set, get) => {
       if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
       // Discard must still refer to the revision the user reviewed.
       if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
+      const remaining = get().documents.filter(d => d.id !== id)
+      try { await flushWorkspace(snapshotWorkspace(remaining)) }
+      catch (error) { set({ error: `Cannot remove recovery copy: ${String(error)}` }); return false }
+      if ((get().documents.find(d => d.id === id)?.content !== doc.content && decision === 'discard') || (decision === 'save' && get().documents.find(d => d.id === id)?.isDirty)) { await flushWorkspace(); return false }
       set(state => {
         const index = state.documents.findIndex(d => d.id === id)
         const docs = state.documents.filter(d => d.id !== id)
         return workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id)
       })
       return true
+      } finally { closing = false }
     },
     exportDocument: async (path, format, snapshot = get().currentDocument) => {
       if (!snapshot) return
@@ -214,6 +223,9 @@ export async function saveWithDialog(doc: Document, as = false): Promise<boolean
 
 // Quit collects choices first: Cancel never closes any tab or discards any draft.
 export async function confirmDiscardChanges(): Promise<boolean> {
+  if (closing) return false
+  closing = true
+  try {
   const reviewed: Document[] = []
   for (const doc of useAppStore.getState().documents) {
     if (!doc.isDirty) continue
@@ -222,7 +234,15 @@ export async function confirmDiscardChanges(): Promise<boolean> {
     if (decision === 'save' && (!await saveWithDialog(doc) || useAppStore.getState().documents.find(d => d.id === doc.id)?.isDirty)) return false
     if (decision === 'discard') reviewed.push(doc)
   }
-  return !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
+  const safe = () => !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
+  if (!safe()) return false
+  const restore = useAppStore.getState().documents.flatMap(doc => reviewed.some(d => d.id === doc.id) ?
+    (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : []) : [doc])
+  try { await flushWorkspace(snapshotWorkspace(restore)) }
+  catch (error) { useAppStore.getState().setError(`Cannot finish recovery storage before quitting: ${String(error)}`); return false }
+  if (!safe()) { await flushWorkspace(); return false }
+  return true
+  } finally { closing = false }
 }
 
 // Hook for theme management

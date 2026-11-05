@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'react'
 import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
@@ -99,12 +99,13 @@ interface MermaidBlock {
 }
 
 const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
+  const preferences = useRef(new Compartment())
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
-  const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg')
+  const [editorMode, setEditorMode] = useState<EditorMode>(useAppStore.getState().documents.find(doc => doc.id === documentId)?.mode ?? 'wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -222,7 +223,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   // All mode controls share the same fidelity-preserving transition.
   const modeRequest = useRef(0)
   useEffect(() => () => { modeRequest.current++ }, [])
-  useEffect(() => { if (active) onModeChange?.(editorMode) }, [active, editorMode, onModeChange])
+  useEffect(() => {
+    if (documentId) {
+      const state = useAppStore.getState()
+      const documents = state.documents.map(doc => doc.id === documentId && doc.mode !== editorMode ? { ...doc, mode: editorMode } : doc)
+      if (documents.some((doc, i) => doc !== state.documents[i])) useAppStore.setState({ documents, currentDocument: documents.find(doc => doc.id === state.currentDocument?.id) ?? null })
+    }
+    if (active) onModeChange?.(editorMode)
+  }, [documentId, active, editorMode, onModeChange])
   useEffect(() => { if (!active) { modeRequest.current++; isUpdatingFromMarkdown.current = false; previewGeneration.current++ } }, [active])
   const changeMode = (mode: EditorMode) => {
     const request = ++modeRequest.current
@@ -618,7 +626,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         markdown(),
         history(), // Enable undo/redo functionality
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-        CodeMirrorView.lineWrapping,
+        preferences.current.of([
+          ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []),
+          EditorState.tabSize.of(config.tabWidth), ...(isDark ? [oneDark] : []),
+        ]),
         drawSelection(),
         CodeMirrorView.updateListener.of((update) => {
           if (isSwitchingModeRef.current) return
@@ -635,7 +646,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         CodeMirrorView.theme({
           '&': {
             fontSize: 'var(--editor-font-size, 14px)', // Support zoom functionality
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+            fontFamily: 'var(--source-font-family, monospace)'
           },
           '.cm-content': {
             padding: '16px',
@@ -649,12 +660,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           },
           '.cm-scroller': {
             fontFamily: 'inherit',
-            overflowX: 'hidden', // prevent horizontal scrolling, wrap instead
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word'
+            overflowX: 'auto'
           }
         }),
-        ...(isDark ? [oneDark] : [])
       ]
     })
 
@@ -688,7 +696,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.tabWidth, updatePreview, updateDocumentContent])
+
+  useEffect(() => {
+    const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    editorViewRef.current?.dispatch({ effects: preferences.current.reconfigure([
+      ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(dark ? [oneDark] : []),
+    ]) })
+  }, [config.theme, config.wordWrap, config.tabWidth])
 
   // Ensure preview and editor are restored when switching back to markdown
   useEffect(() => {
@@ -916,8 +931,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
                 style={{
                   padding: '16px',
                   color: 'var(--text-primary)',
-                  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-                  lineHeight: '1.6',
+                  fontFamily: 'var(--rendered-font-family, system-ui)',
+                  lineHeight: 'var(--rendered-line-height, 1.6)',
                   fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
                 }}
               />

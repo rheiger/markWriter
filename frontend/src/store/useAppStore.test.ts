@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
 import { useAppStore, confirmDiscardChanges } from './useAppStore'
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }))
 const call = vi.mocked(invoke)
 const initial = { id: 'one', title: 'One', content: '# Before', path: '/one.md', isDirty: false, lastModified: new Date() }
 const state = () => useAppStore.getState()

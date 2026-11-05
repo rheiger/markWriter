@@ -73,3 +73,6 @@
 
 ## New increment — 6 November 2026
 - Read supplied task and agreed plan. Verified starting HEAD and prior green CI directly. Created codex/productivity-increment. Existing user files untouched; baseline frontend/Rust checks running.
+
+- Slice f9eca17: 44 frontend tests and native tests/lint/build pass. Tab sessions retain engine histories; save ownership/collision/close/quit tests added.
+- Preferences schema, native atomic config/data storage and Settings Apply/Cancel/Reset implemented; migration/corruption/write-failure tests pass. Recovery restores drafts separately on disk conflict and exposes Open disk / Keep copy. 52 frontend tests currently pass, pending browser/native/restart qualification.

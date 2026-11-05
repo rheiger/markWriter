@@ -6,8 +6,8 @@ Agreed scope: docs/next-increment-plan-2026-11-06.md. Starting HEAD 1fe311c; bra
 - Baseline / ownership ADR: complete
 - Document-ID store and safe asynchronous file operations: complete
 - Tabs and retained editor sessions: in_progress
-- Native settings/schema persistence and Settings dialog: pending
-- Session restore / recovery / conflicts: pending
+- Native settings/schema persistence and Settings dialog: in_progress
+- Session restore / recovery / conflicts: in_progress
 - Accessible table management and boundaries: pending
 - Non-destructive embedded-source folds: pending
 - Mermaid ERD template / acceptance: pending

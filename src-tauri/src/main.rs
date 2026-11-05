@@ -2,6 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
+mod persistence;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -13,6 +15,25 @@ pub struct Document {
     pub content: String,
     pub path: Option<String>,
     pub last_modified: String,
+}
+
+// Native path resolver is scoped to the current app identity.
+// https://docs.rs/tauri/2/tauri/path/struct.PathResolver.html
+#[tauri::command]
+fn load_preferences(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    persistence::read_json(&app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"))
+}
+#[tauri::command]
+fn save_preferences(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
+    persistence::write_json(&app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"), &value)
+}
+#[tauri::command]
+fn load_workspace(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    persistence::read_json(&app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"))
+}
+#[tauri::command]
+fn save_workspace(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
+    persistence::write_json(&app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"), &value)
 }
 
 // Create a new document
@@ -194,6 +215,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
             create_document,
             open_document,
