@@ -30,12 +30,24 @@ async fn create_document() -> Result<Document, String> {
     Ok(doc)
 }
 
+// Resolve existing aliases and normalize new destinations through their real parent.
+#[tauri::command]
+fn canonical_document_path(path: String) -> Result<String, String> {
+    let path = std::path::Path::new(&path);
+    let canonical = if path.exists() { std::fs::canonicalize(path) } else {
+        let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
+        std::fs::canonicalize(parent).map(|p| p.join(path.file_name().unwrap_or_default()))
+    }.map_err(|e| format!("Cannot resolve document path: {}", e))?;
+    Ok(canonical.to_string_lossy().into_owned())
+}
+
 // Open document from file path
 #[tauri::command]
 async fn open_document(path: Option<String>) -> Result<Document, String> {
     println!("[TAURI] Opening document, path: {:?}", path);
 
     if let Some(file_path) = path {
+        let file_path = canonical_document_path(file_path)?;
         match std::fs::read_to_string(&file_path) {
             Ok(content) => {
                 let title = std::path::Path::new(&file_path)
@@ -182,6 +194,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            canonical_document_path,
             create_document,
             open_document,
             save_document,

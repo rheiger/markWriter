@@ -62,6 +62,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
   }
 
   const handleSaveAs = async () => {
+    const snapshot = currentDocument
+    if (!snapshot) return
     try {
       const selected = await save({
         filters: [
@@ -73,7 +75,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
       })
 
       if (selected) {
-        await saveDocumentAs(selected)
+        await saveDocumentAs(selected, snapshot.id, snapshot)
       }
     } catch (error) {
       console.error('[TOOLBAR] Failed to save file:', error)

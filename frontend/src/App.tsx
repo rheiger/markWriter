@@ -9,6 +9,7 @@ import { LoadingSpinner } from './components/LoadingSpinner'
 import { isTauri, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import './App.css'
+import { DocumentTabs, UnsavedDialog } from './components/DocumentTabs'
 
 const App: React.FC = () => {
   const { currentDocument, isLoading, error, createNewDocument, config } = useAppStore()
@@ -43,7 +44,7 @@ const App: React.FC = () => {
     let disposed = false
     let unlisten: (() => void) | undefined
     getCurrentWindow().onCloseRequested(async event => {
-      if (!useAppStore.getState().currentDocument?.isDirty) return
+      if (!useAppStore.getState().documents.some(doc => doc.isDirty)) return
       event.preventDefault()
       try {
         if (await confirmDiscardChanges()) await invoke('quit_app')
@@ -61,12 +62,14 @@ const App: React.FC = () => {
       <MenuBar editorViewRef={editorViewRef} editorMode={editorMode} />
       <Toolbar editorViewRef={editorViewRef} editorMode={editorMode} />
 
+      <DocumentTabs />
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
         <EditorView ref={editorViewRef} onModeChange={setEditorMode} />
       </main>
 
       <StatusBar />
+      <UnsavedDialog />
 
       {error && <ErrorToast message={error} />}
     </div>

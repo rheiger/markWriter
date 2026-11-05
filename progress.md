@@ -70,3 +70,6 @@
 - ba99ae9 pushed. 41 tests, lint, production/acceptance builds and bridge isolation pass locally. Browser checks cover source fidelity, fonts/zoom, modal Tab/Escape/focus, no console issues and supported desktop widths. Rebuilt macOS app verified natively; original clean document reopened, unchanged counts and Ready state. CI 42121100607 running; native harness now uses toolbar switch and checks About version.
 
 - UI follow-up acceptance complete: CI 42121100607 succeeded at ba99ae9. Frontend/41 tests, all three native tests/builds, and eight application cases each on Windows/Linux pass. Both result artifacts confirm About-version and relocated-switch workflows. Native macOS controls verified and user's clean original document restored. Documentation-only closeout; no merge/release.
+
+## New increment — 6 November 2026
+- Read supplied task and agreed plan. Verified starting HEAD and prior green CI directly. Created codex/productivity-increment. Existing user files untouched; baseline frontend/Rust checks running.

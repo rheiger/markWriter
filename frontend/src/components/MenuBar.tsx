@@ -90,6 +90,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }
 
   const handleSaveAs = async () => {
+    const snapshot = currentDocument
+    if (!snapshot) return
     console.log('[DEBUG] handleSaveAs called')
     try {
       console.log('[MENU] Opening Save As dialog...')
@@ -106,7 +108,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
       if (selected) {
         console.log('[MENU] Saving document as:', selected)
-        await saveDocumentAs(selected)
+        await saveDocumentAs(selected, snapshot.id, snapshot)
         console.log('[MENU] Document saved as successfully')
       }
     } catch (error) {
@@ -117,6 +119,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }
 
   const handleExportHTML = async () => {
+    const snapshot = currentDocument
+    if (!snapshot) return
     console.log('[DEBUG] handleExportHTML called')
     try {
       console.log('[MENU] Opening Export HTML dialog...')
@@ -133,7 +137,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
       if (selected) {
         console.log('[MENU] Exporting document as HTML:', selected)
-        await exportDocument(selected, 'html')
+        await exportDocument(selected, 'html', snapshot)
         console.log('[MENU] Document exported successfully')
       }
     } catch (error) {
@@ -295,6 +299,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         let actionToExecute: (() => void) | null = null
 
         switch (e.key) {
+          case 'w':
+            shouldPrevent = true
+            actionToExecute = () => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id) }
+            break
+          case 'Tab': {
+            shouldPrevent = true
+            actionToExecute = () => {
+              const state = useAppStore.getState(), docs = state.documents
+              if (!docs.length) return
+              const i = docs.findIndex(doc => doc.id === state.currentDocument?.id)
+              state.activateDocument(docs[(i + (e.shiftKey ? -1 : 1) + docs.length) % docs.length].id)
+            }
+            break
+          }
           case 'n':
             shouldPrevent = true
             actionToExecute = handleNew
@@ -406,6 +424,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
               <span>Save As...</span>
               <span className="shortcut">⇧⌘S</span>
             </button>
+            <button className="menu-option" onClick={() => { void useAppStore.getState().saveAll(); closeMenus() }}>Save All</button>
+            <button className="menu-option" disabled={!currentDocument} onClick={() => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id); closeMenus() }}>Close Tab</button>
             <div className="menu-separator" />
             <button
               className="menu-option"

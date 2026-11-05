@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { confirm } from '@tauri-apps/plugin-dialog'
+import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { createHtmlExport } from '../lib/htmlExport'
 
@@ -15,6 +15,8 @@ export interface Document {
   content: string
   path?: string
   isDirty: boolean
+  revision?: number
+  savedContent?: string
   lastModified: Date
 }
 
@@ -27,6 +29,13 @@ export interface AppConfig {
 }
 
 export interface AppState {
+  documents: Document[]
+  pendingClose: { id: string, title: string, resolve: (decision: UnsavedDecision) => void } | null
+  activateDocument: (id: string) => void
+  reorderDocument: (id: string, index: number) => void
+  closeDocument: (id: string) => Promise<boolean>
+  saveAll: () => Promise<boolean>
+  saveToPath: (doc: Document, path: string) => Promise<boolean>
   // Document state
   currentDocument: Document | null
   recentDocuments: Document[]
@@ -38,7 +47,7 @@ export interface AppState {
 
   // Actions
   setCurrentDocument: (doc: Document | null) => void
-  updateDocumentContent: (content: string) => void
+  updateDocumentContent: (content: string, id?: string) => void
   setDocumentDirty: (dirty: boolean) => void
   addRecentDocument: (doc: Document) => void
   updateConfig: (config: Partial<AppConfig>) => void
@@ -48,9 +57,9 @@ export interface AppState {
   // Tauri command wrappers
   createNewDocument: () => Promise<void>
   openDocument: (path?: string) => Promise<void>
-  saveDocument: () => Promise<void>
-  saveDocumentAs: (path: string) => Promise<void>
-  exportDocument: (path: string, format: string) => Promise<void>
+  saveDocument: (id?: string) => Promise<boolean>
+  saveDocumentAs: (path: string, id?: string, snapshot?: Document) => Promise<boolean>
+  exportDocument: (path: string, format: string, snapshot?: Document | null) => Promise<void>
 }
 
 // Default configuration
@@ -62,247 +71,158 @@ const defaultConfig: AppConfig = {
   wordWrap: true,
 }
 
-// Create the store
-export const useAppStore = create<AppState>((set, get) => ({
-  // Initial state
-  currentDocument: null,
-  recentDocuments: [],
-  config: defaultConfig,
-  isLoading: false,
-  error: null,
+// The active document is an alias to an object in documents, never a separate text buffer.
+function workspace(documents: Document[], activeId?: string | null) {
+  return { documents, currentDocument: documents.find(doc => doc.id === activeId) ?? null }
+}
+const saving = new Map<string, Promise<boolean>>()
+const destinations = new Map<string, string>()
 
-  // Basic setters
-  setCurrentDocument: (doc) => set({ currentDocument: doc }),
-
-  updateDocumentContent: (content) => {
-    const current = get().currentDocument
-    if (current && current.content !== content) {
-      set({
-        currentDocument: {
-          ...current,
-          content,
-          isDirty: true,
-          lastModified: new Date(),
-        }
-      })
-    }
-  },
-
-  setDocumentDirty: (dirty) => {
-    const current = get().currentDocument
-    if (current) {
-      set({
-        currentDocument: { ...current, isDirty: dirty }
-      })
-    }
-  },
-
-  addRecentDocument: (doc) => {
-    const current = get().recentDocuments
-    const filtered = current.filter(d => d.id !== doc.id)
-    set({
-      recentDocuments: [doc, ...filtered].slice(0, 10) // Keep only 10 recent
-    })
-  },
-
-  updateConfig: (newConfig) => {
-    set({
-      config: { ...get().config, ...newConfig }
-    })
-  },
-
-  setLoading: (loading) => set({ isLoading: loading }),
-  setError: (error) => set({ error }),
-
-  // Tauri command wrappers with error handling
-  createNewDocument: async () => {
-    if (!await confirmDiscardChanges()) return
-    const { setCurrentDocument, setError, setLoading } = get()
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('[STORE] Creating new document...')
-      console.log('[STORE] About to invoke create_document command...')
-
-      const result = await invoke('create_document') as any
-
-      const newDoc: Document = {
-        id: result.id,
-        title: result.title || 'Untitled',
-        content: result.content || '',
-        path: result.path,
-        isDirty: false,
-        lastModified: new Date(result.last_modified || Date.now()),
-      }
-
-      setCurrentDocument(newDoc)
-      console.log('[STORE] New document created successfully')
-    } catch (error) {
-      console.error('[STORE] Failed to create document:', error)
-      console.error('[STORE] Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      })
-      setError(errorMessage(error, 'Failed to create document'))
-    } finally {
-      setLoading(false)
-    }
-  },
-
-  openDocument: async (path) => {
-    if (!await confirmDiscardChanges()) return
-    const { setCurrentDocument, addRecentDocument, setError, setLoading } = get()
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('[STORE] Opening document:', path)
-      const result = await invoke('open_document', { path }) as any
-
-      const doc: Document = {
-        id: result.id,
-        title: result.title || 'Untitled',
-        content: result.content || '',
-        path: result.path,
-        isDirty: false,
-        lastModified: new Date(result.last_modified || Date.now()),
-      }
-
-      setCurrentDocument(doc)
-      addRecentDocument(doc)
-      console.log('[STORE] Document opened successfully:', result.path)
-    } catch (error) {
-      console.error('[STORE] Failed to open document:', error)
-      setError(errorMessage(error, 'Failed to open document'))
-    } finally {
-      setLoading(false)
-    }
-  },
-
-  saveDocument: async () => {
-    const { currentDocument, setError, setLoading } = get()
-    if (!currentDocument) {
-      console.warn('[STORE] No current document to save')
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('[STORE] Saving document:', currentDocument.path)
-
-      if (currentDocument.path) {
-        // Save to existing file using the Tauri command
-        await invoke('save_document', {
-          id: currentDocument.id,
-          content: currentDocument.content,
-          path: currentDocument.path
-        })
-
-        set(state => {
-          const latest = state.currentDocument
-          if (latest?.id !== currentDocument.id) return {}
-          return { currentDocument: { ...latest, isDirty: latest.content !== currentDocument.content } }
-        })
-        console.log('[STORE] Document saved successfully to:', currentDocument.path)
-      } else {
-        console.log('[STORE] No path available, document needs to be saved with Save As')
-        // This will be handled by the MenuBar calling saveDocumentAs
-      }
-    } catch (error) {
-      console.error('[STORE] Failed to save document:', error)
-      setError(errorMessage(error, 'Failed to save document'))
-    } finally {
-      setLoading(false)
-    }
-  },
-
-  saveDocumentAs: async (path) => {
-    const { currentDocument, addRecentDocument, setError, setLoading } = get()
-    if (!currentDocument) {
-      console.warn('[STORE] No current document to save')
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('[STORE] Saving document as:', path)
-      const result = await invoke('save_document_as', {
-        id: currentDocument.id,
-        content: currentDocument.content,
-        path,
-      }) as any
-
-      console.log('[STORE] Save as result:', result)
-
-      const updatedDoc: Document = {
-        ...currentDocument,
-        path: result.path || path,
-        title: result.title || path.split('/').pop() || 'Untitled',
-        isDirty: false,
-      }
-
-      set(state => {
-        const latest = state.currentDocument
-        if (latest?.id !== currentDocument.id) return {}
-        return { currentDocument: {
-          ...latest, path: updatedDoc.path, title: updatedDoc.title,
-          isDirty: latest.content !== currentDocument.content,
-        } }
-      })
-      addRecentDocument(updatedDoc)
-      console.log('[STORE] Document saved as:', result.path)
-    } catch (error) {
-      console.error('[STORE] Failed to save document as:', error)
-      setError(errorMessage(error, 'Failed to save document'))
-    } finally {
-      setLoading(false)
-    }
-  },
-
-  exportDocument: async (path, format) => {
-    const { currentDocument, setError, setLoading } = get()
-    if (!currentDocument) {
-      console.warn('[STORE] No current document to export')
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('[STORE] Exporting document as', format, 'to:', path)
-      if (format !== 'html') throw new Error(`Unsupported export format: ${format}`)
-      const html = await createHtmlExport(currentDocument.content)
-      await invoke('export_document', {
-        html,
-        id: currentDocument.id,
-        content: currentDocument.content,
-        path,
-        format,
-      })
-
-      console.log('[STORE] Document exported successfully')
-    } catch (error) {
-      console.error('[STORE] Failed to export document:', error)
-      setError(errorMessage(error, 'Failed to export document'))
-    } finally {
-      setLoading(false)
-    }
-  },
-}))
-
-// Shared by New, Open, menu Quit and the native window close handler.
-export async function confirmDiscardChanges(): Promise<boolean> {
-  if (!useAppStore.getState().currentDocument?.isDirty) return true
-  return confirm('Discard unsaved changes?', {
-    title: 'Unsaved changes', kind: 'warning', okLabel: 'Discard', cancelLabel: 'Keep editing',
+export const useAppStore = create<AppState>((set, get) => {
+  const replace = (id: string, update: (doc: Document) => Document) => set(state => {
+    const docs = state.documents.map(doc => doc.id === id ? update(doc) : doc)
+    return workspace(docs, state.currentDocument?.id)
   })
+  const add = (doc: Document) => set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
+  const saveSnapshot = (snapshot: Document, path: string, as: boolean): Promise<boolean> => {
+    const run = async () => {
+      set({ error: null, isLoading: true })
+      let canonical = path
+      try {
+        canonical = await invoke<string>('canonical_document_path', { path }) || path
+        if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical) ||
+            (destinations.has(canonical) && destinations.get(canonical) !== snapshot.id)) {
+          throw new Error('That file is already owned by another open tab. Activate that tab instead.')
+        }
+        destinations.set(canonical, snapshot.id)
+        const result = await invoke<{path?: string, title?: string}>(as ? 'save_document_as' : 'save_document', {
+          id: snapshot.id, content: snapshot.content, path: canonical,
+        })
+        replace(snapshot.id, latest => ({ ...latest, path: result?.path || canonical,
+          title: result?.title || canonical.split(/[\\/]/).pop() || 'Untitled',
+          savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
+        }))
+        return true
+      } catch (error) { set({ error: errorMessage(error, 'Failed to save document') }); return false }
+      finally {
+        if (destinations.get(canonical) === snapshot.id) destinations.delete(canonical)
+        set({ isLoading: false })
+      }
+    }
+    const prior = saving.get(snapshot.id)
+    const pending = prior ? prior.then(run) : run()
+    saving.set(snapshot.id, pending)
+    void pending.finally(() => { if (saving.get(snapshot.id) === pending) saving.delete(snapshot.id) })
+    return pending
+  }
+  return {
+    documents: [], currentDocument: null, recentDocuments: [], config: defaultConfig,
+    isLoading: false, error: null, pendingClose: null,
+    setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
+    activateDocument: id => set(state => workspace(state.documents, id)),
+    reorderDocument: (id, index) => set(state => {
+      const docs = state.documents.filter(d => d.id !== id)
+      const doc = state.documents.find(d => d.id === id)
+      if (doc) docs.splice(Math.max(0, Math.min(index, docs.length)), 0, doc)
+      return workspace(docs, state.currentDocument?.id)
+    }),
+    updateDocumentContent: (content, id = get().currentDocument?.id) => {
+      if (!id) return
+      replace(id, doc => doc.content === content ? doc : ({ ...doc, content,
+        savedContent: doc.savedContent ?? (doc.isDirty ? undefined : doc.content),
+        revision: (doc.revision ?? 0) + 1,
+        isDirty: content !== (doc.savedContent ?? (doc.isDirty ? undefined : doc.content)), lastModified: new Date(),
+      }))
+    },
+    setDocumentDirty: dirty => {
+      const doc = get().currentDocument
+      if (doc) replace(doc.id, latest => ({ ...latest, isDirty: dirty }))
+    },
+    addRecentDocument: doc => set(state => ({ recentDocuments: [doc, ...state.recentDocuments.filter(d => d.path !== doc.path)].slice(0, 10) })),
+    updateConfig: config => set(state => ({ config: { ...state.config, ...config } })),
+    setLoading: isLoading => set({ isLoading }), setError: error => set({ error }),
+    createNewDocument: async () => {
+      try {
+        const result = await invoke<any>('create_document')
+        add({ id: result.id, title: result.title || 'Untitled', content: result.content || '',
+          isDirty: false, savedContent: result.content || '', lastModified: new Date() })
+      } catch (error) { set({ error: errorMessage(error, 'Failed to create document') }) }
+    },
+    openDocument: async path => {
+      try {
+        const result = await invoke<any>('open_document', { path })
+        const existing = get().documents.find(d => d.path === result.path)
+        if (existing) { get().activateDocument(existing.id); return }
+        const doc = { id: result.id, title: result.title || 'Untitled', content: result.content || '',
+          savedContent: result.content || '', path: result.path, isDirty: false, lastModified: new Date() }
+        add(doc); get().addRecentDocument(doc)
+      } catch (error) { set({ error: errorMessage(error, 'Failed to open document') }) }
+    },
+    saveDocument: async (id = get().currentDocument?.id) => {
+      const doc = get().documents.find(d => d.id === id)
+      if (!doc) return false
+      return saveWithDialog(doc)
+    },
+    saveDocumentAs: async (path, id = get().currentDocument?.id, snapshot) => {
+      const doc = snapshot ?? get().documents.find(d => d.id === id)
+      return doc ? saveSnapshot(doc, path, true) : false
+    },
+    saveToPath: (doc, path) => saveSnapshot(doc, path, false),
+    saveAll: async () => {
+      const docs = get().documents.filter(d => d.isDirty)
+      for (const doc of docs) if (!await saveWithDialog(doc)) return false
+      return !get().documents.some(d => d.isDirty)
+    },
+    closeDocument: async id => {
+      const doc = get().documents.find(d => d.id === id)
+      if (!doc) return true
+      const decision = doc.isDirty ? await decideUnsaved(doc) : 'discard'
+      if (decision === 'cancel') return false
+      if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
+      // Discard must still refer to the revision the user reviewed.
+      if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
+      set(state => {
+        const index = state.documents.findIndex(d => d.id === id)
+        const docs = state.documents.filter(d => d.id !== id)
+        return workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id)
+      })
+      return true
+    },
+    exportDocument: async (path, format, snapshot = get().currentDocument) => {
+      if (!snapshot) return
+      try {
+        if (format !== 'html') throw new Error(`Unsupported export format: ${format}`)
+        const html = await createHtmlExport(snapshot.content)
+        await invoke('export_document', { html, id: snapshot.id, content: snapshot.content, path, format })
+      } catch (error) { set({ error: errorMessage(error, 'Failed to export document') }) }
+    },
+  }
+})
+
+export type UnsavedDecision = 'save' | 'discard' | 'cancel'
+function decideUnsaved(doc: Document): Promise<UnsavedDecision> {
+  return new Promise(resolve => useAppStore.setState({ pendingClose: { id: doc.id, title: doc.title,
+    resolve: decision => { useAppStore.setState({ pendingClose: null }); resolve(decision) },
+  } }))
+}
+
+export async function saveWithDialog(doc: Document, as = false): Promise<boolean> {
+  const path = !as && doc.path ? doc.path : await save({ filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
+  if (!path) return false
+  return as || !doc.path ? useAppStore.getState().saveDocumentAs(path, doc.id, doc) : useAppStore.getState().saveToPath(doc, path)
+}
+
+// Quit collects choices first: Cancel never closes any tab or discards any draft.
+export async function confirmDiscardChanges(): Promise<boolean> {
+  const reviewed: Document[] = []
+  for (const doc of useAppStore.getState().documents) {
+    if (!doc.isDirty) continue
+    const decision = await decideUnsaved(doc)
+    if (decision === 'cancel') return false
+    if (decision === 'save' && (!await saveWithDialog(doc) || useAppStore.getState().documents.find(d => d.id === doc.id)?.isDirty)) return false
+    if (decision === 'discard') reviewed.push(doc)
+  }
+  return !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
 }
 
 // Hook for theme management

@@ -76,3 +76,8 @@
 - CodeMirror's public font metrics automatically updated from 14px to 32px in actual browser inspection, so no manual remeasurement workaround was added. 41 tests/lint/build/isolation pass. Native CI updated for toolbar switch and About version; awaiting terminal 42121100607.
 
 - Terminal UI follow-up evidence: CI 42121100607 success at ba99ae9, eight actual app cases pass on each Windows/Linux result artifact. Native About shows 2.0.0-alpha.1; same mode-transition API preserves existing fidelity. No footer changes or writes to the user's original document.
+
+## Productivity increment baseline
+- HEAD 1fe311c / source ba99ae9 confirmed. CI42121100607 success rechecked via GitHub. Baseline 41 frontend tests, lint/build/audit zero and 12 library + 2 production Rust tests pass.
+- Current owner is main.rs, not unused Rust config module. Canonical-path command added for duplicate ownership and Save As protection.
+- Editor sessions are retained only for open tabs; inactive previews are cancelled, close unmounts/destroys engines. Session/history isolation now tested A→B→A.

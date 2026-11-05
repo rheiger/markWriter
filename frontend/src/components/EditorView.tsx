@@ -41,6 +41,7 @@ const lowlight = createLowlight(common)
 
 export type EditorMode = 'markdown' | 'wysiwyg'
 interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
+interface DocumentEditorProps extends EditorViewProps { documentId?: string, active: boolean }
 
 export interface EditorViewRef {
   setMode: (mode: EditorMode) => void
@@ -97,7 +98,7 @@ interface MermaidBlock {
   index: number
 }
 
-const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChange }, ref) => {
+const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -116,8 +117,12 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
   const lastMarkdownAnchorRef = useRef(0)
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
 
-  const { currentDocument, updateDocumentContent, config } = useAppStore()
+  const currentDocument = useAppStore(state => state.documents.find(doc => doc.id === documentId) ?? null)
+  const config = useAppStore(state => state.config)
+  const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId), [documentId])
+  const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
+  const lastTiptapSource = useRef(currentDocument?.content ?? '')
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
     extensions: [
@@ -164,6 +169,7 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
       const markdownFromHtml = fromWysiwygHtml(html)
+      lastTiptapSource.current = markdownFromHtml
       updateDocumentContent(markdownFromHtml)
     },
     editable: true,
@@ -216,7 +222,8 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
   // All mode controls share the same fidelity-preserving transition.
   const modeRequest = useRef(0)
   useEffect(() => () => { modeRequest.current++ }, [])
-  useEffect(() => { onModeChange?.(editorMode) }, [editorMode, onModeChange])
+  useEffect(() => { if (active) onModeChange?.(editorMode) }, [active, editorMode, onModeChange])
+  useEffect(() => { if (!active) { modeRequest.current++; isUpdatingFromMarkdown.current = false; previewGeneration.current++ } }, [active])
   const changeMode = (mode: EditorMode) => {
     const request = ++modeRequest.current
     isUpdatingFromMarkdown.current = false
@@ -226,8 +233,9 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
         isUpdatingFromMarkdown.current = true
         requestAnimationFrame(() => {
           if (request !== modeRequest.current || tiptap.isDestroyed) return
-          const source = useAppStore.getState().currentDocument?.content ?? ''
-          tiptap.commands.setContent(toWysiwygHtml(source), { emitUpdate: false })
+          const text = source()
+          if (fromWysiwygHtml(tiptap.getHTML()) !== text && lastTiptapSource.current !== text) tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+          lastTiptapSource.current = text
           isUpdatingFromMarkdown.current = false
           setEditorMode('wysiwyg')
         })
@@ -240,11 +248,11 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
     const view = editorViewRef.current
     if (view) {
       isSwitchingModeRef.current = true
-      const source = useAppStore.getState().currentDocument?.content ?? ''
-      const anchor = Math.min(lastMarkdownAnchorRef.current || view.state.selection.main.anchor, source.length)
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: source }, selection: { anchor } })
+      const text = source()
+      const anchor = Math.min(lastMarkdownAnchorRef.current || view.state.selection.main.anchor, text.length)
+      if (view.state.doc.toString() !== text) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor } })
       lastMarkdownAnchorRef.current = anchor
-      updatePreview(source)
+      updatePreview(text)
       queueMicrotask(() => { isSwitchingModeRef.current = false })
     }
     setEditorMode('markdown')
@@ -260,7 +268,7 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
     setMode: changeMode,
-    getMarkdown: () => useAppStore.getState().currentDocument?.content ?? '',
+    getMarkdown: () => source(),
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
       tiptap?.commands.setContent(toWysiwygHtml(content), { emitUpdate: false })
@@ -559,7 +567,7 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
   const previewGeneration = useRef(0)
   const updatePreview = useCallback((content: string) => {
     const container = previewRef.current
-    if (!container) return
+    if (!container || !active) return
     const generation = ++previewGeneration.current
     container.innerHTML = renderMarkdownHtml(content)
     const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))
@@ -580,11 +588,11 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
         }
       }
     })
-  }, [config.theme])
+  }, [config.theme, active])
 
   // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
-    if (editorMode !== 'markdown') return
+    if (editorMode !== 'markdown' || !active) return
     if (editorViewRef.current) return
     console.log('[EDITOR] useEffect triggered for editor initialization')
     console.log('[EDITOR] editorRef.current:', editorRef.current)
@@ -599,7 +607,7 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
     console.log('[EDITOR] Theme is dark:', isDark)
     console.log('[EDITOR] Config theme:', config.theme)
 
-    const defaultContent = useAppStore.getState().currentDocument?.content ?? ''
+    const defaultContent = source()
 
     console.log('[EDITOR] Creating CodeMirror editor with content length:', defaultContent.length)
 
@@ -680,11 +688,11 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [editorMode, currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
 
   // Ensure preview and editor are restored when switching back to markdown
   useEffect(() => {
-    if (editorMode === 'markdown') {
+    if (editorMode === 'markdown' && active) {
       // Reattach editor DOM if needed
       if (editorRef.current && editorViewRef.current) {
         try {
@@ -695,15 +703,15 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
       }
       // Defer preview update until ref is mounted
       requestAnimationFrame(() => {
-        const current = useAppStore.getState().currentDocument
+        const current = useAppStore.getState().documents.find(doc => doc.id === documentId)
         if (current) updatePreview(current.content)
       })
     }
-  }, [editorMode, currentDocument?.id, updatePreview])
+  }, [active, documentId, editorMode, currentDocument?.id, updatePreview])
 
   // Update CodeMirror content only when switching docs (not on every keystroke from WYSIWYG)
   useEffect(() => {
-    if (editorMode !== 'markdown') return
+    if (editorMode !== 'markdown' || !active) return
     if (editorViewRef.current && currentDocument) {
       const view = editorViewRef.current
       const oldDoc = view.state.doc.toString()
@@ -721,7 +729,7 @@ const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChang
         queueMicrotask(() => { isSwitchingModeRef.current = false })
       }
     }
-  }, [editorMode, currentDocument, updatePreview])
+  }, [active, editorMode, currentDocument, updatePreview])
 
   useEffect(() => () => {
     editorViewRef.current?.destroy()
@@ -985,7 +993,12 @@ DocumentEditor.displayName = 'DocumentEditor'
 
 // Both editing engines and their undo histories belong to one document.
 export const EditorView = forwardRef<EditorViewRef, EditorViewProps>((props, ref) => {
+  const documents = useAppStore(state => state.documents)
   const id = useAppStore(state => state.currentDocument?.id)
-  return <DocumentEditor key={id ?? 'welcome'} ref={ref} {...props} />
+  if (!documents.length) return <DocumentEditor active ref={ref} {...props} />
+  return <>{documents.map(doc => <div key={doc.id} data-active={doc.id === id} hidden={doc.id !== id}
+    style={{ display: doc.id === id ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
+    <DocumentEditor documentId={doc.id} active={doc.id === id} ref={doc.id === id ? ref : undefined} {...props} />
+  </div>)}</>
 })
 EditorView.displayName = 'EditorView'

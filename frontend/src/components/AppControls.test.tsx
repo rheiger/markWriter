@@ -15,10 +15,11 @@ const source = '# Controls\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B
 describe('application view controls', () => {
   beforeEach(() => {
     useAppStore.setState({
-      currentDocument: { id: 'controls', title: 'Controls', content: source, isDirty: false, lastModified: new Date() },
+      documents: [], currentDocument: null,
       error: null, isLoading: false,
       config: { theme: 'light', fontSize: 14, fontFamily: 'monospace', autoSave: false, wordWrap: true },
     })
+    useAppStore.getState().setCurrentDocument({ id: 'controls', title: 'Controls', content: source, isDirty: false, lastModified: new Date() })
   })
 
   it('switches from toolbar and View menu without obscuring or changing the document', async () => {

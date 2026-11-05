@@ -103,7 +103,7 @@ describe('File Operations', () => {
     })
     
     await waitFor(() => {
-      expect(mockStore.saveDocumentAs).toHaveBeenCalledWith('/test/new-file.md')
+      expect(mockStore.saveDocumentAs).toHaveBeenCalledWith('/test/new-file.md', 'test-id', expect.objectContaining({ id: 'test-id' }))
     })
   })
 
@@ -131,7 +131,7 @@ describe('File Operations', () => {
     })
     
     await waitFor(() => {
-      expect(mockStore.saveDocumentAs).toHaveBeenCalledWith('/test/new-file.md')
+      expect(mockStore.saveDocumentAs).toHaveBeenCalledWith('/test/new-file.md', 'test-id', expect.objectContaining({ id: 'test-id' }))
     })
   })
 })

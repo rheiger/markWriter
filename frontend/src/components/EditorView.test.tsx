@@ -11,9 +11,9 @@ const chart = 'flowchart TD\n  A["<b>Start</b> & finish"] --> B[End]'
 const fixture = '# Document\n\nA paragraph.\n\n```mermaid\n' + chart + '\n```\n\n| Name | Value |\n| --- | --- |\n| **Bold** | a \\| b |\n\n- [x] Done\n- [ ] Pending\n'
 
 async function mount(content = fixture) {
-  useAppStore.setState({ currentDocument: {
+  useAppStore.getState().setCurrentDocument({
     id: 'doc-1', title: 'Test', content, path: '/test.md', isDirty: false, lastModified: new Date(),
-  } })
+  })
   const ref = createRef<EditorViewRef>()
   const result = render(<EditorView ref={ref} />)
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
@@ -27,15 +27,35 @@ async function markdown(ref: React.RefObject<EditorViewRef>) {
 }
 async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
   act(() => ref.current!.setMode('wysiwyg'))
-  await waitFor(() => expect(document.querySelector('.tiptap')).toBeVisible())
+  await waitFor(() => expect(document.querySelector('[data-active="true"] .tiptap')).toBeVisible())
 }
 
 describe('document fidelity with real editors', () => {
-  beforeEach(() => useAppStore.setState({ currentDocument: null, error: null }))
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
 
   it('shows the welcome state without a document', () => {
     render(<EditorView />)
     expect(screen.getByText('Welcome to MarkWriter')).toBeVisible()
+  })
+
+  it('retains both histories and mode when switching A → B → A', async () => {
+    const { ref, editor } = await mount('# First')
+    act(() => editor.commands.insertContentAt(1, 'WYS '))
+    await markdown(ref)
+    act(() => ref.current!.insertText('Source '))
+    const a = ref.current!.getMarkdown()
+    act(() => useAppStore.getState().setCurrentDocument({ id: 'B', title: 'B', content: '# Second', isDirty: false, lastModified: new Date() }))
+    act(() => ref.current!.insertText('B edit '))
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('# Second')
+    act(() => useAppStore.getState().activateDocument('doc-1'))
+    expect(ref.current!.getMarkdown()).toBe(a)
+    expect(document.querySelector('[data-active="true"] .cm-content')).toBeVisible()
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).not.toContain('Source ')
+    await wysiwyg(ref)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).not.toContain('WYS ')
   })
 
   it('loads Mermaid source literally, including HTML-like labels', async () => {
@@ -89,11 +109,11 @@ describe('document fidelity with real editors', () => {
   it('shows current content after replacing a document and switching modes', async () => {
     const { ref } = await mount()
     await markdown(ref)
-    act(() => useAppStore.setState({ currentDocument: {
+    act(() => useAppStore.getState().setCurrentDocument({
       ...useAppStore.getState().currentDocument!, id: 'doc-2', content: '# Second document',
-    } }))
+    }))
     await wysiwyg(ref)
-    expect(document.querySelector('.tiptap')).toHaveTextContent('Second document')
+    expect(document.querySelector('[data-active="true"] .tiptap')).toHaveTextContent('Second document')
     await markdown(ref)
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
   })
@@ -109,9 +129,9 @@ describe('document fidelity with real editors', () => {
     act(() => { editor.commands.insertContentAt(1, 'Edited ') })
     await markdown(ref)
     act(() => { ref.current!.insertText('Markdown edit') })
-    act(() => useAppStore.setState({ currentDocument: {
+    act(() => useAppStore.getState().setCurrentDocument({
       ...useAppStore.getState().currentDocument!, id: 'second', content: '# Second', isDirty: false,
-    } }))
+    }))
     await wysiwyg(ref)
     act(() => { ref.current!.undo() })
     expect(useAppStore.getState().currentDocument!.content).toBe('# Second')
