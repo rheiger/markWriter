@@ -26,3 +26,10 @@
 
 - Local commits: 7ebfd6a preserves pre-existing editor code; f5b11fd stabilizes mode/document conversion; 11dd31b protects saves and unifies export. No remote push.
 - Native UI acceptance and release qualification remain open; broad goal is intentionally not marked complete.
+
+## Continuation: native acceptance and expanded fidelity
+- Native macOS Open, five mode cycles, Save As byte comparison, WYSIWYG editing, Save, HTML export and reopening passed through actual UI.
+- New/Quit/native Cmd-W prompts showed unsaved warnings; Keep editing retained text, and a subsequent Save succeeded.
+- Exported file contains one table, one SVG, two checkboxes and no script.
+- Expanded real-editor suite now has 29 passing tests; added table alignment preservation using installed TextAlign extension.
+- ESLint baseline restored; auditing exhaustive hook dependencies before enabling the gate.

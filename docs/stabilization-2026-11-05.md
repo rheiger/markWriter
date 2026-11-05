@@ -41,3 +41,21 @@ Complete native document open/edit/save/reopen/export and discard-cancel accepta
 - [MarkdownIt renderer rules](https://github.com/markdown-it/markdown-it/blob/master/docs/examples/renderer_rules.md): customize fenced-block output while retaining parser boundaries.
 
 Installed Tiptap 3.3.0 and Turndown source were inspected for task-node parsing and blank-node rule precedence.
+
+## Continuation: native acceptance and broader fidelity
+
+Native acceptance on the debug macOS bundle now passed through actual UI:
+1. Open the temporary source fixture.
+2. Make five WYSIWYG/Markdown mode cycles, then Save As. `cmp` confirmed identical bytes before editing.
+3. Replace a paragraph in WYSIWYG and Save; filesystem inspection confirmed the edit, Mermaid source, formatted table/escaped pipe and both task states.
+4. Export HTML through the menu and native save dialog. The written file contained one table, one inline SVG, two checkboxes and no scripts.
+5. Modify without saving; New, Quit and native Cmd-W each presented an unsaved-change prompt. Keep editing retained the document, including the edit, and subsequent Save succeeded.
+6. Reopen the saved file through the native Open dialog; the edited paragraph, diagram, table and task states remained visible.
+
+This supersedes the earlier native dialog timeout as the current acceptance result. It does not establish Windows/Linux behavior, release signing, or arbitrary-document fidelity.
+
+Three expanded real-editor tests cover aligned table columns, nested task lists/inline formatting and fenced TypeScript containing backticks. Alignment failed before the fix and now survives a surrounding WYSIWYG edit. Total frontend tests: 29 passing.
+
+ESLint now runs successfully with recommended correctness checks, TypeScript unused names, hook ordering and exhaustive hook dependencies. Remaining v2 CI work is separate from the legacy packaging pipeline.
+
+A dependency audit reported 40 advisories (3 critical, 26 high, 8 moderate, 3 low), including development servers and Markdown/editor dependencies. These are audit findings, not demonstrated exploits. Dependency remediation is required before treating the broad dependable-editor goal as achieved; it will be performed separately from the fidelity changes.

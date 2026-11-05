@@ -27,3 +27,13 @@
 - Tiptap initialization appends schema nodes; ignoring pre-initialization updates preserves exact source rather than normalizing it on load.
 - Table line-break regression fixed with a narrowly recognized safe `<br>` inline token.
 - Final frontend suite: 26 passing tests. Final browser UI verification has no errors/warnings and preserves source through five unchanged plus three edited cycles.
+
+## Continuation: broader fidelity and tooling
+- Added real-editor coverage for column alignment, nested task formatting, and fenced TypeScript containing backticks. Alignment failed before the fix; nested lists/code already passed.
+- Enabled existing Tiptap TextAlign extension for table cells/headers and serialized alignment delimiters. All 29 frontend tests pass.
+- Added ESLint configuration for recommended JavaScript correctness checks, TypeScript unused names and React hook call ordering. Initial lint found one redundant semicolon.
+
+- Native acceptance completed after switching to keyboard-driven dialog opening. Previous timeout is superseded, not proof of an app bug.
+- Native New/Quit/Cmd-W discard-cancel checks retain unsaved text; Save/reopen and actual HTML export passed.
+- ESLint now includes exhaustive dependency checks after resolving six stale-closure/dependency warnings; baseline passes.
+- npm audit: 40 advisories (3 critical, 26 high, 8 moderate, 3 low). Dependency remediation is the next distinct increment before v2 CI/audit gates can be considered passing.

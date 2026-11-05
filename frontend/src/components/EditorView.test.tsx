@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { EditorView, type EditorViewRef } from './EditorView'
+import { toWysiwygHtml } from '../lib/markdown'
 import { useAppStore } from '../store/useAppStore'
 
 const chart = 'flowchart TD\n  A["<b>Start</b> & finish"] --> B[End]'
@@ -116,6 +117,30 @@ describe('document fidelity with real editors', () => {
     await markdown(ref)
     act(() => { ref.current!.undo() })
     expect(useAppStore.getState().currentDocument!.content).toBe('# Second')
+  })
+
+  it('preserves table column alignment after a surrounding edit', async () => {
+    const { editor } = await mount('Before\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |')
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    const content = useAppStore.getState().currentDocument!.content
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(content), 'text/html')
+    expect(Array.from(doc.querySelectorAll('th'), cell => cell.style.textAlign)).toEqual(['left', 'center', 'right'])
+  })
+
+  it('preserves nested list structure and task formatting after a surrounding edit', async () => {
+    const { editor } = await mount('Before\n\n- Parent\n  - Child **bold**\n  - Other\n\n- [x] Task **bold**\n  - [ ] Nested task')
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(useAppStore.getState().currentDocument!.content), 'text/html')
+    expect(doc.querySelector('li ul li strong')?.textContent).toBe('bold')
+    expect(doc.querySelector('li[data-checked="true"] strong')?.textContent).toBe('bold')
+    expect(doc.querySelector('li[data-checked="true"] li[data-checked="false"]')).not.toBeNull()
+  })
+
+  it('preserves code language and literal fence content after a surrounding edit', async () => {
+    const { editor } = await mount('Before\n\n````typescript\nconst literal = "```";\n````')
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(useAppStore.getState().currentDocument!.content), 'text/html')
+    expect(doc.querySelector('code.language-typescript')?.textContent).toBe('const literal = "```";\n')
   })
 
 })

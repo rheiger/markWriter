@@ -77,7 +77,11 @@ turndown.addRule('table', {
     ))
     if (!rows.length) return ''
     const line = (cells: string[]) => `| ${cells.join(' | ')} |`
-    return '\n\n' + [line(rows[0]), line(rows[0].map(() => '---')), ...rows.slice(1).map(line)].join('\n') + '\n\n'
+    const separators = Array.from((node as HTMLTableElement).rows[0].cells, cell => {
+      const alignment = cell.style.textAlign
+      return alignment === 'center' ? ':---:' : alignment === 'right' ? '---:' : alignment === 'left' ? ':---' : '---'
+    })
+    return '\n\n' + [line(rows[0]), line(separators), ...rows.slice(1).map(line)].join('\n') + '\n\n'
   },
 })
 turndown.addRule('taskLabel', {

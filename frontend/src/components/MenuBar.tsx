@@ -422,7 +422,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [currentDocument])
+  })
 
   return (
     <div className="menu-bar">

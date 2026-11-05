@@ -100,7 +100,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
 
   const insertStrikethrough = () => {
     if (editorViewRef && (editorViewRef.current as any)?.toggleStrike) {
-      ;(editorViewRef.current as any).toggleStrike()
+      (editorViewRef.current as any).toggleStrike()
       return
     }
     if (editorViewRef?.current) {
@@ -215,7 +215,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
         setFmt({ bold: !!state.bold, italic: !!state.italic, strike: !!state.strike, underline: !!state.underline, link: !!state.link })
       })
     }
-  }, [editorViewRef?.current])
+  }, [editorViewRef, currentDocument?.id])
 
   // Close dropdowns on outside click or Escape
   useEffect(() => {

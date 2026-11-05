@@ -29,6 +29,7 @@ import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Table } from '@tiptap/extension-table'
+import TextAlign from '@tiptap/extension-text-align'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
@@ -147,6 +148,7 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
       TableRow,
       TableHeader,
       TableCell,
+      TextAlign.configure({ types: ['tableCell', 'tableHeader'] }),
       MermaidNode,
       Image.configure({ inline: true }),
     ],
@@ -499,7 +501,7 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
     console.log('[EDITOR] Theme is dark:', isDark)
     console.log('[EDITOR] Config theme:', config.theme)
 
-    const defaultContent = currentDocument?.content ?? ''
+    const defaultContent = useAppStore.getState().currentDocument?.content ?? ''
 
     console.log('[EDITOR] Creating CodeMirror editor with content length:', defaultContent.length)
 
@@ -595,9 +597,8 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
       }
       // Defer preview update until ref is mounted
       requestAnimationFrame(() => {
-        if (currentDocument) {
-          updatePreview(currentDocument.content || '')
-        }
+        const current = useAppStore.getState().currentDocument
+        if (current) updatePreview(current.content)
       })
     }
   }, [editorMode, currentDocument?.id, updatePreview])
@@ -622,7 +623,7 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
         queueMicrotask(() => { isSwitchingModeRef.current = false })
       }
     }
-  }, [editorMode, currentDocument?.content, updatePreview])
+  }, [editorMode, currentDocument, updatePreview])
 
   useEffect(() => () => {
     editorViewRef.current?.destroy()

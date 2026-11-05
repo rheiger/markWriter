@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import './ErrorToast.css'
 
@@ -10,22 +10,15 @@ export const ErrorToast: React.FC<ErrorToastProps> = ({ message }) => {
   const { setError } = useAppStore()
   const [isVisible, setIsVisible] = useState(true)
 
-  useEffect(() => {
-    // Auto-dismiss after 5 seconds
-    const timer = setTimeout(() => {
-      handleClose()
-    }, 5000)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsVisible(false)
-    // Wait for animation to complete before removing from state
-    setTimeout(() => {
-      setError(null)
-    }, 300)
-  }
+    setTimeout(() => setError(null), 300)
+  }, [setError])
+
+  useEffect(() => {
+    const timer = setTimeout(handleClose, 5000)
+    return () => clearTimeout(timer)
+  }, [handleClose])
 
   if (!isVisible) {
     return null
