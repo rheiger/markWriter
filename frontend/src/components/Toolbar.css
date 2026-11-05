@@ -146,6 +146,27 @@
   text-align: center;
 }
 
+.mode-switch { gap: 8px; white-space: nowrap; }
+.mode-switch-track {
+  display: inline-flex;
+  align-items: center;
+  width: 30px;
+  height: 18px;
+  padding: 2px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #a0a7af;
+}
+.mode-switch-track span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+}
+.mode-switch[aria-checked="true"] .mode-switch-track { background: #386da8; justify-content: flex-end; }
+.mode-switch:focus-visible, select.font-size:focus-visible { outline: 2px solid #386da8; outline-offset: 2px; }
+select.font-size { height: 32px; cursor: pointer; }
+
 /* Responsive design */
 @media (max-width: 768px) {
   .toolbar {

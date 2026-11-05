@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAppStore, useTheme, confirmDiscardChanges } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import { EditorViewRef } from './EditorView'
+import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
+import { AboutDialog } from './AboutDialog'
 
 interface MenuBarProps {
+  editorMode?: EditorMode
   editorViewRef?: React.RefObject<EditorViewRef>
 }
 
-export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
+export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'wysiwyg' }) => {
   const {
     currentDocument,
+    config,
+    updateConfig,
     createNewDocument,
     openDocument,
     saveDocument,
@@ -21,6 +25,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
 
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const helpRef = useRef<HTMLButtonElement>(null)
 
   // File menu handlers
   const handleNew = async () => {
@@ -265,73 +272,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
     setActiveMenu(null)
   }
 
-  // Updated zoom handlers for CodeMirror 6
-  const handleZoomIn = () => {
-    const editorContainer = document.querySelector('.editor-container') as HTMLElement
-    const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
-
-    if (editorContainer || previewPane) {
-      // Get current font sizes or use defaults
-      const currentEditorSize = parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--editor-font-size') || '14', 10
-      )
-      const currentPreviewSize = parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
-      )
-
-      // Increase font sizes (max 24px for editor, 26px for preview)
-      const newEditorSize = Math.min(currentEditorSize + 2, 24)
-      const newPreviewSize = Math.min(currentPreviewSize + 2, 26)
-
-      // Set CSS variables
-      document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
-      document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
-
-      console.log('[MENU] Zoomed in - Editor:', newEditorSize, 'Preview:', newPreviewSize)
-    }
-    setActiveMenu(null)
-  }
-
-  const handleZoomOut = () => {
-    const editorContainer = document.querySelector('.editor-container') as HTMLElement
-    const previewPane = document.querySelector('.markwriter-preview') as HTMLElement
-
-    if (editorContainer || previewPane) {
-      // Get current font sizes or use defaults
-      const currentEditorSize = parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--editor-font-size') || '14', 10
-      )
-      const currentPreviewSize = parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--preview-font-size') || '16', 10
-      )
-
-      // Decrease font sizes (min 10px for editor, 12px for preview)
-      const newEditorSize = Math.max(currentEditorSize - 2, 10)
-      const newPreviewSize = Math.max(currentPreviewSize - 2, 12)
-
-      // Set CSS variables
-      document.documentElement.style.setProperty('--editor-font-size', `${newEditorSize}px`)
-      document.documentElement.style.setProperty('--preview-font-size', `${newPreviewSize}px`)
-
-      console.log('[MENU] Zoomed out - Editor:', newEditorSize, 'Preview:', newPreviewSize)
-    }
-    setActiveMenu(null)
-  }
-
-  const handleActualSize = () => {
-    // Reset to default sizes
-    document.documentElement.style.setProperty('--editor-font-size', '14px')
-    document.documentElement.style.setProperty('--preview-font-size', '16px')
-    console.log('[MENU] Reset to actual size - Editor: 14px, Preview: 16px')
-    setActiveMenu(null)
-  }
-
-  // Help menu handlers
-  const handleAbout = () => {
-    // This will show the About dialog via Tauri
-    invoke('show_about_dialog').catch(console.error)
-    setActiveMenu(null)
-  }
+  const handleZoomIn = () => { updateConfig({ fontSize: Math.min(config.fontSize + 2, 32) }); setActiveMenu(null) }
+  const handleZoomOut = () => { updateConfig({ fontSize: Math.max(config.fontSize - 2, 10) }); setActiveMenu(null) }
+  const handleActualSize = () => { updateConfig({ fontSize: 14 }); setActiveMenu(null) }
+  const handleAbout = () => { setAboutOpen(true); setActiveMenu(null) }
 
   const toggleMenu = (menuName: string) => {
     setActiveMenu(activeMenu === menuName ? null : menuName)
@@ -342,6 +286,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
   // Keyboard shortcut handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]')) return
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
@@ -561,6 +506,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
         </button>
         {activeMenu === 'view' && (
           <div className="menu-dropdown">
+            <button className="menu-option" aria-pressed={editorMode === 'markdown'} disabled={!currentDocument}
+              onClick={() => { editorViewRef?.current?.setMode('markdown'); setActiveMenu(null) }}>
+              <span>Markdown with preview</span><span aria-hidden="true">{editorMode === 'markdown' ? '✓' : ''}</span>
+            </button>
+            <button className="menu-option" aria-pressed={editorMode === 'wysiwyg'} disabled={!currentDocument}
+              onClick={() => { editorViewRef?.current?.setMode('wysiwyg'); setActiveMenu(null) }}>
+              <span>WYSIWYG</span><span aria-hidden="true">{editorMode === 'wysiwyg' ? '✓' : ''}</span>
+            </button>
+            <div className="menu-separator" />
             <button className="menu-option" onClick={handleThemeToggle}>
               <span>Theme: {theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}</span>
             </button>
@@ -584,6 +538,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
       {/* Help Menu */}
       <div className="menu-item">
         <button
+          ref={helpRef}
           className={`menu-trigger ${activeMenu === 'help' ? 'active' : ''}`}
           onClick={() => toggleMenu('help')}
         >
@@ -597,6 +552,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef }) => {
           </div>
         )}
       </div>
+
+      {aboutOpen && <AboutDialog onClose={() => { setAboutOpen(false); helpRef.current?.focus() }} />}
 
       {/* Document Title Display */}
       <div className="document-title">

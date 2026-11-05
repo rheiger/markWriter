@@ -196,4 +196,5 @@
 .tiptap {
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  font-size: var(--editor-font-size, 14px);
 }

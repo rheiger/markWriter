@@ -39,7 +39,11 @@ import { MermaidNode } from '../extensions/MermaidNode'
 
 const lowlight = createLowlight(common)
 
+export type EditorMode = 'markdown' | 'wysiwyg'
+interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
+
 export interface EditorViewRef {
+  setMode: (mode: EditorMode) => void
   getMarkdown: () => string
   setMarkdown: (content: string) => void
   // CodeMirror 6 specific methods for menu integration
@@ -93,13 +97,13 @@ interface MermaidBlock {
   index: number
 }
 
-const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
+const DocumentEditor = forwardRef<EditorViewRef, EditorViewProps>(({ onModeChange }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
-  const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('wysiwyg')
+  const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -209,8 +213,53 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
     }
   }, [tiptap, computeFormattingState])
 
+  // All mode controls share the same fidelity-preserving transition.
+  const modeRequest = useRef(0)
+  useEffect(() => () => { modeRequest.current++ }, [])
+  useEffect(() => { onModeChange?.(editorMode) }, [editorMode, onModeChange])
+  const changeMode = (mode: EditorMode) => {
+    const request = ++modeRequest.current
+    isUpdatingFromMarkdown.current = false
+    if (mode === editorMode) return
+    if (mode === 'wysiwyg') {
+      if (tiptap && currentDocument) {
+        isUpdatingFromMarkdown.current = true
+        requestAnimationFrame(() => {
+          if (request !== modeRequest.current || tiptap.isDestroyed) return
+          const source = useAppStore.getState().currentDocument?.content ?? ''
+          tiptap.commands.setContent(toWysiwygHtml(source), { emitUpdate: false })
+          isUpdatingFromMarkdown.current = false
+          setEditorMode('wysiwyg')
+        })
+      } else {
+        setEditorMode('wysiwyg')
+      }
+      return
+    }
+    // Tiptap edits already update canonical Markdown; switching must not serialize again.
+    const view = editorViewRef.current
+    if (view) {
+      isSwitchingModeRef.current = true
+      const source = useAppStore.getState().currentDocument?.content ?? ''
+      const anchor = Math.min(lastMarkdownAnchorRef.current || view.state.selection.main.anchor, source.length)
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: source }, selection: { anchor } })
+      lastMarkdownAnchorRef.current = anchor
+      updatePreview(source)
+      queueMicrotask(() => { isSwitchingModeRef.current = false })
+    }
+    setEditorMode('markdown')
+    requestAnimationFrame(() => {
+      if (request !== modeRequest.current) return
+      if (editorRef.current && editorViewRef.current && editorViewRef.current.dom.parentElement !== editorRef.current) {
+        editorRef.current.appendChild(editorViewRef.current.dom)
+      }
+      editorViewRef.current?.focus()
+    })
+  }
+
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
+    setMode: changeMode,
     getMarkdown: () => useAppStore.getState().currentDocument?.content ?? '',
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
@@ -927,97 +976,7 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
           </div>
         </div>
 
-      {/* Editor Mode Tabs */}
-      <div style={{
-        position: 'absolute',
-        bottom: '0',
-        right: '16px',
-        display: 'flex',
-        backgroundColor: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
-        borderBottom: 'none',
-        borderRadius: '6px 6px 0 0',
-        overflow: 'hidden'
-      }}>
-        <button
-          onClick={() => {
-            if (editorMode === 'markdown') return
-            // Tiptap edits already update the canonical Markdown; a tab switch must not serialize it again.
-            const view = editorViewRef.current
-            if (view) {
-              isSwitchingModeRef.current = true
-              const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
-              const markdownText = currentDocument?.content || ''
-              const newLen = markdownText.length
-              view.dispatch({
-                changes: { from: 0, to: view.state.doc.length, insert: markdownText },
-                selection: { anchor: Math.min(prevAnchor, newLen) }
-              })
-              lastMarkdownAnchorRef.current = Math.min(prevAnchor, newLen)
-              updatePreview(markdownText)
-              view.focus()
-              queueMicrotask(() => { isSwitchingModeRef.current = false })
-            }
-            setEditorMode('markdown');
-            // Re-mount CodeMirror view if needed and refresh preview
-            requestAnimationFrame(() => {
-              if (editorRef.current && editorViewRef.current) {
-                try {
-                  if (editorViewRef.current.dom.parentElement !== editorRef.current) {
-                    editorRef.current.appendChild(editorViewRef.current.dom)
-                  }
-                } catch {}
-              }
-              // preview already updated above from markdownText
-              if (editorViewRef.current) {
-                editorViewRef.current.focus()
-              }
-              queueMicrotask(() => { isSwitchingModeRef.current = false })
-            })
-          }}
-          style={{
-            padding: '8px 16px',
-            border: 'none',
-            background: editorMode === 'markdown' ? 'var(--bg-primary)' : 'transparent',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-            transition: 'all 0.2s ease'
-          }}
-        >
-          Markdown
-        </button>
-        <button
-          onClick={() => {
-            if (editorMode === 'wysiwyg') return
-            // Sync WYSIWYG from store explicitly to avoid lifecycle setContent warnings
-            if (tiptap && currentDocument) {
-              const html = toWysiwygHtml(currentDocument.content || '')
-              isUpdatingFromMarkdown.current = true
-              requestAnimationFrame(() => {
-                tiptap.commands.setContent(html, { emitUpdate: false })
-                isUpdatingFromMarkdown.current = false
-                setEditorMode('wysiwyg')
-              })
-              return
-            }
-            setEditorMode('wysiwyg');
-          }}
-          style={{
-            padding: '8px 16px',
-            border: 'none',
-            background: editorMode === 'wysiwyg' ? 'var(--bg-primary)' : 'transparent',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-            transition: 'all 0.2s ease'
-          }}
-        >
-          WYSIWYG
-        </button>
-      </div>
+
     </div>
   )
 })
@@ -1025,8 +984,8 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
 DocumentEditor.displayName = 'DocumentEditor'
 
 // Both editing engines and their undo histories belong to one document.
-export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
+export const EditorView = forwardRef<EditorViewRef, EditorViewProps>((props, ref) => {
   const id = useAppStore(state => state.currentDocument?.id)
-  return <DocumentEditor key={id ?? 'welcome'} ref={ref} />
+  return <DocumentEditor key={id ?? 'welcome'} ref={ref} {...props} />
 })
 EditorView.displayName = 'EditorView'

@@ -1,16 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { EditorViewRef } from './EditorView'
+import { EditorViewRef, EditorMode } from './EditorView'
 import './Toolbar.css'
 
 interface ToolbarProps {
+  editorMode?: EditorMode
   editorViewRef?: React.RefObject<EditorViewRef>
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'wysiwyg' }) => {
   const {
     currentDocument,
+    config,
+    updateConfig,
     openDocument,
     saveDocument,
     saveDocumentAs,
@@ -249,9 +252,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
 
       {/* View Controls */}
       <div className="toolbar-section">
-        <button className="toolbar-btn" onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, metaKey: true }))} title="Zoom In">🔍+</button>
-        <button className="toolbar-btn" onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '-', ctrlKey: true, metaKey: true }))} title="Zoom Out">🔍-</button>
-        <button className="toolbar-btn" onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '0', ctrlKey: true, metaKey: true }))} title="Actual Size">🔍</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: Math.min((config?.fontSize ?? 14) + 2, 32) })} title="Zoom In">🔍+</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: Math.max((config?.fontSize ?? 14) - 2, 10) })} title="Zoom Out">🔍-</button>
+        <button className="toolbar-btn" onClick={() => updateConfig({ fontSize: 14 })} title="Actual Size">🔍</button>
       </div>
 
       <div className="toolbar-separator" />
@@ -338,9 +341,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
 
       <div className="toolbar-separator" />
 
-      {/* Font Size */}
       <div className="toolbar-section">
-        <span className="font-size">66</span>
+        <button className="toolbar-btn mode-switch" role="switch" aria-label="Markdown mode"
+          aria-checked={editorMode === 'markdown'} disabled={!currentDocument}
+          title={editorMode === 'markdown' ? 'Switch to WYSIWYG editing' : 'Switch to Markdown with preview'}
+          onClick={() => editorViewRef?.current?.setMode(editorMode === 'markdown' ? 'wysiwyg' : 'markdown')}>
+          <span className="mode-switch-track" aria-hidden="true"><span /></span>
+          <span>{editorMode === 'markdown' ? 'Markdown' : 'WYSIWYG'}</span>
+        </button>
+      </div>
+
+      <div className="toolbar-separator" />
+      {/* Display text size; never changes document formatting. */}
+      <div className="toolbar-section">
+        <select className="font-size" aria-label="Text size" title="Editor text size (pixels)"
+          value={config?.fontSize ?? 14} onChange={event => updateConfig({ fontSize: Number(event.target.value) })}>
+          {Array.from({ length: 23 }, (_, index) => index + 10).map(size => <option key={size} value={size}>{size}px</option>)}
+        </select>
       </div>
     </div>
   )

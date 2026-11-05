@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAppStore, useTheme, confirmDiscardChanges } from './store/useAppStore'
-import { EditorView, EditorViewRef } from './components/EditorView'
+import { EditorView, EditorViewRef, EditorMode } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
 import { Toolbar } from './components/Toolbar'
 import { StatusBar } from './components/StatusBar'
@@ -11,9 +11,15 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import './App.css'
 
 const App: React.FC = () => {
-  const { currentDocument, isLoading, error, createNewDocument } = useAppStore()
+  const { currentDocument, isLoading, error, createNewDocument, config } = useAppStore()
   const { theme } = useTheme()
   const editorViewRef = useRef<EditorViewRef>(null)
+
+  const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg')
+  useEffect(() => {
+    document.documentElement.style.setProperty('--editor-font-size', `${config.fontSize}px`)
+    document.documentElement.style.setProperty('--preview-font-size', `${config.fontSize + 2}px`)
+  }, [config.fontSize])
 
   // Initialize the application
   const didInitRef = useRef(false)
@@ -52,12 +58,12 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      <MenuBar editorViewRef={editorViewRef} />
-      <Toolbar editorViewRef={editorViewRef} />
+      <MenuBar editorViewRef={editorViewRef} editorMode={editorMode} />
+      <Toolbar editorViewRef={editorViewRef} editorMode={editorMode} />
 
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
-        <EditorView ref={editorViewRef} />
+        <EditorView ref={editorViewRef} onModeChange={setEditorMode} />
       </main>
 
       <StatusBar />

@@ -1,7 +1,7 @@
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { EditorView, type EditorViewRef } from './EditorView'
 import { toWysiwygHtml } from '../lib/markdown'
@@ -22,11 +22,11 @@ async function mount(content = fixture) {
 }
 
 async function markdown(ref: React.RefObject<EditorViewRef>) {
-  fireEvent.click(screen.getByRole('button', { name: 'Markdown', exact: true }))
+  act(() => ref.current!.setMode('markdown'))
   await waitFor(() => expect(ref.current?.getEditorView()).toBeTruthy())
 }
-async function wysiwyg() {
-  fireEvent.click(screen.getByRole('button', { name: 'WYSIWYG', exact: true }))
+async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
+  act(() => ref.current!.setMode('wysiwyg'))
   await waitFor(() => expect(document.querySelector('.tiptap')).toBeVisible())
 }
 
@@ -51,7 +51,7 @@ describe('document fidelity with real editors', () => {
       await markdown(ref)
       expect(useAppStore.getState().currentDocument?.content).toBe(fixture)
       expect(ref.current?.getMarkdown()).toBe(fixture)
-      await wysiwyg()
+      await wysiwyg(ref)
     }
     expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
   })
@@ -65,7 +65,7 @@ describe('document fidelity with real editors', () => {
     expect(content).toContain('a \\| b')
     expect(content).toContain('- [x] Done')
     expect(content).toContain('- [ ] Pending')
-    for (let i = 0; i < 3; i++) { await markdown(ref); await wysiwyg() }
+    for (let i = 0; i < 3; i++) { await markdown(ref); await wysiwyg(ref) }
     expect(useAppStore.getState().currentDocument?.content).toBe(content)
   })
 
@@ -92,7 +92,7 @@ describe('document fidelity with real editors', () => {
     act(() => useAppStore.setState({ currentDocument: {
       ...useAppStore.getState().currentDocument!, id: 'doc-2', content: '# Second document',
     } }))
-    await wysiwyg()
+    await wysiwyg(ref)
     expect(document.querySelector('.tiptap')).toHaveTextContent('Second document')
     await markdown(ref)
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
@@ -112,7 +112,7 @@ describe('document fidelity with real editors', () => {
     act(() => useAppStore.setState({ currentDocument: {
       ...useAppStore.getState().currentDocument!, id: 'second', content: '# Second', isDirty: false,
     } }))
-    await wysiwyg()
+    await wysiwyg(ref)
     act(() => { ref.current!.undo() })
     expect(useAppStore.getState().currentDocument!.content).toBe('# Second')
     await markdown(ref)
@@ -160,7 +160,7 @@ describe('document fidelity with real editors', () => {
     expect(editor.getJSON().content?.some(node => node.type === 'table')).toBe(true)
     await markdown(ref)
     expect(ref.current!.getMarkdown()).toContain('| --- | --- | --- |')
-    await wysiwyg()
+    await wysiwyg(ref)
     expect(document.querySelectorAll('.tiptap table tr')).toHaveLength(3)
     expect(document.querySelectorAll('.tiptap table th')).toHaveLength(3)
   })
@@ -205,6 +205,16 @@ describe('document fidelity with real editors', () => {
     await markdown(ref)
     act(() => { ref.current!.selectAll(); ref.current!.toggleTask!() })
     expect(ref.current!.getMarkdown()).toBe('- [x] Done\n- [ ] Plain\n- [ ] Bullet')
+  })
+
+  it('cancels a pending WYSIWYG transition when Markdown is requested again', async () => {
+    const { ref } = await mount()
+    await markdown(ref)
+    act(() => { ref.current!.setMode('wysiwyg'); ref.current!.setMode('markdown') })
+    await act(async () => { await new Promise(resolve => requestAnimationFrame(resolve)) })
+    expect(document.querySelector('.cm-content')).toBeVisible()
+    expect(document.querySelector('.tiptap')).not.toBeVisible()
+    expect(ref.current!.getMarkdown()).toBe(fixture)
   })
 
 })

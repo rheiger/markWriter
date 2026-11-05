@@ -84,8 +84,9 @@ async function click(xpath) {
   await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/click`, {})
 }
 async function mode(name) {
-  await click(`//button[normalize-space(.)='${name}']`)
-  await waitFor(() => run('const e=document.querySelector(arguments[0]); return !!e && e.getBoundingClientRect().height > 0', name === 'Markdown' ? '.cm-content' : '.tiptap'), `${name} editor`)
+  const markdown = await run(`return document.querySelector('button[role="switch"]').getAttribute('aria-checked') === 'true'`)
+  if (markdown !== (name === 'Markdown')) await click('//button[@role="switch" and @aria-label="Markdown mode"]')
+  await waitFor(() => run(`const e=document.querySelector(arguments[0]); const checked=document.querySelector('button[role="switch"]').getAttribute('aria-checked')==='true'; return !!e && e.getBoundingClientRect().height>0 && checked===arguments[1]`, name === 'Markdown' ? '.cm-content' : '.tiptap', name === 'Markdown'), `${name} editor`)
 }
 async function preview() {
   await waitFor(() => run('return document.querySelectorAll(".markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
@@ -100,7 +101,13 @@ try {
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'application startup')
   assert.equal((await action('open', sourcePath)).document.content, source)
-  console.log('Native fixture opened; checking unchanged mode cycles')
+  const expectedVersion = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8')).version
+  await click('//button[normalize-space(.)="Help"]')
+  await click('//button[normalize-space(.)="About MarkWriter"]')
+  await waitFor(() => run(`const dialog = document.querySelector('dialog[open]'); return !!dialog && dialog.textContent.includes(arguments[0])`, `Version ${expectedVersion}`), 'About version')
+  await click('//dialog//button[normalize-space(.)="Close"]')
+  await waitFor(() => run(`return !document.querySelector('dialog[open]')`), 'About closed')
+  console.log('Native fixture and About version checked; checking unchanged mode cycles')
   for (let cycle = 0; cycle < 5; cycle++) {
     await mode('Markdown'); await preview(); await mode('WYSIWYG')
     assert.equal((await snapshot()).document.content, source)
@@ -136,7 +143,7 @@ try {
   await waitFor(() => run('return document.querySelectorAll(".tiptap table tr").length === 3'), 'inserted table rows')
   assert.equal(await run('return document.querySelectorAll(".tiptap th,.tiptap td").length'), 6)
   await action('saveAs', join(fixtureDir, 'inserted-table.md'))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {
