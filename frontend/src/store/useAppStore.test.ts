@@ -11,6 +11,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => {
   call.mockReset()
+  vi.mocked(save).mockReset()
   call.mockImplementation(async (command, args: any) => command === 'canonical_document_path' ? args.path : {})
   useAppStore.setState({ documents: [], currentDocument: null, isLoading: false, error: null, pendingClose: null })
   state().setCurrentDocument({ ...initial })
@@ -75,6 +76,27 @@ describe('document ownership and file races', () => {
     state().pendingClose!.resolve('cancel')
     expect(await close).toBe(false)
     expect(state().currentDocument?.content).toBe('Unsaved')
+  })
+  it('retains dirty tabs when Close Save is cancelled or fails', async () => {
+    state().setCurrentDocument({ ...initial, path: undefined, isDirty: true })
+    vi.mocked(save).mockResolvedValueOnce(null)
+    const cancelled = state().closeDocument('one'); state().pendingClose!.resolve('save')
+    expect(await cancelled).toBe(false)
+    expect(state().documents).toHaveLength(1)
+    state().setCurrentDocument({ ...initial, isDirty: true })
+    call.mockRejectedValueOnce('Write failed')
+    const failed = state().closeDocument('one'); state().pendingClose!.resolve('save')
+    expect(await failed).toBe(false)
+    expect(state().currentDocument?.isDirty).toBe(true)
+  })
+  it('a queued Save to an older destination cannot undo a completed Save As ownership change', async () => {
+    let finish!: (result: unknown) => void
+    call.mockImplementation(async (command, args: any) => command === 'canonical_document_path' ? args.path :
+      command === 'save_document_as' ? new Promise(resolve => { finish = resolve }) : {})
+    const as = state().saveDocumentAs('/new.md'); await tick()
+    const saveOld = state().saveDocument()
+    finish({ path: '/new.md', title: 'New' }); await as; await saveOld
+    expect(state().currentDocument).toMatchObject({ path: '/new.md', title: 'New' })
   })
   it('Quit inspects every dirty tab and Cancel retains the entire workspace', async () => {
     state().updateDocumentContent('A*')
