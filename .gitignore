@@ -30,10 +30,10 @@ dist/
 # Node.js / React
 node_modules/
 package-lock.json
+!frontend/package-lock.json
 .hintrc
 
 # Rust / Tauri
-src-tauri/Cargo.lock
 src-tauri/target/
 src-tauri/gen/
 
@@ -138,3 +138,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+
+# Local browser verification artifacts
+.playwright-mcp/

@@ -1,226 +1,121 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { EditorView } from './EditorView'
+import { createRef } from 'react'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import type { Editor } from '@tiptap/core'
+import { EditorView, type EditorViewRef } from './EditorView'
 import { useAppStore } from '../store/useAppStore'
 
-// Mock the store
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: vi.fn()
-}))
+const chart = 'flowchart TD\n  A["<b>Start</b> & finish"] --> B[End]'
+const fixture = '# Document\n\nA paragraph.\n\n```mermaid\n' + chart + '\n```\n\n| Name | Value |\n| --- | --- |\n| **Bold** | a \\| b |\n\n- [x] Done\n- [ ] Pending\n'
 
-// Mock the MermaidRenderer component
-vi.mock('./MermaidRenderer', () => ({
-  MermaidRenderer: ({ chart, id }: { chart: string; id: string }) => (
-    <div data-testid={`mermaid-${id}`}>{chart}</div>
-  )
-}))
+async function mount(content = fixture) {
+  useAppStore.setState({ currentDocument: {
+    id: 'doc-1', title: 'Test', content, path: '/test.md', isDirty: false, lastModified: new Date(),
+  } })
+  const ref = createRef<EditorViewRef>()
+  const result = render(<EditorView ref={ref} />)
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+  const editor = (result.container.querySelector('.tiptap') as HTMLElement & { editor: Editor }).editor
+  return { ...result, ref, editor }
+}
 
-describe('EditorView Component', () => {
-  const mockStore = {
-    currentDocument: {
-      id: 'test-doc-1',
-      title: 'Test Document',
-      content: '# Test Content\n\nThis is a test document.',
-      path: '/test.md',
-      isDirty: false,
-      lastModified: new Date('2024-01-01')
-    },
-    updateDocumentContent: vi.fn(),
-    config: {
-      theme: 'light'
-    }
-  }
+async function markdown(ref: React.RefObject<EditorViewRef>) {
+  fireEvent.click(screen.getByRole('button', { name: 'Markdown', exact: true }))
+  await waitFor(() => expect(ref.current?.getEditorView()).toBeTruthy())
+}
+async function wysiwyg() {
+  fireEvent.click(screen.getByRole('button', { name: 'WYSIWYG', exact: true }))
+  await waitFor(() => expect(document.querySelector('.tiptap')).toBeVisible())
+}
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    ;(useAppStore as any).mockReturnValue(mockStore)
+describe('document fidelity with real editors', () => {
+  beforeEach(() => useAppStore.setState({ currentDocument: null, error: null }))
+
+  it('shows the welcome state without a document', () => {
+    render(<EditorView />)
+    expect(screen.getByText('Welcome to MarkWriter')).toBeVisible()
   })
 
-  it('should render without crashing', () => {
-    console.log('[TEST] Starting EditorView render test')
-
-    try {
-      const { container } = render(<EditorView />)
-      console.log('[TEST] EditorView rendered successfully')
-      console.log('[TEST] Container HTML:', container.innerHTML)
-
-      expect(container).toBeInTheDocument()
-    } catch (error) {
-      console.error('[TEST] Error rendering EditorView:', error)
-      throw error
-    }
+  it('loads Mermaid source literally, including HTML-like labels', async () => {
+    const { editor } = await mount()
+    const charts: string[] = []
+    editor.state.doc.descendants(node => { if (node.type.name === 'mermaid') charts.push(node.attrs.chart.trim()) })
+    expect(charts).toEqual([chart])
   })
 
-  it('should display the welcome message when no document is present', () => {
-    console.log('[TEST] Testing welcome message display')
-
-    ;(useAppStore as any).mockReturnValue({
-      ...mockStore,
-      currentDocument: null
-    })
-
-    try {
-      render(<EditorView />)
-
-      expect(screen.getByText('Welcome to MarkWriter')).toBeInTheDocument()
-      expect(screen.getByText('Create a new document or open an existing one to get started.')).toBeInTheDocument()
-
-      console.log('[TEST] Welcome message displayed correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing welcome message:', error)
-      throw error
+  it('preserves original Markdown and clean state through five unedited switches', async () => {
+    const { ref } = await mount()
+    for (let i = 0; i < 5; i++) {
+      await markdown(ref)
+      expect(useAppStore.getState().currentDocument?.content).toBe(fixture)
+      expect(ref.current?.getMarkdown()).toBe(fixture)
+      await wysiwyg()
     }
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
   })
 
-  it('should display the document content when a document is present', () => {
-    console.log('[TEST] Testing document content display')
-
-    try {
-      render(<EditorView />)
-
-      // Check if the editor pane is rendered
-      expect(screen.getByText('Markdown')).toBeInTheDocument()
-      expect(screen.getByText('Preview')).toBeInTheDocument()
-
-      console.log('[TEST] Document content displayed correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing document content:', error)
-      throw error
-    }
+  it('preserves diagrams, formatted table cells and task state after a WYSIWYG edit', async () => {
+    const { ref, editor } = await mount()
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    const content = useAppStore.getState().currentDocument!.content
+    expect(content).toContain(chart)
+    expect(content).toContain('**Bold**')
+    expect(content).toContain('a \\| b')
+    expect(content).toContain('- [x] Done')
+    expect(content).toContain('- [ ] Pending')
+    for (let i = 0; i < 3; i++) { await markdown(ref); await wysiwyg() }
+    expect(useAppStore.getState().currentDocument?.content).toBe(content)
   })
 
-  it('should handle theme changes correctly', () => {
-    console.log('[TEST] Testing theme handling')
-
-    const darkThemeStore = {
-      ...mockStore,
-      config: { theme: 'dark' }
-    }
-
-    ;(useAppStore as any).mockReturnValue(darkThemeStore)
-
-    try {
-      render(<EditorView />)
-
-      // The component should render without errors regardless of theme
-      expect(screen.getByText('Markdown')).toBeInTheDocument()
-
-      console.log('[TEST] Dark theme handled correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing dark theme:', error)
-      throw error
-    }
+  it('reads current WYSIWYG content through the public editor ref before Markdown is mounted', async () => {
+    const { ref } = await mount()
+    expect(ref.current?.getMarkdown()).toBe(fixture)
+  })
+  it('applies the editor API in WYSIWYG mode, including undo and redo', async () => {
+    const { ref, editor } = await mount('# Original')
+    act(() => ref.current!.insertText('New '))
+    expect(editor.getText()).toContain('New ')
+    act(() => ref.current!.undo())
+    expect(editor.getText()).not.toContain('New ')
+    act(() => ref.current!.redo())
+    expect(editor.getText()).toContain('New ')
+    act(() => ref.current!.setMarkdown('# Replacement'))
+    expect(editor.getText().trim()).toBe('Replacement')
+    expect(ref.current!.getMarkdown()).toBe('# Replacement')
   })
 
-  it('should expose editor methods through ref', () => {
-    console.log('[TEST] Testing editor ref methods')
-
-    try {
-      const ref = { current: null }
-      render(<EditorView ref={ref} />)
-
-      // The ref should be properly set up
-      expect(ref.current).toBeDefined()
-
-      if (ref.current) {
-        expect(typeof ref.current.getMarkdown).toBe('function')
-        expect(typeof ref.current.setMarkdown).toBe('function')
-        expect(typeof ref.current.undo).toBe('function')
-        expect(typeof ref.current.redo).toBe('function')
-        expect(typeof ref.current.focus).toBe('function')
-      }
-
-      console.log('[TEST] Editor ref methods exposed correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing editor ref:', error)
-      throw error
-    }
+  it('shows current content after replacing a document and switching modes', async () => {
+    const { ref } = await mount()
+    await markdown(ref)
+    act(() => useAppStore.setState({ currentDocument: {
+      ...useAppStore.getState().currentDocument!, id: 'doc-2', content: '# Second document',
+    } }))
+    await wysiwyg()
+    expect(document.querySelector('.tiptap')).toHaveTextContent('Second document')
+    await markdown(ref)
+    expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
   })
 
-  it('should handle mermaid diagram parsing', () => {
-    console.log('[TEST] Testing mermaid diagram parsing')
-
-    const mermaidContent = `# Test with Mermaid
-
-\`\`\`mermaid
-graph TD
-    A[Start] --> B[End]
-\`\`\``
-
-    const mermaidStore = {
-      ...mockStore,
-      currentDocument: {
-        ...mockStore.currentDocument,
-        content: mermaidContent
-      }
-    }
-
-    ;(useAppStore as any).mockReturnValue(mermaidStore)
-
-    try {
-      render(<EditorView />)
-
-      // Should display the preview with mermaid indicator
-      expect(screen.getByText(/Preview/)).toBeInTheDocument()
-
-      console.log('[TEST] Mermaid diagram parsing handled correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing mermaid parsing:', error)
-      throw error
-    }
+  it('retains an image when editing surrounding WYSIWYG text', async () => {
+    const { editor } = await mount('Before\n\n![Diagram](diagram.png "Caption")\n\nAfter')
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    expect(useAppStore.getState().currentDocument!.content).toContain('![Diagram](diagram.png "Caption")')
   })
 
-  it('should handle document updates', () => {
-    console.log('[TEST] Testing document updates')
-
-    try {
-      render(<EditorView />)
-
-      // The updateDocumentContent function should be called when content changes
-      // This is tested through the CodeMirror mock
-      expect(mockStore.updateDocumentContent).toBeDefined()
-
-      console.log('[TEST] Document updates handled correctly')
-    } catch (error) {
-      console.error('[TEST] Error testing document updates:', error)
-      throw error
-    }
+  it('does not undo into a previously opened document', async () => {
+    const { ref, editor } = await mount('# First')
+    act(() => { editor.commands.insertContentAt(1, 'Edited ') })
+    await markdown(ref)
+    act(() => { ref.current!.insertText('Markdown edit') })
+    act(() => useAppStore.setState({ currentDocument: {
+      ...useAppStore.getState().currentDocument!, id: 'second', content: '# Second', isDirty: false,
+    } }))
+    await wysiwyg()
+    act(() => { ref.current!.undo() })
+    expect(useAppStore.getState().currentDocument!.content).toBe('# Second')
+    await markdown(ref)
+    act(() => { ref.current!.undo() })
+    expect(useAppStore.getState().currentDocument!.content).toBe('# Second')
   })
 
-  it('should work without Tauri backend (standalone test)', () => {
-    console.log('[TEST] Testing standalone component without Tauri')
-
-    // Create a mock document directly without going through the store
-    const standaloneDocument = {
-      id: 'standalone-test',
-      title: 'Standalone Test',
-      content: '# Standalone Test\n\nThis is a test without Tauri.',
-      path: '/test.md',
-      isDirty: false,
-      lastModified: new Date()
-    }
-
-    const standaloneStore = {
-      currentDocument: standaloneDocument,
-      updateDocumentContent: vi.fn(),
-      config: { theme: 'light' }
-    }
-
-    ;(useAppStore as any).mockReturnValue(standaloneStore)
-
-    try {
-      const { container } = render(<EditorView />)
-
-      // Should render the editor with the standalone document
-      expect(screen.getByText('Markdown')).toBeInTheDocument()
-      expect(screen.getByText('Preview')).toBeInTheDocument()
-
-      console.log('[TEST] Standalone component works without Tauri')
-      console.log('[TEST] Container HTML length:', container.innerHTML.length)
-
-    } catch (error) {
-      console.error('[TEST] Error in standalone test:', error)
-      throw error
-    }
-  })
 })

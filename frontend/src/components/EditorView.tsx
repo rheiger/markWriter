@@ -5,13 +5,12 @@ import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
-import { marked } from 'marked'
 import { useAppStore } from '../store/useAppStore'
-import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
 import BulletList from '@tiptap/extension-bullet-list'
@@ -24,11 +23,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
-import MarkdownIt from 'markdown-it'
-import markdownItIns from 'markdown-it-ins'
-import TurndownService from 'turndown'
-// @ts-expect-error types
-import { gfm } from 'turndown-plugin-gfm'
+import { toWysiwygHtml, fromWysiwygHtml, renderMarkdownHtml } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
@@ -94,7 +89,7 @@ interface MermaidBlock {
   index: number
 }
 
-export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
+const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -108,123 +103,12 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
   const isSyncingFromPreview = useRef(false)
   const positionMarkerRef = useRef<HTMLDivElement>(null)
   const wysiwygContainerRef = useRef<HTMLDivElement>(null)
-  const isUpdatingFromTiptap = useRef(false)
   const isUpdatingFromMarkdown = useRef(false)
   const isSwitchingModeRef = useRef(false)
   const lastMarkdownAnchorRef = useRef(0)
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
 
   const { currentDocument, updateDocumentContent, config } = useAppStore()
-
-  // Configure Marked to support extended underline syntax ++text++ for Preview
-  React.useMemo(() => {
-    const underlineExt = {
-      name: 'underline',
-      level: 'inline' as const,
-      start: (src: string) => src.indexOf('++'),
-      tokenizer(src: string) {
-        const rule = /^\+\+([\s\S]+?)\+\+/
-        const match = rule.exec(src)
-        if (match) {
-          return {
-            type: 'underline',
-            raw: match[0],
-            text: match[1]
-          }
-        }
-        return undefined
-      },
-      renderer(token: any) {
-        return `<u>${token.text}</u>`
-      }
-    }
-    marked.use({ extensions: [underlineExt] as any })
-  }, [])
-
-  // Markdown <-> HTML converter for initial Tiptap content
-  const md = React.useMemo(() => {
-    const m = new MarkdownIt({ html: false, linkify: true, breaks: true })
-    m.use(markdownItIns)
-    return m
-  }, [])
-  const turndown = React.useMemo(() => {
-    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
-
-    // Convert HTML tables to GFM tables (robust against colgroups/inline wrappers)
-    td.addRule('tableToMarkdown', {
-      filter: (node) => node.nodeName === 'TABLE',
-      replacement: (_content, node) => {
-        const table = node as HTMLElement
-        const rows = Array.from(table.querySelectorAll('tr')).map(tr =>
-          Array.from(tr.querySelectorAll('th,td')).map(cell => (cell.textContent || '').trim())
-        )
-        if (rows.length === 0) return ''
-        const header = rows[0]
-        let md = '\n| ' + header.join(' | ') + ' |\n'
-        md += '| ' + header.map(() => '---').join(' | ') + ' |\n'
-        for (let i = 1; i < rows.length; i++) md += '| ' + rows[i].join(' | ') + ' |\n'
-        return md + '\n'
-      }
-    })
-
-    // Task list items: <li><input type="checkbox"> ... -> - [ ] text
-    td.addRule('taskListItem', {
-      filter: (node) => node.nodeName === 'LI' && !!(node as HTMLElement).querySelector('input[type="checkbox"]'),
-      replacement: (_content, node) => {
-        const el = node as HTMLElement
-        const input = el.querySelector('input[type="checkbox"]') as HTMLInputElement | null
-        const checked = input?.checked ? 'x' : ' '
-        // Extract text content without checkbox
-        const clone = el.cloneNode(true) as HTMLElement
-        clone.querySelectorAll('input[type="checkbox"]').forEach(inp => inp.remove())
-        const text = (clone.textContent || '').trim()
-        return `\n- [${checked}] ${text}\n`
-      }
-    })
-
-    // Serialize Mermaid NodeViews/divs back to fenced code
-    td.addRule('mermaid', {
-      filter: (node) => {
-        if (node.nodeType !== 1) return false
-        const el = node as HTMLElement
-        return el.getAttribute('data-type') === 'mermaid' || el.classList?.contains('mermaid')
-      },
-      replacement: (_content, node) => {
-        const el = node as HTMLElement
-        const chart = (el.getAttribute('data-chart') || el.textContent || '').trim()
-        return `\n\`\`\`mermaid\n${chart}\n\`\`\`\n`
-      }
-    })
-
-    // Serialize underline tags as extended markdown ++text++
-    td.addRule('underline', {
-      filter: ['u', 'ins'],
-      replacement: (content) => `++${content}++`
-    })
-
-    // Remove colgroup/col so GFM table conversion works
-    td.addRule('removeColgroup', {
-      filter: (node) => node.nodeName === 'COLGROUP' || node.nodeName === 'COL',
-      replacement: () => ''
-    })
-
-    // Unwrap <p> inside table cells to avoid nested paragraphs in table markdown
-    td.addRule('unwrapParagraphInCells', {
-      filter: (node) => node.nodeName === 'P' && !!node.parentElement && (node.parentElement.nodeName === 'TD' || node.parentElement.nodeName === 'TH'),
-      replacement: (content) => content
-    })
-
-    // Unwrap <p> inside list items to avoid blank lines between list items
-    td.addRule('unwrapParagraphInLi', {
-      filter: (node) => node.nodeName === 'P' && !!node.parentElement && node.parentElement.nodeName === 'LI',
-      replacement: (content) => content
-    })
-
-    // enable GitHub-flavored markdown (tables, strikethrough, task lists)
-    td.use(gfm)
-
-    return td
-  }, [])
 
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
@@ -264,16 +148,14 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       TableHeader,
       TableCell,
       MermaidNode,
+      Image.configure({ inline: true }),
     ],
-    content: currentDocument?.content ? md.render(currentDocument.content) : '',
+    content: toWysiwygHtml(currentDocument?.content ?? ''),
     onUpdate: ({ editor }) => {
-      if (isUpdatingFromMarkdown.current) return
-      isUpdatingFromTiptap.current = true
+      if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
-      const markdownFromHtml = turndown.turndown(html)
+      const markdownFromHtml = fromWysiwygHtml(html)
       updateDocumentContent(markdownFromHtml)
-      // Defer clearing the update flag until after the selection is applied
-      queueMicrotask(() => { isUpdatingFromTiptap.current = false })
     },
     editable: true,
     autofocus: false,
@@ -322,45 +204,12 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     }
   }, [tiptap, computeFormattingState])
 
-  // Helper to convert markdown → HTML for WYSIWYG and map mermaid fences
-  const toWysiwygHtml = useCallback((markdownText: string): string => {
-    let html = md.render(markdownText || '')
-    // Normalize <ins> to <u> for Tiptap Underline parsing
-    html = html.replace(/<ins>/g, '<u>').replace(/<\/ins>/g, '</u>')
-    const re = new RegExp('<pre><code class="language-mermaid">([\\s\\S]*?)<\\/code><\\/pre>', 'g')
-    html = html.replace(re, (_m, code) => {
-      const decoded = String(code)
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-      return `<div class="mermaid">${decoded}</div>`
-    })
-    return html
-  }, [md])
-
-  // Keep tiptap in sync when switching documents (avoid resetting caret on every keystroke)
-  useEffect(() => {
-    if (tiptap && currentDocument) {
-      if (isUpdatingFromTiptap.current) return
-      const html = toWysiwygHtml(currentDocument.content || '')
-      if (tiptap.getHTML() !== html) {
-        isUpdatingFromMarkdown.current = true
-        tiptap.commands.setContent(html)
-        isUpdatingFromMarkdown.current = false
-      }
-      // Mermaid diagrams are rendered by MermaidNode's React NodeView
-    }
-  }, [tiptap, currentDocument?.id, config.theme, toWysiwygHtml])
-
-  // When entering WYSIWYG or when content changes while in Markdown, ensure WYSIWYG reflects store
-  // Avoid setContent during lifecycle; we'll sync WYSIWYG explicitly on tab click
-
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
-    getMarkdown: () => editorViewRef.current?.state.doc.toString() || '',
+    getMarkdown: () => useAppStore.getState().currentDocument?.content ?? '',
     setMarkdown: (content: string) => {
+      updateDocumentContent(content)
+      tiptap?.commands.setContent(toWysiwygHtml(content), { emitUpdate: false })
       if (editorViewRef.current) {
         editorViewRef.current.dispatch({
           changes: {
@@ -372,21 +221,28 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }
     },
     undo: () => {
+      if (editorMode === 'wysiwyg' && tiptap) { tiptap.commands.undo(); return }
       if (editorViewRef.current) {
         undo(editorViewRef.current)
       }
     },
     redo: () => {
+      if (editorMode === 'wysiwyg' && tiptap) { tiptap.commands.redo(); return }
       if (editorViewRef.current) {
         redo(editorViewRef.current)
       }
     },
     focus: () => {
+      if (editorMode === 'wysiwyg' && tiptap) { tiptap.commands.focus(); return }
       if (editorViewRef.current) {
         editorViewRef.current.focus()
       }
     },
     getSelection: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        const { from, to } = tiptap.state.selection
+        return tiptap.state.doc.textBetween(from, to, '\n')
+      }
       if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         return editorViewRef.current.state.doc.sliceString(selection.from, selection.to)
@@ -394,6 +250,9 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       return ''
     },
     insertText: (text: string) => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.commands.insertContent({ type: 'text', text }); return
+      }
       if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         editorViewRef.current.dispatch({
@@ -407,6 +266,7 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }
     },
     selectAll: () => {
+      if (editorMode === 'wysiwyg' && tiptap) { tiptap.commands.selectAll(); return }
       if (editorViewRef.current) {
         editorViewRef.current.dispatch({
           selection: { anchor: 0, head: editorViewRef.current.state.doc.length }
@@ -595,76 +455,32 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     onFormattingChange: (listener) => { formattingListenerRef.current = listener }
   }))
 
-  // Parse mermaid blocks from markdown content
-  // Parse mermaid blocks from markdown content
-  const parseMermaidBlocks = useCallback((content: string): MermaidBlock[] => {
-    const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
-    const blocks: MermaidBlock[] = []
-    let match
-    let index = 0
-
-    while ((match = mermaidRegex.exec(content)) !== null) {
-      blocks.push({
-        id: `mermaid-${index}-${Date.now()}`,
-        chart: match[1].trim(),
-        index: index++
-      })
-    }
-
-    return blocks
-  }, [])
-
-  // Update preview with mermaid support
+  // Parse fenced blocks through the Markdown parser, then render only this preview generation.
+  const previewGeneration = useRef(0)
   const updatePreview = useCallback((content: string) => {
-    if (!previewRef.current) return
-
-    try {
-      // Parse mermaid blocks first
-      const blocks = parseMermaidBlocks(content)
-      setMermaidBlocks(blocks)
-
-      // Replace mermaid blocks with placeholders for HTML rendering
-      let processedContent = content
-      blocks.forEach((_, index) => {
-        const placeholder = `<div class="mermaid-placeholder" data-mermaid-index="${index}">[Mermaid Diagram ${index + 1}]</div>`
-        processedContent = processedContent.replace(
-          /```mermaid\n[\s\S]*?```/,
-          placeholder
-        )
-      })
-
-      // Parse markdown to HTML
-      const html = marked.parse(processedContent)
-      previewRef.current.innerHTML = html
-
-      // Render mermaid diagrams in-place inside placeholders
-      const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: isDark ? 'dark' : 'default' })
-      requestAnimationFrame(async () => {
-        if (!previewRef.current) return
-        const placeholders = Array.from(previewRef.current.querySelectorAll('.mermaid-placeholder')) as HTMLElement[]
-        await Promise.all(
-          placeholders.map(async (el, i) => {
-            const chart = blocks[i]?.chart || ''
-            const id = `mermaid-${i}-${Date.now()}`
-            try {
-              const { svg } = await mermaid.render(id, chart)
-              el.innerHTML = svg
-            } catch (e) {
-              el.innerHTML = `<pre style="color:#dc2626">Mermaid error: ${String(e)}</pre>`
-            }
-          })
-        )
-      })
-
-      console.log('[EDITOR] Preview updated with', blocks.length, 'mermaid diagrams')
-    } catch (error) {
-      console.error('Error parsing markdown:', error)
-      if (previewRef.current) {
-        previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
+    const container = previewRef.current
+    if (!container) return
+    const generation = ++previewGeneration.current
+    container.innerHTML = renderMarkdownHtml(content)
+    const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))
+    const blocks = elements.map((element, index) => ({
+      id: `preview-${generation}-${index}`, chart: element.getAttribute('data-chart') ?? '', index,
+    }))
+    setMermaidBlocks(blocks)
+    const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark ? 'dark' : 'default' })
+    requestAnimationFrame(async () => {
+      for (const [index, element] of elements.entries()) {
+        if (generation !== previewGeneration.current || !element.isConnected) return
+        try {
+          const { svg } = await mermaid.render(`preview-${generation}-${index}-${Date.now()}`, blocks[index].chart)
+          if (generation === previewGeneration.current && element.isConnected) element.innerHTML = svg
+        } catch (error) {
+          if (generation === previewGeneration.current && element.isConnected) element.textContent = `Mermaid error: ${String(error)}`
+        }
       }
-    }
-  }, [parseMermaidBlocks, config.theme])
+    })
+  }, [config.theme])
 
   // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
@@ -672,7 +488,6 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     if (editorViewRef.current) return
     console.log('[EDITOR] useEffect triggered for editor initialization')
     console.log('[EDITOR] editorRef.current:', editorRef.current)
-    console.log('[EDITOR] currentDocument:', currentDocument)
 
     // Wait for DOM to be ready
     const timer = setTimeout(() => {
@@ -787,13 +602,6 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     }
   }, [editorMode, currentDocument?.id, updatePreview])
 
-  // Always start in WYSIWYG when opening or creating a document
-  useEffect(() => {
-    if (currentDocument?.id) {
-      setEditorMode('wysiwyg')
-    }
-  }, [currentDocument?.id])
-
   // Update CodeMirror content only when switching docs (not on every keystroke from WYSIWYG)
   useEffect(() => {
     if (editorMode !== 'markdown') return
@@ -815,6 +623,11 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }
     }
   }, [editorMode, currentDocument?.content, updatePreview])
+
+  useEffect(() => () => {
+    editorViewRef.current?.destroy()
+    editorViewRef.current = null
+  }, [])
 
   // Scroll synchronization between editor and preview
   useEffect(() => {
@@ -888,8 +701,7 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }}
       ref={containerRef}
     >
-      {editorMode === 'markdown' ? (
-        <>
+      <div style={{ display: editorMode === 'markdown' ? 'flex' : 'none', flex: 1, minWidth: 0 }}>
           {/* Editor Pane */}
           <div style={{
             flexBasis: `${splitPos}%`,
@@ -1024,22 +836,13 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
                 style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.25, pointerEvents: 'none' }}
               />
 
-              {/* Overlay Mermaid diagrams over placeholders */}
-              {mermaidBlocks.map((block, index) => (
-                <MermaidRenderer
-                  key={block.id}
-                  chart={block.chart}
-                  id={`${block.id}-${index}`}
-                />
-              ))}
             </div>
           </div>
-        </>
-      ) : (
-        /* WYSIWYG Mode - Full Window Editing */
+      </div>
+        {/* WYSIWYG stays mounted to preserve editor history and NodeViews. */}
         <div style={{
           flex: 1,
-          display: 'flex',
+          display: editorMode === 'wysiwyg' ? 'flex' : 'none',
           flexDirection: 'column',
           overflow: 'hidden'
         }}>
@@ -1073,7 +876,6 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
             )}
           </div>
         </div>
-      )}
 
       {/* Editor Mode Tabs */}
       <div style={{
@@ -1089,17 +891,13 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }}>
         <button
           onClick={() => {
-            // On switching to Markdown, sync from the live WYSIWYG state for freshest content
+            if (editorMode === 'markdown') return
+            // Tiptap edits already update the canonical Markdown; a tab switch must not serialize it again.
             const view = editorViewRef.current
             if (view) {
               isSwitchingModeRef.current = true
               const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
-              let markdownText = currentDocument?.content || ''
-              if (tiptap) {
-                const html = tiptap.getHTML()
-                markdownText = turndown.turndown(html)
-                updateDocumentContent(markdownText)
-              }
+              const markdownText = currentDocument?.content || ''
               const newLen = markdownText.length
               view.dispatch({
                 changes: { from: 0, to: view.state.doc.length, insert: markdownText },
@@ -1142,12 +940,13 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
         </button>
         <button
           onClick={() => {
+            if (editorMode === 'wysiwyg') return
             // Sync WYSIWYG from store explicitly to avoid lifecycle setContent warnings
             if (tiptap && currentDocument) {
               const html = toWysiwygHtml(currentDocument.content || '')
               isUpdatingFromMarkdown.current = true
               requestAnimationFrame(() => {
-                tiptap.commands.setContent(html)
+                tiptap.commands.setContent(html, { emitUpdate: false })
                 isUpdatingFromMarkdown.current = false
                 setEditorMode('wysiwyg')
               })
@@ -1173,4 +972,11 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
   )
 })
 
+DocumentEditor.displayName = 'DocumentEditor'
+
+// Both editing engines and their undo histories belong to one document.
+export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
+  const id = useAppStore(state => state.currentDocument?.id)
+  return <DocumentEditor key={id ?? 'welcome'} ref={ref} />
+})
 EditorView.displayName = 'EditorView'

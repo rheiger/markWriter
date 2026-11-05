@@ -14,6 +14,9 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) =
   useEffect(() => {
     if (!containerRef.current) return
 
+    let cancelled = false
+    const container = containerRef.current
+
     const isDark = config.theme === 'dark' || 
       (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
@@ -36,13 +39,13 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) =
       },
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
       fontSize: 14,
-      securityLevel: 'loose', // Allow HTML in diagrams
+      securityLevel: 'strict',
     })
 
     const renderDiagram = async () => {
       try {
         // Clear the container
-        containerRef.current!.innerHTML = ''
+        container.innerHTML = ''
         
         // Generate unique ID for this diagram
         const diagramId = `mermaid-${id}-${Date.now()}`
@@ -50,38 +53,26 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) =
         // Create a temporary element to render the diagram
         const element = document.createElement('div')
         element.id = diagramId
-        containerRef.current!.appendChild(element)
+        container.appendChild(element)
         
         // Render the diagram
         const { svg } = await mermaid.render(diagramId, chart)
         
         // Replace the temporary element with the rendered SVG
-        containerRef.current!.innerHTML = svg
+        if (!cancelled) container.innerHTML = svg
         
         console.log('[MERMAID] Diagram rendered successfully:', diagramId)
       } catch (error) {
+        if (cancelled) return
         console.error('[MERMAID] Error rendering diagram:', error)
         
         // Show error message to user
-        containerRef.current!.innerHTML = `
-          <div style="
-            padding: 16px;
-            background-color: var(--bg-secondary);
-            border: 2px solid #ef4444;
-            border-radius: 8px;
-            color: #dc2626;
-            font-family: monospace;
-            font-size: 14px;
-            margin: 8px 0;
-          ">
-            <strong>Mermaid Diagram Error:</strong><br>
-            <pre style="margin: 8px 0 0 0; white-space: pre-wrap;">${error}</pre>
-          </div>
-        `
+        container.textContent = `Mermaid Diagram Error: ${String(error)}`
       }
     }
 
     renderDiagram()
+    return () => { cancelled = true }
   }, [chart, id, config.theme])
 
   return (

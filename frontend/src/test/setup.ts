@@ -1,67 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
-// Mock Tauri API
-vi.mock('@tauri-apps/api', () => ({
-  invoke: vi.fn(),
-  open: vi.fn(),
-  save: vi.fn(),
-}))
-
-// Mock CodeMirror modules
-vi.mock('@codemirror/view', () => ({
-  EditorView: Object.assign(vi.fn().mockImplementation(() => ({
-    state: {
-      doc: { toString: () => 'test content' },
-      selection: { main: { from: 0, to: 0 } }
-    },
-    dispatch: vi.fn(),
-    focus: vi.fn(),
-    destroy: vi.fn(),
-    dom: { parentNode: null }
-  })), {
-    updateListener: { of: vi.fn() },
-    theme: vi.fn()
-  }),
-  keymap: { of: vi.fn() },
-}))
-
-vi.mock('@codemirror/state', () => ({
-  EditorState: {
-    create: vi.fn().mockReturnValue({
-      doc: { toString: () => 'test content' },
-      selection: { main: { from: 0, to: 0 } }
-    })
-  }
-}))
-
-vi.mock('@codemirror/lang-markdown', () => ({
-  markdown: vi.fn()
-}))
-
-vi.mock('@codemirror/theme-one-dark', () => ({
-  oneDark: vi.fn()
-}))
-
-vi.mock('@codemirror/commands', () => ({
-  defaultKeymap: [],
-  historyKeymap: [],
-  history: vi.fn(),
-  undo: vi.fn(),
-  redo: vi.fn()
-}))
-
-vi.mock('@codemirror/search', () => ({
-  searchKeymap: []
-}))
-
-// Mock marked
-vi.mock('marked', () => ({
-  marked: {
-    parse: vi.fn().mockReturnValue('<p>test</p>')
-  }
-}))
-
 // Mock mermaid
 vi.mock('mermaid', () => ({
   default: {
@@ -84,3 +23,9 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 })
+
+// jsdom has no layout engine; keep real editor/parser behavior and supply geometry only.
+const rect = () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {} })
+Range.prototype.getBoundingClientRect = rect
+Range.prototype.getClientRects = () => Object.assign([], { item: () => null })
+HTMLElement.prototype.scrollIntoView = () => {}

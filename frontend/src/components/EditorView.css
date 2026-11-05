@@ -191,3 +191,9 @@
 .markwriter-preview::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
+
+/* ProseMirror requires preserved whitespace for reliable text editing. */
+.tiptap {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
