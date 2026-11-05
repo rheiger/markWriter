@@ -1,6 +1,6 @@
 # Editor stabilization — 5 November 2026
 
-The core stabilization increment is implemented on `codex/editor-stabilization`. It is pushed for qualification CI, with no merge or release. Existing code/docs were checkpointed separately; pre-existing sample changes and historical test evidence remain untouched.
+Core stabilization and acceptance for the supported fixture workflows are complete on `codex/editor-stabilization`. It is pushed for qualification CI, with no merge or release. Existing code/docs were checkpointed separately; pre-existing sample changes and historical test evidence remain untouched.
 
 ## Result
 
@@ -26,7 +26,8 @@ Markdown in the store is canonical. Unedited mode switches preserve original byt
 | Upgraded macOS export | Written file has three Mermaid SVGs, one aligned table, two task inputs and no scripts |
 | Latest native editing | Rebuilt bundle preserves copied/pasted multiline text across modes and inserts a Markdown table that becomes an editable WYSIWYG table |
 | Quality/dependencies | Ordinary clean npm ci, lint, production build and audit pass; zero reported npm advisories. Node 24+ required |
-| CI | Frontend and all three native platform tests/builds pass run 42087625830; final Mermaid error handling awaits its source CI run |
+| CI | [42092300007](https://github.com/rheiger/markWriter/actions/runs/42092300007) passes at code commit 4c18dda: frontend and all three native tests/builds |
+| Windows/Linux application | Seven actual native WebView/editor/store/IPC/file workflow cases pass on each platform; result artifacts independently downloaded and inspected |
 
 Mermaid is stubbed in unit tests and separately exercised in the browser/native app. Browser startup stubs create-document IPC; browser clipboard checks stub only clipboard read. Native I/O evidence comes from actual native UI and Rust temporary-file tests, not these browser stubs. The malformed-diagram test intentionally produces a logged error; valid fixtures produce no console errors/warnings.
 
@@ -35,7 +36,7 @@ Mermaid is stubbed in unit tests and separately exercised in the browser/native 
 - [42083988171](https://github.com/rheiger/markWriter/actions/runs/42083988171): frontend, Linux and macOS passed; Windows failed on an ignored/missing ICO. Generated/tracked it from the existing PNG.
 - [42085196968](https://github.com/rheiger/markWriter/actions/runs/42085196968): Windows compiled but library tests could not start (STATUS_ENTRYPOINT_NOT_FOUND).
 - [42086481685](https://github.com/rheiger/markWriter/actions/runs/42086481685): diagnostics identified comctl32 v5 missing TaskDialogIndirect; changing shells did not fix it. Superseded/cancelled after diagnosis.
-- [42087625830](https://github.com/rheiger/markWriter/actions/runs/42087625830): source 2397fba embeds Common Controls v6 in every MSVC executable, including library test harnesses. All jobs passed. This verifies the loader fix; final frontend-only Mermaid error handling is a subsequent commit.
+- [42087625830](https://github.com/rheiger/markWriter/actions/runs/42087625830): source 2397fba embeds Common Controls v6 in every MSVC executable, including library test harnesses. All jobs passed. This verifies the loader fix; later frontend changes and application acceptance are verified by the current run below.
 
 The MSVC fix uses [Cargo linker arguments](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-arg) and [Microsoft manifest dependencies](https://learn.microsoft.com/en-us/cpp/build/reference/manifestdependency-specify-manifest-dependencies). Installed tauri-build 2.4.0 confirms its default app-only manifest contains the same Controls dependency.
 
@@ -49,6 +50,14 @@ References: [Vite migration](https://vite.dev/guide/migration.html), [Vitest mig
 
 ## Limits and remaining work
 
-Windows/Linux native interactive workflows still need their own execution evidence; successful compilation/tests do not establish desktop interaction. Signing, release packaging, arbitrary Markdown extensions, merged table cells, relative/broken-image resolution and embedded image assets remain outside this increment. Large bundle chunks retain a build warning. Power-loss recovery/filesystem-specific guarantees are not established by atomic writes.
+Windows/Linux actual application interaction now has execution evidence from CI 42092300007: five unchanged cycles, byte-identical Save As, WYSIWYG edit, three edited cycles, Save/reopen, export with three SVGs and Markdown table insertion. These run in native WebViews with real store/IPC/file writes. Explicit paths bypass OS path dialogs; Windows/Linux OS-dialog acceptance remains separate. macOS native dialogs were exercised directly. Signing, release packaging, arbitrary Markdown extensions, merged table cells, relative/broken-image resolution and embedded image assets remain outside this increment. Large bundle chunks retain a build warning. Power-loss recovery/filesystem-specific guarantees are not established by atomic writes.
 
-Settings, plugins, Draw.io and multi-window development are deferred. The broad dependable-editor goal remains active until required qualification is complete.
+Settings, plugins, Draw.io and multi-window development are deferred. The named core-editor acceptance criteria are satisfied for the supported fixtures. Release/distribution work and expanded compatibility remain future increments.
+
+## Final application qualification
+
+[CI 42092300007](https://github.com/rheiger/markWriter/actions/runs/42092300007), code commit `4c18dda`, completed successfully. Both native application result artifacts report all seven cases passed (Linux and Windows). macOS native tests/build passed remotely; the current ordinary production bundle was rebuilt locally and reopened through its native Open dialog with the saved three-diagram/table/task document.
+
+The first application run 42090781282 stopped on Ubuntu 26's renamed WebDriver package and Windows elevated-host session creation. The current workflow selects the correct package and runs the Windows test process tree at Medium integrity, following the [verified upstream fix](https://github.com/webdriverio/desktop-mobile/pull/637). The portable helper is checksum-pinned; workspace Modify access is limited to the existing runner identity. No framework upgrade, production server/plugin or relaxed application capability was introduced. See [native acceptance](native-acceptance.md) for reproduction and isolation details.
+
+The regression suite retains 37 passing frontend tests; clean installation, lint, production/acceptance builds, isolation check and zero-advisory npm audit all pass in CI. The original native and conversion baselines are preserved in Git, while pre-existing sample edits/untracked test results remain untouched. Subsequent closeout changes update documentation only.

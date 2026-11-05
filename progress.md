@@ -61,3 +61,7 @@
 - Added real-native application acceptance harness and Windows/Linux CI steps: unchanged/edited mode cycles, actual Save As/Save/reopen, three-diagram export and Markdown table insertion. Builds have separate app identity/frontend output. Normal production assets exclude the test bridge; this check, 37 tests, lint and both frontend builds pass. Desktop test execution is not yet claimed.
 
 - Application-acceptance CI run 42090781282 at 6038c20 is active. Frontend passed; Linux stopped during apt setup before any app tests (renamed package). Windows production tests passed and build is running; macOS is queued. Local fixes prepared, not pushed yet so Windows can report its independent result.
+
+- Pushed 4c18dda with Linux package selection, native driver readiness/progress diagnostics, and checksum-pinned gsudo Medium-integrity Windows execution. Run 42092300007 is current. Prior run 42090781282 failed setup/session startup before editor tests; no desktop pass inferred. Current production macOS bundle rebuild is running separately.
+
+- FINAL ACCEPTANCE: CI 42092300007 completed success at 4c18dda. Frontend, all three native tests/builds, and seven actual application cases each on Windows/Linux passed. Both result artifacts inspected. Current ordinary macOS bundle rebuilt/reopened via native Open with saved three-diagram fixture. Closing documentation only; goal may be marked complete after closeout push/state check.

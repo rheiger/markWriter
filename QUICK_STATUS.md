@@ -1,25 +1,25 @@
 # MarkWriter status — 5 November 2026
 
-Version: 2.0.0-alpha.1. Development requires Node 24+. Branch: codex/editor-stabilization.
+Version: 2.0.0-alpha.1. Node 24+. Branch: `codex/editor-stabilization`.
 
-The first stabilization increment is implemented. This remains an alpha; macOS native fixture acceptance passes; cross-platform qualification is running.
+Core editor stabilization and fixture acceptance are complete. [CI 42092300007](https://github.com/rheiger/markWriter/actions/runs/42092300007) passed at code commit `4c18dda`: frontend and native tests/builds on macOS, Windows and Linux, plus actual Windows/Linux application acceptance.
 
-## Verified
-- Real-editor tests preserve original Markdown over five unedited mode cycles.
-- WYSIWYG edits retain Mermaid source, table inline formatting/escaped pipes, task state and images in covered fixtures.
-- Editors and undo histories are scoped to the current document.
-- Save/Save As completion retains newer edits and does not replace a different current document.
-- Preview and HTML export share the Markdown parser; exported Mermaid diagrams use inline SVG.
-- Rust production-command tests save, reopen, copy and export files in temporary directories.
-- Browser UI input verifies repeated switching and editing with actual diagram SVG.
-- macOS debug bundle builds and launches; native Open/Save As/edit/Save/reopen/HTML export and New/Quit/Cmd-W discard-cancel checks pass on temporary fixtures.
-- 37 frontend tests pass; ESLint correctness and hook checks pass.
+## Verified behavior
+- Unedited mode cycles preserve original Markdown bytes. WYSIWYG edits retain tested Mermaid/table/task/code/image semantics; Markdown syntax may normalize after edits.
+- Mermaid flowchart, sequence and state diagrams render; syntax errors stay inside the editor and recover after correction.
+- Tables preserve formatting/alignment/escaped pipes/line breaks. Markdown and WYSIWYG table insertion work.
+- Document and undo histories are isolated; concurrent saves retain newer edits and errors preserve unsaved text.
+- Save As/Save/reopen and HTML export retain content. Export contains inline diagram SVG, tables and task checkboxes without external scripts.
+- Unsaved New/Open/Quit/window-close protections have automated coverage and actual macOS native UI acceptance.
 
-## Open acceptance and tooling work
-- Run Windows and Linux builds and user workflows.
-- V2 CI is configured and running. Linux/macOS native jobs passed the first run; Windows icon and test-harness Common Controls v6 manifest are fixed. All three native platforms and the frontend passed run 42087625830. The final Mermaid error-handling change is queued for verification. Legacy Python packaging remains separate.
-- Recheck dependency advisories during qualification; the current upgraded lockfile audits clean.
-- Expand fidelity corpus: merged cells, mixed lists, large documents and unsupported Markdown extensions.
-- Qualify release builds, signing and packaging separately.
+## Evidence
+- 37 frontend tests, lint/build, clean install and zero reported npm advisories.
+- 12 library and 2 production-command Rust tests per platform; production debug builds on all three platforms.
+- Actual macOS dialogs/editing/save/reopen/export and repeated mode cycles pass. Current production bundle rebuilt/reopened with three diagrams and an editable table/tasks.
+- Windows/Linux native WebView acceptance passes seven cases each: unchanged cycles, byte-identical Save As, WYSIWYG edit, edited cycles, Save/reopen, three-diagram HTML export and Markdown table insertion. Real store/IPC/file writes; only OS path dialogs are bypassed.
+- Acceptance tooling is absent from ordinary production assets; CI verifies build isolation.
 
-See [stabilization report](docs/stabilization-2026-11-05.md) for behavior, checks and limitations. Older completion claims in README-v2.md, CURRENT_STATUS.md and AGENTS.md are historical.
+## Release and compatibility limits
+This remains an unreleased alpha. Windows/Linux OS dialogs, signing/packaging, arbitrary Markdown extensions, merged cells and image-path resolution need separate qualification. Large bundle chunks retain a build warning. Pre-existing sample edits and Testresults remain local and untouched. No merge or release was performed.
+
+Details: [stabilization report](docs/stabilization-2026-11-05.md), [native acceptance](docs/native-acceptance.md). Older completion claims in other project documents are historical.
