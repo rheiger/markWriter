@@ -8,9 +8,9 @@ Agreed scope: docs/next-increment-plan-2026-11-06.md. Starting HEAD 1fe311c; bra
 - Tabs and retained editor sessions: in_progress
 - Native settings/schema persistence and Settings dialog: in_progress
 - Session restore / recovery / conflicts: in_progress
-- Accessible table management and boundaries: pending
-- Non-destructive embedded-source folds: pending
-- Mermaid ERD template / acceptance: pending
+- Accessible table management and boundaries: in_progress
+- Non-destructive embedded-source folds: in_progress
+- Mermaid ERD template / acceptance: in_progress
 - Integration, optional read-only review, native/CI qualification and closeout: pending
 - Separate draw.io offline feasibility spike after core gates: pending
 

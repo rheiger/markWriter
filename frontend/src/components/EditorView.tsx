@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'react'
 import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror/view'
 import { Compartment, EditorState } from '@codemirror/state'
+import { foldEffect, unfoldAll } from '@codemirror/language'
+import { embeddedSourceFolds, findEmbeddedSource } from '../lib/sourceFolds'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
@@ -54,6 +56,7 @@ export interface EditorViewRef {
   focus: () => void
   getSelection: () => string
   insertText: (text: string) => void
+  insertMarkdown: (text: string) => void
   selectAll: () => void
   // Editor instance access for advanced operations
   getEditorView: () => CodeMirrorView | null
@@ -319,6 +322,11 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         return editorViewRef.current.state.doc.sliceString(selection.from, selection.to)
       }
       return ''
+    },
+    insertMarkdown: (text: string) => {
+      if (editorMode === 'wysiwyg' && tiptap) { tiptap.chain().focus().insertContent(toWysiwygHtml(text)).run(); return }
+      const view = editorViewRef.current
+      if (view) view.dispatch(view.state.replaceSelection(text))
     },
     insertText: (text: string) => {
       if (editorMode === 'wysiwyg' && tiptap) {
@@ -625,6 +633,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       doc: defaultContent,
       extensions: [
         markdown(),
+        embeddedSourceFolds(),
         history(), // Enable undo/redo functionality
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         preferences.current.of([
@@ -686,6 +695,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       view.focus()
     } catch {}
 
+    if (config.collapseSource) view.dispatch({ effects: findEmbeddedSource(view.state).map(range => foldEffect.of(range)) })
+
     // Initial preview update
     // Force equal split at mount
     setSplitPos(50)
@@ -697,7 +708,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.tabWidth, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
 
   useEffect(() => {
     const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -705,6 +716,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(dark ? [oneDark] : []),
     ]) })
   }, [config.theme, config.wordWrap, config.tabWidth])
+
+  useEffect(() => {
+    const view = editorViewRef.current
+    if (!view) return
+    if (config.collapseSource) view.dispatch({ effects: findEmbeddedSource(view.state).map(range => foldEffect.of(range)) })
+    else unfoldAll(view)
+  }, [config.collapseSource])
 
   // Ensure preview and editor are restored when switching back to markdown
   useEffect(() => {

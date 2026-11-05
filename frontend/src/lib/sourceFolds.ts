@@ -1,0 +1,67 @@
+import { EditorState, type Extension } from '@codemirror/state'
+import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect } from '@codemirror/language'
+import { keymap, EditorView } from '@codemirror/view'
+
+export function findEmbeddedSource(state: EditorState) {
+  const result: { from: number, to: number, kind: string }[] = []
+  for (let n = 1; n <= state.doc.lines; n++) {
+    const line = state.doc.line(n)
+    const fence = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/.exec(line.text)
+    if (fence) {
+      const marker = fence[1][0], length = fence[1].length
+      let end = n + 1
+      while (end <= state.doc.lines && !new RegExp(`^ {0,3}${marker === '`' ? '`' : '~'}{${length},}\\s*$`).test(state.doc.line(end).text)) end++
+      if (end <= state.doc.lines && fence[2].trim() === 'mermaid' && end > n + 1) {
+        result.push({ from: line.to, to: state.doc.line(end).from - 1, kind: 'Mermaid' })
+      }
+      n = end
+      continue
+    }
+    const images = /!\[[^\]\n]*\]\(data:(image\/[\w.+-]+);(base64),([A-Za-z0-9+/=]{160,})\)/g
+    for (const match of line.text.matchAll(images)) {
+      const from = line.from + match.index! + match[0].indexOf(match[3])
+      result.push({ from, to: from + match[3].length, kind: `${match[1]} ${match[2]}` })
+    }
+  }
+  return result
+}
+
+// Public CodeMirror fold state maps ranges through edits and unfolds selection/search heads.
+// API contracts: @codemirror/language/dist/index.d.ts (foldService/codeFolding/foldGutter).
+export function embeddedSourceFolds(): Extension {
+  return [
+    foldService.of((state, from, to) => findEmbeddedSource(state).find(range => range.from >= from && range.from <= to) ?? null),
+    codeFolding({
+      preparePlaceholder: (state, range) => {
+        const found = findEmbeddedSource(state).find(item => item.from === range.from)
+        const text = state.sliceDoc(range.from, range.to).trim().replace(/\s+/g, ' ')
+        return `${found?.kind ?? 'Source'} · ${text.slice(0, 24)} … ${text.slice(-16)} · ${range.to - range.from} chars`
+      },
+      placeholderDOM: (_view, onclick, summary: string) => {
+        const button = document.createElement('button')
+        button.type = 'button'; button.className = 'source-fold'; button.textContent = summary
+        button.setAttribute('aria-label', `Expand ${summary}`); button.setAttribute('aria-expanded', 'false')
+        button.onclick = onclick
+        return button
+      },
+    }),
+    foldGutter({ markerDOM: open => {
+      const button = document.createElement('button')
+      button.type = 'button'; button.textContent = open ? '⌄' : '›'
+      button.setAttribute('aria-expanded', String(open)); button.setAttribute('aria-label', open ? 'Collapse source' : 'Expand source')
+      return button
+    } }),
+    keymap.of(foldKeymap),
+    EditorState.transactionExtender.of(tr => {
+      if (!tr.docChanged) return null
+      const effects: ReturnType<typeof unfoldEffect.of>[] = []
+      foldedRanges(tr.startState).between(0, tr.startState.doc.length, (from, to) => {
+        tr.changes.iterChangedRanges((a, b) => {
+          if (a > from && a < to || b > from && b < to) effects.push(unfoldEffect.of({ from: tr.changes.mapPos(from), to: tr.changes.mapPos(to) }))
+        })
+      })
+      return effects.length ? { effects } : null
+    }),
+    EditorView.theme({ '.cm-line': { overflowWrap: 'anywhere' }, '.cm-foldGutter button': { border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' } }),
+  ]
+}

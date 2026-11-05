@@ -4,6 +4,7 @@ import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
+import { mermaidErdTemplate } from '../lib/templates'
 import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 
@@ -524,6 +525,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         )}
       </div>
 
+      <div className="menu-item">
+        <button className={`menu-trigger ${activeMenu === 'insert' ? 'active' : ''}`} onClick={() => toggleMenu('insert')}>Insert</button>
+        {activeMenu === 'insert' && <div className="menu-dropdown">
+          <div className="menu-label">Diagram</div>
+          <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mermaidErdTemplate); closeMenus() }}>Mermaid ERD</button>
+        </div>}
+      </div>
       {/* View Menu */}
       <div className="menu-item">
         <button

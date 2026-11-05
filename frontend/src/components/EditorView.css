@@ -200,3 +200,6 @@
 }
 .editor-container .tiptap, .editor-container .markwriter-preview { font-family: var(--rendered-font-family, system-ui); font-size: var(--preview-font-size, 16px); line-height: var(--rendered-line-height, 1.6); }
 .editor-container .tiptap p, .editor-container .markwriter-preview p { line-height: inherit; }
+.source-fold { max-width: 100%; white-space: normal; overflow-wrap: anywhere; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-secondary); padding: 3px 7px; font: inherit; cursor: pointer; }
+.source-fold:focus-visible { outline: 2px solid var(--accent-color, #3888dd); }
+.cm-line:has(.tok-meta) { overflow-wrap: anywhere; }

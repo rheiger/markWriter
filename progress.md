@@ -76,3 +76,6 @@
 
 - Slice f9eca17: 44 frontend tests and native tests/lint/build pass. Tab sessions retain engine histories; save ownership/collision/close/quit tests added.
 - Preferences schema, native atomic config/data storage and Settings Apply/Cancel/Reset implemented; migration/corruption/write-failure tests pass. Recovery restores drafts separately on disk conflict and exposes Open disk / Keep copy. 52 frontend tests currently pass, pending browser/native/restart qualification.
+
+- Settings/recovery checkpoint committed 7ae2457; table checkpoint 0e01212. 58 frontend tests pass with folds added, lint/build pass. Native storage now has 4 command/storage tests plus 12 library tests.
+- Playwright connector cannot launch because its browser profile is already in use. Use an isolated local browser runner; do not terminate the existing browser. Vite test server runs at 127.0.0.1:5175.
