@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
+import { fileURLToPath } from "node:url";
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -9,7 +9,7 @@ export default defineConfig(async () => ({
   // Path resolution for TypeScript imports
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
 
@@ -22,7 +22,7 @@ export default defineConfig(async () => ({
   server: {
     port: 5173,
     strictPort: true,
-    host: "0.0.0.0", // Allow external access for development
+    host: "127.0.0.1", // Keep development-only endpoints local
   },
   
   // 3. to make use of `TAURI_DEBUG` and other env variables
@@ -34,7 +34,7 @@ export default defineConfig(async () => ({
     // Tauri supports es2021
     target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
     // don't minify for debug builds
-    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    minify: !process.env.TAURI_DEBUG,
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
   },

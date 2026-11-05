@@ -33,3 +33,10 @@
 - Exported file contains one table, one SVG, two checkboxes and no script.
 - Expanded real-editor suite now has 29 passing tests; added table alignment preservation using installed TextAlign extension.
 - ESLint baseline restored; auditing exhaustive hook dependencies before enabling the gate.
+
+- Dependency remediation: coherent Tiptap update, modern Markdown/Mermaid/lowlight, Vite/Vitest and TypeScript ESLint; removed unused router. Two scoped overrides passed direct compatibility checks.
+- Ordinary npm ci, 29 tests, lint, build and zero-advisory audit pass. Actual upgraded browser renders flowchart/sequence/state diagrams and exports three SVGs with table alignment preserved and no console issues.
+- Rebuilding the native bundle with upgraded assets before finalizing this increment.
+
+- Upgraded native bundle rebuilt successfully. Actual browser rendering/export with three diagram types and aligned table passed without console issues.
+- Added a pinned prebuilt Tauri CLI dev dependency for reproducible CI builds; package audit remains a required gate.

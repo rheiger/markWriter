@@ -22,7 +22,7 @@ import HardBreak from '@tiptap/extension-hard-break'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { lowlight } from 'lowlight'
+import { common, createLowlight } from 'lowlight'
 import { toWysiwygHtml, fromWysiwygHtml, renderMarkdownHtml } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
@@ -35,6 +35,8 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import { MermaidNode } from '../extensions/MermaidNode'
 
+
+const lowlight = createLowlight(common)
 
 export interface EditorViewRef {
   getMarkdown: () => string

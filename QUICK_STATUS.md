@@ -1,6 +1,6 @@
 # MarkWriter status — 5 November 2026
 
-Version: 2.0.0-alpha.1. Branch: codex/editor-stabilization.
+Version: 2.0.0-alpha.1. Development requires Node 24+. Branch: codex/editor-stabilization.
 
 The first stabilization increment is implemented. This remains an alpha; full native workflow and cross-platform acceptance are outstanding.
 
@@ -18,7 +18,7 @@ The first stabilization increment is implemented. This remains an alpha; full na
 ## Open acceptance and tooling work
 - Run Windows and Linux builds and user workflows.
 - Establish v2 CI. Existing GitHub workflow still packages the legacy Python application.
-- Remediate dependency audit findings before release qualification.
+- Recheck dependency advisories during qualification; the current upgraded lockfile audits clean.
 - Expand fidelity corpus: merged cells, mixed lists, large documents and unsupported Markdown extensions.
 - Qualify release builds, signing and packaging separately.
 

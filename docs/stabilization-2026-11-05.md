@@ -59,3 +59,17 @@ Three expanded real-editor tests cover aligned table columns, nested task lists/
 ESLint now runs successfully with recommended correctness checks, TypeScript unused names, hook ordering and exhaustive hook dependencies. Remaining v2 CI work is separate from the legacy packaging pipeline.
 
 A dependency audit reported 40 advisories (3 critical, 26 high, 8 moderate, 3 low), including development servers and Markdown/editor dependencies. These are audit findings, not demonstrated exploits. Dependency remediation is required before treating the broad dependable-editor goal as achieved; it will be performed separately from the fidelity changes.
+
+## Dependency remediation
+
+The earlier audit findings are superseded by `npm audit --audit-level=low`: zero reported advisories after upgrades. This does not establish absence of vulnerabilities.
+
+- Tiptap packages updated together to 3.32.3; MarkdownIt 15.0.3, Mermaid 12.3.0, lowlight 3.3.0, Vite 8.3.6, Vitest/UI 5.1.0 and TypeScript ESLint 8.72.1.
+- Node 24+ is now required (`.nvmrc` selects 24). Clean installation uses ordinary `npm ci`; legacy peer resolution is no longer required.
+- Removed unused react-router-dom, whose dependency path carried advisories.
+- Temporary targeted overrides use minimatch 11 under typescript-estree and glob 14 under Sucrase. These packages' upstream ranges otherwise retain vulnerable versions. Compatibility was checked using typed parser project globs and an actual Sucrase CLI TypeScript file-discovery/transform. Remove the overrides when upstream ranges include patched releases.
+- Vite uses its current default minifier and ESM-safe URL resolution; development binds loopback rather than all interfaces.
+- Upgraded stack passes 29 frontend tests, lint, production build, ordinary clean install and audit.
+- Real browser: flowchart, sequence and state diagrams survive five mode cycles; after a WYSIWYG edit, HTML export contains three inline SVGs and an aligned table. No scripts or browser console errors/warnings.
+
+Migration references: [Vite 8 migration](https://vite.dev/guide/migration.html), [Vitest migration](https://main.vitest.dev/guide/migration/), [lowlight API](https://github.com/wooorm/lowlight).

@@ -37,3 +37,10 @@
 - Native New/Quit/Cmd-W discard-cancel checks retain unsaved text; Save/reopen and actual HTML export passed.
 - ESLint now includes exhaustive dependency checks after resolving six stale-closure/dependency warnings; baseline passes.
 - npm audit: 40 advisories (3 critical, 26 high, 8 moderate, 3 low). Dependency remediation is the next distinct increment before v2 CI/audit gates can be considered passing.
+
+- Dependency upgrade targets were checked against npm metadata and upstream Vite/Vitest migration guidance. Vitest 5 requires Node >=22.12; the project will use Node 24+ for development/CI. Host Node is 26.11.1.
+- Migration updates all Tiptap packages together, uses lowlight 3's createLowlight API, and switches Vite minification to its current default rather than requiring esbuild.
+
+- Modern dependencies pass the existing 29-test suite, lint and production build. npm audit is now zero after updates, removing unused react-router-dom, and targeted overrides for typescript-estree's minimatch and Sucrase's glob.
+- Compatibility checks exercised typed parser project globs and Sucrase CLI file discovery/transform with the overrides; both passed.
+- Development endpoints now bind loopback explicitly; Node 24+ is the documented runtime floor.
