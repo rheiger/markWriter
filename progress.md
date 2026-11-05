@@ -55,3 +55,7 @@
 - Final macOS bundle verified copied/pasted multiline text and Markdown table insertion through actual UI. Additional malformed Mermaid check exposed orphan error SVGs; documented suppression fixes all three render paths, verified in a fresh-cache browser. 37 tests/lint/build still pass.
 
 - CI 42087625830 completed successfully at 2397fba: frontend and native tests/builds on Linux, macOS and Windows all pass. Windows manifest fix is verified. Preparing final source CI for c112b2e's Mermaid error rendering fix.
+
+- Final source run 42088770234 targets c2b5696. Frontend and Linux tests/build pass; Windows tests pass and build is running; macOS is queued. Watch handle 23734. Broad goal remains active for application-interaction qualification beyond macOS.
+
+- Added real-native application acceptance harness and Windows/Linux CI steps: unchanged/edited mode cycles, actual Save As/Save/reopen, three-diagram export and Markdown table insertion. Builds have separate app identity/frontend output. Normal production assets exclude the test bridge; this check, 37 tests, lint and both frontend builds pass. Desktop test execution is not yet claimed.

@@ -142,3 +142,5 @@ Desktop.ini
 
 # Local browser verification artifacts
 .playwright-mcp/
+frontend/dist-acceptance/
+native-acceptance-results/

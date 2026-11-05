@@ -6,14 +6,14 @@ on:
       - 'frontend/**'
       - 'src-tauri/**'
       - '.github/workflows/v2-ci.yml'
-      - 'tools/diagnose-windows-loader.ps1'
+      - 'tools/**'
   push:
     branches: [main, v2-development, 'codex/**']
     paths:
       - 'frontend/**'
       - 'src-tauri/**'
       - '.github/workflows/v2-ci.yml'
-      - 'tools/diagnose-windows-loader.ps1'
+      - 'tools/**'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +43,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run build:acceptance
+      - run: node ../tools/native-acceptance.mjs --check-builds-only
       - run: npm audit --audit-level=low
 
   native:
@@ -69,7 +71,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf webkit2gtk-driver xvfb
       - name: Select stable Rust
         run: |
           rustup toolchain install stable --profile minimal
@@ -97,6 +99,35 @@ jobs:
       - name: Build desktop executable with embedded frontend
         working-directory: src-tauri
         run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --ci
+      - name: Build isolated application acceptance binary
+        if: runner.os != 'macOS'
+        run: |
+          npm run build:acceptance --prefix frontend
+          cd src-tauri
+          node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --ci --config tauri.acceptance.conf.json
+      - name: Install external Tauri WebDriver
+        if: runner.os != 'macOS'
+        run: cargo install tauri-driver --version 2.1.0 --locked
+      - name: Match Windows WebView2 driver
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/setup-edge-driver.ps1
+      - name: Exercise Linux desktop application
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node tools/native-acceptance.mjs
+        env:
+          GDK_BACKEND: x11
+      - name: Exercise Windows desktop application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: node tools/native-acceptance.mjs
+      - name: Retain native application acceptance evidence
+        if: always() && runner.os != 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-acceptance-${{ runner.os }}
+          path: native-acceptance-results/
+          retention-days: 7
       - name: Diagnose Windows loader failures
         if: failure() && runner.os == 'Windows'
         shell: pwsh

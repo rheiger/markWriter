@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "tsc && vite build",
+    "build:acceptance": "tsc && vite build --mode acceptance --outDir dist-acceptance",
     "preview": "vite preview",
     "test": "vitest run",
     "test:ui": "vitest --ui",

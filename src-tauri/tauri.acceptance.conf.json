@@ -1,0 +1,7 @@
+{
+  "productName": "MarkWriter Acceptance",
+  "identifier": "com.markwriter.acceptance",
+  "build": {
+    "frontendDist": "../frontend/dist-acceptance"
+  }
+}
