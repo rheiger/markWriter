@@ -519,7 +519,7 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
     }))
     setMermaidBlocks(blocks)
     const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark ? 'dark' : 'default' })
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: isDark ? 'dark' : 'default' })
     requestAnimationFrame(async () => {
       for (const [index, element] of elements.entries()) {
         if (generation !== previewGeneration.current || !element.isConnected) return

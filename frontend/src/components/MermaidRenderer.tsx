@@ -23,6 +23,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) =
     // Initialize mermaid with theme configuration
     mermaid.initialize({
       startOnLoad: false,
+      suppressErrorRendering: true,
       theme: isDark ? 'dark' : 'default',
       themeVariables: {
         // Light theme colors

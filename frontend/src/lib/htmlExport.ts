@@ -4,7 +4,7 @@ import { renderMarkdownHtml } from './markdown'
 // Use the same parser as Preview; diagrams become inline SVG for offline viewing.
 export async function createHtmlExport(source: string): Promise<string> {
   const doc = new DOMParser().parseFromString(renderMarkdownHtml(source), 'text/html')
-  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' })
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: 'default' })
   for (const element of Array.from(doc.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))) {
     const { svg } = await mermaid.render(`export-${crypto.randomUUID()}`, element.getAttribute('data-chart') ?? '')
     element.innerHTML = svg
