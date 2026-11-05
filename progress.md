@@ -48,3 +48,10 @@
 - Generated/tracked ICO from existing PNG (21a257a), added real-sample round-trip and native error regression, and preserved Tauri string errors (fbd2910). Local suite: 31 tests pass; lint/build pass.
 - Pushed fbd2910; qualification rerun 42085196968 is live. Watching with exec process handle 59524; do not treat earlier failure as the current result.
 - Exact upgraded macOS bundle was reopened and exercised with three Mermaid types, editing/save and actual native HTML export. File inspection confirms three SVGs, one aligned table, two checkboxes and no scripts.
+
+- Completion audit found Markdown table insertion and task/strike controls were no-ops, and WYSIWYG plain-text multiline paste lost line breaks. Fixed, including mixed completed tasks; 37 tests, lint/build and real browser toolbar/menu checks pass. Clipboard read was stubbed only in the browser test.
+- Run 42086481685 passed frontend/macOS. Windows diagnostics identify comctl32 v5 missing TaskDialogIndirect. Build script now embeds the same Controls v6 dependency in all MSVC executables, including the library test harness (2397fba). Run 42087625830 is pending; do not infer its result.
+
+- Final macOS bundle verified copied/pasted multiline text and Markdown table insertion through actual UI. Additional malformed Mermaid check exposed orphan error SVGs; documented suppression fixes all three render paths, verified in a fresh-cache browser. 37 tests/lint/build still pass.
+
+- CI 42087625830 completed successfully at 2397fba: frontend and native tests/builds on Linux, macOS and Windows all pass. Windows manifest fix is verified. Preparing final source CI for c112b2e's Mermaid error rendering fix.

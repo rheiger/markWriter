@@ -48,3 +48,13 @@
 - CI 42083988171: Linux native tests/build passed. Windows failed before tests because required icons/icon.ico was absent from Git (it was ignored). Generate the ICO from the existing tracked PNG and track it explicitly; do not alter the source image.
 - Upgraded macOS native bundle rendered/saved flowchart, sequence and state diagrams, retained table alignment, and exported a real HTML file with three SVGs, one table, two inputs and no scripts.
 - Existing larger sample document also survives an edited real-editor JSON round-trip; frontend suite now has 30 tests locally.
+
+## Completion-audit follow-up
+- Empty-table insertion in WYSIWYG survives switching. Markdown-mode table insertion was a no-op through the same public toolbar API; a failing test reproduced it and the API now inserts a GFM table with consistent row/column counts.
+- Local suite now has 33 passing tests; lint/build pass.
+- Second Windows CI run compiled after the ICO fix but its library test executable exited before the harness with 0xc0000139 STATUS_ENTRYPOINT_NOT_FOUND. This is an unresolved loader failure, not a failing Rust assertion. Next run uses native PowerShell for Windows tests and records direct DLL-import/export diagnostics if it fails.
+
+- Windows diagnostics loaded comctl32 v5 and reported its missing TaskDialogIndirect export. Tauri 2.4's generated resource manifest reaches the application binary but not the library test executable. MSVC linker manifest/dependency arguments now cover all executables, with Tauri's duplicate manifest disabled only for MSVC. Local macOS Rust tests pass; Windows execution remains the required validation.
+- Browser toolbar/menu checks confirm task/strike formatting, a 2-column/3-row table with six cells, and literal HTML-like multiline clipboard text surviving a mode round-trip. Initial br visibility wait was a test error: a br has no visible box; attached-state wait and DOM inspection confirm preservation.
+
+- Malformed Mermaid input reproduced orphan error SVGs outside the app. Enabled documented suppressErrorRendering in preview, WYSIWYG and export. Fresh-cache browser checks now show inline errors, zero orphan nodes, successful correction, and rejected invalid export without DOM leaks. Initial rerun used cached HMR modules; disabling the browser network cache verified current source.

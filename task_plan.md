@@ -16,8 +16,8 @@ Goal: dependable Markdown editing, preview, Mermaid, tables, WYSIWYG, file opera
 4. Run browser workflows, native checks, review and record remaining limits — complete for this engineering increment.
 5. Native macOS UI acceptance, expanded fidelity and lint baseline — complete for covered workflows.
 6. Dependency remediation — complete: clean install, tests/lint/build, zero npm audit findings and upgraded browser acceptance.
-7. V2 CI/native platform qualification — active: First run 42083988171 passed Linux/macOS and failed Windows on missing ICO. Fixed and pushed; run 42085196968 is live at source commit fbd2910. Watch process handle 59524.
-8. Final requirement-by-requirement completion audit — pending; broad goal remains active.
+7. V2 CI/native platform qualification — active: Linux/macOS native tests/builds passed; Windows missing ICO fixed. Run 42086481685 diagnosed missing comctl32 TaskDialogIndirect before the test harness. Commit 2397fba embeds Controls v6 in every MSVC executable; run 42087625830 passed frontend and all three native platforms. Final frontend-only Mermaid error handling still needs its source CI run.
+8. Final requirement-by-requirement completion audit — active. Core fixture acceptance passes; latest editing fixes have 37 passing real-engine tests and browser checks. Final macOS bundle editing acceptance passes; awaiting terminal CI and final source verification. Windows/Linux interactive qualification remains separate.
 
 ## Boundaries
 Preserve existing samples and test evidence. No release or merge. The isolated stabilization branch is pushed solely for qualification CI; samples and test-result files remain local. Settings, plugins, Draw.io and multi-window work are deferred.

@@ -1,83 +1,54 @@
 # Editor stabilization — 5 November 2026
 
-## Outcome and scope
+The core stabilization increment is implemented on `codex/editor-stabilization`. It is pushed for qualification CI, with no merge or release. Existing code/docs were checkpointed separately; pre-existing sample changes and historical test evidence remain untouched.
 
-First engineering increment toward a dependable Markdown editor. No release or remote push. Existing modified/untracked files were archived locally before implementation, and existing code/docs were checkpointed separately. Samples and historical test evidence were preserved.
+## Result
 
-## Decisions
+Markdown in the store is canonical. Unedited mode switches preserve original bytes. Genuine WYSIWYG edits serialize supported Markdown semantics and may normalize syntax/whitespace. This is not a universal lossless codec for arbitrary Markdown extensions.
 
-The store's Markdown is canonical. Merely viewing another mode never serializes the rich-text document back into Markdown. Genuine WYSIWYG edits serialize using explicit rules. Unedited source is preserved byte for byte; editing in WYSIWYG may normalize Markdown syntax and whitespace. This is semantic preservation for supported constructs, not a universal lossless Markdown codec.
+- Document-keyed editors isolate content and undo history. Initialization/synchronization does not dirty or overwrite source.
+- Shared Markdown parsing and explicit serialization preserve Mermaid source, tables/inline formatting/alignment/escaped pipes/line breaks, nested tasks, images and code in tested fixtures.
+- Mermaid rendering cancels stale results. Invalid diagrams show an editor-owned error; the library no longer leaves orphan error SVGs in the document body.
+- Markdown toolbar table/task/strike controls work; plain-text WYSIWYG paste retains literal markup and line breaks.
+- Save completion preserves concurrent edits/current-document identity. Native writes use same-directory temporary files, flush and atomic replacement, retaining existing permissions.
+- New/Open/Quit/window-close protect unsaved content. Native error messages remain visible without discarding edits.
+- Preview and HTML export share the parser. Export includes Mermaid SVG and inline CSS; invalid diagrams fail export visibly. Raw document HTML is displayed as text.
 
-Both engines belong to a keyed document component, isolating undo history and editor lifecycle when opening another document. WYSIWYG remains mounted while switching modes. Initialization transactions do not dirty the source. Programmatic synchronization uses Tiptap's documented `emitUpdate: false` option.
+## Acceptance evidence
 
-`frontend/src/lib/markdown.ts` owns parsing and serialization. Mermaid fences become escaped atom attributes. Turndown's blank-element handling explicitly preserves empty Mermaid atoms. Table cell serialization retains inline formatting and escaped pipes; a narrowly allowed `<br>` token preserves cell line breaks. Task lists map to Tiptap's explicit task schema. Images have a schema node. Raw HTML is displayed as text rather than executed.
+| Area | Evidence |
+| --- | --- |
+| Conversion/editing | 37 passing frontend tests using real Tiptap, CodeMirror, MarkdownIt and Turndown; real sample JSON round-trip, five unchanged mode cycles and repeated edited cycles |
+| Preview/Mermaid | Real browser renders flowchart, sequence and state diagrams; malformed source shows an inline error and recovers without orphan SVGs |
+| Tables/tasks | Real editor tests cover formatting, alignment, escaped pipes, cell line breaks, nested/completed tasks and insertion in both modes; browser/native toolbar confirms a 2-column/3-row table |
+| File operations | 12 library and 2 production-command Rust tests pass locally; command tests use real temporary files and failure paths |
+| macOS application | Debug bundle builds/launches. Actual native Open, five mode cycles, byte-identical Save As, WYSIWYG edit/Save/reopen/export and New/Quit/Cmd-W cancel checks pass |
+| Upgraded macOS export | Written file has three Mermaid SVGs, one aligned table, two task inputs and no scripts |
+| Latest native editing | Rebuilt bundle preserves copied/pasted multiline text across modes and inserts a Markdown table that becomes an editable WYSIWYG table |
+| Quality/dependencies | Ordinary clean npm ci, lint, production build and audit pass; zero reported npm advisories. Node 24+ required |
+| CI | Frontend and all three native platform tests/builds pass run 42087625830; final Mermaid error handling awaits its source CI run |
 
-Preview and export use this parser. Export renders Mermaid to inline SVG and includes inline styles, requiring no remote diagram script. Images retain their references; image embedding and broken/relative image resolution are not qualified by this increment. Invalid diagrams fail export visibly instead of silently producing an incomplete file.
+Mermaid is stubbed in unit tests and separately exercised in the browser/native app. Browser startup stubs create-document IPC; browser clipboard checks stub only clipboard read. Native I/O evidence comes from actual native UI and Rust temporary-file tests, not these browser stubs. The malformed-diagram test intentionally produces a logged error; valid fixtures produce no console errors/warnings.
 
-Native file writes use a same-directory temporary file, flush, and atomic replacement. Existing destination permissions are retained. This reduces partial-file risk; power-loss recovery and filesystem-specific guarantees are not claimed. Save completion checks document identity and current content before updating dirty state. New/Open/Quit/native window-close paths protect unsaved content.
+## CI findings
 
-## Evidence
+- [42083988171](https://github.com/rheiger/markWriter/actions/runs/42083988171): frontend, Linux and macOS passed; Windows failed on an ignored/missing ICO. Generated/tracked it from the existing PNG.
+- [42085196968](https://github.com/rheiger/markWriter/actions/runs/42085196968): Windows compiled but library tests could not start (STATUS_ENTRYPOINT_NOT_FOUND).
+- [42086481685](https://github.com/rheiger/markWriter/actions/runs/42086481685): diagnostics identified comctl32 v5 missing TaskDialogIndirect; changing shells did not fix it. Superseded/cancelled after diagnosis.
+- [42087625830](https://github.com/rheiger/markWriter/actions/runs/42087625830): source 2397fba embeds Common Controls v6 in every MSVC executable, including library test harnesses. All jobs passed. This verifies the loader fix; final frontend-only Mermaid error handling is a subsequent commit.
 
-- Frontend suite: 26 tests pass. Regression coverage includes cross-document undo isolation and table cell line breaks.
-- Frontend tests use real CodeMirror, Tiptap, MarkdownIt and Turndown. Mermaid SVG generation is stubbed in unit tests, then exercised in the real browser.
-- Browser UI: entered a fixture through CodeMirror, made five unedited mode cycles, edited in WYSIWYG, then made three further cycles. Source stability, Mermaid source, bold table content, escaped pipe and task states passed. Generated HTML had one table, one SVG, one checked checkbox and no scripts.
-- Browser startup uses a stub only for native create-document IPC; it cannot establish native file-dialog/I/O acceptance.
-- Rust tests exercise production main.rs command functions against real temporary files, including errors. The separate library command implementation is not the desktop application's invoked command handler.
-- Clean `npm ci --legacy-peer-deps` succeeds with explicit peers and versioned lockfiles.
-- Frontend production build passes (large-chunk warning remains).
-- `cargo test` passes: 12 library tests and 2 production-command tests.
-- macOS debug app bundle builds and launches. Native Open-dialog automation timed out; no complete native workflow is claimed. A process sample showed an idle main event loop, which does not establish the cause of the timeout.
-- ESLint was attempted and cannot run because no configuration exists. No passing lint result is claimed.
+The MSVC fix uses [Cargo linker arguments](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-arg) and [Microsoft manifest dependencies](https://learn.microsoft.com/en-us/cpp/build/reference/manifestdependency-specify-manifest-dependencies). Installed tauri-build 2.4.0 confirms its default app-only manifest contains the same Controls dependency.
 
-## Remaining gates
+## Dependencies and maintenance
 
-The final browser verification completed with no console errors or warnings. The preview screenshot is retained locally under `.playwright-mcp/preview.png`.
+Tiptap packages moved together to 3.32.3; MarkdownIt 15.0.3, Mermaid 12.3.0, lowlight 3.3.0, Vite 8.3.6, Vitest/UI 5.1.0 and TypeScript ESLint 8.72.1. Removed unused react-router-dom. Vite uses ESM-safe paths/default minification and loopback-only development endpoints.
 
-Complete native document open/edit/save/reopen/export and discard-cancel acceptance; qualify Windows/Linux; expand the fidelity corpus; establish v2 CI and linting; then assess release packaging and signing. The broad dependable-editor goal remains active.
+Scoped minimatch 11 (typescript-estree) and glob 14 (Sucrase) overrides remediate advisory paths whose upstream ranges retain older versions. Typed-parser project globs and real Sucrase CLI discovery/transform passed compatibility checks. Remove overrides when upstream ranges include patched releases. Zero audit findings do not prove absence of vulnerabilities.
 
-## Library references
+References: [Vite migration](https://vite.dev/guide/migration.html), [Vitest migration](https://main.vitest.dev/guide/migration/), [lowlight](https://github.com/wooorm/lowlight), [Tiptap setContent](https://tiptap.dev/docs/editor/api/commands/content/set-content), [MarkdownIt renderer](https://github.com/markdown-it/markdown-it/blob/master/docs/examples/renderer_rules.md), [Mermaid error rendering configuration](https://mermaid.js.org/config/schema-docs/config-properties-suppresserrorrendering.html).
 
-- [Tiptap setContent command](https://tiptap.dev/docs/editor/api/commands/content/set-content): disable update emission during programmatic synchronization.
-- [MarkdownIt renderer rules](https://github.com/markdown-it/markdown-it/blob/master/docs/examples/renderer_rules.md): customize fenced-block output while retaining parser boundaries.
+## Limits and remaining work
 
-Installed Tiptap 3.3.0 and Turndown source were inspected for task-node parsing and blank-node rule precedence.
+Windows/Linux native interactive workflows still need their own execution evidence; successful compilation/tests do not establish desktop interaction. Signing, release packaging, arbitrary Markdown extensions, merged table cells, relative/broken-image resolution and embedded image assets remain outside this increment. Large bundle chunks retain a build warning. Power-loss recovery/filesystem-specific guarantees are not established by atomic writes.
 
-## Continuation: native acceptance and broader fidelity
-
-Native acceptance on the debug macOS bundle now passed through actual UI:
-1. Open the temporary source fixture.
-2. Make five WYSIWYG/Markdown mode cycles, then Save As. `cmp` confirmed identical bytes before editing.
-3. Replace a paragraph in WYSIWYG and Save; filesystem inspection confirmed the edit, Mermaid source, formatted table/escaped pipe and both task states.
-4. Export HTML through the menu and native save dialog. The written file contained one table, one inline SVG, two checkboxes and no scripts.
-5. Modify without saving; New, Quit and native Cmd-W each presented an unsaved-change prompt. Keep editing retained the document, including the edit, and subsequent Save succeeded.
-6. Reopen the saved file through the native Open dialog; the edited paragraph, diagram, table and task states remained visible.
-
-This supersedes the earlier native dialog timeout as the current acceptance result. It does not establish Windows/Linux behavior, release signing, or arbitrary-document fidelity.
-
-Three expanded real-editor tests cover aligned table columns, nested task lists/inline formatting and fenced TypeScript containing backticks. Alignment failed before the fix and now survives a surrounding WYSIWYG edit. Total frontend tests: 29 passing.
-
-ESLint now runs successfully with recommended correctness checks, TypeScript unused names, hook ordering and exhaustive hook dependencies. Remaining v2 CI work is separate from the legacy packaging pipeline.
-
-A dependency audit reported 40 advisories (3 critical, 26 high, 8 moderate, 3 low), including development servers and Markdown/editor dependencies. These are audit findings, not demonstrated exploits. Dependency remediation is required before treating the broad dependable-editor goal as achieved; it will be performed separately from the fidelity changes.
-
-## Dependency remediation
-
-The earlier audit findings are superseded by `npm audit --audit-level=low`: zero reported advisories after upgrades. This does not establish absence of vulnerabilities.
-
-- Tiptap packages updated together to 3.32.3; MarkdownIt 15.0.3, Mermaid 12.3.0, lowlight 3.3.0, Vite 8.3.6, Vitest/UI 5.1.0 and TypeScript ESLint 8.72.1.
-- Node 24+ is now required (`.nvmrc` selects 24). Clean installation uses ordinary `npm ci`; legacy peer resolution is no longer required.
-- Removed unused react-router-dom, whose dependency path carried advisories.
-- Temporary targeted overrides use minimatch 11 under typescript-estree and glob 14 under Sucrase. These packages' upstream ranges otherwise retain vulnerable versions. Compatibility was checked using typed parser project globs and an actual Sucrase CLI TypeScript file-discovery/transform. Remove the overrides when upstream ranges include patched releases.
-- Vite uses its current default minifier and ESM-safe URL resolution; development binds loopback rather than all interfaces.
-- Upgraded stack passes 29 frontend tests, lint, production build, ordinary clean install and audit.
-- Real browser: flowchart, sequence and state diagrams survive five mode cycles; after a WYSIWYG edit, HTML export contains three inline SVGs and an aligned table. No scripts or browser console errors/warnings.
-
-Migration references: [Vite 8 migration](https://vite.dev/guide/migration.html), [Vitest migration](https://main.vitest.dev/guide/migration/), [lowlight API](https://github.com/wooorm/lowlight).
-
-## Qualification CI and error-path follow-up
-
-The isolated branch is now pushed for qualification, without a merge or release. [First CI run](https://github.com/rheiger/markWriter/actions/runs/42083988171) passed frontend lint/tests/build/audit and native tests/builds on Linux and macOS. Windows compilation identified a required ICO missing from version control; it is now generated from the existing PNG and explicitly tracked.
-
-[Qualification rerun](https://github.com/rheiger/markWriter/actions/runs/42085196968) validates source commit `fbd2910`; it was still running when this section was written. Do not infer Windows success from the fix alone.
-
-The local frontend suite now has 31 passing tests. It additionally compares the real editor's document structure after editing and round-tripping the existing larger sample, and checks that native permission errors remain visible while unsaved content stays intact. Actual upgraded macOS export was rechecked: three Mermaid SVGs, table alignment, task checkboxes and no scripts.
+Settings, plugins, Draw.io and multi-window development are deferred. The broad dependable-editor goal remains active until required qualification is complete.
