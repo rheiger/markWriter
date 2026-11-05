@@ -440,8 +440,19 @@ const DocumentEditor = forwardRef<EditorViewRef>((_props, ref) => {
     },
     toggleStrike: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleStrike().run() },
     toggleTask: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleTaskList().run() },
-    insertTable: (rows: number, cols: number) => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run() }
-    ,
+    insertTable: (rows: number, cols: number) => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+      } else if (editorViewRef.current) {
+        const row = '| ' + Array(cols).fill('').join(' | ') + ' |'
+        const separator = '| ' + Array(cols).fill('---').join(' | ') + ' |'
+        const table = '\n\n' + [row, separator, ...Array(Math.max(0, rows - 1)).fill(row)].join('\n') + '\n\n'
+        const view = editorViewRef.current
+        const { from, to } = view.state.selection.main
+        view.dispatch({ changes: { from, to, insert: table }, selection: { anchor: from + table.length } })
+        view.focus()
+      }
+    },
     toggleUnderline: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().toggleUnderline().run()

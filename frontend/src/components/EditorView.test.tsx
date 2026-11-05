@@ -154,4 +154,24 @@ describe('document fidelity with real editors', () => {
     expect(editor.getJSON()).toEqual(expected)
   })
 
+  it('retains a newly inserted empty WYSIWYG table across a mode round-trip', async () => {
+    const { ref, editor } = await mount('')
+    act(() => ref.current!.insertTable!(3, 3))
+    expect(editor.getJSON().content?.some(node => node.type === 'table')).toBe(true)
+    await markdown(ref)
+    expect(ref.current!.getMarkdown()).toContain('| --- | --- | --- |')
+    await wysiwyg()
+    expect(document.querySelectorAll('.tiptap table tr')).toHaveLength(3)
+    expect(document.querySelectorAll('.tiptap table th')).toHaveLength(3)
+  })
+
+  it('inserts a table through the same toolbar API in Markdown mode', async () => {
+    const { ref } = await mount('')
+    await markdown(ref)
+    act(() => ref.current!.insertTable!(3, 3))
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(ref.current!.getMarkdown()), 'text/html')
+    expect(doc.querySelectorAll('table tr')).toHaveLength(3)
+    expect(doc.querySelectorAll('th')).toHaveLength(3)
+  })
+
 })
