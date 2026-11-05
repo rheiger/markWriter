@@ -17,3 +17,7 @@
 .recovery-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 16px; font-size: 13px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
 .recovery-notice span { flex: 1; }
 .recovery-notice button { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; }
+.table-tools { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; padding: 6px 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
+.table-tools button { padding: 4px 7px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; }
+.table-tools button:disabled { opacity: .45; }
+.table-tools button[aria-pressed=true] { outline: 2px solid var(--accent-color, #3888dd); }

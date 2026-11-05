@@ -34,6 +34,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
+import { TableTools } from './TableTools'
 import { MermaidNode } from '../extensions/MermaidNode'
 
 
@@ -823,6 +824,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       }}
       ref={containerRef}
     >
+      {editorMode === 'wysiwyg' && active && <TableTools editor={tiptap} />}
       <div style={{ display: editorMode === 'markdown' ? 'flex' : 'none', flex: 1, minWidth: 0 }}>
           {/* Editor Pane */}
           <div style={{
