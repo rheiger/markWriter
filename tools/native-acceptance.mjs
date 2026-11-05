@@ -150,7 +150,7 @@ try {
   assert.equal((await snapshot()).documents.length, countBefore, 'duplicate-path activation')
   await action('activate', tableId)
   // Keyboard-accessible contextual UI operating the real Tiptap selection.
-  await click('(//*[@data-active="true"]//td)[1]')
+  await click('(//*[@data-active="true"]//*[contains(concat(" ",normalize-space(@class)," ")," tiptap ")]//td)[1]')
   await click('//button[normalize-space(.)="Add row below"]')
   assert.equal(await run('return document.querySelectorAll("[data-active=true] .tiptap tr").length'), 4)
   await click('//button[normalize-space(.)="Move column left"]')
@@ -184,8 +184,11 @@ try {
   const recoveryText = (await snapshot()).document.content
   const recoveryId = (await snapshot()).document.id
   await action('flush')
-  // Delete/recreate the WebDriver session restarts the actual process and reloads native app data.
-  await request('DELETE', `/session/${session}`)
+  // Exit after flush models an interrupted run without responding to dirty Close dialogs.
+  // Only the isolated acceptance bridge exposes this explicit production quit command.
+  await run('setTimeout(() => { void window.__MARKWRITER_ACCEPTANCE__.interrupt() }, 100); return true;')
+  await delay(300)
+  await request('DELETE', `/session/${session}`).catch(() => {})
   const restarted = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: binaryPath } } } })
   session = restarted.sessionId
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })

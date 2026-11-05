@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core'
 import { flushWorkspace } from '../lib/persistence'
 import { useAppStore } from '../store/useAppStore'
 
@@ -11,6 +12,7 @@ export function installNativeBridge() {
         return { documents: state.documents, config: state.config, document: state.currentDocument, error: state.error, loading: state.isLoading }
       },
       flush: () => flushWorkspace(),
+      interrupt: () => invoke('quit_app'),
       activate: (id: string) => useAppStore.getState().activateDocument(id),
       close: (id: string) => useAppStore.getState().closeDocument(id),
       saveAll: () => useAppStore.getState().saveAll(),
