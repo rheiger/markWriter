@@ -6,12 +6,14 @@ on:
       - 'frontend/**'
       - 'src-tauri/**'
       - '.github/workflows/v2-ci.yml'
+      - 'tools/diagnose-windows-loader.ps1'
   push:
     branches: [main, v2-development, 'codex/**']
     paths:
       - 'frontend/**'
       - 'src-tauri/**'
       - '.github/workflows/v2-ci.yml'
+      - 'tools/diagnose-windows-loader.ps1'
   workflow_dispatch:
 
 permissions:
@@ -72,11 +74,39 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+      - name: Restore native build cache
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
       - run: npm ci --prefix frontend
       - run: npm run build --prefix frontend
       - name: Test native code and real file operations
+        if: runner.os != 'Windows'
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Test Windows native code and real file operations
+        if: runner.os == 'Windows'
+        shell: pwsh
         working-directory: src-tauri
         run: cargo test --locked
       - name: Build desktop executable with embedded frontend
         working-directory: src-tauri
         run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --ci
+      - name: Diagnose Windows loader failures
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/diagnose-windows-loader.ps1
+      - name: Save native build cache
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
