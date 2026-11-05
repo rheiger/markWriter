@@ -1,3 +1,5 @@
+import { foldedRanges } from '@codemirror/language'
+import { SearchQuery, setSearchQuery, findNext } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -116,6 +118,29 @@ describe('document fidelity with real editors', () => {
     expect(document.querySelector('[data-active="true"] .tiptap')).toHaveTextContent('Second document')
     await markdown(ref)
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
+  })
+
+  it('copies complete folded source and expands a search match without dirtying text', async () => {
+    const { ref } = await mount(fixture)
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    expect(foldedRanges(view.state).size).toBe(1)
+    act(() => ref.current!.selectAll())
+    expect(ref.current!.getSelection()).toBe(fixture)
+    act(() => view.dispatch({ selection: { anchor: 0 }, effects: setSearchQuery.of(new SearchQuery({ search: 'finish' })) }))
+    act(() => { findNext(view) })
+    expect(foldedRanges(view.state).size).toBe(0)
+    expect(useAppStore.getState().currentDocument).toMatchObject({ content: fixture, isDirty: false })
+  })
+
+  it('keeps exact source clean for table view attributes that do not change Markdown', async () => {
+    const { editor } = await mount(fixture)
+    let position = 0
+    editor.state.doc.descendants((node, pos) => { if (!position && node.type.name === 'tableCell') position = pos + 2 })
+    act(() => editor.commands.setTextSelection(position))
+    act(() => editor.commands.updateAttributes('tableCell', { colwidth: [120] }))
+    expect(useAppStore.getState().currentDocument?.content).toBe(fixture)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
   })
 
   it('inserts ERD outside the current table so its source survives serialization', async () => {

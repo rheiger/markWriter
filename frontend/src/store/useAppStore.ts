@@ -92,7 +92,7 @@ export const useAppStore = create<AppState>((set, get) => {
         if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical)) throw new Error('Destination ownership changed while saving. The written file is retained; this buffer remains open.')
         replace(snapshot.id, latest => ({ ...latest, path: result?.path || canonical,
           title: result?.title || canonical.split(/[\\/]/).pop() || 'Untitled',
-          savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
+          conflictPath: undefined, diskContent: undefined, savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
         }))
         return true
       } catch (error) { set({ error: errorMessage(error, 'Failed to save document') }); return false }

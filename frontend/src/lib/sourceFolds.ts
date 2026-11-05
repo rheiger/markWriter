@@ -20,10 +20,10 @@ export function findEmbeddedSource(state: EditorState) {
       n = end
       continue
     }
-    const images = /!\[[^\]\n]*\]\(data:(image\/[\w.+-]+);(base64),([A-Za-z0-9+/=]{160,})\)/g
+    const images = /!\[[^\]\n]*\]\(<?data:(image\/[\w.+-]+)((?:;[^,\s]*)?),([^\s)>]{160,})>?\)/g
     for (const match of line.text.matchAll(images)) {
       const from = line.from + match.index! + match[0].indexOf(match[3])
-      result.push({ from, to: from + match[3].length, kind: `${match[1]} ${match[2]}` })
+      result.push({ from, to: from + match[3].length, kind: `${match[1]} ${match[2].includes(';base64') ? 'base64' : 'URL encoded'}` })
     }
   }
   cache.set(state, result)

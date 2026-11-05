@@ -127,7 +127,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId), [documentId])
   const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
+  const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
+  const lastTiptapSemantic = useRef<string | null>(null)
+  if (lastTiptapSemantic.current === null) lastTiptapSemantic.current = fromWysiwygHtml(initialHtml)
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
     extensions: [
@@ -169,11 +172,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       MermaidNode,
       Image.configure({ inline: true, allowBase64: true }),
     ],
-    content: toWysiwygHtml(currentDocument?.content ?? ''),
+    content: initialHtml,
+    onCreate: ({ editor }) => { lastTiptapSemantic.current = fromWysiwygHtml(editor.getHTML()) },
     onUpdate: ({ editor }) => {
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
       const markdownFromHtml = fromWysiwygHtml(html)
+      if (markdownFromHtml === lastTiptapSemantic.current) return
+      lastTiptapSemantic.current = markdownFromHtml
       lastTiptapSource.current = markdownFromHtml
       updateDocumentContent(markdownFromHtml)
     },
@@ -246,7 +252,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         requestAnimationFrame(() => {
           if (request !== modeRequest.current || tiptap.isDestroyed) return
           const text = source()
-          if (lastTiptapSource.current !== text && fromWysiwygHtml(tiptap.getHTML()) !== text) tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+          if (lastTiptapSource.current !== text) {
+            tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+            lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
+          }
           lastTiptapSource.current = text
           isUpdatingFromMarkdown.current = false
           setEditorMode('wysiwyg')
@@ -284,6 +293,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
       tiptap?.commands.setContent(toWysiwygHtml(content), { emitUpdate: false })
+      if (tiptap) lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
+      lastTiptapSource.current = content
       if (editorViewRef.current) {
         editorViewRef.current.dispatch({
           changes: {

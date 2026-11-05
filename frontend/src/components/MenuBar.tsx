@@ -297,6 +297,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation()
+        const state = useAppStore.getState(), docs = state.documents
+        if (!docs.length) return
+        const index = docs.findIndex(doc => doc.id === state.currentDocument?.id)
+        state.activateDocument(docs[(index + (e.shiftKey ? -1 : 1) + docs.length) % docs.length].id)
+        return
+      }
       if (modKey) {
         let shouldPrevent = false
         let actionToExecute: (() => void) | null = null

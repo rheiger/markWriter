@@ -23,3 +23,15 @@ it('folding/unfolding, mapped edits and selected search matches preserve canonic
   state = state.update({ effects: [foldEffect.of({ from: range.from + 1, to: range.to + 1 }), unfoldEffect.of({ from: range.from + 1, to: range.to + 1 })] }).state
   expect(state.doc.toString()).toBe('X' + chart)
 })
+
+it('handles huge base64 and URL-encoded image payloads without altering any source bytes', () => {
+  const huge = `![large](data:image/png;base64,${'ABCD'.repeat(250000)})`
+  const encoded = `![svg](data:image/svg+xml,${'%3Csvg%3E'.repeat(100)})`
+  const source = huge + '\n' + encoded
+  let state = EditorState.create({ doc: source, extensions: [embeddedSourceFolds()] })
+  const ranges = findEmbeddedSource(state)
+  expect(ranges.map(r => r.kind)).toEqual(['image/png base64', 'image/svg+xml URL encoded'])
+  state = state.update({ effects: ranges.map(range => foldEffect.of(range)) }).state
+  expect(foldedRanges(state).size).toBe(2)
+  expect(state.doc.toString()).toBe(source)
+})

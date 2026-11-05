@@ -47,7 +47,10 @@ export function snapshotWorkspace(documents = useAppStore.getState().documents) 
 export async function flushWorkspace(value = snapshotWorkspace()) {
   clearTimeout(timer)
   if (!isTauri()) return
-  if (workspaceBlocked) throw new Error('Recovery storage could not be retained. Resolve its filesystem access before closing or quitting.')
+  if (workspaceBlocked) {
+    await retainRejected('workspace')
+    workspaceBlocked = false
+  }
   const write = workspaceWrites.catch(() => {}).then(() => invoke('save_workspace', { value }))
   workspaceWrites = write
   await write
