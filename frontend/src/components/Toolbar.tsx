@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { EditorViewRef } from './EditorView'
@@ -18,6 +18,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
 
   const [showHeadingsMenu, setShowHeadingsMenu] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
+  const [tableHover, setTableHover] = useState<{ rows: number; cols: number }>({ rows: 0, cols: 0 })
+  const [formatLabel, setFormatLabel] = useState<string>('H')
+  const [fmt, setFmt] = useState<{ bold: boolean; italic: boolean; strike: boolean; underline: boolean; link: boolean }>({ bold: false, italic: false, strike: false, underline: false, link: false })
+
+  const headingsMenuRef = useRef<HTMLDivElement>(null)
+  const tableMenuRef = useRef<HTMLDivElement>(null)
 
   // File operations
   const handleOpen = async () => {
@@ -128,12 +134,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
     }
   }
 
-  const insertCodeBlock = () => {
-    if (editorViewRef?.current) {
-      editorViewRef.current.insertText('\n```\ncode here\n```\n')
-    }
-  }
-
   const insertTable = (rows: number, cols: number) => {
     // Try WYSIWYG table first
     const api: any = editorViewRef?.current
@@ -195,6 +195,41 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
     setShowHeadingsMenu(false)
   }
 
+  const insertUnderline = () => {
+    const api: any = editorViewRef?.current
+    if (api && api.toggleUnderline) {
+      api.toggleUnderline()
+      return
+    }
+    if (editorViewRef?.current) {
+      editorViewRef.current.insertText('++underlined++')
+    }
+  }
+
+  // Subscribe to formatting changes from editor (WYSIWYG)
+  React.useEffect(() => {
+    const api: any = editorViewRef?.current
+    if (api && api.onFormattingChange) {
+      api.onFormattingChange((state: any) => {
+        setFormatLabel(state.blockLabel || 'H')
+        setFmt({ bold: !!state.bold, italic: !!state.italic, strike: !!state.strike, underline: !!state.underline, link: !!state.link })
+      })
+    }
+  }, [editorViewRef?.current])
+
+  // Close dropdowns on outside click or Escape
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (showHeadingsMenu && headingsMenuRef.current && !headingsMenuRef.current.contains(t)) setShowHeadingsMenu(false)
+      if (showTableMenu && tableMenuRef.current && !tableMenuRef.current.contains(t)) setShowTableMenu(false)
+    }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setShowHeadingsMenu(false); setShowTableMenu(false) } }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onEsc)
+    return () => { document.removeEventListener('mousedown', onDocClick); document.removeEventListener('keydown', onEsc) }
+  }, [showHeadingsMenu, showTableMenu])
+
   return (
     <div className="toolbar">
       {/* File Operations */}
@@ -229,10 +264,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
             onClick={() => setShowHeadingsMenu(!showHeadingsMenu)}
             title="Headings"
           >
-            H
+            {formatLabel}
           </button>
           {showHeadingsMenu && (
-            <div className="toolbar-dropdown-menu">
+            <div className="toolbar-dropdown-menu" ref={headingsMenuRef}>
               <div className="toolbar-dropdown-header">Headings</div>
               <button onClick={() => insertHeading(1)}>Heading 1</button>
               <button onClick={() => insertHeading(2)}>Heading 2</button>
@@ -240,14 +275,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
               <button onClick={() => insertHeading(4)}>Heading 4</button>
               <button onClick={() => insertHeading(5)}>Heading 5</button>
               <button onClick={() => insertHeading(6)}>Heading 6</button>
-              <button onClick={() => insertHeading(0)}>Paragraph</button>
+              <button onClick={() => insertHeading(0)}>Body</button>
+              <div className="toolbar-dropdown-header">Block</div>
+              <button onClick={() => { editorViewRef?.current?.toggleBlockquote?.(); setShowHeadingsMenu(false) }}>Block Quote</button>
+              <button onClick={() => { editorViewRef?.current?.toggleCodeBlock?.(); setShowHeadingsMenu(false) }}>Code Block</button>
             </div>
           )}
         </div>
 
-        <button className="toolbar-btn" onClick={insertBold} title="Bold">B</button>
-        <button className="toolbar-btn" onClick={insertItalic} title="Italic">I</button>
-        <button className="toolbar-btn" onClick={insertStrikethrough} title="Strikethrough">S</button>
+        <button className={`toolbar-btn${fmt.bold ? ' active' : ''}`} onClick={insertBold} title="Bold">B</button>
+        <button className={`toolbar-btn${fmt.italic ? ' active' : ''}`} onClick={insertItalic} title="Italic">I</button>
+        <button className={`toolbar-btn${fmt.strike ? ' active' : ''}`} onClick={insertStrikethrough} title="Strikethrough">S</button>
+        <button className={`toolbar-btn${fmt.underline ? ' active' : ''}`} onClick={insertUnderline} title="Underline">U</button>
         <button className="toolbar-btn" onClick={insertHorizontalRule} title="Horizontal Rule">─</button>
       </div>
 
@@ -257,7 +296,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
       <div className="toolbar-section">
         <button className="toolbar-btn" onClick={insertBulletList} title="Bullet List">•</button>
         <button className="toolbar-btn" onClick={insertNumberedList} title="Numbered List">1.</button>
-        <button className="toolbar-btn" onClick={insertCheckbox} title="Checkbox">☐</button>
+        <button className="toolbar-btn" onClick={insertCheckbox} title="Task list">☐</button>
 
         <div className="toolbar-dropdown">
           <button
@@ -268,19 +307,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
             ⊞
           </button>
           {showTableMenu && (
-            <div className="toolbar-dropdown-menu">
-              <div className="toolbar-dropdown-header">Table Size</div>
-              <div className="table-grid">
-                {[1, 2, 3, 4, 5, 6].map(cols =>
-                  [1, 2, 3, 4, 5, 6].map(rows => (
+            <div className="toolbar-dropdown-menu" ref={tableMenuRef}>
+              <div className="toolbar-dropdown-header">Table Size {tableHover.cols > 0 && tableHover.rows > 0 ? `(${tableHover.cols} × ${tableHover.rows})` : ''}</div>
+              <div className="table-grid" style={{ gridTemplateColumns: `repeat(12, 1fr)` }}>
+                {Array.from({ length: 12 }).map((_, r) =>
+                  Array.from({ length: 12 }).map((__, c) => (
                     <button
-                      key={`${cols}x${rows}`}
-                      className="table-cell"
-                      onClick={() => insertTable(rows, cols)}
-                      title={`${cols} x ${rows} table`}
-                    >
-                      {cols}×{rows}
-                    </button>
+                      key={`${r+1}x${c+1}`}
+                      className={`table-cell${(c+1) <= (tableHover.cols || 0) && (r+1) <= (tableHover.rows || 0) ? ' active' : ''}`}
+                      onMouseEnter={() => setTableHover({ cols: c + 1, rows: r + 1 })}
+                      onClick={() => {
+                        insertTable(r + 1, c + 1)
+                        setTableHover({ rows: 0, cols: 0 })
+                        setShowTableMenu(false)
+                      }}
+                      title={`${c + 1} x ${r + 1} table`}
+                    />
                   ))
                 )}
               </div>
@@ -290,7 +332,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef }) => {
 
         <button className="toolbar-btn" onClick={insertLink} title="Insert Link">🔗</button>
         <button className="toolbar-btn" onClick={insertImage} title="Insert Image">🖼️</button>
-        <button className="toolbar-btn" onClick={insertCodeBlock} title="Code Block">&lt;/&gt;</button>
+        {/* Code Block button removed; available in Headings dropdown */}
         <button className="toolbar-btn" title="Clipboard">CB</button>
       </div>
 

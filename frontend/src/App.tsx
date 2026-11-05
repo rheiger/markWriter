@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const editorViewRef = useRef<EditorViewRef>(null)
 
   // Initialize the application
+  const didInitRef = useRef(false)
   useEffect(() => {
     // Apply theme on startup
     if (theme === 'system') {
@@ -21,12 +22,13 @@ const App: React.FC = () => {
     } else {
       document.documentElement.setAttribute('data-theme', theme)
     }
+  }, [theme])
 
-    // Create initial document if none exists
-    if (!currentDocument) {
-      createNewDocument()
-    }
-  }, [theme, currentDocument, createNewDocument])
+  useEffect(() => {
+    if (didInitRef.current) return
+    didInitRef.current = true
+    if (!currentDocument) createNewDocument()
+  }, [currentDocument, createNewDocument])
 
   return (
     <div className="app">

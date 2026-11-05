@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'react'
-import { EditorView as CodeMirrorView, keymap } from '@codemirror/view'
+import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -10,6 +10,7 @@ import { useAppStore } from '../store/useAppStore'
 import { MermaidRenderer } from './MermaidRenderer'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
+import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
@@ -24,17 +25,19 @@ import Code from '@tiptap/extension-code'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { lowlight } from 'lowlight'
 import MarkdownIt from 'markdown-it'
+import markdownItIns from 'markdown-it-ins'
 import TurndownService from 'turndown'
 // @ts-expect-error types
 import { gfm } from 'turndown-plugin-gfm'
-import mermaid from 'mermaid'
 import Strike from '@tiptap/extension-strike'
+import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
+import { MermaidNode } from '../extensions/MermaidNode'
 
 
 export interface EditorViewRef {
@@ -63,6 +66,26 @@ export interface EditorViewRef {
   toggleStrike?: () => void
   toggleTask?: () => void
   insertTable?: (rows: number, cols: number) => void
+  toggleUnderline?: () => void
+  // Formatting state for toolbar
+  getFormattingState?: () => {
+    blockLabel: string
+    bold: boolean
+    italic: boolean
+    strike: boolean
+    underline: boolean
+    code: boolean
+    link: boolean
+  }
+  onFormattingChange?: (listener: (state: {
+    blockLabel: string
+    bold: boolean
+    italic: boolean
+    strike: boolean
+    underline: boolean
+    code: boolean
+    link: boolean
+  }) => void) => void
 }
 
 interface MermaidBlock {
@@ -77,7 +100,7 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
-  const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('markdown')
+  const [editorMode, setEditorMode] = useState<'markdown' | 'wysiwyg'>('wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -87,15 +110,119 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
   const wysiwygContainerRef = useRef<HTMLDivElement>(null)
   const isUpdatingFromTiptap = useRef(false)
   const isUpdatingFromMarkdown = useRef(false)
+  const isSwitchingModeRef = useRef(false)
+  const lastMarkdownAnchorRef = useRef(0)
+  const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
 
   const { currentDocument, updateDocumentContent, config } = useAppStore()
 
+  // Configure Marked to support extended underline syntax ++text++ for Preview
+  React.useMemo(() => {
+    const underlineExt = {
+      name: 'underline',
+      level: 'inline' as const,
+      start: (src: string) => src.indexOf('++'),
+      tokenizer(src: string) {
+        const rule = /^\+\+([\s\S]+?)\+\+/
+        const match = rule.exec(src)
+        if (match) {
+          return {
+            type: 'underline',
+            raw: match[0],
+            text: match[1]
+          }
+        }
+        return undefined
+      },
+      renderer(token: any) {
+        return `<u>${token.text}</u>`
+      }
+    }
+    marked.use({ extensions: [underlineExt] as any })
+  }, [])
+
   // Markdown <-> HTML converter for initial Tiptap content
-  const md = React.useMemo(() => new MarkdownIt({ html: false, linkify: true, breaks: true }), [])
+  const md = React.useMemo(() => {
+    const m = new MarkdownIt({ html: false, linkify: true, breaks: true })
+    m.use(markdownItIns)
+    return m
+  }, [])
   const turndown = React.useMemo(() => {
     const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
+
+    // Convert HTML tables to GFM tables (robust against colgroups/inline wrappers)
+    td.addRule('tableToMarkdown', {
+      filter: (node) => node.nodeName === 'TABLE',
+      replacement: (_content, node) => {
+        const table = node as HTMLElement
+        const rows = Array.from(table.querySelectorAll('tr')).map(tr =>
+          Array.from(tr.querySelectorAll('th,td')).map(cell => (cell.textContent || '').trim())
+        )
+        if (rows.length === 0) return ''
+        const header = rows[0]
+        let md = '\n| ' + header.join(' | ') + ' |\n'
+        md += '| ' + header.map(() => '---').join(' | ') + ' |\n'
+        for (let i = 1; i < rows.length; i++) md += '| ' + rows[i].join(' | ') + ' |\n'
+        return md + '\n'
+      }
+    })
+
+    // Task list items: <li><input type="checkbox"> ... -> - [ ] text
+    td.addRule('taskListItem', {
+      filter: (node) => node.nodeName === 'LI' && !!(node as HTMLElement).querySelector('input[type="checkbox"]'),
+      replacement: (_content, node) => {
+        const el = node as HTMLElement
+        const input = el.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+        const checked = input?.checked ? 'x' : ' '
+        // Extract text content without checkbox
+        const clone = el.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('input[type="checkbox"]').forEach(inp => inp.remove())
+        const text = (clone.textContent || '').trim()
+        return `\n- [${checked}] ${text}\n`
+      }
+    })
+
+    // Serialize Mermaid NodeViews/divs back to fenced code
+    td.addRule('mermaid', {
+      filter: (node) => {
+        if (node.nodeType !== 1) return false
+        const el = node as HTMLElement
+        return el.getAttribute('data-type') === 'mermaid' || el.classList?.contains('mermaid')
+      },
+      replacement: (_content, node) => {
+        const el = node as HTMLElement
+        const chart = (el.getAttribute('data-chart') || el.textContent || '').trim()
+        return `\n\`\`\`mermaid\n${chart}\n\`\`\`\n`
+      }
+    })
+
+    // Serialize underline tags as extended markdown ++text++
+    td.addRule('underline', {
+      filter: ['u', 'ins'],
+      replacement: (content) => `++${content}++`
+    })
+
+    // Remove colgroup/col so GFM table conversion works
+    td.addRule('removeColgroup', {
+      filter: (node) => node.nodeName === 'COLGROUP' || node.nodeName === 'COL',
+      replacement: () => ''
+    })
+
+    // Unwrap <p> inside table cells to avoid nested paragraphs in table markdown
+    td.addRule('unwrapParagraphInCells', {
+      filter: (node) => node.nodeName === 'P' && !!node.parentElement && (node.parentElement.nodeName === 'TD' || node.parentElement.nodeName === 'TH'),
+      replacement: (content) => content
+    })
+
+    // Unwrap <p> inside list items to avoid blank lines between list items
+    td.addRule('unwrapParagraphInLi', {
+      filter: (node) => node.nodeName === 'P' && !!node.parentElement && node.parentElement.nodeName === 'LI',
+      replacement: (content) => content
+    })
+
     // enable GitHub-flavored markdown (tables, strikethrough, task lists)
     td.use(gfm)
+
     return td
   }, [])
 
@@ -104,10 +231,21 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     extensions: [
       StarterKit.configure({
         codeBlock: false,
+        // Disable to avoid duplicate extensions; we add our own below
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        heading: false,
+        blockquote: false,
+        hardBreak: false,
+        horizontalRule: false,
+        code: false,
+        strike: false,
+        underline: false,
+        link: false,
       }),
       CodeBlockLowlight.configure({ lowlight }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
-      Link,
       BulletList,
       OrderedList,
       ListItem,
@@ -117,12 +255,15 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       HorizontalRule,
       Code,
       Strike,
+      Underline,
+      Link,
       TaskList,
       TaskItem.configure({ nested: true }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
+      MermaidNode,
     ],
     content: currentDocument?.content ? md.render(currentDocument.content) : '',
     onUpdate: ({ editor }) => {
@@ -131,23 +272,61 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       const html = editor.getHTML()
       const markdownFromHtml = turndown.turndown(html)
       updateDocumentContent(markdownFromHtml)
-      if (editorViewRef.current) {
-        const currentContent = editorViewRef.current.state.doc.toString()
-        if (currentContent !== markdownFromHtml) {
-          editorViewRef.current.dispatch({
-            changes: { from: 0, to: editorViewRef.current.state.doc.length, insert: markdownFromHtml }
-          })
-        }
-      }
-      isUpdatingFromTiptap.current = false
+      // Defer clearing the update flag until after the selection is applied
+      queueMicrotask(() => { isUpdatingFromTiptap.current = false })
     },
     editable: true,
     autofocus: false,
   })
 
+  // Compute formatting state for WYSIWYG toolbar label
+  const computeFormattingState = useCallback(() => {
+    if (!tiptap) {
+      return {
+        blockLabel: 'Body', bold: false, italic: false, strike: false, underline: false, code: false, link: false,
+      }
+    }
+    let blockLabel = 'Body'
+    for (let lvl = 1 as 1|2|3|4|5|6; lvl <= 6; lvl = (lvl + 1) as 1|2|3|4|5|6) {
+      if (tiptap.isActive('heading', { level: lvl })) { blockLabel = `H${lvl}`; break }
+    }
+    if (tiptap.isActive('blockquote')) blockLabel = 'Quote'
+    if (tiptap.isActive('codeBlock')) blockLabel = 'Code'
+    if (tiptap.isActive('table')) blockLabel = 'Table'
+    if (tiptap.isActive('taskItem') || tiptap.isActive('taskList')) blockLabel = 'Task'
+    if (tiptap.isActive('mermaid')) blockLabel = 'Body'
+
+    return {
+      blockLabel,
+      bold: tiptap.isActive('bold'),
+      italic: tiptap.isActive('italic'),
+      strike: tiptap.isActive('strike'),
+      underline: tiptap.isActive('underline'),
+      code: tiptap.isActive('code'),
+      link: tiptap.isActive('link'),
+    }
+  }, [tiptap])
+
+  useEffect(() => {
+    if (!tiptap) return
+    const fire = () => {
+      const state = computeFormattingState()
+      if (formattingListenerRef.current) formattingListenerRef.current(state)
+    }
+    fire()
+    tiptap.on('selectionUpdate', fire)
+    tiptap.on('transaction', fire)
+    return () => {
+      tiptap.off('selectionUpdate', fire)
+      tiptap.off('transaction', fire)
+    }
+  }, [tiptap, computeFormattingState])
+
   // Helper to convert markdown → HTML for WYSIWYG and map mermaid fences
   const toWysiwygHtml = useCallback((markdownText: string): string => {
     let html = md.render(markdownText || '')
+    // Normalize <ins> to <u> for Tiptap Underline parsing
+    html = html.replace(/<ins>/g, '<u>').replace(/<\/ins>/g, '</u>')
     const re = new RegExp('<pre><code class="language-mermaid">([\\s\\S]*?)<\\/code><\\/pre>', 'g')
     html = html.replace(re, (_m, code) => {
       const decoded = String(code)
@@ -161,7 +340,7 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     return html
   }, [md])
 
-  // Keep tiptap in sync when switching documents
+  // Keep tiptap in sync when switching documents (avoid resetting caret on every keystroke)
   useEffect(() => {
     if (tiptap && currentDocument) {
       if (isUpdatingFromTiptap.current) return
@@ -171,15 +350,12 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
         tiptap.commands.setContent(html)
         isUpdatingFromMarkdown.current = false
       }
-      // Render mermaid after setContent
-      requestAnimationFrame(() => {
-        if (!wysiwygContainerRef.current) return
-        const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: isDark ? 'dark' : 'default' })
-        mermaid.init(undefined, wysiwygContainerRef.current.querySelectorAll('div.mermaid'))
-      })
+      // Mermaid diagrams are rendered by MermaidNode's React NodeView
     }
-  }, [tiptap, currentDocument?.id, currentDocument?.content, config.theme, toWysiwygHtml])
+  }, [tiptap, currentDocument?.id, config.theme, toWysiwygHtml])
+
+  // When entering WYSIWYG or when content changes while in Markdown, ensure WYSIWYG reflects store
+  // Avoid setContent during lifecycle; we'll sync WYSIWYG explicitly on tab click
 
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
@@ -266,16 +442,44 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     },
     setHeadingLevel: (level: number) => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        if (level === 0) tiptap.chain().focus().setParagraph().run()
-        else tiptap.chain().focus().setHeading({ level: Math.min(Math.max(level,1),6) as 1|2|3|4|5|6 }).run()
+        const chain = tiptap.chain().focus()
+        if (level === 0) {
+          if (tiptap.isActive('codeBlock')) chain.toggleCodeBlock()
+          if (tiptap.isActive('blockquote')) chain.toggleBlockquote()
+          chain.setParagraph().run()
+        } else {
+          chain.setHeading({ level: Math.min(Math.max(level,1),6) as 1|2|3|4|5|6 }).run()
+        }
       } else if (editorViewRef.current) {
         const hash = level > 0 ? '#'.repeat(level) + ' ' : ''
-        const selection = editorViewRef.current.state.selection.main
-        const lineStart = editorViewRef.current.state.doc.lineAt(selection.from).from
-        editorViewRef.current.dispatch({
-          changes: { from: lineStart, to: lineStart, insert: hash },
-          selection: { anchor: selection.from + hash.length, head: selection.to + hash.length }
-        })
+        const view = editorViewRef.current
+        const sel = view.state.selection.main
+        const doc = view.state.doc
+        const fromLine = doc.lineAt(sel.from)
+        const toLine = doc.lineAt(sel.to)
+        // If switching to Body, also remove fenced code if the whole selection is fenced
+        if (level === 0) {
+          const selectedText = doc.sliceString(fromLine.from, toLine.to)
+          const fencedStart = selectedText.match(/^\s*```.*?\n/)
+          const fencedEnd = selectedText.match(/\n```\s*$/)
+          if (fencedStart && fencedEnd) {
+            const withoutFence = selectedText
+              .replace(/^\s*```.*?\n/, '')
+              .replace(/\n```\s*$/, '')
+            view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withoutFence } })
+            return
+          }
+        }
+        let changes: { from: number, to: number, insert: string }[] = []
+        for (let n = fromLine.number; n <= toLine.number; n++) {
+          const line = doc.line(n)
+          const text = line.text
+          const newText = level === 0
+            ? text.replace(/^\s{0,3}(>\s?)?#{1,6}\s?/, '').replace(/^\s{0,3}>\s?/, '')
+            : text.replace(/^(\s{0,3}(?:>\s?)?)(?:#{1,6}\s*)?/, `$1${hash}`)
+          if (newText !== text) changes.push({ from: line.from, to: line.to, insert: newText })
+        }
+        if (changes.length) view.dispatch({ changes })
       }
     },
     toggleBulletList: () => {
@@ -315,22 +519,44 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().toggleBlockquote().run()
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert: '\n> ' },
-          selection: { anchor: selection.from + 3 }
-        })
+        const view = editorViewRef.current
+        const sel = view.state.selection.main
+        const doc = view.state.doc
+        const fromLine = doc.lineAt(sel.from)
+        const toLine = doc.lineAt(sel.to)
+        let allQuoted = true
+        for (let n = fromLine.number; n <= toLine.number; n++) {
+          if (!/^\s{0,3}>\s?/.test(doc.line(n).text)) { allQuoted = false; break }
+        }
+        let changes: { from: number, to: number, insert: string }[] = []
+        for (let n = fromLine.number; n <= toLine.number; n++) {
+          const line = doc.line(n)
+          const text = line.text
+          const newText = allQuoted ? text.replace(/^\s{0,3}>\s?/, '') : `> ${text}`
+          if (newText !== text) changes.push({ from: line.from, to: line.to, insert: newText })
+        }
+        if (changes.length) view.dispatch({ changes })
       }
     },
     toggleCodeBlock: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().toggleCodeBlock().run()
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert: '\n```\ncode here\n```\n' },
-          selection: { anchor: selection.from + 5 }
-        })
+        const view = editorViewRef.current
+        const sel = view.state.selection.main
+        const doc = view.state.doc
+        const fromLine = doc.lineAt(sel.from)
+        const toLine = doc.lineAt(sel.to)
+        // Determine if all selected lines are already fenced
+        const selectedText = doc.sliceString(fromLine.from, toLine.to)
+        const isFenced = /^\s*```[\s\S]*```\s*$/.test(selectedText)
+        if (isFenced) {
+          const withoutFence = selectedText.replace(/^\s*```\n?/, '').replace(/\n?```\s*$/, '')
+          view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withoutFence } })
+        } else {
+          const withFence = `\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n`
+          view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withFence } })
+        }
       }
     },
     setLink: (url?: string) => {
@@ -351,8 +577,25 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     toggleStrike: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleStrike().run() },
     toggleTask: () => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().toggleTaskList().run() },
     insertTable: (rows: number, cols: number) => { if (editorMode === 'wysiwyg' && tiptap) tiptap.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run() }
+    ,
+    toggleUnderline: () => {
+      if (editorMode === 'wysiwyg' && tiptap) {
+        tiptap.chain().focus().toggleUnderline().run()
+      } else if (editorViewRef.current) {
+        const selection = editorViewRef.current.state.selection.main
+        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'underlined'
+        const insert = `++${selected}++`
+        editorViewRef.current.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: { anchor: selection.from + insert.length }
+        })
+      }
+    },
+    getFormattingState: () => computeFormattingState(),
+    onFormattingChange: (listener) => { formattingListenerRef.current = listener }
   }))
 
+  // Parse mermaid blocks from markdown content
   // Parse mermaid blocks from markdown content
   const parseMermaidBlocks = useCallback((content: string): MermaidBlock[] => {
     const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
@@ -394,6 +637,26 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       const html = marked.parse(processedContent)
       previewRef.current.innerHTML = html
 
+      // Render mermaid diagrams in-place inside placeholders
+      const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: isDark ? 'dark' : 'default' })
+      requestAnimationFrame(async () => {
+        if (!previewRef.current) return
+        const placeholders = Array.from(previewRef.current.querySelectorAll('.mermaid-placeholder')) as HTMLElement[]
+        await Promise.all(
+          placeholders.map(async (el, i) => {
+            const chart = blocks[i]?.chart || ''
+            const id = `mermaid-${i}-${Date.now()}`
+            try {
+              const { svg } = await mermaid.render(id, chart)
+              el.innerHTML = svg
+            } catch (e) {
+              el.innerHTML = `<pre style="color:#dc2626">Mermaid error: ${String(e)}</pre>`
+            }
+          })
+        )
+      })
+
       console.log('[EDITOR] Preview updated with', blocks.length, 'mermaid diagrams')
     } catch (error) {
       console.error('Error parsing markdown:', error)
@@ -401,20 +664,19 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
         previewRef.current.innerHTML = `<p>Error parsing markdown: ${error}</p>`
       }
     }
-  }, [parseMermaidBlocks])
+  }, [parseMermaidBlocks, config.theme])
 
-  // Initialize CodeMirror editor
+  // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
+    if (editorMode !== 'markdown') return
+    if (editorViewRef.current) return
     console.log('[EDITOR] useEffect triggered for editor initialization')
     console.log('[EDITOR] editorRef.current:', editorRef.current)
     console.log('[EDITOR] currentDocument:', currentDocument)
 
     // Wait for DOM to be ready
     const timer = setTimeout(() => {
-      if (!editorRef.current) {
-        console.error('[EDITOR] No editor ref available after delay')
-        return
-      }
+      if (!editorRef.current) return
 
     const isDark = config.theme === 'dark' ||
       (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -422,7 +684,7 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     console.log('[EDITOR] Theme is dark:', isDark)
     console.log('[EDITOR] Config theme:', config.theme)
 
-    const defaultContent = currentDocument?.content || '# Welcome to MarkWriter\n\nStart writing your markdown here...\n\n## Try Mermaid Diagrams!\n\n```mermaid\ngraph TD\n    A[Start] --> B{Is it working?}\n    B -->|Yes| C[Great!]\n    B -->|No| D[Let\'s fix it]\n    D --> E[Debug]\n    E --> F[Fix]\n    F --> C\n```'
+    const defaultContent = currentDocument?.content ?? ''
 
     console.log('[EDITOR] Creating CodeMirror editor with content length:', defaultContent.length)
 
@@ -433,7 +695,13 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
         markdown(),
         history(), // Enable undo/redo functionality
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        CodeMirrorView.lineWrapping,
+        drawSelection(),
         CodeMirrorView.updateListener.of((update) => {
+          if (isSwitchingModeRef.current) return
+          if (update.selectionSet) {
+            lastMarkdownAnchorRef.current = update.state.selection.main.anchor
+          }
           if (update.docChanged) {
             const newContent = update.state.doc.toString()
             console.log('[EDITOR] Content changed, length:', newContent.length)
@@ -476,6 +744,16 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     editorViewRef.current = view
     console.log('[EDITOR] CodeMirror editor created successfully')
 
+    // Restore previous caret position if available; otherwise place at end
+    const anchor = Math.min(
+      lastMarkdownAnchorRef.current || defaultContent.length,
+      defaultContent.length
+    )
+    try {
+      view.dispatch({ selection: { anchor } })
+      view.focus()
+    } catch {}
+
     // Initial preview update
     // Force equal split at mount
     setSplitPos(50)
@@ -485,12 +763,9 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
 
     return () => {
       clearTimeout(timer)
-      console.log('[EDITOR] Cleaning up CodeMirror editor')
-      if (editorViewRef.current) {
-        editorViewRef.current.destroy()
-      }
+      // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
+  }, [editorMode, currentDocument?.id, config.theme, updatePreview, updateDocumentContent])
 
   // Ensure preview and editor are restored when switching back to markdown
   useEffect(() => {
@@ -512,24 +787,34 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     }
   }, [editorMode, currentDocument?.id, updatePreview])
 
-  // Update content when document changes
+  // Always start in WYSIWYG when opening or creating a document
   useEffect(() => {
+    if (currentDocument?.id) {
+      setEditorMode('wysiwyg')
+    }
+  }, [currentDocument?.id])
+
+  // Update CodeMirror content only when switching docs (not on every keystroke from WYSIWYG)
+  useEffect(() => {
+    if (editorMode !== 'markdown') return
     if (editorViewRef.current && currentDocument) {
-      const currentContent = editorViewRef.current.state.doc.toString()
-      if (currentContent !== currentDocument.content) {
-        editorViewRef.current.dispatch({
-          changes: {
-            from: 0,
-            to: editorViewRef.current.state.doc.length,
-            insert: currentDocument.content || ''
-          }
+      const view = editorViewRef.current
+      const oldDoc = view.state.doc.toString()
+      if (oldDoc !== (currentDocument.content || '')) {
+        isSwitchingModeRef.current = true
+        const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
+        const newLen = (currentDocument.content || '').length
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: currentDocument.content || '' },
+          selection: { anchor: Math.min(prevAnchor, newLen) }
         })
+        view.focus()
+        lastMarkdownAnchorRef.current = Math.min(prevAnchor, newLen)
         updatePreview(currentDocument.content || '')
+        queueMicrotask(() => { isSwitchingModeRef.current = false })
       }
     }
-
-    // WYSIWYG content is managed by Tiptap; no manual DOM sync here
-  }, [currentDocument?.id, currentDocument?.content, editorMode, updatePreview])
+  }, [editorMode, currentDocument?.content, updatePreview])
 
   // Scroll synchronization between editor and preview
   useEffect(() => {
@@ -588,6 +873,8 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
     )
   }
 
+    const isEmpty = (currentDocument?.content || '').trim().length === 0
+
     return (
     <div
       className="editor-container"
@@ -630,6 +917,22 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
                 fontSize: 'var(--editor-font-size, 14px)' // Support zoom
               }}
             />
+            {isEmpty && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ textAlign: 'center', fontSize: '0.95rem' }}>Start editing or Open file</div>
+              </div>
+            )}
           </div>
 
           {/* Splitter */}
@@ -699,6 +1002,22 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
                   fontSize: 'var(--preview-font-size, 16px)' // Support zoom for preview
                 }}
               />
+              {isEmpty && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <div style={{ textAlign: 'center', fontSize: '0.95rem' }}>Start editing or Open file</div>
+                </div>
+              )}
               {/* Position marker */}
               <div
                 ref={positionMarkerRef}
@@ -734,8 +1053,24 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
           }}>
             WYSIWYG Editor
           </div>
-          <div ref={wysiwygContainerRef} style={{ flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
+          <div ref={wysiwygContainerRef} style={{ position: 'relative', flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
             <EditorContent editor={tiptap} />
+            {isEmpty && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ textAlign: 'center', fontSize: '0.95rem' }}>Start editing or Open file</div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -754,18 +1089,26 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
       }}>
         <button
           onClick={() => {
-            // When switching to markdown, ensure the editor has the latest content
-            if (editorViewRef.current && currentDocument) {
-              const currentContent = editorViewRef.current.state.doc.toString();
-              if (currentContent !== currentDocument.content) {
-                editorViewRef.current.dispatch({
-                  changes: {
-                    from: 0,
-                    to: editorViewRef.current.state.doc.length,
-                    insert: currentDocument.content || ''
-                  }
-                });
+            // On switching to Markdown, sync from the live WYSIWYG state for freshest content
+            const view = editorViewRef.current
+            if (view) {
+              isSwitchingModeRef.current = true
+              const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
+              let markdownText = currentDocument?.content || ''
+              if (tiptap) {
+                const html = tiptap.getHTML()
+                markdownText = turndown.turndown(html)
+                updateDocumentContent(markdownText)
               }
+              const newLen = markdownText.length
+              view.dispatch({
+                changes: { from: 0, to: view.state.doc.length, insert: markdownText },
+                selection: { anchor: Math.min(prevAnchor, newLen) }
+              })
+              lastMarkdownAnchorRef.current = Math.min(prevAnchor, newLen)
+              updatePreview(markdownText)
+              view.focus()
+              queueMicrotask(() => { isSwitchingModeRef.current = false })
             }
             setEditorMode('markdown');
             // Re-mount CodeMirror view if needed and refresh preview
@@ -777,9 +1120,11 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
                   }
                 } catch {}
               }
-              if (currentDocument) {
-                updatePreview(currentDocument.content || '')
+              // preview already updated above from markdownText
+              if (editorViewRef.current) {
+                editorViewRef.current.focus()
               }
+              queueMicrotask(() => { isSwitchingModeRef.current = false })
             })
           }}
           style={{
@@ -797,14 +1142,16 @@ export const EditorView = forwardRef<EditorViewRef>((_props, ref) => {
         </button>
         <button
           onClick={() => {
-            // When switching to WYSIWYG, content already mirrored by effect; just set caret to end
-            if (wysiwygContainerRef.current) {
-              const range = document.createRange()
-              const sel = window.getSelection()
-              range.selectNodeContents(wysiwygContainerRef.current)
-              range.collapse(false)
-              sel?.removeAllRanges()
-              sel?.addRange(range)
+            // Sync WYSIWYG from store explicitly to avoid lifecycle setContent warnings
+            if (tiptap && currentDocument) {
+              const html = toWysiwygHtml(currentDocument.content || '')
+              isUpdatingFromMarkdown.current = true
+              requestAnimationFrame(() => {
+                tiptap.commands.setContent(html)
+                isUpdatingFromMarkdown.current = false
+                setEditorMode('wysiwyg')
+              })
+              return
             }
             setEditorMode('wysiwyg');
           }}

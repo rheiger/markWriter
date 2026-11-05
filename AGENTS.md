@@ -296,26 +296,38 @@ markWriter/
 - Long lines in Markdown wrap (no horizontal scroll)
 - Tiptap-based WYSIWYG integrated; toolbar wired for bold/italic/headings/lists/HR/blockquote/code block
 
-**🟡 In Progress / Partial**
-- Scroll sync: basic ratio sync is in place but needs refinement for accuracy and edge-cases
-- Caret handling across mode switches improved; needs verification on large docs
+**🟢 Working**
+- Mode switching: WYSIWYG ⇄ Markdown sync is stable; caret is preserved; edits in both panes stay in sync
+- Preview updates live with Markdown (Mermaid temporarily re-enabled)
 
-**🔴 Still Open (Key Bugs)**
-- WYSIWYG: Mermaid code fences not rendering as diagrams
-- WYSIWYG: Tables not rendering correctly (shown as raw HTML in some cases)
-- WYSIWYG: Task list/checkbox fidelity requires polishing
-- Preview highlight of current Markdown selection not implemented
+**🟡 In Progress / Partial**
+- Mermaid Preview: renders correctly at initial load and after first switch, but exhibits a regression on the second switch back to Markdown (see below)
+- Table picker: improved UX (12×12, area highlight); further polish pending
+- List spacing tightened; task lists mostly correct; a bit of fine-tuning remains
+
+**🔴 Open (Key Bugs) — see Issue #28**
+- Mermaid disappears on second switch to Markdown (no edits). Raw loses fenced blocks and Preview shows zero parsed blocks. Root cause likely HTML→Markdown round-trip losing `<div data-type="mermaid" data-chart>` nodes in a specific lifecycle ordering. Also intermittent React flushSync warnings from Tiptap NodeView mount.
+- Duplicate Tiptap extension warnings (link, underline) were reduced but still appear in some sessions; ensure only one provider is registered.
+- Table Markdown round-trip after WYSIWYG insertion needs verification and gridline polish in WYSIWYG.
 
 **What We Tried**
-- Converted Mermaid fences in WYSIWYG to `<div class="mermaid">` and invoked `mermaid.init` after Tiptap updates (not sufficient in all cases)
-- Enabled GFM in Turndown for Markdown round-trip (strike/table/task list) and included Tiptap Table/Task/Strike extensions
+- Avoided cross-updating CodeMirror during WYSIWYG edits; sync only on tab switch with selection preservation
+- Re-enabled Mermaid in Preview via fenced-block parsing, placeholder injection, then `mermaid.render()` per block with theme awareness
+- Reduced duplicate Tiptap extensions by disabling built-ins in `StarterKit` and registering explicit extensions
 
 **Next Steps (Actionable)**
-1. Implement a dedicated Tiptap Mermaid Node with a NodeView that renders via the same preview pipeline (or reuses `MermaidRenderer`), avoiding raw HTML paths
-2. Use the preview parser logic to identify Mermaid blocks and mount rendered SVG inside the NodeView
-3. For tables, prefer Tiptap’s Table schema on import: either
-   - import Markdown via a Markdown-to-Tiptap plugin (e.g., tiptap-markdown), or
-   - normalize markdown-it HTML to a structure the Table extension parses reliably
-4. Improve scroll sync by mapping CM6 visible ranges to nearest block anchors in Preview instead of linear ratio
+1. Mermaid stability
+   - On Markdown tab entry, detect and re-hydrate lost Mermaid nodes by converting any `<div data-type="mermaid" data-chart>` and `<div.mermaid>` into fenced code deterministically before store update
+   - Defer Preview render a tick (rAF) and ensure no subsequent zero-block update overwrites it; audit any late store writes after tab switch
+   - Eliminate remaining duplicate Tiptap extensions (choose either StarterKit link/underline or custom, not both)
+2. Tables
+   - Verify WYSIWYG insertion → Markdown save uses proper GFM table (header + separator) and retains on reload
+   - Improve WYSIWYG gridlines and selection visualization
+3. Lists / tasks
+   - Final spacing tune and strict `- [ ]`/`- [x]` export
+4. Developer tooling
+   - Implement "Copy Console Logs" button (Issue #29) for faster field diagnostics
+
+Reference: all current findings and reproduction steps are tracked in Issue #28.
 
 **Hint for Implementers**: Tables and Mermaid render perfectly in the Preview. Mirror that approach in WYSIWYG via a custom Tiptap Node/NodeView and the same parsing/rendering helpers.

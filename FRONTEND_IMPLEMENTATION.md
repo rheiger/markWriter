@@ -120,13 +120,13 @@ This document tracks the React frontend implementation for MarkWriter v2. The UI
 - `frontend/src/components/Toolbar.tsx` - File operation handlers
 - `frontend/src/store/useAppStore.ts` - Tauri command wrappers
 
-### **2. WYSIWYG Rendering Gaps**
-**Status**: PARTIAL - Editing and toolbar mostly working; rendering gaps remain
+### **2. Rendering Gaps / Mermaid status**
+**Status**: PARTIAL
 
 **Issues**:
-- Mermaid fences in WYSIWYG not rendered as diagrams
-- Tables in WYSIWYG sometimes shown as raw HTML
-- Task list/checkbox fidelity needs polish
+- Mermaid Preview regression: after second switch back to Markdown (without edits), mermaid blocks disappear from raw/preview; initial load and first switch work. Likely late store overwrite or missing re-hydration of placeholders → fenced code. See Issue #28 for reproduction.
+- Tables in WYSIWYG sometimes shown as raw HTML; round-trip to GFM requires verification
+- Task list/checkbox fidelity needs final polish
 
 **Technical Root Causes (current)**:
 - Tiptap import path for Mermaid needs a custom Node/NodeView that renders via mermaid (preview pipeline works)
@@ -153,7 +153,7 @@ This document tracks the React frontend implementation for MarkWriter v2. The UI
 - Editor lifecycle management
 
 ### **4. Stability**
-**Status**: GOOD - Recent parser/runtime errors fixed (forwardRef generic, regex literal)
+**Status**: GOOD - Caret jumps resolved; CM6 kept alive across switches; sync occurs on tab switch only
 
 **Console Errors**:
 - `[EDITOR] No editor ref available after delay`
@@ -175,10 +175,10 @@ This document tracks the React frontend implementation for MarkWriter v2. The UI
 ## 📋 **Immediate Action Items (Next Session)**
 
 ### **Immediate Action Items (Next)**
-1. Implement Tiptap Mermaid Node/NodeView using the Preview rendering pipeline (or mount `MermaidRenderer` inside NodeView)
-2. Normalize Markdown import to Tiptap Table schema (consider `tiptap-markdown` or custom markdown-it mapping)
+1. Mermaid persistency: on Markdown entry, re-hydrate any `<div data-type="mermaid" data-chart>` or `.mermaid` blocks back to fenced code before store write; defer preview render; ensure no second write clears blocks
+2. Normalize Markdown import to Tiptap Table schema (consider `tiptap-markdown`) or mapping
 3. Anchor-based scroll sync and selection highlight in Preview
-4. Caret/selection preservation across mode switches
+4. Eliminate remaining duplicate Tiptap extensions (link/underline) completely
 
 ## 🎯 **Success Criteria for Next Session**
 

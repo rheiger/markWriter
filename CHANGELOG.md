@@ -8,22 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- WYSIWYG Mermaid support via custom Tiptap Node/NodeView (reuses `MermaidRenderer`)
+- Underline support (extended Markdown): `++text++` in Markdown, `<u>text</u>` in preview
 - WYSIWYG editor based on Tiptap
 - Ratio-based scroll sync between Markdown and Preview
 - Draggable splitter with clamped bounds; 50/50 initial layout
+ - Table picker UX: 12×12 grid with area highlight; outside-click/Escape to close
 
 ### Changed
 - Markdown editor wraps long lines (no horizontal scroll)
 - Toolbar wired to WYSIWYG for bold/italic/headings/lists/HR/blockquote/code block
+ - Mode switching stabilized: WYSIWYG ⇄ Markdown sync with caret preservation; CodeMirror kept alive across switches; sync occurs on tab switch only
 
 ### Fixed
 - Dev crashes from invalid forwardRef generics and regex literal parsing
+ - Caret jump on edits/switches (stabilized)
 
 ### Known Issues
-- WYSIWYG: Mermaid code fences do not render as diagrams yet
-- WYSIWYG: Tables not rendering consistently (raw HTML blocks)
-- Scroll sync needs anchor-based refinement and selection highlight in Preview
-- Caret/selection preservation between modes needs improvement
+- Mermaid Preview regression: after second switch back to Markdown, diagrams disappear in raw/preview despite no edits (see Issue #28)
+- Duplicate Tiptap extension warnings (link/underline) can still surface in some sessions
+- WYSIWYG tables: round-trip to Markdown (GFM) requires verification and polish
+- Scroll-sync highlight in Preview not yet implemented
 
 ## [2.0.0-alpha.1] - 2025-08-27
 

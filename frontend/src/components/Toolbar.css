@@ -47,6 +47,12 @@
   background: #dee2e6;
 }
 
+.toolbar-btn.active {
+  background: #e9ecef;
+  border-color: #adb5bd;
+  color: #000;
+}
+
 .toolbar-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -99,7 +105,7 @@
 /* Table grid for table insertion */
 .table-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 2px;
   padding: 8px 16px;
 }
@@ -120,6 +126,11 @@
 .table-cell:hover {
   background: #e9ecef;
   border-color: #adb5bd;
+}
+
+.table-cell.active {
+  background: #d0ebff;
+  border-color: #74c0fc;
 }
 
 /* Font size display */

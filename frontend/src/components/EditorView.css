@@ -42,14 +42,14 @@
 
 .markwriter-preview ul,
 .markwriter-preview ol {
-  margin: 0.8em 0;
-  padding-left: 2em;
+  margin: 0.5em 0; /* tighter spacing for list blocks */
+  padding-left: 1.5em;
   color: var(--text-primary);
 }
 
 .markwriter-preview li {
-  margin: 0.2em 0;
-  line-height: 1.6;
+  margin: 0.1em 0; /* reduce gap between list items */
+  line-height: 1.4;
 }
 
 .markwriter-preview blockquote {
@@ -137,9 +137,37 @@
   margin-right: 0.5em;
 }
 
+/* WYSIWYG list spacing (TipTap content) */
+.tiptap ul,
+.tiptap ol {
+  margin: 0.25em 0; /* closer to paragraph continuation */
+  padding-left: 1.25em;
+}
+.tiptap li {
+  margin: 0.05em 0;
+  line-height: 1.35;
+}
+
+/* Task list checkbox alignment */
+.tiptap li input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* WYSIWYG table visual gridlines */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.tiptap th,
+.tiptap td {
+  border: 1px solid var(--border-color);
+  padding: 6px 8px;
+}
+
 /* CodeMirror theme overrides for better integration */
 .cm-editor {
   border-right: none !important;
+  width: 100%;
 }
 
 .cm-focused {
