@@ -40,3 +40,11 @@
 
 - Upgraded native bundle rebuilt successfully. Actual browser rendering/export with three diagram types and aligned table passed without console issues.
 - Added a pinned prebuilt Tauri CLI dev dependency for reproducible CI builds; package audit remains a required gate.
+
+- Committed dependency remediation as 8a91148 and v2 CI as 2ccbf9b.
+- Pushed only codex/editor-stabilization to GitHub to execute qualification. Run 42083988171 is live at 2ccbf9b; watching it to completion. No merge or release.
+
+- CI run 42083988171 completed: frontend, Linux native and macOS native succeeded; Windows compilation failed on missing icons/icon.ico.
+- Generated/tracked ICO from existing PNG (21a257a), added real-sample round-trip and native error regression, and preserved Tauri string errors (fbd2910). Local suite: 31 tests pass; lint/build pass.
+- Pushed fbd2910; qualification rerun 42085196968 is live. Watching with exec process handle 59524; do not treat earlier failure as the current result.
+- Exact upgraded macOS bundle was reopened and exercised with three Mermaid types, editing/save and actual native HTML export. File inspection confirms three SVGs, one aligned table, two checkboxes and no scripts.

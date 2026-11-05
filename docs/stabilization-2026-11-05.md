@@ -73,3 +73,11 @@ The earlier audit findings are superseded by `npm audit --audit-level=low`: zero
 - Real browser: flowchart, sequence and state diagrams survive five mode cycles; after a WYSIWYG edit, HTML export contains three inline SVGs and an aligned table. No scripts or browser console errors/warnings.
 
 Migration references: [Vite 8 migration](https://vite.dev/guide/migration.html), [Vitest migration](https://main.vitest.dev/guide/migration/), [lowlight API](https://github.com/wooorm/lowlight).
+
+## Qualification CI and error-path follow-up
+
+The isolated branch is now pushed for qualification, without a merge or release. [First CI run](https://github.com/rheiger/markWriter/actions/runs/42083988171) passed frontend lint/tests/build/audit and native tests/builds on Linux and macOS. Windows compilation identified a required ICO missing from version control; it is now generated from the existing PNG and explicitly tracked.
+
+[Qualification rerun](https://github.com/rheiger/markWriter/actions/runs/42085196968) validates source commit `fbd2910`; it was still running when this section was written. Do not infer Windows success from the fix alone.
+
+The local frontend suite now has 31 passing tests. It additionally compares the real editor's document structure after editing and round-tripping the existing larger sample, and checks that native permission errors remain visible while unsaved content stays intact. Actual upgraded macOS export was rechecked: three Mermaid SVGs, table alignment, task checkboxes and no scripts.

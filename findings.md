@@ -44,3 +44,7 @@
 - Modern dependencies pass the existing 29-test suite, lint and production build. npm audit is now zero after updates, removing unused react-router-dom, and targeted overrides for typescript-estree's minimatch and Sucrase's glob.
 - Compatibility checks exercised typed parser project globs and Sucrase CLI file discovery/transform with the overrides; both passed.
 - Development endpoints now bind loopback explicitly; Node 24+ is the documented runtime floor.
+
+- CI 42083988171: Linux native tests/build passed. Windows failed before tests because required icons/icon.ico was absent from Git (it was ignored). Generate the ICO from the existing tracked PNG and track it explicitly; do not alter the source image.
+- Upgraded macOS native bundle rendered/saved flowchart, sequence and state diagrams, retained table alignment, and exported a real HTML file with three SVGs, one table, two inputs and no scripts.
+- Existing larger sample document also survives an edited real-editor JSON round-trip; frontend suite now has 30 tests locally.
