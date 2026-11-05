@@ -76,6 +76,7 @@ async function action(name, ...args) {
   assert.equal(result.ok, true, JSON.stringify(result))
   const state = await snapshot()
   assert.equal(state.error, null)
+  if (state.document) await waitFor(() => run('return document.querySelector("[data-active=true]")?.getAttribute("data-document-id")===arguments[0]', state.document.id), 'active document UI ownership')
   return state
 }
 const snapshot = () => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot()')

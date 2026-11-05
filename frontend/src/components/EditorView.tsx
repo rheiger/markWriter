@@ -1053,7 +1053,7 @@ export const EditorView = forwardRef<EditorViewRef, EditorViewProps>((props, ref
   const documents = useAppStore(state => state.documents)
   const id = useAppStore(state => state.currentDocument?.id)
   if (!documents.length) return <DocumentEditor active ref={ref} {...props} />
-  return <>{documents.map(doc => <div key={doc.id} data-active={doc.id === id} hidden={doc.id !== id}
+  return <>{documents.map(doc => <div key={doc.id} data-active={doc.id === id} data-document-id={doc.id} hidden={doc.id !== id}
     style={{ display: doc.id === id ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
     <DocumentEditor documentId={doc.id} active={doc.id === id} ref={doc.id === id ? ref : undefined} {...props} />
   </div>)}</>

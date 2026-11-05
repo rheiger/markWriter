@@ -81,3 +81,8 @@
 - HEAD 1fe311c / source ba99ae9 confirmed. CI42121100607 success rechecked via GitHub. Baseline 41 frontend tests, lint/build/audit zero and 12 library + 2 production Rust tests pass.
 - Current owner is main.rs, not unused Rust config module. Canonical-path command added for duplicate ownership and Save As protection.
 - Editor sessions are retained only for open tabs; inactive previews are cancelled, close unmounts/destroys engines. Session/history isolation now tested A→B→A.
+
+## Productivity qualification follow-up
+- Actual macOS recovery/table/settings/export evidence recorded in progress.md. Source fold/copy/search tests use public CM APIs; search state must be enabled before setSearchQuery. Fold choices are now mapped by embedded-block identity during WYSIWYG→source resync.
+- Native CI42130138476 Linux edit fixture focused after assigning DOM selection and inserted at the prior editor caret; focus-before-selection corrects the harness. CI42131022673 Windows passed edit/save/export but selected a hidden Preview table cell by broad XPath; scope to active .tiptap. These are harness findings, with actual native macOS text/file checks passing.
+- Browser test IPC fixtures explicitly emulate native event deregistration and use fresh Vite graph to avoid importing a second HMR store instance. Fresh isolated browser runtime passes with no errors.
