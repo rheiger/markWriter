@@ -324,7 +324,11 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       return ''
     },
     insertMarkdown: (text: string) => {
-      if (editorMode === 'wysiwyg' && tiptap) { tiptap.chain().focus().insertContent(toWysiwygHtml(text)).run(); return }
+      if (editorMode === 'wysiwyg' && tiptap) {
+        const { $from } = tiptap.state.selection
+        const position = $from.depth ? $from.after(1) : tiptap.state.doc.content.size
+        tiptap.chain().focus().insertContentAt(position, toWysiwygHtml(text)).run(); return
+      }
       const view = editorViewRef.current
       if (view) view.dispatch(view.state.replaceSelection(text))
     },

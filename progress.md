@@ -79,3 +79,8 @@
 
 - Settings/recovery checkpoint committed 7ae2457; table checkpoint 0e01212. 58 frontend tests pass with folds added, lint/build pass. Native storage now has 4 command/storage tests plus 12 library tests.
 - Playwright connector cannot launch because its browser profile is already in use. Use an isolated local browser runner; do not terminate the existing browser. Vite test server runs at 127.0.0.1:5175.
+
+- Independent read-only review found/fixed startup overwrite race, immutable retention of rejected v1 schemas, Open/SaveAs ownership race, queued preference Quit flush, stale preview callbacks and pre-existing base64 image loss. Added regressions: 61 frontend tests.
+- Browser exercises folds/mode bytes, table boundary/selection and settings. ERD insertion from a table cell reproduced a loss of diagram semantics; fixed insertion to follow its enclosing top-level block, regression added.
+- macOS ordinary app actual Open/duplicate basenames/fold toggles pass. Dirty Cmd-W Cancel and Quit with inactive dirty tab both prompt correctly; Save As native dialog wrote the captured tab to a generated file. Earlier close test had not inserted text; no dirty-buffer loss observed. Native Settings source18/rendered22 Apply synchronized toolbar. Restart/recovery next.
+- CI42130138476 frontend passed; Linux native app harness failed; inspect current logs/artifact before claiming native acceptance.

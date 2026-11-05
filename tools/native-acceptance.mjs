@@ -118,7 +118,7 @@ try {
   console.log('Unchanged cycles and byte-identical Save As passed; editing WYSIWYG')
 
   // Edit through the actual contenteditable DOM; store and conversion run normally.
-  assert.equal(await run('const p=[...document.querySelectorAll("[data-active=true] .tiptap p")].find(e=>e.textContent==="A paragraph."); const range=document.createRange(); range.setStart(p,0); range.collapse(true); const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range); p.parentElement.focus(); return document.execCommand("insertText", false, "Edited ");'), true)
+  assert.equal(await run('const p=[...document.querySelectorAll("[data-active=true] .tiptap p")].find(e=>e.textContent==="A paragraph."); p.parentElement.focus(); const range=document.createRange(); range.setStart(p,0); range.collapse(true); const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range); return document.execCommand("insertText", false, "Edited ");'), true)
   await waitFor(async () => (await snapshot()).document.content.includes('Edited A paragraph.'), 'WYSIWYG edit serialization')
   const edited = (await snapshot()).document.content
   assert.ok(edited.includes('a \\| b'))

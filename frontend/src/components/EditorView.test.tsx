@@ -118,6 +118,18 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
   })
 
+  it('inserts ERD outside the current table so its source survives serialization', async () => {
+    const { ref, editor } = await mount(fixture)
+    const { mermaidErdTemplate } = await import('../lib/templates')
+    let position = 0
+    editor.state.doc.descendants((node, pos) => { if (!position && node.type.name === 'tableCell') position = pos + 2 })
+    act(() => editor.commands.setTextSelection(position))
+    act(() => ref.current!.insertMarkdown(mermaidErdTemplate))
+    const html = toWysiwygHtml(ref.current!.getMarkdown())
+    expect(new DOMParser().parseFromString(html, 'text/html').querySelectorAll('[data-type=mermaid]')).toHaveLength(2)
+    expect(ref.current!.getMarkdown()).toContain('int customer_id FK')
+  })
+
   it('retains embedded image payloads after a WYSIWYG edit and mode cycles', async () => {
     const data = 'data:image/png;base64,' + 'ABCD'.repeat(100)
     const { ref, editor } = await mount(`Before\n\n![Embedded](${data})\n\nAfter`)
