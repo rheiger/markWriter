@@ -14,6 +14,12 @@ pub fn read_json(path: &Path) -> Result<Option<Value>, String> {
     Ok(Some(value))
 }
 
+pub fn retain_rejected(path: &Path) -> Result<(), String> {
+    if !path.exists() { return Ok(()); }
+    let archive = path.with_extension(format!("retained-{}.json", uuid::Uuid::new_v4()));
+    std::fs::copy(path, archive).map(|_| ()).map_err(|e| format!("Cannot retain rejected storage: {}", e))
+}
+
 pub fn write_json(path: &Path, value: &Value) -> Result<(), String> {
     if value.get("version").and_then(Value::as_u64) != Some(1) { return Err("Unsupported storage version".into()); }
     let run = || -> Result<(), Box<dyn std::error::Error>> {
@@ -60,6 +66,19 @@ mod tests {
         write_json(&path, &json!({"version":1})).unwrap();
         assert!(path.with_extension("previous.json").exists());
     }
+    #[test]
+    fn rejected_current_schema_remains_immutable_after_later_snapshots() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("workspace.json");
+        let invalid = "{\"version\":1,\"documents\":[{\"content\":null}]}";
+        std::fs::write(&path, invalid).unwrap();
+        retain_rejected(&path).unwrap();
+        write_json(&path, &json!({"version":1,"documents":[]})).unwrap();
+        write_json(&path, &json!({"version":1,"documents":[]})).unwrap();
+        let archive = std::fs::read_dir(dir.path()).unwrap().filter_map(Result::ok).find(|entry| entry.file_name().to_string_lossy().contains("retained-")).unwrap();
+        assert_eq!(std::fs::read_to_string(archive.path()).unwrap(), invalid);
+    }
+
     #[test]
     fn corrupt_original_retained_and_failure_is_visible() {
         let dir = tempfile::tempdir().unwrap();

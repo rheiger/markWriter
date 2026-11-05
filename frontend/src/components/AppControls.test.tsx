@@ -27,7 +27,7 @@ describe('application view controls', () => {
     const { container } = render(<App />)
     const toggle = screen.getByRole('switch', { name: 'Markdown mode' })
     expect(toggle).toHaveAttribute('aria-checked', 'false')
-    expect(container.querySelector('.editor-container button')).toBeNull()
+    expect(container.querySelector('.editor-container [role=switch]')).toBeNull()
     fireEvent.click(toggle)
     await waitFor(() => expect(container.querySelector('.cm-content')).toBeVisible())
     expect(toggle).toHaveAttribute('aria-checked', 'true')

@@ -3,14 +3,14 @@ import type { Document } from '../store/useAppStore'
 export interface SessionSnapshot { version: 1, activeId: string | null, documents: Document[] }
 export function parseSession(value: unknown): SessionSnapshot {
   const record = value as Record<string, unknown> | null
-  if (!record || ![0, 1].includes(Number(record.version))) throw new Error('Unsupported workspace version')
+  if (!record || ![0, 1].includes(record.version as number)) throw new Error('Unsupported workspace version')
   if (!Array.isArray(record.documents)) throw new Error('Invalid workspace documents')
   const ids = new Set<string>(), paths = new Set<string>()
   const documents = record.documents.map((item: unknown) => {
     if (!item || typeof item !== 'object') throw new Error('Invalid recovery document')
     const doc = item as Document
     if (typeof doc.id !== 'string' || !doc.id || typeof doc.title !== 'string' || typeof doc.content !== 'string' || typeof doc.isDirty !== 'boolean' ||
-      (doc.path !== undefined && typeof doc.path !== 'string') || (doc.savedContent !== undefined && typeof doc.savedContent !== 'string')) throw new Error('Invalid recovery document')
+      (doc.path !== undefined && typeof doc.path !== 'string') || (doc.savedContent !== undefined && typeof doc.savedContent !== 'string') || (doc.mode !== undefined && doc.mode !== 'markdown' && doc.mode !== 'wysiwyg') || (doc.conflictPath !== undefined && typeof doc.conflictPath !== 'string')) throw new Error('Invalid recovery document')
     if (ids.has(doc.id) || (doc.path && paths.has(doc.path))) throw new Error('Duplicate recovery document ownership')
     ids.add(doc.id); if (doc.path) paths.add(doc.path)
     return { ...doc, lastModified: new Date(doc.lastModified || Date.now()) }

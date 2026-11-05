@@ -1,8 +1,11 @@
-import { EditorState, type Extension } from '@codemirror/state'
+import { EditorState, StateField, type Extension } from '@codemirror/state'
 import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect } from '@codemirror/language'
-import { keymap, EditorView } from '@codemirror/view'
+import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 
+const cache = new WeakMap<EditorState, { from: number, to: number, kind: string }[]>()
 export function findEmbeddedSource(state: EditorState) {
+  const cached = cache.get(state)
+  if (cached) return cached
   const result: { from: number, to: number, kind: string }[] = []
   for (let n = 1; n <= state.doc.lines; n++) {
     const line = state.doc.line(n)
@@ -23,13 +26,18 @@ export function findEmbeddedSource(state: EditorState) {
       result.push({ from, to: from + match[3].length, kind: `${match[1]} ${match[2]}` })
     }
   }
+  cache.set(state, result)
   return result
 }
 
 // Public CodeMirror fold state maps ranges through edits and unfolds selection/search heads.
 // API contracts: @codemirror/language/dist/index.d.ts (foldService/codeFolding/foldGutter).
 export function embeddedSourceFolds(): Extension {
+  const styling = (state: EditorState) => Decoration.set(findEmbeddedSource(state).filter(range => range.to > range.from).map(range => Decoration.mark({ class: 'embedded-source' }).range(range.from, range.to)), true)
   return [
+    StateField.define<DecorationSet>({ create: styling, update: (value, tr) => tr.docChanged ? styling(tr.state) : value,
+      provide: field => EditorView.decorations.from(field),
+    }),
     foldService.of((state, from, to) => findEmbeddedSource(state).find(range => range.from >= from && range.from <= to) ?? null),
     codeFolding({
       preparePlaceholder: (state, range) => {
@@ -46,8 +54,8 @@ export function embeddedSourceFolds(): Extension {
       },
     }),
     foldGutter({ markerDOM: open => {
-      const button = document.createElement('button')
-      button.type = 'button'; button.textContent = open ? '⌄' : '›'
+      const button = document.createElement('span')
+      button.textContent = open ? '⌄' : '›'
       button.setAttribute('aria-expanded', String(open)); button.setAttribute('aria-label', open ? 'Collapse source' : 'Expand source')
       return button
     } }),

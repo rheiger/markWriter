@@ -27,7 +27,7 @@ const App: React.FC = () => {
   }, [config.fontSize, config.renderedFontSize, config.fontFamily, config.renderedFontFamily, config.renderedLineHeight])
 
   // Initialize the application
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(!isTauri())
   const didInitRef = useRef(false)
   useEffect(() => {
     // Apply theme on startup
@@ -41,8 +41,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (didInitRef.current) return
     didInitRef.current = true
-    void loadPreferences().then(loadWorkspace).then(() => {
-      if (!useAppStore.getState().currentDocument) void createNewDocument()
+    void loadPreferences().then(loadWorkspace).then(async () => {
+      if (!useAppStore.getState().currentDocument) await createNewDocument()
       setReady(true)
     })
   }, [currentDocument, createNewDocument])
@@ -56,6 +56,7 @@ const App: React.FC = () => {
     let unlisten: (() => void) | undefined
     getCurrentWindow().onCloseRequested(async event => {
       event.preventDefault()
+      if (!ready) return
       try {
         if (await confirmDiscardChanges()) await invoke('quit_app')
       } catch (error) {
@@ -65,7 +66,9 @@ const App: React.FC = () => {
       useAppStore.getState().setError(String(error))
     })
     return () => { disposed = true; unlisten?.() }
-  }, [])
+  }, [ready])
+
+  if (!ready) return <div className="app" role="status">Restoring workspace…</div>
 
   return (
     <div className="app">

@@ -167,7 +167,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       TableCell,
       TextAlign.configure({ types: ['tableCell', 'tableHeader'] }),
       MermaidNode,
-      Image.configure({ inline: true }),
+      Image.configure({ inline: true, allowBase64: true }),
     ],
     content: toWysiwygHtml(currentDocument?.content ?? ''),
     onUpdate: ({ editor }) => {
@@ -246,7 +246,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         requestAnimationFrame(() => {
           if (request !== modeRequest.current || tiptap.isDestroyed) return
           const text = source()
-          if (fromWysiwygHtml(tiptap.getHTML()) !== text && lastTiptapSource.current !== text) tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+          if (lastTiptapSource.current !== text && fromWysiwygHtml(tiptap.getHTML()) !== text) tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
           lastTiptapSource.current = text
           isUpdatingFromMarkdown.current = false
           setEditorMode('wysiwyg')
@@ -607,6 +607,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     })
   }, [config.theme, active])
 
+  const latestPreview = useRef(updatePreview)
+  latestPreview.current = updatePreview
+
   // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
     if (editorMode !== 'markdown' || !active) return
@@ -650,7 +653,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
             const newContent = update.state.doc.toString()
             console.log('[EDITOR] Content changed, length:', newContent.length)
             updateDocumentContent(newContent)
-            updatePreview(newContent)
+            latestPreview.current(newContent)
           }
         }),
         CodeMirrorView.theme({
@@ -861,6 +864,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
               color: 'var(--text-primary)'
             }}>
               Markdown
+              <span className="source-fold-actions">
+                <button type="button" title="Collapse embedded source (⌘⌥[ / Ctrl⇧[)" onClick={() => {
+                  const view = editorViewRef.current
+                  if (view) view.dispatch({ effects: findEmbeddedSource(view.state).map(range => foldEffect.of(range)) })
+                }}>Collapse source</button>
+                <button type="button" onClick={() => { const view = editorViewRef.current; if (view) unfoldAll(view) }}>Expand source</button>
+              </span>
             </div>
             <div
               ref={editorRef}

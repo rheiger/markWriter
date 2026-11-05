@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import { flushWorkspace, snapshotWorkspace } from '../lib/persistence'
+import { flushWorkspace, snapshotWorkspace, flushPreferences } from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -89,6 +89,7 @@ export const useAppStore = create<AppState>((set, get) => {
         const result = await invoke<{path?: string, title?: string}>(as ? 'save_document_as' : 'save_document', {
           id: snapshot.id, content: snapshot.content, path: canonical,
         })
+        if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical)) throw new Error('Destination ownership changed while saving. The written file is retained; this buffer remains open.')
         replace(snapshot.id, latest => ({ ...latest, path: result?.path || canonical,
           title: result?.title || canonical.split(/[\\/]/).pop() || 'Untitled',
           savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
@@ -151,7 +152,15 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     openDocument: async path => {
       try {
-        const result = await invoke<any>('open_document', { path })
+        let result = await invoke<any>('open_document', { path })
+        const owner = destinations.get(result.path)
+        if (owner) {
+          // Read may have raced the atomic rename. Await its owner and activate the saved tab.
+          await saving.get(owner)
+          const written = get().documents.find(d => d.id === owner && d.path === result.path)
+          if (written) { get().activateDocument(written.id); return }
+          result = await invoke<any>('open_document', { path: result.path })
+        }
         const existing = get().documents.find(d => d.path === result.path)
         if (existing) { get().activateDocument(existing.id); return }
         const doc = { id: result.id, title: result.title || 'Untitled', content: result.content || '',
@@ -238,7 +247,7 @@ export async function confirmDiscardChanges(): Promise<boolean> {
   if (!safe()) return false
   const restore = useAppStore.getState().documents.flatMap(doc => reviewed.some(d => d.id === doc.id) ?
     (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : []) : [doc])
-  try { await flushWorkspace(snapshotWorkspace(restore)) }
+  try { await flushPreferences(); await flushWorkspace(snapshotWorkspace(restore)) }
   catch (error) { useAppStore.getState().setError(`Cannot finish recovery storage before quitting: ${String(error)}`); return false }
   if (!safe()) { await flushWorkspace(); return false }
   return true

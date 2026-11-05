@@ -118,6 +118,17 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
   })
 
+  it('retains embedded image payloads after a WYSIWYG edit and mode cycles', async () => {
+    const data = 'data:image/png;base64,' + 'ABCD'.repeat(100)
+    const { ref, editor } = await mount(`Before\n\n![Embedded](${data})\n\nAfter`)
+    expect(editor.getHTML()).toContain(data)
+    act(() => editor.commands.insertContentAt(1, 'Edited '))
+    await markdown(ref); await wysiwyg(ref)
+    expect(ref.current!.getMarkdown()).toContain(data)
+    const { createHtmlExport } = await import('../lib/htmlExport')
+    expect(await createHtmlExport(ref.current!.getMarkdown())).toContain(data)
+  })
+
   it('retains an image when editing surrounding WYSIWYG text', async () => {
     const { editor } = await mount('Before\n\n![Diagram](diagram.png "Caption")\n\nAfter')
     act(() => { editor.commands.insertContentAt(1, 'Edited ') })

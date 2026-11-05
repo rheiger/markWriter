@@ -47,6 +47,21 @@ describe('document ownership and file races', () => {
     expect(call).toHaveBeenCalledWith('save_document_as', expect.objectContaining({ content: '# Before', id: 'one' }))
     expect(state().currentDocument?.isDirty).toBe(true)
   })
+  it('Open waits for a reserved Save As destination and activates its single owner', async () => {
+    let finish!: (result: unknown) => void
+    call.mockImplementation(async (command, args: any) => {
+      if (command === 'canonical_document_path') return args.path
+      if (command === 'save_document_as') return new Promise(resolve => { finish = resolve })
+      if (command === 'open_document') return { id: 'racer', path: '/copy.md', content: 'Old disk' }
+      return {}
+    })
+    const saving = state().saveDocumentAs('/copy.md'); await tick()
+    const opening = state().openDocument('/copy.md'); await tick()
+    expect(state().documents).toHaveLength(1)
+    finish({ path: '/copy.md' }); await saving; await opening
+    expect(state().documents).toHaveLength(1)
+    expect(state().currentDocument).toMatchObject({ id: 'one', path: '/copy.md', content: '# Before' })
+  })
   it('rejects Save As ownership collisions before native writes', async () => {
     state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md' })
     expect(await state().saveDocumentAs('/one.md')).toBe(false)

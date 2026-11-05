@@ -36,6 +36,16 @@ fn save_workspace(app: tauri::AppHandle, value: serde_json::Value) -> Result<(),
     persistence::write_json(&app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"), &value)
 }
 
+#[tauri::command]
+fn retain_rejected_storage(app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    let path = match kind.as_str() {
+        "preferences" => app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"),
+        "workspace" => app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"),
+        _ => return Err("Unknown storage kind".into()),
+    };
+    persistence::retain_rejected(&path)
+}
+
 // Create a new document
 #[tauri::command]
 async fn create_document() -> Result<Document, String> {
@@ -215,6 +225,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            retain_rejected_storage,
             load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
             create_document,

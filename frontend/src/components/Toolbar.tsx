@@ -52,7 +52,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
   const handleSave = async () => {
     try {
       if (currentDocument?.path) {
-        await saveDocument()
+        await saveDocument(currentDocument.id)
       } else {
         await handleSaveAs()
       }

@@ -79,7 +79,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     try {
       if (currentDocument?.path) {
         console.log('[MENU] Saving document to:', currentDocument.path)
-        await saveDocument()
+        await saveDocument(currentDocument.id)
         console.log('[MENU] Document saved successfully')
       } else {
         console.log('[MENU] No path available, using Save As')
