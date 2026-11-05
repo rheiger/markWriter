@@ -1,33 +1,25 @@
-# 🚀 MarkWriter Quick Status - August 27, 2025
+# MarkWriter status — 5 November 2026
 
-## ✅ **What's Working NOW**
-- **UI**: Full application visible with menu bar, toolbar, and tabs
-- **Markdown Mode**: CodeMirror editor working (wraps long lines); selection and editing stable
-- **Preview**: HTML rendering working; Mermaid renders on initial load and after first switch
-- **Layout**: Split view defaults to 50/50 and divider is draggable (20–80%)
-- **WYSIWYG**: Tiptap integrated; toolbar actions (bold/italic/headings/lists/HR/blockquote/code block/underline) working; content syncs with Markdown; mode switches stable for editing
+Version: 2.0.0-alpha.1. Branch: codex/editor-stabilization.
 
-## 🔴 **What's BROKEN / Gaps**
-- **Mermaid**: After second switch back to Markdown (no edits), Mermaid blocks disappear from raw/preview (see Issue #28)
-- **Tables**: WYSIWYG insertion → Markdown round-trip requires verification; gridlines polish in WYSIWYG
-- **Scroll Sync**: Basic ratio sync ok; selection highlight missing
+The first stabilization increment is implemented. This remains an alpha; full native workflow and cross-platform acceptance are outstanding.
 
-## 🎯 **Next Session Priorities**
-1. **Mermaid stability** - re-hydrate and persist blocks across repeated tab switches; prevent late overwrites
-2. **WYSIWYG Table Fidelity** - ensure GFM round-trip; improve gridlines and area highlight
-3. **Scroll Sync 2.0** - anchor-based sync + selection highlight
+## Verified
+- Real-editor tests preserve original Markdown over five unedited mode cycles.
+- WYSIWYG edits retain Mermaid source, table inline formatting/escaped pipes, task state and images in covered fixtures.
+- Editors and undo histories are scoped to the current document.
+- Save/Save As completion retains newer edits and does not replace a different current document.
+- Preview and HTML export share the Markdown parser; exported Mermaid diagrams use inline SVG.
+- Rust production-command tests save, reopen, copy and export files in temporary directories.
+- Browser UI input verifies repeated switching and editing with actual diagram SVG.
+- macOS debug bundle builds and launches.
 
-## 📁 **Key Files to Check**
-- `frontend/src/components/EditorView.tsx` - Markdown/Preview/WYSIWYG glue
-- `frontend/src/components/MermaidRenderer.tsx` - Reference for WYSIWYG NodeView
-- `frontend/src/App.tsx` - one-time init
-- Browser console - warnings about flushSync and duplicate extensions
+## Open acceptance and tooling work
+- Complete native Open/Save/Save As/Export/close-prompt journey. CUA timed out while automating the Open dialog; this is not proof of an application deadlock.
+- Run Windows and Linux builds and user workflows.
+- Establish v2 CI. Existing GitHub workflow still packages the legacy Python application.
+- Restore ESLint configuration (currently absent).
+- Expand fidelity corpus: advanced table alignment/merged cells, mixed/nested lists, large documents and unsupported Markdown extensions.
+- Qualify release builds, signing and packaging separately.
 
-## 🚫 **Don't Waste Time On**
-- CSP string configurations (already tried)
-- Dialog plugin configs (already tried)
-- Current WYSIWYG implementation (needs complete rewrite)
-
----
-**Status**: UI Working; Markdown+Preview/WYSIWYG stable for editing; Mermaid has a repeat-switch regression
-**Next**: Fix Mermaid persistence across switches; table round-trip; scroll highlight (see Issue #28)
+See [stabilization report](docs/stabilization-2026-11-05.md) for behavior, checks and limitations. Older completion claims in README-v2.md, CURRENT_STATUS.md and AGENTS.md are historical.

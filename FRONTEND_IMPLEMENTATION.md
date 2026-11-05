@@ -1,3 +1,5 @@
+> **Current status (5 November 2026):** This document contains historical descriptions. See [QUICK_STATUS.md](QUICK_STATUS.md) and the [stabilization report](docs/stabilization-2026-11-05.md) for current implementation and verification limits.
+
 # 🔄 React Frontend Implementation - IN PROGRESS
 
 ## Summary

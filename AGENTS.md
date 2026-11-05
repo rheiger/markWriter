@@ -1,3 +1,5 @@
+> **5 November 2026 update:** The v2 stabilization increment uses canonical Markdown, shared conversion in `frontend/src/lib/markdown.ts`, inline-SVG HTML export, and document-scoped editor/undo lifecycles. The Mermaid round-trip bugs below are historical for covered fixtures. See `QUICK_STATUS.md` and `docs/stabilization-2026-11-05.md`. Native dialog acceptance, Windows/Linux qualification, v2 CI and lint setup remain open. Do not infer release readiness from older completion claims.
+
 # AI Agent Guidelines for MarkWriter Project
 
 **Version**: 1.3

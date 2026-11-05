@@ -1,3 +1,12 @@
+## Unreleased — 2026-11-05 stabilization
+
+- Preserve original Markdown on unedited mode switches; retain Mermaid, table formatting, task states and images in covered WYSIWYG workflows.
+- Isolate editor undo histories by document and cancel stale diagram renders.
+- Use shared Markdown parsing and inline Mermaid SVG for HTML export.
+- Preserve newer edits during save completion; protect unsaved content and replace files after complete temporary writes.
+- Restore real-editor and production-command regression coverage; version dependency lockfiles.
+- See docs/stabilization-2026-11-05.md for acceptance boundaries. Still alpha; no release qualification.
+
 # Changelog
 
 All notable changes to MarkWrite will be documented in this file.
