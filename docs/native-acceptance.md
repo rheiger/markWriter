@@ -2,7 +2,7 @@
 
 The v2 CI runs `tools/native-acceptance.mjs` on Windows and Linux using real WebView2/WebKitGTK, real editor engines, real store actions and real Tauri file commands. No backend commands are mocked. OS path dialogs are bypassed using explicit temporary fixture paths; this does not establish OS dialog acceptance. macOS file/dialog/quit workflows were exercised separately through the native app.
 
-The test checks five unchanged mode cycles, byte-identical Save As, a WYSIWYG edit, three edited cycles, Save/reopen, export with three Mermaid SVGs/table/tasks, and Markdown table insertion becoming an editable WYSIWYG table. Failures retain page HTML, a screenshot when available, and driver logs as CI artifacts for seven days. Only generated fixture data is captured.
+The test checks the About dialog version, toolbar mode-switch operation, five unchanged mode cycles, byte-identical Save As, a WYSIWYG edit, three edited cycles, Save/reopen, export with three Mermaid SVGs/table/tasks, and Markdown table insertion becoming an editable WYSIWYG table. Failures retain page HTML, a screenshot when available, and driver logs as CI artifacts for seven days. Only generated fixture data is captured.
 
 ## Isolation
 
@@ -35,3 +35,5 @@ Optional environment variables select an explicit driver/application: `MARKWRITE
 [Tauri manual WebDriver setup](https://v2.tauri.app/develop/tests/webdriver/manual-setup/) supports Windows/Linux. [Microsoft driver compatibility](https://learn.microsoft.com/en-us/microsoft-edge/webdriver/#download-microsoft-edge-webdriver) requires matching the first three components. The small Node client follows the [W3C WebDriver script endpoints](https://www.w3.org/TR/webdriver2/#executing-script). [Vite modes](https://vite.dev/guide/env-and-mode) provide build-time isolation.
 
 The alternative embedded WDIO driver currently requires Tauri >=2.10; this project locks 2.8.4. The external driver keeps test tooling separate from the application dependency graph. This compatibility choice is now verified: [CI 42092300007](https://github.com/rheiger/markWriter/actions/runs/42092300007) passed all seven application cases on Windows and Linux at code commit 4c18dda. macOS native tests/build passed in that run; macOS interactive acceptance is recorded in the stabilization report.
+
+UI follow-up: [CI 42121100607](https://github.com/rheiger/markWriter/actions/runs/42121100607) passed at ba99ae9, with eight application cases each on Windows/Linux, including About version and the relocated toolbar mode switch. macOS native tests/build and direct UI control verification passed as well.

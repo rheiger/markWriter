@@ -61,3 +61,16 @@ Settings, plugins, Draw.io and multi-window development are deferred. The named 
 The first application run 42090781282 stopped on Ubuntu 26's renamed WebDriver package and Windows elevated-host session creation. The current workflow selects the correct package and runs the Windows test process tree at Medium integrity, following the [verified upstream fix](https://github.com/webdriverio/desktop-mobile/pull/637). The portable helper is checksum-pinned; workspace Modify access is limited to the existing runner identity. No framework upgrade, production server/plugin or relaxed application capability was introduced. See [native acceptance](native-acceptance.md) for reproduction and isolation details.
 
 The regression suite retains 37 passing frontend tests; clean installation, lint, production/acceptance builds, isolation check and zero-advisory npm audit all pass in CI. The original native and conversion baselines are preserved in Git, while pre-existing sample edits/untracked test results remain untouched. Subsequent closeout changes update documentation only.
+
+## Follow-up: editor controls
+
+User-requested control polish is implemented in `ba99ae9`:
+- Removed floating Markdown/WYSIWYG buttons from the document area. Toolbar switch and View-menu choices use a shared, fidelity-preserving editor transition. New requests cancel pending mode changes.
+- Git history (`a67d9ce`) identifies “66” as an unimplemented Font Size display. It now selects 10–32px display text size, shared with toolbar/menu/keyboard zoom and Actual Size. Both editors and preview respond; document formatting/content is unchanged.
+- Help → About opens an HTML modal showing the native app version, with bundled version metadata as fallback. Close/Escape restore focus to Help; Tab stays on the dialog's Close control.
+- Footer remains in place. The current macOS bundle was rebuilt and the original clean document reopened without writing it. Native checks verified mode controls, text-size selection/reset, About 2.0.0-alpha.1 and Escape.
+- 41 local tests, lint, production/acceptance builds and acceptance-bridge isolation pass. Browser checks confirm source fidelity, correct font metrics, zoom synchronization, dialog focus/keyboard behavior and no console warnings/errors. Supported desktop widths 800/1024/1440 show no horizontal overflow and keep the footer visible.
+
+CI [42121100607](https://github.com/rheiger/markWriter/actions/runs/42121100607) passed at code commit `ba99ae9`: frontend and all three native tests/builds, plus eight actual application cases each on Windows/Linux. Both result artifacts were downloaded and checked. The native suite now adds an About-version case and operates the toolbar switch.
+
+Implementation references: [Tauri app version](https://v2.tauri.app/reference/javascript/api/namespaceapp/#getversion), [HTML dialog semantics](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog).

@@ -1,18 +1,9 @@
-# Dependable editor stabilization — acceptance complete
+# Editor control polish — 5 November 2026
 
-Goal: dependable Markdown editing, preview, Mermaid, tables, WYSIWYG, file operations and HTML export.
+Requested: remove floating mode buttons; provide toolbar switch/View menu actions; implement former “66” control; show current version in About. Preserve footer and fidelity.
 
-## Acceptance evidence
-- Unedited cycles preserve original bytes; real editor/conversion tests cover supported WYSIWYG semantics.
-- Repeated edited cycles, Save As/Save/reopen and inline-SVG HTML export retain fixture content.
-- 37 frontend tests, lint/build, clean install and zero npm advisories pass.
-- 12 library/2 production-command Rust tests and production native builds pass on macOS/Windows/Linux.
-- Actual macOS native dialogs/editing/file/export/unsaved-change acceptance passes; current production bundle rebuilt and reopened.
-- CI 42092300007 at code commit 4c18dda passed all jobs, including seven actual native WebView/store/IPC/file workflow cases each on Windows/Linux. Downloaded result artifacts confirm passes.
-- Production assets exclude the acceptance bridge; only explicit acceptance builds include it. OS path dialogs are bypassed only in Windows/Linux automated tests.
-
-## Closeout
-Record final evidence, commit/push documentation-only closeout, verify preserved user sample state, then mark the named core-editor goal complete. No required implementation/qualification remains within this acceptance scope.
-
-## Boundaries and future work
-No release/merge. Isolated codex/editor-stabilization branch is pushed. Existing sample edits/untracked Testresults are preserved. Signing/packaging, Windows/Linux OS dialogs, arbitrary Markdown extensions, merged cells and image-path resolution are separate qualification work. Settings/plugins/Draw.io/multi-window remain deferred.
+- Source/history confirms “66” is a static Font Size placeholder (a67d9ce).
+- Implemented shared editor ref mode transition, App-shared actual mode, toolbar switch and View choices; floating controls removed.
+- Implemented display text-size selector (10–32px) sharing config with zoom/menu/keyboard and applying to both editors/preview. About uses native version with bundled-version fallback and native HTML modal semantics.
+- Three new real-App tests, a rapid-transition regression and existing real-engine tests pass (41 total), lint/build pass. Browser checks confirm repeated source fidelity, font/zoom synchronization, modal Tab/Escape/focus and no console issues. Layout passes at supported desktop widths 800/1024/1440 with footer visible and no horizontal overflow.
+- Committed/pushed ba99ae9. Current macOS bundle rebuilt; original clean document reopened; toolbar/menu modes, 18px selection/reset, About version and Escape verified natively. CI 42121100607 passed frontend and all three native jobs at ba99ae9; eight actual application cases each pass on Windows/Linux, including About version and the toolbar switch. Both result artifacts inspected. All requested behavior is implemented and verified; documentation closeout only. Preserve all pre-existing sample edits/evidence. No merge/release or new broad goal.

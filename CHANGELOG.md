@@ -1,5 +1,9 @@
 ## Unreleased — 2026-11-05 stabilization
 
+- Move editor mode switching from floating document buttons into a toolbar switch and View-menu choices.
+- Replace the static “66” font-size placeholder with a display text-size selector synchronized with zoom controls.
+- Show the application version in an accessible About dialog with Close/Escape and focus restoration.
+
 - Preserve original Markdown on unedited mode switches; retain Mermaid, table formatting, task states and images in covered WYSIWYG workflows.
 - Isolate editor undo histories by document and cancel stale diagram renders.
 - Use shared Markdown parsing and inline Mermaid SVG for HTML export.
