@@ -1,5 +1,5 @@
 import { EditorState, StateField, type Extension } from '@codemirror/state'
-import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect } from '@codemirror/language'
+import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect, foldEffect } from '@codemirror/language'
 import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 
 const cache = new WeakMap<EditorState, { from: number, to: number, kind: string }[]>()
@@ -72,4 +72,26 @@ export function embeddedSourceFolds(): Extension {
     }),
     EditorView.theme({ '.cm-line': { overflowWrap: 'anywhere' }, '.cm-foldGutter button': { border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' } }),
   ]
+}
+
+// Keep each block's presentation choice when WYSIWYG changes require source synchronization.
+export function synchronizeSource(view: EditorView, text: string, anchor: number, collapseDefault: boolean) {
+  if (view.state.doc.toString() === text) return
+  const key = (state: EditorState, range: { from: number, to: number, kind: string }, index: number) => {
+    const body = state.sliceDoc(range.from, range.to)
+    let hash = 2166136261
+    for (let i = 0; i < body.length; i++) hash = Math.imul(hash ^ body.charCodeAt(i), 16777619)
+    return `${range.kind}:${index}:${body.length}:${hash}`
+  }
+  const choices = new Map<string, boolean>()
+  const folded = foldedRanges(view.state)
+  findEmbeddedSource(view.state).forEach((range, index) => {
+    let collapsed = false
+    folded.between(range.from, range.to, () => { collapsed = true })
+    choices.set(key(view.state, range, index), collapsed)
+  })
+  view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor } })
+  const effects = findEmbeddedSource(view.state).flatMap((range, index) =>
+    (choices.get(key(view.state, range, index)) ?? collapseDefault) && (anchor <= range.from || anchor >= range.to) ? [foldEffect.of(range)] : [])
+  if (effects.length) view.dispatch({ effects })
 }

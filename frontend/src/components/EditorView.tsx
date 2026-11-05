@@ -2,7 +2,7 @@ import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'rea
 import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror/view'
 import { Compartment, EditorState } from '@codemirror/state'
 import { foldEffect, unfoldAll } from '@codemirror/language'
-import { embeddedSourceFolds, findEmbeddedSource } from '../lib/sourceFolds'
+import { embeddedSourceFolds, findEmbeddedSource, synchronizeSource } from '../lib/sourceFolds'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
@@ -271,7 +271,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       isSwitchingModeRef.current = true
       const text = source()
       const anchor = Math.min(lastMarkdownAnchorRef.current || view.state.selection.main.anchor, text.length)
-      if (view.state.doc.toString() !== text) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor } })
+      synchronizeSource(view, text, anchor, config.collapseSource)
       lastMarkdownAnchorRef.current = anchor
       updatePreview(text)
       queueMicrotask(() => { isSwitchingModeRef.current = false })
@@ -771,17 +771,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         isSwitchingModeRef.current = true
         const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
         const newLen = (currentDocument.content || '').length
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: currentDocument.content || '' },
-          selection: { anchor: Math.min(prevAnchor, newLen) }
-        })
+        synchronizeSource(view, currentDocument.content || '', Math.min(prevAnchor, newLen), config.collapseSource)
         view.focus()
         lastMarkdownAnchorRef.current = Math.min(prevAnchor, newLen)
         updatePreview(currentDocument.content || '')
         queueMicrotask(() => { isSwitchingModeRef.current = false })
       }
     }
-  }, [active, editorMode, currentDocument, updatePreview])
+  }, [active, editorMode, currentDocument, updatePreview, config.collapseSource])
 
   useEffect(() => () => {
     editorViewRef.current?.destroy()

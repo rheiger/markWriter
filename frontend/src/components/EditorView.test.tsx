@@ -1,5 +1,5 @@
 import { foldedRanges } from '@codemirror/language'
-import { SearchQuery, setSearchQuery, findNext } from '@codemirror/search'
+import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -120,6 +120,16 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getEditorView()!.state.doc.toString()).toBe('# Second document')
   })
 
+  it('retains fold choices across a WYSIWYG edit and re-synchronization', async () => {
+    const { ref, editor } = await mount(fixture)
+    await markdown(ref)
+    expect(foldedRanges(ref.current!.getEditorView()!.state).size).toBe(1)
+    await wysiwyg(ref)
+    act(() => editor.commands.insertContentAt(1, 'Edited '))
+    await markdown(ref)
+    expect(foldedRanges(ref.current!.getEditorView()!.state).size).toBe(1)
+  })
+
   it('copies complete folded source and expands a search match without dirtying text', async () => {
     const { ref } = await mount(fixture)
     await markdown(ref)
@@ -127,6 +137,7 @@ describe('document fidelity with real editors', () => {
     expect(foldedRanges(view.state).size).toBe(1)
     act(() => ref.current!.selectAll())
     expect(ref.current!.getSelection()).toBe(fixture)
+    act(() => { openSearchPanel(view) })
     act(() => view.dispatch({ selection: { anchor: 0 }, effects: setSearchQuery.of(new SearchQuery({ search: 'finish' })) }))
     act(() => { findNext(view) })
     expect(foldedRanges(view.state).size).toBe(0)
