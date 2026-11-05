@@ -86,10 +86,10 @@ async function click(xpath) {
 async function mode(name) {
   const markdown = await run(`return document.querySelector('button[role="switch"]').getAttribute('aria-checked') === 'true'`)
   if (markdown !== (name === 'Markdown')) await click('//button[@role="switch" and @aria-label="Markdown mode"]')
-  await waitFor(() => run(`const e=document.querySelector(arguments[0]); const checked=document.querySelector('button[role="switch"]').getAttribute('aria-checked')==='true'; return !!e && e.getBoundingClientRect().height>0 && checked===arguments[1]`, name === 'Markdown' ? '.cm-content' : '.tiptap', name === 'Markdown'), `${name} editor`)
+  await waitFor(() => run(`const e=document.querySelector(arguments[0]); const checked=document.querySelector('button[role="switch"]').getAttribute('aria-checked')==='true'; return !!e && e.getBoundingClientRect().height>0 && checked===arguments[1]`, name === 'Markdown' ? '[data-active=true] .cm-content' : '[data-active=true] .tiptap', name === 'Markdown'), `${name} editor`)
 }
 async function preview() {
-  await waitFor(() => run('return document.querySelectorAll(".markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
 }
 
 try {
@@ -118,7 +118,7 @@ try {
   console.log('Unchanged cycles and byte-identical Save As passed; editing WYSIWYG')
 
   // Edit through the actual contenteditable DOM; store and conversion run normally.
-  assert.equal(await run('const p=[...document.querySelectorAll(".tiptap p")].find(e=>e.textContent==="A paragraph."); const range=document.createRange(); range.setStart(p,0); range.collapse(true); const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range); p.parentElement.focus(); return document.execCommand("insertText", false, "Edited ");'), true)
+  assert.equal(await run('const p=[...document.querySelectorAll("[data-active=true] .tiptap p")].find(e=>e.textContent==="A paragraph."); const range=document.createRange(); range.setStart(p,0); range.collapse(true); const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range); p.parentElement.focus(); return document.execCommand("insertText", false, "Edited ");'), true)
   await waitFor(async () => (await snapshot()).document.content.includes('Edited A paragraph.'), 'WYSIWYG edit serialization')
   const edited = (await snapshot()).document.content
   assert.ok(edited.includes('a \\| b'))
@@ -127,6 +127,7 @@ try {
   assert.equal((await snapshot()).document.content, edited)
   await action('save')
   assert.equal(await readFile(savedPath, 'utf8'), edited)
+  await action('close', (await snapshot()).document.id)
   assert.equal((await action('open', savedPath)).document.content, edited)
   await action('exportHtml', htmlPath)
   const html = await readFile(htmlPath, 'utf8')
@@ -140,10 +141,71 @@ try {
   await click('//button[@title="Insert Table"]')
   await click('//button[@title="2 x 3 table"]')
   await mode('WYSIWYG')
-  await waitFor(() => run('return document.querySelectorAll(".tiptap table tr").length === 3'), 'inserted table rows')
-  assert.equal(await run('return document.querySelectorAll(".tiptap th,.tiptap td").length'), 6)
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .tiptap table tr").length === 3'), 'inserted table rows')
+  assert.equal(await run('return document.querySelectorAll("[data-active=true] .tiptap th,[data-active=true] .tiptap td").length'), 6)
   await action('saveAs', join(fixtureDir, 'inserted-table.md'))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion'] }, null, 2))
+  const tableId = (await snapshot()).document.id
+  const countBefore = (await snapshot()).documents.length
+  await action('open', savedPath)
+  assert.equal((await snapshot()).documents.length, countBefore, 'duplicate-path activation')
+  await action('activate', tableId)
+  // Keyboard-accessible contextual UI operating the real Tiptap selection.
+  await click('(//*[@data-active="true"]//td)[1]')
+  await click('//button[normalize-space(.)="Add row below"]')
+  assert.equal(await run('return document.querySelectorAll("[data-active=true] .tiptap tr").length'), 4)
+  await click('//button[normalize-space(.)="Move column left"]')
+  assert.equal(await run('return document.querySelectorAll("[data-active=true] .tiptap th").length'), 3)
+  await action('saveAll')
+  // Settings Apply uses actual production config IPC and is checked again after a process restart.
+  await click('//button[normalize-space(.)="File"]')
+  await click('//button[normalize-space(.)="Settings…"]')
+  await run('const select=[...document.querySelectorAll("dialog label")].find(e=>e.textContent.startsWith("Source text size")).querySelector("select"); select.value="18"; select.dispatchEvent(new Event("change",{bubbles:true}));')
+  await click('//dialog//button[normalize-space(.)="Apply"]')
+  await waitFor(async () => (await snapshot()).config.fontSize === 18, 'Settings Apply')
+  // Folds never change bytes or dirty state, and are operable through native controls.
+  await action('open', savedPath)
+  const beforeFold = (await snapshot()).document.content
+  await mode('Markdown')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .source-fold").length===3'), 'default Mermaid folds')
+  await click('(//*[@data-active="true"]//button[contains(@class,"source-fold")])[1]')
+  assert.equal((await snapshot()).document.content, beforeFold)
+  assert.equal((await snapshot()).document.isDirty, false)
+  await mode('WYSIWYG')
+  await action('create')
+  await click('//button[normalize-space(.)="Insert"]')
+  await click('//button[normalize-space(.)="Mermaid ERD"]')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] [data-type=mermaid] svg").length===1'), 'ERD WYSIWYG')
+  await mode('Markdown')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview svg").length===1'), 'ERD Preview')
+  const erdPath = join(fixtureDir, 'erd.html')
+  await action('exportHtml', erdPath)
+  const erd = await readFile(erdPath,'utf8')
+  assert.ok(erd.includes('<svg') && erd.includes('CUSTOMER') && !/<script\b/i.test(erd))
+  const recoveryText = (await snapshot()).document.content
+  const recoveryId = (await snapshot()).document.id
+  await action('flush')
+  // Delete/recreate the WebDriver session restarts the actual process and reloads native app data.
+  await request('DELETE', `/session/${session}`)
+  const restarted = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: binaryPath } } } })
+  session = restarted.sessionId
+  await request('POST', `/session/${session}/timeouts`, { script: 30000 })
+  await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
+  const restored = await snapshot()
+  assert.equal(restored.config.fontSize,18)
+  assert.ok(restored.documents.some(doc=>doc.id===recoveryId && doc.content===recoveryText && doc.isDirty),'unnamed draft recovery')
+  await action('activate', recoveryId)
+  // Close Cancel retains the draft; deliberate Discard removes it from the next recovery snapshot.
+  await run('void window.__MARKWRITER_ACCEPTANCE__.close(arguments[0]);', recoveryId)
+  await waitFor(() => run('return !!document.querySelector("dialog[open]")'), 'dirty close prompt')
+  await click('//dialog//button[normalize-space(.)="Cancel"]')
+  await waitFor(() => run('return !document.querySelector("dialog[open]")'), 'close cancelled')
+  assert.ok((await snapshot()).documents.some(doc=>doc.id===recoveryId))
+  await run('void window.__MARKWRITER_ACCEPTANCE__.close(arguments[0]);', recoveryId)
+  await waitFor(() => run('return !!document.querySelector("dialog[open]")'), 'discard prompt')
+  await click('//dialog//button[normalize-space(.)="Discard"]')
+  await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
+  assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {

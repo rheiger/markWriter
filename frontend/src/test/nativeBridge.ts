@@ -1,3 +1,4 @@
+import { flushWorkspace } from '../lib/persistence'
 import { useAppStore } from '../store/useAppStore'
 
 // Test-only access to the real store actions, including real Tauri IPC.
@@ -7,8 +8,12 @@ export function installNativeBridge() {
     value: {
       snapshot: () => {
         const state = useAppStore.getState()
-        return { document: state.currentDocument, error: state.error, loading: state.isLoading }
+        return { documents: state.documents, config: state.config, document: state.currentDocument, error: state.error, loading: state.isLoading }
       },
+      flush: () => flushWorkspace(),
+      activate: (id: string) => useAppStore.getState().activateDocument(id),
+      close: (id: string) => useAppStore.getState().closeDocument(id),
+      saveAll: () => useAppStore.getState().saveAll(),
       create: () => useAppStore.getState().createNewDocument(),
       open: (path: string) => useAppStore.getState().openDocument(path),
       save: () => useAppStore.getState().saveDocument(),
