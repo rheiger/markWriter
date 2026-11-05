@@ -48,6 +48,7 @@ src-tauri/icons/32x32.png
 
 # Keep only the source icon files
 !src-tauri/icons/icon.png
+!src-tauri/icons/icon.ico
 !src-tauri/icons/README.md
 
 # Environment files
