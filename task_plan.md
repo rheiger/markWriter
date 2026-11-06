@@ -10,7 +10,7 @@ Authority/scope: user attachment and docs/next-increment-2.1.0-alpha1-plan.md. O
 - 5 Content-aware scroll/caret/selection synchronization: complete
 - 6 Browser/native integration and final-source CI: complete (2895d1c / CI42145312950; both22-case artifacts inspected)
 - 7 Independently gated notation spikes after core: complete (all three actual runtimes attempted; independently deferred at documented gates)
-- 8 Review, issue reconciliation, review app and handoff: in_progress (review app/evidence complete; qualified issue closure and final handoff pending)
+- 8 Review, issue reconciliation, review app and handoff: complete (qualified core scopes closed; partial/deferred scopes retained; review app/evidence delivered)
 
 Version remains exactly 2.1.0-alpha1. Commit verified slices; push feature branch only. No merge/tag/release. Keep #10 umbrella open; #5/#29 backlog. Do not claim old evidence as new-feature acceptance.
 

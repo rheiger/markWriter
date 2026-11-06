@@ -1,50 +1,39 @@
-> **Current implementation qualification:** Source `2895d1c` / `2.1.0-alpha1` passed [CI42145312950](https://github.com/rheiger/markWriter/actions/runs/42145312950),93 frontend tests and both22-case native artifacts. Required core is complete; issue reconciliation/closure is in progress. Actual notation spikes are independently deferred; see [acceptance](editing-navigation-2.1.0-alpha1.md) and [spike report](notation-offline-spike-2026-11-06.md). The snapshot below preceded this implementation.
+# GitHub issue status — 6 November 2026
 
-# MarkWriter issue status — 6 November 2026
+Snapshot after implemented-core reconciliation: **15 open / 18 closed**. Source `2895d1c`, unreleased `2.1.0-alpha1`, feature branch `codex/editing-navigation-2.1`. [Final-source CI 42145312950](https://github.com/rheiger/markWriter/actions/runs/42145312950) passes 93 frontend tests, all three native builds/tests and 22 actual application cases each on Windows/Linux; both artifacts inspected. See [acceptance](editing-navigation-2.1.0-alpha1.md), [#28 disposition](editing-28-disposition-2026-11-06.md) and [notation spike](notation-offline-spike-2026-11-06.md).
 
-GitHub reconciliation snapshot: **19 open / 14 closed**. Statuses were read back after creating #30–#33. GitHub is authoritative for subsequent changes; this file is the planning decision surface, not a live tracker.
+## Reconciled this increment
 
-Target **2.1.0-alpha1** is unreleased. The version bump and [next-session plan](next-increment-2.1.0-alpha1-plan.md) prepare future work; core/stretch below are **planned, not implemented**. [Launch prompt](next-increment-2.1.0-alpha1-prompt.md).
+- #21 wrap continuation, #26 adaptive picker/active formatting, #28 remaining editing and #30 source/Preview correspondence closed as qualified feature-branch implementations.
+- #10 Find/Replace slice is complete; the menu umbrella remains open.
+- #31/#32/#33 were each attempted with actual runtimes after core acceptance and independently deferred at documented shipment gates. No product controls/dependencies were added for them.
+- #5 draw.io and #29 developer logs remain backlog. No merge, tag or release. Historical GitHub requirements/statuses were preserved under their updated implementation dispositions; old unchecked reports are not current failures.
 
-## Core for 2.1.0-alpha1
+## Open
 
-| Issue | Current disposition |
+| Issue | Remaining scope / disposition |
 | --- | --- |
-| [#10](https://github.com/rheiger/markWriter/issues/10) | Find/Replace slice; fullscreen/window and other menu scope stays open |
-| [#21](https://github.com/rheiger/markWriter/issues/21) | Soft-wrap continuation guide/indent/marker; default wrapping already works |
-| [#26](https://github.com/rheiger/markWriter/issues/26) | Adaptive 5×5 table picker; existing indicators and contextual management retained |
-| [#28](https://github.com/rheiger/markWriter/issues/28) | Remaining editing and acceptance; developer logs excluded |
-| [#30](https://github.com/rheiger/markWriter/issues/30) | Content-aware bidirectional scroll, caret and selection correspondence |
-
-## Stretch after core acceptance
-
-| Issue | Current disposition |
-| --- | --- |
-| [#31](https://github.com/rheiger/markWriter/issues/31) | PlantUML notation; concrete slice of UML umbrella #18 |
-| [#32](https://github.com/rheiger/markWriter/issues/32) | Graphviz/DOT notation; recommended first runtime/layout spike |
-| [#33](https://github.com/rheiger/markWriter/issues/33) | DBML schema visualization; actual parser plus a separate layout adapter |
-
-## Backlog / other remaining scope
-
-| Issue | Current disposition |
-| --- | --- |
-| [#3](https://github.com/rheiger/markWriter/issues/3) | Rewrite epic: advanced features, measured performance and release work remain |
-| [#4](https://github.com/rheiger/markWriter/issues/4) | Linux installation/distribution matrix and OS-dialog acceptance |
-| [#5](https://github.com/rheiger/markWriter/issues/5) | draw.io: explicitly backlog; prior offline boot/load spike is reference only |
-| [#6](https://github.com/rheiger/markWriter/issues/6) | Third-party plugin architecture |
-| [#7](https://github.com/rheiger/markWriter/issues/7) | Standalone JSON/XML editing modes |
-| [#8](https://github.com/rheiger/markWriter/issues/8) | Independent windows, cross-window ownership and remaining tab/window UI |
-| [#9](https://github.com/rheiger/markWriter/issues/9) | Broader preferences/import-export/shortcuts/original-file autosave; tabs/Settings/recovery slice delivered |
-| [#18](https://github.com/rheiger/markWriter/issues/18) | UML umbrella; #31 is the current concrete notation stretch |
-| [#19](https://github.com/rheiger/markWriter/issues/19) | Graphical diagram editors; textual notation visualization does not complete this |
-| [#22](https://github.com/rheiger/markWriter/issues/22) | Per-selection font/color formatting; display font preferences are not equivalent |
-| [#29](https://github.com/rheiger/markWriter/issues/29) | Developer console-log tool: explicitly backlog and not a #28 gate |
+| [#3](https://github.com/rheiger/markWriter/issues/3) | Rewrite umbrella; release/package acceptance remains distinct |
+| [#4](https://github.com/rheiger/markWriter/issues/4) | Native Linux works in qualified CI; OS dialogs/distribution remain separate |
+| [#5](https://github.com/rheiger/markWriter/issues/5) | draw.io backlog, excluded from this increment including stretch |
+| [#6](https://github.com/rheiger/markWriter/issues/6) | Plugin architecture backlog |
+| [#7](https://github.com/rheiger/markWriter/issues/7) | Standalone JSON/XML modes backlog |
+| [#8](https://github.com/rheiger/markWriter/issues/8) | Single-window tabs delivered; independent windows/cross-window ownership deferred |
+| [#9](https://github.com/rheiger/markWriter/issues/9) | Settings/recovery delivered; broader preference/import/export/shortcuts scope remains |
+| [#10](https://github.com/rheiger/markWriter/issues/10) | Find/Replace delivered and qualified; remaining menu/window/help umbrella stays open |
+| [#18](https://github.com/rheiger/markWriter/issues/18) | UML umbrella; concrete PlantUML runtime remains #31 |
+| [#19](https://github.com/rheiger/markWriter/issues/19) | Graphical designers remain separate from textual notation visualization |
+| [#22](https://github.com/rheiger/markWriter/issues/22) | Per-selection font/color formatting deferred; independent display fonts are separate |
+| [#29](https://github.com/rheiger/markWriter/issues/29) | Developer console-log tool backlog; excluded from #28 closure |
+| [#31](https://github.com/rheiger/markWriter/issues/31) | Actual PlantUML spike; self-contained runtime/process/native gates failed |
+| [#32](https://github.com/rheiger/markWriter/issues/32) | Actual DOT spike; sanitizer/worker CSP/native/editor gates unqualified |
+| [#33](https://github.com/rheiger/markWriter/issues/33) | Actual DBML parser+layout spike; schema adapter/layout/native gates unqualified |
 
 ## Closed
 
-Implementation closures record qualified feature-branch work, not a merge/release. Original issue requirements and historical reports were preserved. New closures from this reconciliation are #1, #17, #20, #23, #24, #25 and #27. #25 records fresh-start defaults plus deliberate session/duplicate-tab exceptions.
+Closures record qualified branch work, not release/distribution acceptance. The four closures in this increment are #21/#26/#28/#30; older closures remain unchanged.
 
-| Issue | Scope |
+| Issue | Original title |
 | --- | --- |
 | [#1](https://github.com/rheiger/markWriter/issues/1) | Enable Embedded Mermaid Diagram |
 | [#2](https://github.com/rheiger/markWriter/issues/2) | Avoid Internet Dependency |
@@ -56,13 +45,13 @@ Implementation closures record qualified feature-branch work, not a merge/releas
 | [#16](https://github.com/rheiger/markWriter/issues/16) | 🔧 CodeMirror 6 Migration: Replace Toast UI Editor |
 | [#17](https://github.com/rheiger/markWriter/issues/17) | 🔥 Fix Critical Toast UI Implementation Issues |
 | [#20](https://github.com/rheiger/markWriter/issues/20) | Collapsible rendering of embedded images and diagrams on the raw text view |
+| [#21](https://github.com/rheiger/markWriter/issues/21) | Long lines wrap in raw text view |
 | [#23](https://github.com/rheiger/markWriter/issues/23) | Support for underline style |
 | [#24](https://github.com/rheiger/markWriter/issues/24) | Linespacing in preview and WYSIWYG too big |
 | [#25](https://github.com/rheiger/markWriter/issues/25) | Startup and load behavior |
+| [#26](https://github.com/rheiger/markWriter/issues/26) | Visualize current cursor's position formatting on the respective toolbar control elements |
 | [#27](https://github.com/rheiger/markWriter/issues/27) | Improved table management |
+| [#28](https://github.com/rheiger/markWriter/issues/28) | Test results: Mermaid + Underline + Toolbar + Startup (umbrella) |
+| [#30](https://github.com/rheiger/markWriter/issues/30) | Synchronize Markdown and Preview scrolling, cursor and selections |
 
-## Evidence and closure rules
-
-Last feature-qualified source: `6c6eb56`, unreleased `2.0.0-alpha.2`, [CI 42132949169](https://github.com/rheiger/markWriter/actions/runs/42132949169). See [productivity acceptance](productivity-increment-2026-11-06.md) and [native limits](native-acceptance.md). The preparation branch adds no new editing/navigation/notation behavior.
-
-After implementation, update each issue with exact source/CI/native evidence. Close #21/#26/#30 only on full acceptance; reconcile all remaining editing items before closing #28; leave #10 open for its deferred menu scope. Each notation issue requires its own offline/native/persistence/export proof. Do not treat a parser, a browser spike, Mermaid substitution or version metadata as implementation acceptance. Keep #5/#29 backlog.
+Source maps/search/selection/scroll remain view state; canonical Markdown, captured document/revision I/O, recovery/history and independent-font contracts apply to future work. Each notation format needs its own native/offline/safety/persistence/export qualification. Older plans/prompts are completed scope records.

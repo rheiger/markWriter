@@ -162,6 +162,19 @@
       "folds": 1,
       "cues": 25,
       "errors": []
+    },
+    "expandedImage": {
+      "length": 1066804,
+      "clipboardExact": true,
+      "dirty": false,
+      "cues": 26,
+      "folds": 0,
+      "horizontal": false,
+      "selection": {
+        "anchor": 0,
+        "head": 1066804
+      },
+      "errors": []
     }
   }
 }
