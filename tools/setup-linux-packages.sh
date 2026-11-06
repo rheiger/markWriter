@@ -8,12 +8,14 @@ test "$ID" = ubuntu
 test "$VERSION_ID" = 26.04
 sudo python3 - <<'PY'
 from pathlib import Path
-paths=[Path('/etc/apt/sources.list'),*Path('/etc/apt/sources.list.d').glob('*.sources'),*Path('/etc/apt/sources.list.d').glob('*.list')]
+paths=[Path('/etc/apt/sources.list'),*Path('/etc/apt/sources.list.d').glob('*.sources'),*Path('/etc/apt/sources.list.d').glob('*.list'),*Path('/etc/apt').glob('*mirrors*.txt')]
 for path in paths:
- if not path.exists():continue
+ if not path.is_file():continue
  text=path.read_text()
  updated=text.replace('http://azure.archive.ubuntu.com/ubuntu','https://archive.ubuntu.com/ubuntu').replace('https://azure.archive.ubuntu.com/ubuntu','https://archive.ubuntu.com/ubuntu')
- if text!=updated:path.write_text(updated)
+ if text!=updated:
+  path.write_text(updated)
+  print(f'Replaced Azure archive URI in {path}')
 PY
 package_apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
 sudo apt-get "${package_apt_options[@]}" update
