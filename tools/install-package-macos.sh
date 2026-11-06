@@ -20,9 +20,13 @@ package_profile=$(mktemp -d /tmp/markwriter-profile.XXXXXX)
 MARKWRITER_PROFILE_DIR="$package_profile" sandbox-exec -p '(version 1)(allow default)(deny network-outbound)' "$package_binary" >package-acceptance-results/launch.log 2>&1 &
 package_pid=$!
 trap 'kill "$package_pid" >/dev/null 2>&1 || true' EXIT
-sleep 5
-kill -0 "$package_pid"
-grep -q "\[TAURI\] Creating new document" package-acceptance-results/launch.log
+package_started=false
+for package_start_attempt in {1..300}; do
+  if ! kill -0 "$package_pid" 2>/dev/null; then break; fi
+  if grep -q "\[TAURI\] Creating new document" package-acceptance-results/launch.log; then package_started=true; break; fi
+  sleep 0.1
+done
+if [[ "$package_started" != true ]]; then cat package-acceptance-results/launch.log; exit 1; fi
 python3 - "$package_install" "$package_profile" <<'PY'
 import json,sys,pathlib,platform
 assert '[TAURI] Creating new document' in pathlib.Path('package-acceptance-results/launch.log').read_text(), 'Ordinary frontend must invoke native document creation'

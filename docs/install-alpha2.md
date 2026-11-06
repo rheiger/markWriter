@@ -25,4 +25,4 @@ The profile contains document/recovery text; store and back it up as private use
 
 Close the app after saving needed files, preserve the current profile and install the previously verified package separately or restore its backed-up app. Restore a **copy** of the pre-upgrade profile when necessary; do not overwrite newer recovery evidence. Markdown/DOT fences remain textual and can be opened with another editor even when that editor cannot render DOT. The old Python package is a different editor with different supported semantics.
 
-Windows uninstall removes the current-user application through Installed Apps; Ubuntu uses `sudo apt remove markwriter`; macOS moves only the installed app to Trash. Preserve documents and profile/recovery data. No server, plugin, user-installed Graphviz/Java, renderer service or updater requires removal.
+Windows uninstall removes the current-user application through Installed Apps; Ubuntu uses `sudo apt remove mark-writer`; macOS moves only the installed app to Trash. Preserve documents and profile/recovery data. No server, plugin, user-installed Graphviz/Java, renderer service or updater requires removal.
