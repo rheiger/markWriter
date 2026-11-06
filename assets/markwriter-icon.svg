@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#468fe8"/>
+      <stop offset="1" stop-color="#234294"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Original MarkWriter blue/white M identity, redrawn as editable geometry. -->
+  <rect x="64" y="80" width="896" height="896" rx="204" fill="#172b61" opacity=".2"/>
+  <rect x="64" y="56" width="896" height="896" rx="204" fill="url(#blue)"/>
+  <rect x="66" y="58" width="892" height="892" rx="202" fill="none" stroke="url(#edge)" stroke-width="4"/>
+  <path d="M238 718V294h116l158 247 158-247h116v424H674V478L512 724 350 478v240z" fill="#ffffff"/>
+  <!-- A short writing line distinguishes the letter from a generic initial. -->
+  <rect x="350" y="776" width="324" height="34" rx="17" fill="#b5ddff"/>
+</svg>

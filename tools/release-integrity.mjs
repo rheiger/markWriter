@@ -9,6 +9,12 @@ export async function verifyReleaseAssets(directory, manifests, expected) {
  assert.match(expected.source,/^[0-9a-f]{40}$/,'Full source SHA required')
  for(const m of manifests){
   assert.equal(m.version,expected.version);assert.equal(m.source,expected.source);assert.equal(m.acceptance.passed,true)
+  assert.equal(m.iconInspection?.verified,true,'Installed native icon qualification required')
+  if(m.platform==='macos-arm64'){
+   assert.equal(m.signing?.status,'ad-hoc','Expected qualified ad-hoc signature')
+   assert.equal(m.signing.sealed,true,'Whole macOS bundle resource seal required')
+   assert.equal(m.signing.strictVerified,true,'Strict installed bundle verification required')
+  }
   const [architecture,extension]=targets[m.platform];assert.equal(m.architecture,architecture)
   assert.equal(m.asset.name,`MarkWriter-${expected.version}-${m.platform}.${extension}`)
   const data=await readFile(join(directory,m.asset.name));assert.equal(data.length,m.asset.size)

@@ -1,19 +1,17 @@
-# Icons Directory
+# MarkWriter desktop icons
 
-This directory contains the application icons for MarkWriter in various sizes and formats required by different platforms.
+The editable master is [`assets/markwriter-icon.svg`](../../assets/markwriter-icon.svg): a blue tile, white M and writing line. It preserves the project's original blue/white M identity without using a third-party mark. The legacy `assets/icon_1024.png` and `MarkWrite.iconset` are historical artwork and are not packaged.
 
-## Required Icons
+The tracked desktop output is generated using the project's pinned Tauri CLI 2.8.3:
 
-- `32x32.png` - Small icon for taskbar/dock
-- `128x128.png` - Medium icon for applications folder  
-- `128x128@2x.png` - High-DPI medium icon
-- `icon.icns` - macOS application icon bundle
-- `icon.ico` - Windows application icon
+```sh
+node frontend/node_modules/@tauri-apps/cli/tauri.js icon assets/markwriter-icon.svg --output /tmp/markwriter-icons
+```
 
-## Placeholder Icons
+Copy only `32x32.png`, `64x64.png`, `128x128.png`, `128x128@2x.png`, `icon.png`, `icon.icns`, and `icon.ico` from that temporary output into this directory. Mobile/Store output is outside the current desktop targets.
 
-Currently using placeholder icons. These should be replaced with proper MarkWriter branding in the future.
+PNG files are square 8-bit RGBA at 32/64/128/256/512px. The ICO includes 32px first, then 16/24/48/64/256px; the ICNS includes macOS 1x/2x layers through 1024px. `bundle.icon` explicitly includes all seven files, so Tauri also uses the same identity for native windows.
 
-## Windows build resource
+`node --test tools/icon-integrity.test.mjs` verifies configured formats, dimensions and layer completeness. Production package collection additionally checks the installed macOS resource and valid bundle seal, Linux desktop-entry/installed icon bytes, and the Windows executable's native associated icon.
 
-`icon.ico` is tracked because tauri-build requires it even for Windows tests. It is generated from the existing `icon.png` using the pinned Tauri CLI. Generate to a temporary directory and copy only the ICO to preserve the source PNG.
+References: [Tauri app icons](https://v2.tauri.app/develop/icons/), [ad-hoc signing](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing). Ad-hoc signing seals the bundle; it does not establish an Apple Developer identity or notarization.
