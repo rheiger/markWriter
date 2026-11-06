@@ -109,5 +109,24 @@
     "sourceSha256": "2c6943474c701ac9f94c4ebd9e86fd2fd2d2504dd5deccf76033ef2ff00da0e5",
     "chars": 287,
     "consoleWarningsErrors": []
+  },
+  "keyboardBoundaryFollowup": {
+    "applicationSource": "9bfd2c1f4222e9fc7157a84097e7adc435a941c9",
+    "surface": "fresh built-in browser tab, current development app; SDKmock creation only",
+    "EOFGraphviz": {
+      "realRenderedKeyboardEdit": true,
+      "graphChart": "digraph {a -> b}\n",
+      "newParagraphOutsideGraph": true,
+      "canonicalCharacters": 65
+    },
+    "bareCRDot": {
+      "realRenderedKeyboardEdit": true,
+      "graphChart": "digraph {a -> b}\n",
+      "followingAfterParagraphCount": 1,
+      "newParagraphOutsideGraph": true,
+      "canonicalCharacters": 53
+    },
+    "unexpectedConsoleWarningsAndErrors": 0,
+    "HMRNote": "Earlier open dev tab recorded Vite HMR reconnect/reload errors during checkout of merged main; a fresh tab repeated both accepted editing flows with no warnings/errors. Production/browser and native evidence remain separate."
   }
 }

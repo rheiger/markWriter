@@ -1,6 +1,6 @@
-> **Alpha2 implementation in progress (6 November 2026):** `codex/offline-dot-alpha2` implements bounded offline DOT and production Tauri packaging. [Qualification](docs/offline-dot-alpha2-acceptance.md), [DOT subset](docs/supported-markdown.md), [installation](docs/install-alpha2.md). Required native/installed/final-byte gates remain open; no alpha2 merge/tag/release is claimed. Earlier entries below are historical.
+> **Current Rust/Tauri release (6 November 2026):** [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) is published as an experimental prerelease/latest=false from `9bfd2c1f4222e9fc7157a84097e7adc435a941c9` via PR #36. Offline DOT and ordinary installed macOS arm64 DMG, Windows x64 NSIS and Ubuntu 26.04x64 DEB are qualified. Read [status](QUICK_STATUS.md), [acceptance/signing limits](docs/offline-dot-alpha2-acceptance.md), [installation](docs/install-alpha2.md) and [issue disposition](docs/issue-status-2026-11-06.md). macOS is linker-ad-hoc/unsealed; Windows unsigned. Historical releases remain unchanged.
 
-> **Current implementation (6 November 2026):** Unreleased `2.1.0-alpha1` on `codex/editing-navigation-2.1` adds Find/Replace, wrap cues, adaptive tables, editing fixes and content-aware source/Preview navigation. See [status](QUICK_STATUS.md), [acceptance](docs/editing-navigation-2.1.0-alpha1.md), [Markdown guide](docs/supported-markdown.md) and [issue index](docs/issue-status-2026-11-06.md). Older architecture/status prose below is historical; no merge/release is implied.
+> The architecture/status notes below are historical; current editors are CodeMirror 6 and Tiptap.
 
 # MarkWriter v2.0 Development Branch
 
