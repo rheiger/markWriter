@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderMappedMarkdown } from './markdown'
+import { renderMappedMarkdown, renderMarkdownHtml } from './markdown'
 import { renderedOffset, sourceOffset } from './sourceMap'
 
 describe('parser source sidecar', () => {
@@ -8,6 +8,9 @@ describe('parser source sidecar', () => {
     const map = renderMappedMarkdown(source, { documentId: 'A', revision: 1, generation: 2 })
     const doc = new DOMParser().parseFromString(map.html, 'text/html')
     expect(doc.body.textContent).toContain('Same Same Same & * 😀é')
+    expect(doc.querySelector('a')?.getAttribute('href')).toBeNull()
+    expect(doc.querySelector('a')?.getAttribute('title')).toBe('https://same')
+    expect(renderMarkdownHtml(source)).toContain('href="https://same"')
     for (const segment of map.segments) for (let i = 0; i < segment.text.length; i++) {
       expect(source.slice(segment.starts[i], segment.ends[i])).not.toBe('')
       expect(sourceOffset(segment, i, 1)).toBe(segment.starts[i])

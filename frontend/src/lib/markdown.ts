@@ -32,6 +32,14 @@ export function renderMarkdownHtml(source: string): string {
 // Mapping is opt-in and never used by export or the editable document codec.
 const mappedRenderer = new MarkdownIt().renderer
 Object.assign(mappedRenderer.rules, markdown.renderer.rules)
+// Preview interaction navigates source. An active href reserves native drags for URLs
+// even with draggable=false; retain the destination as a tooltip, with selectable labels.
+mappedRenderer.rules.link_open = (tokens, index, options, _env, renderer) => {
+  const token = tokens[index], destination = token.attrGet('href')
+  if (destination) token.attrSet('title', token.attrGet('title') ? `${token.attrGet('title')} (${destination})` : destination)
+  token.attrs = token.attrs?.filter(([name]) => name !== 'href') ?? null
+  return renderer.renderToken(tokens, index, options)
+}
 for (const type of ['text', 'code_inline']) {
   const original = markdown.renderer.rules[type]
   mappedRenderer.rules[type] = (tokens, index, options, env, renderer) => {
