@@ -41,3 +41,10 @@ describe('DOT SVG trust boundary', () => {
     for (const raw of ['<svg><g></svg>', '<html/>', '<!DOCTYPE svg [<!ENTITY x "x">]><svg>&x;</svg>', wrap('x'.repeat(DOT_LIMITS.outputBytes)), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1e99 10"/>']) expect(() => sanitizeDotSvg(raw)).toThrow()
   })
 })
+
+it('accepts only the known approximate Unicode metric warning, retaining all other renderer errors', async () => {
+  const { checkedDotErrors }=await import('./dotSafety')
+  expect(checkedDotErrors([{level:'warning',message:'Warning: no value for width of non-ASCII character 195. Falling back to width of space character'}])).toEqual([])
+  expect(checkedDotErrors([{level:'warning',message:'Warning: unsupported style url(https://bad)'}])).toHaveLength(1)
+  expect(checkedDotErrors([{level:'error',message:'Warning: no value for width of non-ASCII character 195. Falling back to width of space character'}])).toHaveLength(1)
+})

@@ -91,3 +91,9 @@ export function sanitizeDotSvg(raw: string): string {
   copy(parsed.documentElement, output.documentElement, 0)
   return new XMLSerializer().serializeToString(output)
 }
+
+// The embedded font metrics approximate UTF-8 labels. This known non-resource
+// diagnostic is permitted; all other warnings/errors become recoverable errors.
+export function checkedDotErrors<T extends { level?: string; message: string }>(errors: readonly T[]): T[] {
+  return errors.filter(error => error.level !== 'warning' || !/^Warning: no value for width of non-ASCII character \d{1,3}\. Falling back to width of space character$/.test(error.message))
+}

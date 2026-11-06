@@ -1,6 +1,6 @@
 import { it, expect } from 'vitest'
 import { instance, graphvizVersion } from '@viz-js/viz'
-import { sanitizeDotSvg, validateDot } from './dotSafety'
+import { sanitizeDotSvg, validateDot, checkedDotErrors } from './dotSafety'
 
 it('sanitizes real pinned Graphviz SVG while retaining labels, arrows and whitespace', async () => {
   const source = 'digraph { rankdir=LR; a [label=" a ",shape=box]; a -> b [label="Grüße 漢"] }'
@@ -9,10 +9,19 @@ it('sanitizes real pinned Graphviz SVG while retaining labels, arrows and whites
   expect(graphvizVersion).toBe('16.1.0')
   const result = viz.render(source,{format:'svg',engine:'dot'})
   expect(result.status).toBe('success')
+  expect(checkedDotErrors(result.errors)).toEqual([])
   if (result.status !== 'success') throw new Error('Real Graphviz failed')
   const clean = sanitizeDotSvg(result.output)
   expect(clean).toContain('<path'); expect(clean).toContain('<polygon')
   expect(clean).toContain(' a '); expect(clean).toContain('xml:space="preserve"')
   expect(clean).toContain('Grüße 漢')
   expect(clean).not.toMatch(/<!DOCTYPE|href|<script|style=/)
+})
+
+it('rejects actual implicit EPSF resources and unsupported renderer styles despite Graphviz success status', async () => {
+  const viz=await instance()
+  for(const source of ['digraph {a [shape=epsf]}','digraph {a [style="url(https://bad)"]}']){
+    const result=viz.render(source,{format:'svg',engine:'dot'})
+    expect(checkedDotErrors(result.errors).length).toBeGreaterThan(0)
+  }
 })

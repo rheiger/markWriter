@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { instance } from '@viz-js/viz'
-import { DOT_LIMITS, validateDot } from './dotSafety'
+import { DOT_LIMITS, validateDot, checkedDotErrors } from './dotSafety'
 
 const scope = self as unknown as DedicatedWorkerGlobalScope
 // The WASM bytes are embedded in the locally bundled runtime. No fetch/importScripts.
@@ -10,7 +10,8 @@ instance().then(viz => {
     try {
       validateDot(source)
       const result = viz.render(source, { format: 'svg', engine: 'dot' })
-      if (result.status !== 'success' || result.errors.length) throw new Error(result.errors.map(error => error.message).join('; ').slice(0, 512))
+      const errors = checkedDotErrors(result.errors)
+      if (result.status !== 'success' || errors.length) throw new Error(errors.map(error => error.message).join('; ').slice(0, 512) || 'DOT layout failed')
       const svg = result.output
       if (svg.length > DOT_LIMITS.outputBytes || new TextEncoder().encode(svg).length > DOT_LIMITS.outputBytes) throw new Error('DOT exceeds 2 MiB SVG limit')
       scope.postMessage({ id, owner, svg })
