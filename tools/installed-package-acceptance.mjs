@@ -68,8 +68,9 @@ try{
    await menu('File','New');await mode(markdown);await menu('Insert','DOT')
    await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
    const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
-   await mode(!markdown);await mode(markdown);await menu('File','Save');await wait(async()=>await readFile(starterPath,'utf8')===inserted,'view-only starter byte preservation')
-   await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(starterPath,'utf8')==='','one starter Undo saves empty original')
+   await mode(!markdown);await mode(markdown)
+   const cyclePath=join(fixture,'starter-cycled-'+markdown+'.md');await menu('File','Save As...');await dialog(cyclePath);await wait(async()=>await readFile(cyclePath,'utf8').catch(()=>null)===inserted,'fresh Save As proves view-only starter byte preservation')
+   await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))

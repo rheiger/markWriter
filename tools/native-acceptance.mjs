@@ -192,6 +192,7 @@ try {
     const inserted=(await snapshot()).document.content;assert.ok(inserted.includes('start -> finish;'))
     const path=join(fixtureDir,'dot-starter-'+editorMode+'.md');await action('saveAs',path);assert.equal(await readFile(path,'utf8'),inserted)
     await mode(editorMode==='Markdown'?'WYSIWYG':'Markdown');await mode(editorMode)
+    assert.equal((await snapshot()).document.content,inserted,'Starter source preserved through both editor views')
     await click('//button[normalize-space(.)="Edit"]');await click('//button[.//span[normalize-space(.)="Undo"]]')
     await action('save');assert.equal(await readFile(path,'utf8'),'','One DOT starter Undo restores the empty native file')
   }
