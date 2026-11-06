@@ -1,5 +1,7 @@
 .about-dialog {
-  width: min(380px, calc(100vw - 48px));
+  width: min(472px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   box-sizing: border-box;
   padding: 24px;
   border: 1px solid var(--border-color);
@@ -11,7 +13,11 @@
 .about-dialog::backdrop { background: rgb(0 0 0 / 40%); }
 .about-dialog h2 { margin: 0 0 8px; font-size: 20px; }
 .about-dialog p { line-height: 1.5; margin: 12px 0; }
-.about-dialog .about-version { margin-top: 0; font-weight: 600; }
+.about-heading { display: flex; align-items: center; gap: 16px; }
+.about-icon { width: 64px; height: 64px; flex: none; }
+.about-dialog .about-version { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.about-dialog .about-intro { margin-top: 20px; font-size: 17px; font-weight: 600; }
+.about-credits { color: var(--text-secondary); font-size: 13px; }
 .about-license { color: var(--text-secondary); font-size: 13px; }
 .about-actions { display: flex; justify-content: flex-end; margin-top: 24px; }
 .about-actions button {

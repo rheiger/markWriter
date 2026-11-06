@@ -1,6 +1,6 @@
 # MarkWriter 2.1.0-alpha3 installation and rollback
 
-This is the experimental Rust/Tauri editor. The current corrected candidate is application source `15f25d1`; read `docs/alpha3-feedback-acceptance.md`, `docs/alpha3-feedback-qualification.json` and the exact package manifests. The original alpha3 report remains dated f54b444 evidence. No release is established by this guide alone. Historical Python/Qt packages and alpha2 releases are unchanged.
+This is the experimental Rust/Tauri editor. Alpha3 includes shared code highlighting, literal technical input, theme controls and the illustrated paper-and-brass-nib icon with expanded About. Use the packages, manifests, checksums and QUALIFICATION.json from the same v2.1.0-alpha3 prerelease. Read `docs/alpha3-release-acceptance.md`; the older f54b444 and 15f25d1 reports are dated checkpoints rather than proof of final package bytes. Historical Python/Qt packages and alpha2 releases remain unchanged.
 
 Package targets are Apple Silicon macOS DMG/app, Windows x64 current-user NSIS and Ubuntu26.04x64 DEB. Check each manifest for actual tested OS/WebView/source SHA. Windows runner evidence does not imply Windows10/11 acceptance; other architectures and Linux distributions need separate qualification.
 

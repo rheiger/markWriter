@@ -1,5 +1,7 @@
 # Alpha3 feedback correction — 6 November 2026
 
+**Dated correction record:** this report qualifies source `15f25d1`. The later artistic icon/About closeout and authorized release follow [release acceptance](alpha3-release-acceptance.md); the release assets carry final-source qualification. Earlier unmerged/unreleased statements below describe this correction checkpoint.
+
 User feedback is grounded in the unchanged local DebugFeedback/SyntaxHighlightSample.md. CSS, Swift and Makefile are current priorities; Objective-C `m` is a small alias gap corrected alongside them. Java, Perl, AWK, sed, CMake and broader practical autodetection are explicitly deferred to [#44](https://github.com/rheiger/markWriter/issues/44). Autocorrect prevention is tracked in [#45](https://github.com/rheiger/markWriter/issues/45).
 
 The correction is qualified at application source `15f25d1b032dd9179eec9cb2c7f0db56db6822ad` in [PR #43](https://github.com/rheiger/markWriter/pull/43), unmerged and unreleased. Its PR merge source `458a667a4dc561b02feb6210afa9f25c5d7db14c` has the identical Git tree `a682a7584a1e217583869ec03ad2d8825fb10c5b`. The prior alpha3 report and machine record remain dated evidence for f54b444; this report and [correction qualification](alpha3-feedback-qualification.json) establish the new acceptance.
