@@ -128,8 +128,22 @@ function mermaidFence(node: HTMLElement): string {
   return `\n\n${fence}mermaid\n${chart.replace(/\n$/, '')}\n${fence}\n\n`
 }
 
+function inlineCode(text: string): string {
+  // CommonMark turns line endings into spaces in a code span. Padding protects
+  // edge backticks and compensates for the one-space trim on both edges.
+  const content = text.replace(/\r\n?|\n/g, ' ')
+  if (!content) return ''
+  const runs = new Set((content.match(/`+/g) ?? []).map(run => run.length))
+  let size = 1
+  while (runs.has(size)) size++
+  const fence = '`'.repeat(size)
+  const pad = content.startsWith('`') || content.endsWith('`') ||
+    (content.startsWith(' ') && content.endsWith(' ') && /[^ ]/.test(content)) ? ' ' : ''
+  return `${fence}${pad}${content}${pad}${fence}`
+}
+
 const turndown = new TurndownService({
-  headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-',
+  headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-', preformattedCode: true,
   // Atom nodes serialize as empty elements; Turndown checks blankness before custom rules.
   blankReplacement: (_content, node) => {
     const element = node as HTMLElement
@@ -142,6 +156,10 @@ const turndown = new TurndownService({
 const escapeText = turndown.escape.bind(turndown)
 turndown.escape = text => escapeText(text).replace(/(\\*)([+~])/g, (_match, slashes: string, char: string) => slashes + (slashes.length % 2 ? '' : '\\') + char)
 turndown.use(gfm)
+turndown.addRule('inlineCode', {
+  filter: node => node.nodeName === 'CODE' && node.parentElement?.nodeName !== 'PRE',
+  replacement: (_content, node) => inlineCode(node.textContent ?? ''),
+})
 turndown.addRule('dot', { filter: node => node.getAttribute('data-type') === 'dot', replacement: (_content, node) => dotFence(node as HTMLElement) })
 turndown.addRule('mermaid', {
   filter: node => node.getAttribute('data-type') === 'mermaid',
@@ -153,7 +171,7 @@ turndown.addRule('table', {
   filter: 'table',
   replacement: (_content, node) => {
     const rows = Array.from((node as HTMLTableElement).rows, row => Array.from(row.cells, cell =>
-      turndown.turndown(cell.innerHTML).trim().replace(/(?<!\\)\|/g, '\\|').replace(/\n+/g, '<br>')
+      fromWysiwygHtml(cell.innerHTML).trim().replace(/(?<!\\)\|/g, '\\|').replace(/\n+/g, '<br>')
     ))
     if (!rows.length) return ''
     const line = (cells: string[]) => `| ${cells.join(' | ')} |`
@@ -178,5 +196,16 @@ turndown.addRule('listParagraph', {
 })
 
 export function fromWysiwygHtml(html: string): string {
-  return turndown.turndown(html)
+  const root = document.createElement('x-turndown')
+  root.innerHTML = html
+  // Turndown treats whitespace-only elements (including their ancestors) as
+  // blank before selecting any rule. A temporary void child keeps such code
+  // spans and their surrounding block structure meaningful; our code rule
+  // reads textContent, so the marker never appears in the saved Markdown.
+  root.querySelectorAll('code').forEach(code => {
+    if (!code.closest('pre') && code.textContent && /^\s+$/.test(code.textContent)) {
+      code.appendChild(document.createElement('wbr'))
+    }
+  })
+  return turndown.turndown(root)
 }
