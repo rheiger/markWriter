@@ -10,7 +10,7 @@ $dialog = $null
 for ($attempt=0; $attempt -lt 300; $attempt++) {
   $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
   foreach ($window in $windows) {
-    if (($window.Current.Name -match 'Open|Save|Export') -and ($applicationIds -contains $window.Current.ProcessId)) { $dialog=$window; break }
+    if (($window.Current.Name -match 'Open|Save|Export') -and ($applicationIds -contains $window.Current.ProcessId) -and -not $window.Current.IsOffscreen) { $dialog=$window; break }
   }
   if ($dialog) { break }
   Start-Sleep -Milliseconds 100
@@ -29,13 +29,25 @@ if (-not $dialog) {
   } finally { $graphics.Dispose();$capture.Dispose() }
   throw 'No ordinary OS file dialog appeared within30s'
 }
-$edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Edit))
-$field = $null
-foreach ($edit in $edits) {
-  if ($edit.Current.Name -match '^File name' -or $edit.Current.AutomationId -eq '1148') { $field=$edit; break }
+# CommonItemDialog may expose File name as an editable ComboBox rather than
+# a standalone Edit. Wait for that real control after the owned window appears.
+$field=$null
+$value=$null
+$inputCondition=[System.Windows.Automation.OrCondition]::new(
+ [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Edit),
+ [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ComboBox))
+for($attempt=0;$attempt -lt 300;$attempt++){
+ $edits=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,$inputCondition)
+ foreach($edit in $edits){
+  if(($edit.Current.Name -match '^File name' -or $edit.Current.AutomationId -eq '1148') -and -not $edit.Current.IsOffscreen){
+   $pattern=$null
+   if($edit.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){$field=$edit;$value=$pattern;break}
+  }
+ }
+ if($field){break}
+ Start-Sleep -Milliseconds 100
 }
-if (-not $field) { throw ('No File name edit. Visible edits: '+(($edits | ForEach-Object { $_.Current.Name+' / '+$_.Current.AutomationId }) -join ', ')) }
-$value = $field.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+if(-not $field){throw ('No File name input. Visible inputs: '+(($edits | ForEach-Object { $_.Current.Name+' / '+$_.Current.AutomationId+' / '+$_.Current.ControlType.ProgrammaticName }) -join ', '))}
 $value.SetValue($Path)
 $buttons=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button))
 foreach($button in $buttons) {
