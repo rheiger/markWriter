@@ -10,7 +10,8 @@ import { searchKeymap } from '@codemirror/search'
 import { useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { closeHistory } from '@tiptap/pm/history'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -49,6 +50,14 @@ import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/source
 import { wrapContinuation } from '../lib/wrapContinuation'
 import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
+// Source synchronization is a view update, never a rendered Undo event. Close
+// the prior group as well, so the next real rendered edit starts its own event.
+function synchronizeRendered(editor: Editor, source: string) {
+  editor.chain()
+    .command(({ tr }) => { closeHistory(tr); tr.setMeta('addToHistory', false); return true })
+    .setContent(toWysiwygHtml(source), { emitUpdate: false })
+    .run()
+}
 
 export type EditorMode = 'markdown' | 'wysiwyg'
 interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
@@ -276,7 +285,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           if (request !== modeRequest.current || tiptap.isDestroyed) return
           const text = source()
           if (lastTiptapSource.current !== text) {
-            tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+            synchronizeRendered(tiptap, text)
             lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
           }
           lastTiptapSource.current = text
@@ -316,7 +325,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     getMarkdown: () => source(),
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
-      tiptap?.commands.setContent(toWysiwygHtml(content), { emitUpdate: false })
+      if (tiptap) synchronizeRendered(tiptap, content)
       if (tiptap) lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
       lastTiptapSource.current = content
       if (editorViewRef.current) {

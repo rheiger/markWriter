@@ -36,6 +36,43 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
 
+  it('keeps source synchronization out of rendered Undo history', async () => {
+    let historyTime = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => historyTime)
+    const source = '# History\n\nBefore paragraph.\n\n```js\nconst value = 42;\n```\n'
+    const { ref, editor } = await mount(source)
+    try {
+      await markdown(ref)
+      act(() => {
+        const cm = ref.current!.getEditorView()!
+        cm.dispatch({ selection: { anchor: cm.state.doc.length } })
+        ref.current!.insertText('Source history probe.')
+      })
+      await wysiwyg(ref)
+      await waitFor(() => expect(editor.getText()).toContain('Source history probe.'))
+      historyTime += 1000 // Separate first sync; second sync and user input share one history window.
+      await markdown(ref)
+      act(() => ref.current!.undo())
+      expect(ref.current!.getMarkdown()).toBe(source)
+      await wysiwyg(ref)
+      await waitFor(() => expect(editor.getText()).not.toContain('Source history probe.'))
+      const before = editor.getJSON()
+      let position = 0
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph' && node.textContent === 'Before paragraph.') position = pos + 1
+      })
+      act(() => editor.view.dispatch(editor.state.tr.insertText('Edited ', position)))
+      expect(editor.getText()).toContain('Edited Before paragraph.')
+      act(() => {
+        useAppStore.getState().updateConfig({ syntaxHighlighting: false })
+        useAppStore.getState().updateConfig({ syntaxHighlighting: true })
+      })
+      act(() => ref.current!.undo())
+      expect(editor.getJSON()).toEqual(before)
+      expect(ref.current!.getMarkdown()).not.toContain('Source history probe.')
+    } finally { clock.mockRestore() }
+  })
+
   it('updates Auto editor themes when the OS appearance changes without document writes', async () => {
     const prior = useAppStore.getState().config
     const listeners = new Set<() => void>()
