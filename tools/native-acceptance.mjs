@@ -243,6 +243,15 @@ try {
   const dotExport = join(fixtureDir,'dot-export.html'); await action('exportHtml',dotExport)
   const dotHtml = await readFile(dotExport,'utf8');assert.equal((dotHtml.match(/<svg\b/g)??[]).length,2);assert.ok(!/data-(?:mw-|chart|source-fence)|<script|javascript:/.test(dotHtml))
   await writeFile(join(artifacts,'dot-worker-policy.json'),JSON.stringify(workerPolicy,null,2))
+  const stressDot='digraph {'+Array.from({length:400},(_,i)=>`a${i} -> {${Array.from({length:20},(_,j)=>'a'+((i+j*17+1)%400)).join(' ')}}`).join('\n')+'}'
+  for(const [name,chart,error] of [['malformed','digraph {a ->}', 'syntax'],['empty','','empty'],['resource','digraph {a [URL="javascript:alert(1)"]}', 'attribute'],['oversize','x'.repeat(65537),'64 KiB'],['timeout',stressDot,'timed out']]) {
+    const path=join(fixtureDir,`dot-${name}.md`),text='```dot\n'+chart+'\n```\n';await writeFile(path,text)
+    await action('open',path);await mode('Markdown')
+    await waitFor(()=>run('return document.querySelector("[data-active=true] .markwriter-preview [data-type=dot]")?.textContent.includes(arguments[0])',error),'recoverable DOT '+name)
+    assert.equal((await snapshot()).document.content,text);assert.equal((await snapshot()).document.isDirty,false)
+    await action('saveAs',join(fixtureDir,`dot-${name}-copy.md`));assert.equal(await readFile(join(fixtureDir,`dot-${name}-copy.md`),'utf8'),text)
+  }
+  await action('open',dotPath);await mode('Markdown');await waitFor(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'),'native DOT recovery after timeout')
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   const recoveryText = (await snapshot()).document.content
@@ -274,7 +283,7 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response policy'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response policy','DOT malformed/empty/resource/oversize source-preserving failures','DOT actual worker timeout and recovery'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {

@@ -15,3 +15,10 @@ export async function verifyReleaseAssets(directory, manifests, expected) {
   assert.equal(createHash('sha256').update(data).digest('hex'),m.asset.sha256,'Final asset checksum mismatch')
  }
 }
+
+export function peArchitecture(data) {
+ assert.ok(data.length>=64 && data.toString('ascii',0,2)==='MZ','PE DOS header')
+ const offset=data.readUInt32LE(0x3c);assert.ok(offset+6<=data.length && data.toString('ascii',offset,offset+4)==='PE\0\0','PE signature')
+ const architecture={0x8664:'x64',0x14c:'x86',0xaa64:'arm64'}[data.readUInt16LE(offset+4)]
+ assert.ok(architecture,'Known PE architecture required');return architecture
+}

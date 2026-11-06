@@ -1,6 +1,7 @@
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
 import assert from 'node:assert/strict'
-import { spawn, execFileSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import { stopOwnedApplication, processInventory, ownedDescendants } from './owned-process.mjs'
 import { mkdir, mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
@@ -27,8 +28,15 @@ async function mode(markdown){const current=await run(`return document.querySele
 async function diagrams(){await wait(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview svg").length===3'),'offline Mermaid and DOT Preview')}
 async function launch(){session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:binary}}}})).sessionId;await request('POST',`/session/${session}/timeouts`,{script:30000});await wait(()=>run('return !!document.querySelector("button[role=switch]")'),'production startup');assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'),'undefined','No bridge in installed package')}
 const cases=[]
+let actualWebviewPaths=[]
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
+ if(process.platform==='win32'){
+   const rows=ownedDescendants(await processInventory(),driver.pid)
+   actualWebviewPaths=[...new Set(rows.filter(p=>p.path?.toLowerCase().endsWith('msedgewebview2.exe')).map(p=>p.path))]
+   assert.ok(actualWebviewPaths.length,'Actual launched WebView process must be observed')
+   assert.ok(actualWebviewPaths.every(p=>p.toLowerCase()===process.env.MARKWRITER_WEBVIEW_RUNTIME?.toLowerCase()),'Actual WebView must match driver baseline and firewall restriction')
+ }
  await menu('Help','About MarkWriter');const version=JSON.parse(await readFile(join(root,'frontend/package.json'),'utf8')).version
  assert.ok(await run('return document.querySelector("dialog[open]").textContent.includes(arguments[0])','Version '+version));assert.ok(await run(`return document.querySelector('dialog[open]').textContent.includes("This program was completely built using vibe coding under the direction of 'Richie'.")`));await click('//dialog//button[normalize-space(.)="Close"]');cases.push('installed native/bundled About and credit')
  await menu('File','Open...');await dialog(original);await mode(true);await diagrams();cases.push('ordinary OS Open dialog and offline diagrams')
@@ -45,10 +53,9 @@ try{
  const recovery=await wait(async()=>{const data=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'));return data.documents.find(d=>d.content.includes('Interrupted DOT draft'))},'flushed draft recovery')
  const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'installed.png'),Buffer.from(shot,'base64'))
  // Abruptly end only the installed test process after its real recovery snapshot exists.
- if(process.platform==='win32')execFileSync('taskkill',['/F','/IM',binary.split(/[\\/]/).at(-1),'/T'])
- else execFileSync('pkill',['-f','^'+binary.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$'])
+ await stopOwnedApplication(driver.pid,binary)
  await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT');assert.equal(JSON.parse(await readFile(join(profile,'preferences.json'),'utf8')).config.renderedFontSize,24);cases.push('tabs, abrupt restart, actual draft/Settings recovery')
- await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
+ await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,actualWebviewPaths,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
 }catch(error){if(session){const html=await request('GET',`/session/${session}/source`).catch(()=>null);if(html)await writeFile(join(artifacts,'failure.html'),html);const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'failure.png'),Buffer.from(shot,'base64'))}throw error}
 finally{if(session)await request('DELETE',`/session/${session}`).catch(()=>{});if(driver.pid){try{if(process.platform==='win32')driver.kill();else process.kill(-driver.pid,'SIGTERM')}catch{}}driver.stdout.destroy();driver.stderr.destroy();await writeFile(join(artifacts,'driver.log'),log)}

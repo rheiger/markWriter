@@ -25,7 +25,7 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
     const lines = (env?.source as string | undefined)?.match(/[^\n]*\n|[^\n]+$/g) ?? []
     const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/\r?\n$/, '') : ''
     const escape = markdown.utils.escapeHtml
-    return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw))}">${escape(token.content)}</div>\n`
+    return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
   }
   if (notation !== 'mermaid') return fence(tokens, index, options, env, renderer)
   const source = markdown.utils.escapeHtml(token.content)

@@ -3,7 +3,7 @@ import { readFile, writeFile, readdir, mkdir, copyFile } from 'node:fs/promises'
 import { join, resolve, basename, relative } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { verifyReleaseAssets } from './release-integrity.mjs'
+import { verifyReleaseAssets, peArchitecture } from './release-integrity.mjs'
 const root=resolve(import.meta.dirname,'..'), assets=join(root,'release-assets'), args=process.argv.slice(2)
 const sha=data=>createHash('sha256').update(data).digest('hex')
 const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'))
@@ -34,7 +34,7 @@ if(args.includes('--collect')){
  assert.equal(packages.length,1,'Exactly one requested installation format')
  const file=`MarkWriter-${version}-${platform}${expected[2]}`;await copyFile(packages[0],join(assets,file))
  const data=await readFile(join(assets,file));const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
- let baseline,signing
+ let baseline,signing,binaryInspection
  if(process.platform==='darwin'){
   baseline={os:command('sw_vers',[]),webview:command('/usr/bin/defaults',['read','/System/Library/Frameworks/WebKit.framework/Resources/Info','CFBundleVersion'])}
   const details=await readFile(join(root,'package-acceptance-results/signature.txt'),'utf8');signing={status:details.includes('Signature=adhoc')?'ad-hoc':'unsigned',trusted:false,notarized:false,details}
@@ -42,11 +42,13 @@ if(args.includes('--collect')){
   baseline={os:await readFile('/etc/os-release','utf8'),kernel:command('uname',['-r']),webview:command('pkg-config',['--modversion','webkit2gtk-4.1'])};assert.ok(baseline.os.includes('VERSION_ID="26.04"'))
   signing={status:'unsigned',trusted:false};assert.ok(command('dpkg-deb',['--field',packages[0],'Version']).includes(version));assert.equal(command('dpkg-deb',['--field',packages[0],'Architecture']),'amd64')
  }else{
-  baseline=JSON.parse(command('pwsh',['-NoProfile','-Command',`$o=Get-CimInstance Win32_OperatingSystem;$w=Get-ChildItem 'C:/Program Files (x86)/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe'|Select-Object -Last 1;@{os=$o.Caption;version=$o.Version;build=$o.BuildNumber;webview=$w.VersionInfo.FileVersion}|ConvertTo-Json -Compress`]))
+  const installedBinary=await readFile(process.env.MARKWRITER_BINARY);assert.equal(peArchitecture(installedBinary),'x64');binaryInspection={format:'PE',architecture:peArchitecture(installedBinary),sha256:sha(installedBinary)}
+  assert.ok(acceptance.actualWebviewPaths?.every(p=>p.toLowerCase()===process.env.MARKWRITER_WEBVIEW_RUNTIME?.toLowerCase()) && acceptance.actualWebviewPaths.length)
+  baseline=JSON.parse(command('pwsh',['-NoProfile','-Command',`$o=Get-CimInstance Win32_OperatingSystem;$w=Get-Item -LiteralPath $env:MARKWRITER_WEBVIEW_RUNTIME;@{os=$o.Caption;version=$o.Version;build=$o.BuildNumber;webview=$w.VersionInfo.FileVersion;webviewPath=$w.FullName}|ConvertTo-Json -Compress`]))
   const status=command('pwsh',['-NoProfile','-Command',`(Get-AuthenticodeSignature -LiteralPath '${packages[0].replaceAll("'","''")}').Status.ToString()`]);assert.equal(status,'NotSigned');signing={status:'unsigned',authenticode:status,trusted:false}
  }
  const frontend=[];for(const path of await files(join(root,'frontend/dist')))frontend.push({path:relative(join(root,'frontend/dist'),path).split(/[\\/]/).join('/'),sha256:sha(await readFile(path))})
- const manifest={schemaVersion:1,product:'MarkWriter',technology:'Tauri 2',version,source:process.env.GITHUB_SHA??command('git',['rev-parse','HEAD']),buildRun:process.env.GITHUB_RUN_ID??null,buildUrl:process.env.GITHUB_RUN_ID?`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`:null,platform,architecture:process.arch,asset:{name:file,size:data.length,sha256:sha(data)},signing,baseline,runner:{image:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},toolchain:{node:process.version,rust:command('rustc',['--version']),tauriCli:JSON.parse(await readFile(join(root,'frontend/node_modules/@tauri-apps/cli/package.json'),'utf8')).version},frontend,acceptance}
+ const manifest={schemaVersion:1,product:'MarkWriter',technology:'Tauri 2',version,source:process.env.GITHUB_SHA??command('git',['rev-parse','HEAD']),buildRun:process.env.GITHUB_RUN_ID??null,buildUrl:process.env.GITHUB_RUN_ID?`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`:null,platform,architecture:process.arch,asset:{name:file,size:data.length,sha256:sha(data)},signing,baseline,binaryInspection,runner:{image:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},toolchain:{node:process.version,rust:command('rustc',['--version']),tauriCli:JSON.parse(await readFile(join(root,'frontend/node_modules/@tauri-apps/cli/package.json'),'utf8')).version},frontend,acceptance}
  await writeFile(join(assets,`${platform}.manifest.json`),JSON.stringify(manifest,null,2)+'\n')
  await copyFile(join(root,'frontend/public/THIRD_PARTY_NOTICES.txt'),join(assets,'THIRD_PARTY_NOTICES.txt'))
  await copyFile(join(root,'docs/install-alpha2.md'),join(assets,'INSTALL-UPGRADE-ROLLBACK.md'))

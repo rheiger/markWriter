@@ -26,3 +26,13 @@ it('treats DOT and Graphviz SVG as block fallbacks and folds source without text
     expect(findEmbeddedSource(EditorState.create({ doc: source }))[0].kind).toBe('DOT')
   }
 })
+it('does not duplicate enclosing blockquote prefixes after an unrelated rendered edit', () => {
+  const source='Before\n\n> ~~~~graphviz\n> digraph {a -> b}\n> ~~~~\n'
+  const editor=new Editor({extensions:[StarterKit,DotNode],content:toWysiwygHtml(source)})
+  editor.commands.insertContentAt(1,'Edit ')
+  const html=toWysiwygHtml(fromWysiwygHtml(editor.getHTML()))
+  const doc=new DOMParser().parseFromString(html,'text/html')
+  expect(doc.querySelectorAll('blockquote')).toHaveLength(1)
+  expect(doc.querySelector('blockquote [data-type="dot"]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
+  editor.destroy()
+})

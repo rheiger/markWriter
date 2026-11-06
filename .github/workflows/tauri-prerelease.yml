@@ -66,7 +66,7 @@ jobs:
           npm run lint --prefix frontend
           npm run typecheck --prefix frontend
           npm test --prefix frontend
-          node --test tools/release-integrity.test.mjs
+          node --test tools/release-integrity.test.mjs tools/owned-process.test.mjs
           npm audit --prefix frontend --audit-level=low
           cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Build ordinary production frontend
@@ -110,7 +110,7 @@ jobs:
       - name: Exercise installed Ubuntu release in a network namespace without external routes
         if: runner.os == 'Linux'
         run: |
-          sudo --preserve-env=MARKWRITER_BINARY,MARKWRITER_PROFILE_DIR,PATH,GITHUB_SHA,ImageOS,ImageVersion unshare --net bash -c 'ip link set lo up; runuser -u runner --preserve-environment -- bash -c "xvfb-run -a bash -c '\''openbox >/tmp/markwriter-openbox.log 2>&1 & node tools/installed-package-acceptance.mjs'\''"'
+          sudo --preserve-env=MARKWRITER_BINARY,MARKWRITER_PROFILE_DIR,PATH,GITHUB_SHA,ImageOS,ImageVersion unshare --net bash tools/package-test-linux.sh
         env:
           GDK_BACKEND: x11
       - name: Verify DMG contents and installation

@@ -43,6 +43,7 @@ describe('document fidelity with real editors', () => {
       const { ref, container } = await mount(source)
       await markdown(ref)
       await waitFor(() => expect(container.querySelector('.markwriter-preview [data-type="dot"] svg')).not.toBeNull())
+      expect(screen.getByText('(1 diagram)')).toBeVisible()
       expect(ref.current!.getMarkdown()).toBe(source)
       expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
     } finally { spy.mockRestore() }

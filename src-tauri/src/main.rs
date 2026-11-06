@@ -257,6 +257,7 @@ fn main() {
                         if dot_policy::is_dot_worker(request.uri().path()) {
                             response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
                             response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
+                            eprintln!("[DOT] worker response CSP: {}", dot_policy::WORKER_CSP);
                         }
                     })
                     .build()?;

@@ -106,11 +106,6 @@ export interface EditorViewRef {
   }) => void) => void
 }
 
-interface MermaidBlock {
-  id: string
-  chart: string
-  index: number
-}
 
 const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
   const preferences = useRef(new Compartment())
@@ -120,7 +115,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const editorViewRef = useRef<CodeMirrorView | null>(null)
   const [sourceView, setSourceView] = useState<CodeMirrorView | null>(null)
   const [find, setFind] = useState({ open: false, replace: false, request: 0 })
-  const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
+  const [diagramCount, setDiagramCount] = useState(0)
   const [editorMode, setEditorMode] = useState<EditorMode>(useAppStore.getState().documents.find(doc => doc.id === documentId)?.mode ?? 'wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
@@ -596,8 +591,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const blocks = elements.map((element, index) => ({
       id: `preview-${generation}-${index}`, chart: element.getAttribute('data-chart') ?? '', index,
     }))
-    setMermaidBlocks(blocks)
     const dotElements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="dot"]'))
+    setDiagramCount(elements.length + dotElements.length)
     for (const element of dotElements) {
       const chart = element.getAttribute('data-chart') ?? ''
       element.textContent = 'Rendering DOT…'
@@ -996,13 +991,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
               fontWeight: 500,
               color: 'var(--text-primary)'
             }}>
-              Preview {mermaidBlocks.length > 0 && (
+              Preview {diagramCount > 0 && (
                 <span style={{
                   fontSize: '12px',
                   opacity: 0.7,
                   marginLeft: '8px'
                 }}>
-                  ({mermaidBlocks.length} diagram{mermaidBlocks.length !== 1 ? 's' : ''})
+                  ({diagramCount} diagram{diagramCount !== 1 ? 's' : ''})
                 </span>
               )}
             </div>

@@ -23,6 +23,6 @@ export const DotNode = Node.create({
     }]))
   },
   parseHTML() { return [{ tag: 'div[data-type="dot"]' }] },
-  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'dot' })] },
+  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'dot' }), HTMLAttributes['data-chart'] || '```dot\n\n```'] },
   addNodeView() { return ReactNodeViewRenderer(DotView) },
 })
