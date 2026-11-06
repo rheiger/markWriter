@@ -30,7 +30,8 @@ it('exports qualified static DOT with no source or navigation metadata', async (
   const { dotRenderer } = await import('./dotRenderer')
   const spy = vi.spyOn(dotRenderer, 'render').mockResolvedValueOnce('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>safe</text></svg>')
   try {
-    const html = await createHtmlExport('```graphviz\ndigraph {a -> b}\n```')
+    const html = await createHtmlExport('```graphviz\ndigraph {a -> b}\n```', 'document:7:export:1')
+    expect(spy).toHaveBeenCalledWith('digraph {a -> b}\n', 'document:7:export:1')
     expect(html).toContain('<svg')
     expect(html).not.toMatch(/data-(?:chart|source-fence|notation|mw-)/)
     expect(html).not.toMatch(/<script|href=/)

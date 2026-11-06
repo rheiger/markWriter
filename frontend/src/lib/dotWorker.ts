@@ -10,7 +10,7 @@ instance().then(viz => {
     try {
       validateDot(source)
       const result = viz.render(source, { format: 'svg', engine: 'dot' })
-      if (result.status !== 'success') throw new Error(result.errors.map(error => error.message).join('; ').slice(0, 512))
+      if (result.status !== 'success' || result.errors.length) throw new Error(result.errors.map(error => error.message).join('; ').slice(0, 512))
       const svg = result.output
       if (svg.length > DOT_LIMITS.outputBytes || new TextEncoder().encode(svg).length > DOT_LIMITS.outputBytes) throw new Error('DOT exceeds 2 MiB SVG limit')
       scope.postMessage({ id, owner, svg })

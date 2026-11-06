@@ -69,14 +69,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install Linux WebKit and desktop dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          if apt-cache show webkitgtk-webdriver > /dev/null 2>&1; then
-            native_webdriver_package=webkitgtk-webdriver
-          else
-            native_webdriver_package=webkit2gtk-driver
-          fi
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf "$native_webdriver_package" xvfb
+        run: bash tools/setup-linux-packages.sh native
       - name: Select stable Rust
         run: |
           rustup toolchain install 1.90.0 --profile minimal

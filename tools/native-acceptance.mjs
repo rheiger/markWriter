@@ -235,9 +235,9 @@ try {
   assert.ok(workerPolicy.policy?.includes("connect-src 'none'"), JSON.stringify(workerPolicy))
   const dotPath = join(fixtureDir, 'dot-draft.md')
   await writeFile(dotPath, '# DOT recovery\n\n' + source.slice(source.indexOf('```dot')))
-  await action('open', dotPath); await mode('Markdown'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'), 'DOT aliases after open')
+  const dotOwnerId=(await action('open', dotPath)).document.id; await mode('Markdown'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'), 'DOT aliases after open')
   const dotBefore = (await snapshot()).document.content
-  await action('create'); await action('activate', (await snapshot()).documents.find(d=>d.path===dotPath).id)
+  await action('create'); await action('activate', dotOwnerId)
   await mode('WYSIWYG'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===2'), 'DOT rendered nodes after tab switch')
   assert.equal((await snapshot()).document.content,dotBefore);assert.equal((await snapshot()).document.isDirty,false)
   const dotExport = join(fixtureDir,'dot-export.html'); await action('exportHtml',dotExport)
