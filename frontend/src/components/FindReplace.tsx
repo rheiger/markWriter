@@ -17,6 +17,8 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
   const [engineRevision, setEngineRevision] = useState(0)
   const [picked, setPicked] = useState<Hit | null>(null)
   const input = useRef<HTMLTextAreaElement>(null)
+  const close = useRef(onClose)
+  close.current = onClose
   const owner = () => active && useAppStore.getState().currentDocument?.id === documentId
   useEffect(() => {
     if (!editor) return
@@ -33,6 +35,15 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
   const hits = snapshot.hits
   useEffect(() => { setPicked(null) }, [snapshot])
   useEffect(() => { if (open && active) input.current?.focus() }, [open, active, request])
+  useEffect(() => {
+    if (!open || !active) return
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || document.querySelector('dialog[open], .table-picker') || (event.target as Element)?.closest('.menu-dropdown')) return
+      event.preventDefault(); event.stopPropagation(); close.current()
+    }
+    document.addEventListener('keydown', escape, true)
+    return () => document.removeEventListener('keydown', escape, true)
+  }, [open, active])
   useEffect(() => {
     if (view) view.dispatch({ effects: sourceHighlights.of(active && mode === 'markdown' ? hits : []) })
     if (editor) highlightRendered(editor, active && mode === 'wysiwyg' ? hits : [])

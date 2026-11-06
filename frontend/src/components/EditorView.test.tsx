@@ -57,6 +57,8 @@ describe('document fidelity with real editors', () => {
     expect(screen.queryByRole('search')).not.toBeInTheDocument()
     act(() => useAppStore.getState().activateDocument('doc-1'))
     expect(screen.getByLabelText('Find')).toHaveValue('same')
+    fireEvent.keyDown(view.contentDOM, { key: 'Escape' })
+    expect(screen.queryByRole('search')).not.toBeInTheDocument()
   })
 
   it('replaces rendered marked and table text without searching diagram internals', async () => {
