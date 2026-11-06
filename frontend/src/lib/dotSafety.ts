@@ -31,7 +31,11 @@ export function validateDot(source: string): void {
     tokens.push({ value: ch, operator: true }); i++
   }
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].operator && tokens[i].value === '=' && !DOT_ATTRIBUTES.has(tokens[i - 1]?.value)) throw new Error(`Unsupported DOT attribute: ${tokens[i - 1]?.value ?? '(missing)'}`)
+    if (!tokens[i].operator || tokens[i].value !== '=') continue
+    const attribute=tokens[i - 1]?.value, value=tokens[i + 1]?.value ?? ''
+    if (!DOT_ATTRIBUTES.has(attribute)) throw new Error(`Unsupported DOT attribute: ${attribute ?? '(missing)'}`)
+    if ((/^(?:color|fillcolor|bgcolor|fontcolor)$/.test(attribute) && value.includes(':')) ||
+        (attribute === 'style' && /(?:^|[,\s])radial(?:$|[,\s])/.test(value))) throw new Error('DOT gradient and multicolor paint are unsupported')
   }
 }
 
@@ -65,6 +69,7 @@ export function sanitizeDotSvg(raw: string): string {
   if (/<!DOCTYPE|<!ENTITY/i.test(raw)) throw new Error('Unsupported SVG declaration')
   const parsed = new DOMParser().parseFromString(raw, 'image/svg+xml')
   if (parsed.querySelector('parsererror') || parsed.documentElement.localName !== 'svg' || parsed.documentElement.namespaceURI !== NS) throw new Error('Invalid DOT SVG')
+  if (parsed.querySelector('linearGradient, radialGradient')) throw new Error('DOT SVG gradients are unsupported')
   const output = document.implementation.createDocument(NS, 'svg', null)
   let count = 0
   function copy(node: Element, parent: Element, depth: number): void {

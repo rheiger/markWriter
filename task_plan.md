@@ -1,76 +1,14 @@
-# Current task — plan alpha2 and add About attribution
+# Current task — implement MarkWriter 2.1.0-alpha2
 
-User scope: plan the next product increment and prepare a complete next-session prompt/model/effort recommendation; authorize issue updates and commit/push/merge/release after implementation gates. Add the requested Richie/vibe-coding credit now. Product version remains2.1.0-alpha1 during preparation.
+Authority: user attachment and docs/next-increment-2.1.0-alpha2-plan.md. Implement required safe offline DOT #32 and verifiable production prerelease #35. DBML #33 only after required gates. Commit/push/merge/release authorized after acceptance; never publish failed gates or replace releases.
 
-- Inspect main, current issues, release workflow and model controls: complete
-- Add exact About credit and verify existing controls/native UI: complete (d49154b; 93 tests/static/build checks and rebuilt ordinary macOS About)
-- Write alpha2 scope/prompt with explicit publication gates and authority: complete
-- Update relevant issues and current status: complete (#3/#4/#10/#31/#32/#33 updated; #35 created/aligned;16 open/18 closed)
-- Verify docs/source, preserve user files, commit/push preparation and handoff: complete (20 hashes/local links/version/diff checks; explicit staging/push; source CI42150156541 remains pending at handoff)
+- [complete] 0 Baseline, refs, preservation inventory and owning-source inspection
+- [in_progress] 1 DOT safety ADR, failing tests, killable bounded offline renderer and production worker policy
+- [in_progress] 2 Preview/WYSIWYG/codec/Insert/folds/search/correspondence/export integration and alpha2 versions
+- [in_progress] 3 Single Tauri package/publisher workflow, notices, provenance and installed-package native UI acceptance
+- [pending] 4 Local/browser/macOS and final-source three-platform CI/artifact acceptance; independent final review
+- [pending] 5 Issues/docs/PR integration, post-merge checks, draft bytes verification and qualified prerelease publication
 
-Preparation branch codex/alpha2-plan-about starts from merged main7e29c6f. Next implementation branch codex/offline-dot-alpha2. Recommended core: qualified offline DOT plus real Tauri prerelease packaging; DBML gated stretch; PlantUML/draw.io/logs and broad features deferred. No feature or release completion is claimed by planning.
+Preserve all user work inventoried in /tmp/markwriter-alpha2-preserved.json. Explicit staging only; no reset/clean/stash. Current preparation tip f6ceda7 includes d49154b About credit. Keep exact Richie sentence. One primary implementer; no competing shared editor/store edits. Built-in browser preferred. Start renderer budgets 64KiB input / 2MiB SVG / 2s layout; prove actual CSP/asset offline behavior on each native target. Normal packages: macOS arm64 DMG, Windows x64 NSIS, Ubuntu26.04x64 DEB. No release until installed ordinary-dialog acceptance passes.
 
-Handoff model: GPT-6.1 Sol, Extra High (xhigh). Full copyable prompt: docs/next-increment-2.1.0-alpha2-prompt.md. About source commit d49154b is pushed; existing93 frontend tests, lint/typecheck/production/acceptance build and bridge exclusion pass. Rebuilt ordinary macOS About visibly contains the exact Richie sentence; original7996-character document remains clean. Version remains2.1.0-alpha1. No tag/release/merge is performed by this preparation task; future qualified implementation has explicit publication authority.
-
----
-
-# User-accepted integration — 6 November 2026
-
-Richard has tested the delivered state and requested commit, push and merge. Target: repository default `main`; preserve current local user files and defer remaining open issues. Application source `2895d1c` and its passed CI42145312950 remain unchanged. Integration uses a PR and its current checks; the PR/Git history is the authoritative merge record. This authorization supersedes the historical no-merge boundary below; no tag/release is requested.
-
----
-
-# Current task — implement MarkWriter 2.1.0-alpha1
-
-Authority/scope: user attachment and docs/next-increment-2.1.0-alpha1-plan.md. One implementer; no competing edits. Start ed40277 on codex/editing-navigation-plan. Preserve user files inventoried in /tmp/markwriter-2.1-preserved.json.
-
-- 0 Baseline/branch/inventory: complete
-- 1 Mapping ADR and tested renderer sidecar: complete
-- 2 Find/Replace in both editors: complete
-- 3 Wrap continuation and adaptive picker: complete
-- 4 Remaining editing and Markdown guide: complete
-- 5 Content-aware scroll/caret/selection synchronization: complete
-- 6 Browser/native integration and final-source CI: complete (2895d1c / CI42145312950; both22-case artifacts inspected)
-- 7 Independently gated notation spikes after core: complete (all three actual runtimes attempted; independently deferred at documented gates)
-- 8 Review, issue reconciliation, review app and handoff: complete (qualified core scopes closed; partial/deferred scopes retained; review app/evidence delivered)
-
-Version remains exactly 2.1.0-alpha1. Commit verified slices; push feature branch only. No merge/tag/release. Keep #10 umbrella open; #5/#29 backlog. Do not claim old evidence as new-feature acceptance.
-
----
-## Completed handoff preparation (historical)
-
-# Current task — prepare the 2.1.0-alpha1 implementation handoff
-
-Scope: write the next-session plan/prompt, update GitHub core/stretch/backlog scope, and increment version metadata. Feature implementation belongs to the next session.
-
-- Scope, code-owner and model/source checks: complete.
-- GitHub #30 synchronization, #31 PlantUML, #32 DOT, #33 DBML created; #10/#21/#26/#28 core and #5/#29 backlog recorded: complete.
-- Plan/prompt/issue index and current-entry docs: complete.
-- Version metadata: complete (`2.1.0-alpha1`); no new feature acceptance claimed.
-- Final local checks, preservation verification and handoff delivery: complete. Metadata commit `53598fa`; see Git for the final docs commit/pushed branch. No new feature/native UI acceptance claimed.
-
-Next implementation follows `docs/next-increment-2.1.0-alpha1-plan.md`, not the completed historical plan below. Planning branch `codex/editing-navigation-plan`; feature baseline `6c6eb56` / CI42132949169 remains historical evidence. Preserve user Samples/Testresults and older untracked plans/prompts.
-
----
-
-## Completed historical task (reference)
-
-# Productivity increment — 6 November 2026
-
-Agreed scope: docs/next-increment-plan-2026-11-06.md. Starting HEAD 1fe311c; branch codex/productivity-increment. Historical control-polish work is complete.
-
-## Phases
-- Baseline / ownership ADR: complete
-- Document-ID store and safe asynchronous file operations: complete
-- Tabs and retained editor sessions: complete
-- Native settings/schema persistence and Settings dialog: complete
-- Session restore / recovery / conflicts: complete
-- Accessible table management and boundaries: complete
-- Non-destructive embedded-source folds: complete
-- Mermaid ERD template / acceptance: complete
-- Integration, optional read-only review, native/CI qualification and closeout: complete
-- Separate draw.io offline feasibility spike after core gates: complete (product integration deferred; see docs/drawio-offline-spike-2026-11-06.md)
-
-Preserve pre-existing Samples/, Testresults/ and untracked planning documents. No merge/release/issue messages. Commit verified slices and push feature branch.
-
-Final gate passed at source6c6eb56 in CI42132949169: 68 frontend tests, all three native jobs and16 Windows/Linux application cases each; both artifacts inspected. Ordinary macOS alpha.2 review app rebuilt and checked, original clean document restored. Draw.io product integration remains explicitly deferred after its isolated spike. Closeout is documentation only.
+Historical plan is in Git / preparation docs; completed alpha1 work is not to be restarted.

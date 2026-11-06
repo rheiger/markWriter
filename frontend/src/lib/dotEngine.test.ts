@@ -25,3 +25,12 @@ it('rejects actual implicit EPSF resources and unsupported renderer styles despi
     expect(checkedDotErrors(result.errors).length).toBeGreaterThan(0)
   }
 })
+
+it('refuses actual Graphviz gradient SVG instead of dropping its paint definitions', async () => {
+  const viz=await instance()
+  const result=viz.render('digraph {a [fillcolor="red:blue",style=filled]}',{format:'svg',engine:'dot'})
+  expect(result.status).toBe('success')
+  expect(checkedDotErrors(result.errors)).toEqual([])
+  if(result.status!=='success')throw new Error('Expected native Graphviz gradient output')
+  expect(()=>sanitizeDotSvg(result.output)).toThrow(/gradient/i)
+})

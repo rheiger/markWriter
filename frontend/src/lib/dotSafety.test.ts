@@ -18,6 +18,11 @@ describe('DOT input resource boundary', () => {
   it('bounds UTF-8 bytes and handles malformed strings/comments recoverably', () => {
     for (const source of ['', '漢'.repeat(DOT_LIMITS.inputBytes / 2), 'digraph { a [label="bad] }', 'digraph {/*']) expect(() => validateDot(source)).toThrow()
   })
+  it('rejects gradient and multicolor paint rather than silently changing its meaning', () => {
+    for (const paint of ['fillcolor="red:blue"', 'color="red:blue"', 'style=radial']) {
+      expect(() => validateDot(`digraph { a [${paint}] }`)).toThrow(/gradient|multicolor/i)
+    }
+  })
 })
 
 describe('DOT SVG trust boundary', () => {

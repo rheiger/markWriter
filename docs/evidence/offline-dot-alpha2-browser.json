@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "source": "61e2262a96063e8816cd63063b40e57ba9492b11",
+  "runtime": "Codex built-in browser; production Vite worker on loopback5187",
+  "worker": {
+    "file": "dotWorker-BRdGL8_1.js",
+    "sha256": "6c1504ad14d4577878f3f4f9111f737b6916f6e768b3be8fbadbff63bddfc6f7",
+    "matchesOrdinaryProductionBundle": true,
+    "responseCsp": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'"
+  },
+  "rows": [
+    {
+      "name": "Unicode",
+      "status": "success",
+      "svgBytes": 825
+    },
+    {
+      "name": "malformed",
+      "status": "expected error"
+    },
+    {
+      "name": "resource URL",
+      "status": "expected rejection"
+    },
+    {
+      "name": "65537-byte input",
+      "status": "expected rejection"
+    },
+    {
+      "name": "near-limit comment",
+      "status": "success",
+      "svgBytes": 789
+    },
+    {
+      "name": "output limit",
+      "status": "expected 2MiB rejection"
+    },
+    {
+      "name": "dense layout",
+      "status": "expected 2s termination"
+    },
+    {
+      "name": "recovery",
+      "status": "success",
+      "svgBytes": 835
+    }
+  ],
+  "elapsedMs": 2278,
+  "tenMillisecondUiTimerBeats": 227,
+  "observedResourceOrigins": [
+    "http://127.0.0.1:5187"
+  ],
+  "unexpectedConsoleErrors": 0,
+  "layoutTrial": {
+    "source": "9b2db56144299bfd1d8ca065bce3cfe0f3219e13",
+    "backend": "SDK mockIPC for document creation only; no claim of native package acceptance",
+    "sizes": [
+      [
+        800,
+        700
+      ],
+      [
+        1024,
+        768
+      ],
+      [
+        1440,
+        900
+      ]
+    ],
+    "horizontalDocumentOverflow": false,
+    "allThreeSvgWithinParent": true,
+    "fonts": [
+      18,
+      24
+    ],
+    "darkTheme": true,
+    "mixedSourceSha256": "2c6943474c701ac9f94c4ebd9e86fd2fd2d2504dd5deccf76033ef2ff00da0e5",
+    "largeSourceChars": 1067096,
+    "largeSourceSha256": "be47c368710320236eea3bbf3a10edd112b7e6db46d9d8aa540673d8ce2394e5",
+    "foldedSourceSearch": {
+      "query": "offline",
+      "matches": 1,
+      "replacement": "local",
+      "changedChars": 1067094,
+      "oneKeyboardUndoRestoresExactHash": true
+    },
+    "viewOnlyMixedDirty": false,
+    "viewOnlyMixedRevision": 0,
+    "tabSwitchAndClosePreservesOtherSource": true,
+    "dotPreviewClick": "unfolds matching canonical fence and uses correspondence-block fallback",
+    "unexpectedConsoleErrors": 0,
+    "lightTheme": true
+  }
+}
