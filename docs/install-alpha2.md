@@ -8,7 +8,7 @@ These assets are unsigned experimental builds. A macOS ad-hoc signature is not a
 
 1. Download the package, SHA256SUMS, release-manifest.json, platform manifest, notices and this guide from the same prerelease.
 2. Verify its SHA-256 (`shasum -a256 filename` on macOS, `sha256sum filename` on Ubuntu, or `Get-FileHash filename -Algorithm SHA256` in PowerShell). Compare the asset name, version, architecture and source/build URL with the manifest.
-3. On macOS open the DMG, copy MarkWriter.app to a normal application location, then launch the copied app. On Windows run the NSIS installer for the current user. On Ubuntu use `sudo apt install ./MarkWriter-2.1.0-alpha2-ubuntu-26.04-x64.deb`, then launch MarkWriter from the application menu or `/usr/bin/markwriter`. Native system WebView dependencies must already be available; no renderer/runtime is downloaded for DOT or Mermaid.
+3. On macOS open the DMG, copy MarkWriter.app to a normal application location, then launch the copied app. On Windows run the NSIS installer for the current user. On Ubuntu use `sudo apt install ./MarkWriter-2.1.0-alpha2-ubuntu-26.04-x64.deb`, then launch MarkWriter from the application menu or `/usr/bin/markwriter`. Native system WebView dependencies must already be available (the offline NSIS package skips WebView2 installation); no renderer/runtime is downloaded for DOT or Mermaid.
 4. Check About shows exactly2.1.0-alpha2 and the Richie credit. Open a **copy** of a Markdown document; verify normal Save As/export, Mermaid and DOT before adopting the experimental editor for important work.
 
 ## Existing files and upgrade

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile, writeFile, readdir, mkdir, copyFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join, resolve, basename, relative } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { verifyReleaseAssets } from './release-integrity.mjs'
@@ -19,9 +19,9 @@ async function check(){
 }
 async function checkFrontend(){
  await check();const paths=await files(join(root,'frontend/dist'))
- assert.ok(paths.some(path=>path.endsWith('/THIRD_PARTY_NOTICES.txt')),'Bundled notices required')
+ assert.ok(paths.some(path=>basename(path)==='THIRD_PARTY_NOTICES.txt'),'Bundled notices required')
  for(const path of paths){assert.ok(!/\.(?:py|pyc|pyd)$/i.test(path));if(path.endsWith('.js'))assert.ok(!(await readFile(path,'utf8')).includes('__MARKWRITER_ACCEPTANCE__'),'Production acceptance bridge exclusion')}
- const workers=paths.filter(path=>/\/dotWorker-[^/]+\.js$/.test(path));assert.equal(workers.length,1,'One local worker bundle')
+ const workers=paths.filter(path=>/^dotWorker-[^/]+\.js$/.test(basename(path)));assert.equal(workers.length,1,'One local worker bundle')
  console.log('Production frontend contains one bundled DOT worker and no acceptance bridge/Python assets')
 }
 if(args.includes('--check'))await check()
@@ -30,7 +30,7 @@ if(args.includes('--collect')){
  await checkFrontend();await mkdir(assets,{recursive:true});const platform=args[args.indexOf('--collect')+1]
  const expected={ 'macos-arm64':['darwin','arm64','.dmg'], 'windows-x64':['win32','x64','.exe'], 'ubuntu-26.04-x64':['linux','x64','.deb'] }[platform];assert.ok(expected)
  assert.equal(process.platform,expected[0]);assert.equal(process.arch,expected[1])
- const packages=(await files(join(root,'src-tauri/target/release/bundle'))).filter(path=>path.endsWith(expected[2]) && !path.includes('/macos/'))
+ const packages=(await files(join(root,'src-tauri/target/release/bundle'))).filter(path=>path.endsWith(expected[2]) && !relative(join(root,'src-tauri/target/release/bundle'),path).split(/[\\/]/).includes('macos'))
  assert.equal(packages.length,1,'Exactly one requested installation format')
  const file=`MarkWriter-${version}-${platform}${expected[2]}`;await copyFile(packages[0],join(assets,file))
  const data=await readFile(join(assets,file));const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
@@ -45,7 +45,7 @@ if(args.includes('--collect')){
   baseline=JSON.parse(command('pwsh',['-NoProfile','-Command',`$o=Get-CimInstance Win32_OperatingSystem;$w=Get-ChildItem 'C:/Program Files (x86)/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe'|Select-Object -Last 1;@{os=$o.Caption;version=$o.Version;build=$o.BuildNumber;webview=$w.VersionInfo.FileVersion}|ConvertTo-Json -Compress`]))
   const status=command('pwsh',['-NoProfile','-Command',`(Get-AuthenticodeSignature -LiteralPath '${packages[0].replaceAll("'","''")}').Status.ToString()`]);assert.equal(status,'NotSigned');signing={status:'unsigned',authenticode:status,trusted:false}
  }
- const frontend=[];for(const path of await files(join(root,'frontend/dist')))frontend.push({path:path.slice(join(root,'frontend/dist').length+1),sha256:sha(await readFile(path))})
+ const frontend=[];for(const path of await files(join(root,'frontend/dist')))frontend.push({path:relative(join(root,'frontend/dist'),path).split(/[\\/]/).join('/'),sha256:sha(await readFile(path))})
  const manifest={schemaVersion:1,product:'MarkWriter',technology:'Tauri 2',version,source:process.env.GITHUB_SHA??command('git',['rev-parse','HEAD']),buildRun:process.env.GITHUB_RUN_ID??null,buildUrl:process.env.GITHUB_RUN_ID?`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`:null,platform,architecture:process.arch,asset:{name:file,size:data.length,sha256:sha(data)},signing,baseline,runner:{image:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},toolchain:{node:process.version,rust:command('rustc',['--version']),tauriCli:JSON.parse(await readFile(join(root,'frontend/node_modules/@tauri-apps/cli/package.json'),'utf8')).version},frontend,acceptance}
  await writeFile(join(assets,`${platform}.manifest.json`),JSON.stringify(manifest,null,2)+'\n')
  await copyFile(join(root,'frontend/public/THIRD_PARTY_NOTICES.txt'),join(assets,'THIRD_PARTY_NOTICES.txt'))

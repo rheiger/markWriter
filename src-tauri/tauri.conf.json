@@ -18,6 +18,9 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "skip"
       }
     }
   },
