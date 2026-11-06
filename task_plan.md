@@ -1,3 +1,9 @@
+# User-accepted integration — 6 November 2026
+
+Richard has tested the delivered state and requested commit, push and merge. Target: repository default `main`; preserve current local user files and defer remaining open issues. Application source `2895d1c` and its passed CI42145312950 remain unchanged. Integration uses a PR and its current checks; the PR/Git history is the authoritative merge record. This authorization supersedes the historical no-merge boundary below; no tag/release is requested.
+
+---
+
 # Current task — implement MarkWriter 2.1.0-alpha1
 
 Authority/scope: user attachment and docs/next-increment-2.1.0-alpha1-plan.md. One implementer; no competing edits. Start ed40277 on codex/editing-navigation-plan. Preserve user files inventoried in /tmp/markwriter-2.1-preserved.json.

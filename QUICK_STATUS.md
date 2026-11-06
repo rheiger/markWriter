@@ -1,6 +1,6 @@
 # MarkWriter status — 6 November 2026
 
-**2.1.0-alpha1**, unreleased, implemented on `codex/editing-navigation-2.1`, source `2895d1c`. Required core: Find/Replace in both editors, view-only wrap cues, adaptive 5×5 table picker, remaining editing fixes and content-aware bidirectional source/Preview navigation. No merge/tag/release.
+**2.1.0-alpha1**, unreleased, implemented on `codex/editing-navigation-2.1`, source `2895d1c`. Richard has manually tested this state and authorized its integration into `main`; PR/Git history records the merge. Required core: Find/Replace in both editors, view-only wrap cues, adaptive 5×5 table picker, remaining editing fixes and content-aware bidirectional source/Preview navigation. No tag or release is requested for this integration.
 
 Read the [acceptance report](docs/editing-navigation-2.1.0-alpha1.md), [#28 disposition](docs/editing-28-disposition-2026-11-06.md), [mapping ADR](docs/adr-preview-correspondence.md) and [supported Markdown guide](docs/supported-markdown.md). The next-increment plan/prompt are now the completed implementation's scope record, not an instruction to restart it.
 
