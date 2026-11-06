@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +36,9 @@ export default defineConfig(async () => ({
   
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
+    // Dynamic raw license imports need explicit access outside the frontend root.
+    // https://vite.dev/config/server-options.html#server-fs-allow
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../notices', import.meta.url))] },
     port: 5173,
     strictPort: true,
     host: "127.0.0.1", // Keep development-only endpoints local
