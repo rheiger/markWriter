@@ -16,8 +16,9 @@ lipo -archs "$package_binary" | grep -qx arm64
 plutil -extract CFBundleShortVersionString raw "$package_install/MarkWriter.app/Contents/Info.plist" | tee package-acceptance-results/version.txt
 codesign -dvv "$package_install/MarkWriter.app" >package-acceptance-results/signature.txt 2>&1 || true
 package_profile=$(mktemp -d /tmp/markwriter-profile.XXXXXX)
-# New restriction for this test process: no outbound network, including renderers.
-MARKWRITER_PROFILE_DIR="$package_profile" sandbox-exec -p '(version 1)(allow default)(deny network-outbound)' "$package_binary" >package-acceptance-results/launch.log 2>&1 &
+# New restriction for this test process: no outbound IP, including renderers.
+# Preserve local Unix/XPC desktop IPC needed by LaunchServices and WebKit.
+MARKWRITER_PROFILE_DIR="$package_profile" sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' "$package_binary" >package-acceptance-results/launch.log 2>&1 &
 package_pid=$!
 trap 'kill "$package_pid" >/dev/null 2>&1 || true' EXIT
 package_started=false
@@ -30,5 +31,5 @@ if [[ "$package_started" != true ]]; then cat package-acceptance-results/launch.
 python3 - "$package_install" "$package_profile" <<'PY'
 import json,sys,pathlib,platform
 assert '[TAURI] Creating new document' in pathlib.Path('package-acceptance-results/launch.log').read_text(), 'Ordinary frontend must invoke native document creation'
-pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','installed production app launch with outbound network denied','ordinary frontend startup invoking native document creation'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication.'},indent=2))
+pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','installed production app launch with outbound IP denied','ordinary frontend startup invoking native document creation'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication.'},indent=2))
 PY
