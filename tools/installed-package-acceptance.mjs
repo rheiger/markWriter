@@ -1,5 +1,6 @@
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
+import { verifyLongCode } from './long-code-acceptance.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -179,6 +180,11 @@ try{
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,request,session,assets:join(root,'frontend/dist/assets')})
  cases.push(...technical.cases)
+ const longCode=await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
+   exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session})
+ cases.push(...longCode.cases)
+ await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
  await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')

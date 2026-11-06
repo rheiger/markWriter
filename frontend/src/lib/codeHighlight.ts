@@ -30,9 +30,13 @@ const aliases: Record<string, string> = {
   js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', html: 'xml', htm: 'xml', svg: 'xml', docker: 'dockerfile',
 }
 export const CODE_LIMIT = 4 * 1024
+// Explicit Python/JSON are independently qualified for longer technical examples.
+// Keep the conservative cap for other grammars (notably C++), and never enlarge auto work.
+export const LONG_CODE_LIMIT = 16 * 1024
 export const AUTO_LIMIT = 2 * 1024
 const LINE_LIMIT = 2 * 1024
 const DOCUMENT_LIMIT = 16 * 1024
+const LONG_DOCUMENT_LIMIT = 32 * 1024
 const SPAN_LIMIT = 4096
 export interface CodeRange { from: number; to: number; className: string }
 export interface CodeHighlight { language: string | null; ranges: readonly CodeRange[] }
@@ -59,19 +63,28 @@ function rangesFor(tree: Root): CodeRange[] {
   return ranges.length > SPAN_LIMIT ? [] : ranges
 }
 
-export function highlightCode(code: string, info = ''): CodeHighlight {
+function codeLanguage(info: string) {
   const word = info.trim().split(/\s/, 1)[0].toLowerCase()
-  const language = Object.hasOwn(aliases, word) ? aliases[word] : word
-  if (!code || code.length > CODE_LIMIT || (!word && code.length > AUTO_LIMIT) ||
-    code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT) ||
-    (word && !lowlight.registered(language))) return plain
+  return Object.hasOwn(aliases, word) ? aliases[word] : word
+}
+const longerGrammar = (language: string) => language === 'python' || language === 'json'
+function eligible(code: string, language: string) {
+  const limit = longerGrammar(language) ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
+  return code.length > 0 && code.length <= limit &&
+    (!language || lowlight.registered(language)) &&
+    !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
+}
+
+export function highlightCode(code: string, info = ''): CodeHighlight {
+  const language = codeLanguage(info)
+  if (!eligible(code, language)) return plain
   const key = language + '\0' + code
   const cached = cache.get(key)
   if (cached) { cache.delete(key); cache.set(key, cached); return cached }
   let result: CodeHighlight = plain
   try {
     let tree: Root | undefined
-    if (word) tree = lowlight.highlight(language, code)
+    if (language) tree = lowlight.highlight(language, code)
     else {
       // Relevance is a heuristic, not a language guarantee. Close/weak matches stay plain.
       // Comparing a fixed set gives a runner-up without relying on private emitter APIs.
@@ -92,10 +105,13 @@ export function highlightCode(code: string, info = ''): CodeHighlight {
 
 // New budget per document render/rebuild, including cache hits. No document writes.
 export function createCodeHighlighter(enabled: boolean) {
-  let remaining = DOCUMENT_LIMIT, blocks = 64, automatic = 4
+  let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
   return (code: string, info = ''): CodeHighlight => {
-    if (!enabled || --blocks < 0 || code.length > remaining || (!info.trim() && --automatic < 0)) return plain
-    remaining -= code.length
+    const language = codeLanguage(info), longer = longerGrammar(language)
+    if (!enabled || --blocks < 0 || !eligible(code, language) ||
+      code.length > (longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
+    if (longer) longerRemaining -= code.length
+    else remaining -= code.length
     return highlightCode(code, info)
   }
 }

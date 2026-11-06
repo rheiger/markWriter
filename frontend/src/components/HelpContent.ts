@@ -27,7 +27,7 @@ export const helpTopics: HelpTopic[] = [
     id: 'code', title: 'Code and diagrams', blocks: [
       { kind: 'paragraph', text: 'Start a code block with three backticks and an optional language name, then close it with three backticks. A recognized name, such as python, javascript, rust or css, requests syntax highlighting.' },
       { kind: 'example', label: 'Code fence', code: '```python\nprint("Hello, MarkWriter")\n```' },
-      { kind: 'paragraph', text: 'View → Syntax highlighting turns highlighting on or off. Unknown languages, uncertain automatic detection and blocks beyond the highlighting limits remain plain text; their source is preserved.' },
+      { kind: 'paragraph', text: 'View → Syntax highlighting turns highlighting on or off. Explicit Python/JSON blocks support up to 16 Ki characters each and share a 32 Ki character document budget. Other explicit languages support 4 Ki characters per block with a separate 16 Ki document budget; automatic detection and individual lines are limited to 2 Ki characters. Unknown languages, uncertain automatic detection and blocks beyond these limits remain plain text; their source is preserved.' },
       { kind: 'paragraph', text: 'Use a mermaid fence for Mermaid diagrams, or a dot or graphviz fence for Graphviz DOT. Insert → Mermaid ERD and Insert → DOT provide starting examples. Diagram rendering is bundled for offline use.' },
       { kind: 'example', label: 'Mermaid fence', code: '```mermaid\nflowchart LR\n    Draft --> Review\n```' },
       { kind: 'example', label: 'DOT fence', code: '```dot\ndigraph { Draft -> Review }\n```' },
