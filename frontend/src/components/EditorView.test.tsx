@@ -36,6 +36,54 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
 
+  it('keeps live math source edits across mode/tab navigation and supports Undo', async () => {
+    const {mathRenderer}=await import('../lib/mathRenderer')
+    const spy=vi.spyOn(mathRenderer,'render').mockImplementation(async()=>({html:'<span class="katex">ready</span>',release:()=>{}}))
+    try {
+      const source='Before\r\n\r\n~~~~math\r\nE=mc^2\r\n~~~~\r\n'
+      const {ref,editor,container}=await mount(source)
+      await waitFor(()=>expect(container.querySelector('.math-node .katex')).not.toBeNull())
+      const model=editor.getJSON()
+      fireEvent.click(screen.getByRole('button',{name:'Edit math source'}))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+      fireEvent.click(screen.getByRole('button',{name:'Done',exact:true}))
+      expect(editor.getJSON()).toEqual(model)
+      fireEvent.click(screen.getByRole('button',{name:'Edit math source'}))
+      fireEvent.change(screen.getByRole('textbox',{name:'Math source'}),{target:{value:'\\frac{1}{2}'}})
+      expect(ref.current!.getMarkdown()).toContain('\\frac{1}{2}')
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(true)
+      await markdown(ref)
+      expect(ref.current!.getMarkdown()).toContain('\\frac{1}{2}')
+      await wysiwyg(ref)
+      expect(editor.state.doc.content.toString()).toContain('math')
+      act(()=>useAppStore.getState().setCurrentDocument({id:'other',title:'Other',content:'Other',isDirty:false,lastModified:new Date()}))
+      act(()=>useAppStore.getState().activateDocument('doc-1'))
+      await wysiwyg(ref)
+      expect(ref.current!.getMarkdown()).toContain('\\frac{1}{2}')
+      act(()=>ref.current!.undo())
+      expect(editor.getJSON()).toEqual(model)
+      expect(ref.current!.getMarkdown()).toContain('~~~~math\r\nE=mc^2\r\n~~~~')
+    } finally {spy.mockRestore()}
+  })
+
+  it('preserves actual inline code whitespace through rendered edits, source sync and Undo', async () => {
+    const source = 'Prose  normalizes. ` a  b ` and `a\tb` and `   `\n\n`  tail  `'
+    const { ref, editor } = await mount(source)
+    const codes = () => { const result: string[] = []; editor.state.doc.descendants(node => { if (node.isText && node.marks.some(mark => mark.type.name === 'code')) result.push(node.text!)}); return result }
+    expect(codes()).toEqual(['a  b','a\tb','   ',' tail '])
+    const original = editor.getJSON()
+    act(() => editor.commands.insertContentAt(1, 'Edited '))
+    const saved = ref.current!.getMarkdown()
+    expect(toWysiwygHtml(saved)).toContain('a  b')
+    await markdown(ref)
+    await wysiwyg(ref)
+    expect(codes()).toEqual(['a  b','a\tb','   ',' tail '])
+    act(() => ref.current!.undo())
+    expect(editor.getJSON()).toEqual(original)
+    expect(ref.current!.getMarkdown()).not.toContain('Edited ')
+  })
+
   it('keeps source synchronization out of rendered Undo history', async () => {
     let historyTime = Date.now()
     const clock = vi.spyOn(Date, 'now').mockImplementation(() => historyTime)

@@ -30,6 +30,7 @@ import { useResolvedDark } from '../lib/theme'
 import { cancelAutomaticReplacement, literalInputAttributes, technicalInput } from '../lib/technicalInput'
 import '../lib/codeHighlight.css'
 import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
+import { parseInlineCodeDocument, createInlineCodeClipboardParser } from '../lib/inlineCodeParser'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
@@ -43,6 +44,8 @@ import { TableTools } from './TableTools'
 import { MermaidNode } from '../extensions/MermaidNode'
 import { DotNode } from '../extensions/DotNode'
 import { dotRenderer } from '../lib/dotRenderer'
+import { MathNode } from '../extensions/MathNode'
+import { mathRenderer, createMathBudget } from '../lib/mathRenderer'
 import { FindReplace } from './FindReplace'
 import { renderedSearchDecorations, sourceSearchDecorations } from '../lib/editorSearch'
 import { synchronizePreview } from '../lib/previewSync'
@@ -56,7 +59,7 @@ import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, 
 function synchronizeRendered(editor: Editor, source: string) {
   editor.chain()
     .command(({ tr }) => { closeHistory(tr); tr.setMeta('addToHistory', false); return true })
-    .setContent(toWysiwygHtml(source), { emitUpdate: false })
+    .setContent(parseInlineCodeDocument(toWysiwygHtml(source), editor.schema).toJSON(), { emitUpdate: false })
     .run()
 }
 
@@ -194,9 +197,16 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       TextAlign.configure({ types: ['tableCell', 'tableHeader'] }),
       MermaidNode,
       DotNode.configure({ documentId }),
+      MathNode.configure({ documentId }),
       Image.configure({ inline: true, allowBase64: true }),
     ],
     content: initialHtml,
+    onBeforeCreate: ({ editor }) => {
+      // Schema exists before Tiptap parses initial content. Preserve inline code
+      // through a scoped parser; keep live DOM/IME parsing on the default path.
+      editor.setOptions({ content: parseInlineCodeDocument(initialHtml, editor.schema).toJSON(),
+        editorProps: { ...editor.options.editorProps, clipboardParser: createInlineCodeClipboardParser(editor.schema) } })
+    },
     onCreate: ({ editor }) => {
       lastTiptapSemantic.current = fromWysiwygHtml(editor.getHTML())
       const remembered = initialViewState.current
@@ -234,7 +244,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (tiptap.isActive('codeBlock')) blockLabel = 'Code'
     if (tiptap.isActive('table')) blockLabel = 'Table'
     if (tiptap.isActive('taskItem') || tiptap.isActive('taskList')) blockLabel = 'Task'
-    if (tiptap.isActive('mermaid') || tiptap.isActive('dot')) blockLabel = 'Body'
+    if (tiptap.isActive('mermaid') || tiptap.isActive('dot') || tiptap.isActive('math')) blockLabel = 'Body'
 
     return {
       blockLabel,
@@ -623,6 +633,26 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }).catch(error => {
         if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected) { element.textContent = `DOT error: ${error.message}`; syncRef.current?.invalidate() }
+      })
+    }
+    const mathBudget = createMathBudget()
+    for (const element of Array.from(container.querySelectorAll<HTMLElement>('[data-type="math"]'))) {
+      const chart = element.getAttribute('data-chart') ?? ''
+      element.classList.add('math-block')
+      element.textContent = 'Rendering math…'
+      const owner = `${documentId}:${doc?.revision ?? 0}:${generation}`
+      mathRenderer.render(chart, owner, mathBudget, abort.signal).then(result => {
+        const current = useAppStore.getState()
+        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected && current.currentDocument?.id === documentId && (current.documents.find(item => item.id === documentId)?.revision ?? 0) === map.owner.revision) {
+          element.innerHTML = result.html
+          abort.signal.addEventListener('abort', result.release, { once: true })
+          syncRef.current?.invalidate()
+        } else result.release()
+      }).catch(error => {
+        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected) {
+          element.textContent = `Math error: ${error.message}\n${chart}`
+          element.setAttribute('role', 'status'); syncRef.current?.invalidate()
+        }
       })
     }
     mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: isDark ? 'dark' : 'default' })

@@ -22,11 +22,11 @@ const fence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]
   const notation = token.info.trim()
-  if (notation === 'dot' || notation === 'graphviz') {
+  if (notation === 'dot' || notation === 'graphviz' || notation === 'math') {
     const lines = (env?.source as string | undefined)?.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
     const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/(?:\r\n|\r|\n)$/, '') : ''
     const escape = markdown.utils.escapeHtml
-    return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
+    return `<div data-type="${notation === 'math' ? 'math' : 'dot'}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
   }
   const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
   if (notation !== 'mermaid') return fence(tokens, index, { ...options, highlight: highlight ? (code, language) => highlightedHtml(code, highlight(code, language)) : null }, env, renderer)
@@ -97,9 +97,9 @@ export function toWysiwygHtml(source: string): string {
   return doc.body.innerHTML
 }
 
-function dotFence(node: HTMLElement): string {
+function embeddedFence(node: HTMLElement): string {
   const chart = node.getAttribute('data-chart') ?? ''
-  const notation = node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
+  const notation = node.getAttribute('data-type') === 'math' ? 'math' : node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
   const raw = node.getAttribute('data-source-fence')
   if (raw) {
     try {
@@ -128,10 +128,12 @@ function mermaidFence(node: HTMLElement): string {
   return `\n\n${fence}mermaid\n${chart.replace(/\n$/, '')}\n${fence}\n\n`
 }
 
-function inlineCode(text: string): string {
+function inlineCode(text: string, tableCell = false): string {
   // CommonMark turns line endings into spaces in a code span. Padding protects
   // edge backticks and compensates for the one-space trim on both edges.
-  const content = text.replace(/\r\n?|\n/g, ' ')
+  const normalized = text.replace(/\r\n?|\n/g, ' ')
+  // GFM consumes one backslash before every table pipe, including inside code.
+  const content = tableCell ? normalized.replace(/\|/g, '\\|') : normalized
   if (!content) return ''
   const runs = new Set((content.match(/`+/g) ?? []).map(run => run.length))
   let size = 1
@@ -147,7 +149,7 @@ const turndown = new TurndownService({
   // Atom nodes serialize as empty elements; Turndown checks blankness before custom rules.
   blankReplacement: (_content, node) => {
     const element = node as HTMLElement
-    if (element.getAttribute?.('data-type') === 'dot') return dotFence(element)
+    if (['dot','math'].includes(element.getAttribute?.('data-type') ?? '')) return embeddedFence(element)
     if (element.getAttribute?.('data-type') === 'mermaid') return mermaidFence(element)
     return (node as HTMLElement & { isBlock: boolean }).isBlock ? '\n\n' : ''
   },
@@ -158,9 +160,9 @@ turndown.escape = text => escapeText(text).replace(/(\\*)([+~])/g, (_match, slas
 turndown.use(gfm)
 turndown.addRule('inlineCode', {
   filter: node => node.nodeName === 'CODE' && node.parentElement?.nodeName !== 'PRE',
-  replacement: (_content, node) => inlineCode(node.textContent ?? ''),
+  replacement: (_content, node) => inlineCode(node.textContent ?? '', !!(node as HTMLElement).closest('[data-mw-table-cell]')),
 })
-turndown.addRule('dot', { filter: node => node.getAttribute('data-type') === 'dot', replacement: (_content, node) => dotFence(node as HTMLElement) })
+turndown.addRule('embeddedFence', { filter: node => ['dot','math'].includes(node.getAttribute('data-type') ?? ''), replacement: (_content, node) => embeddedFence(node as HTMLElement) })
 turndown.addRule('mermaid', {
   filter: node => node.getAttribute('data-type') === 'mermaid',
   replacement: (_content, node) => mermaidFence(node as HTMLElement),
@@ -171,7 +173,7 @@ turndown.addRule('table', {
   filter: 'table',
   replacement: (_content, node) => {
     const rows = Array.from((node as HTMLTableElement).rows, row => Array.from(row.cells, cell =>
-      fromWysiwygHtml(cell.innerHTML).trim().replace(/(?<!\\)\|/g, '\\|').replace(/\n+/g, '<br>')
+      fromWysiwygHtml(cell.innerHTML, true).trim().replace(/(?<!\\)\|/g, '\\|').replace(/\n+/g, '<br>')
     ))
     if (!rows.length) return ''
     const line = (cells: string[]) => `| ${cells.join(' | ')} |`
@@ -195,9 +197,10 @@ turndown.addRule('listParagraph', {
   replacement: content => content + '\n',
 })
 
-export function fromWysiwygHtml(html: string): string {
+export function fromWysiwygHtml(html: string, tableCell = false): string {
   const root = document.createElement('x-turndown')
   root.innerHTML = html
+  if (tableCell) root.setAttribute('data-mw-table-cell','true')
   // Turndown treats whitespace-only elements (including their ancestors) as
   // blank before selecting any rule. A temporary void child keeps such code
   // spans and their surrounding block structure meaningful; our code rule

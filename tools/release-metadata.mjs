@@ -5,16 +5,18 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { verifyReleaseAssets, peArchitecture } from './release-integrity.mjs'
 import { verifyDesktopIconSources } from './icon-integrity.mjs'
+import { verifyMathAssets } from './math-assets.mjs'
 const root=resolve(import.meta.dirname,'..'), assets=join(root,'release-assets'), args=process.argv.slice(2)
 const sha=data=>createHash('sha256').update(data).digest('hex')
 const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'))
 const version=(await json('frontend/package.json')).version
+const targetDir=resolve(root,process.env.CARGO_TARGET_DIR??'src-tauri/target')
 function command(file,args){return execFileSync(file,args,{encoding:'utf8',cwd:root}).trim()}
 async function files(path){const result=[];for(const entry of await readdir(path,{withFileTypes:true})){const name=join(path,entry.name);if(entry.isDirectory())result.push(...await files(name));else result.push(name)}return result}
 async function check(){
  assert.equal((await json('package.json')).version,version);assert.equal((await json('frontend/package-lock.json')).version,version);assert.equal((await json('frontend/package-lock.json')).packages[''].version,version);assert.equal((await json('src-tauri/tauri.conf.json')).version,version)
  for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
- assert.equal(version,'2.1.0-alpha3')
+ assert.equal(version,'2.5.0-alpha1')
  await verifyDesktopIconSources(root)
  if(process.env.GITHUB_REF_TYPE==='tag')assert.equal(process.env.GITHUB_REF_NAME,'v'+version)
  console.log('All application version metadata:',version)
@@ -24,7 +26,9 @@ async function checkFrontend(){
  assert.ok(paths.some(path=>basename(path)==='THIRD_PARTY_NOTICES.txt'),'Bundled notices required')
  for(const path of paths){assert.ok(!/\.(?:py|pyc|pyd)$/i.test(path));if(path.endsWith('.js'))assert.ok(!(await readFile(path,'utf8')).includes('__MARKWRITER_ACCEPTANCE__'),'Production acceptance bridge exclusion')}
  const workers=paths.filter(path=>/^dotWorker-[^/]+\.js$/.test(basename(path)));assert.equal(workers.length,1,'One local worker bundle')
- console.log('Production frontend contains one bundled DOT worker and no acceptance bridge/Python assets')
+ await verifyMathAssets(join(root,'frontend/dist/assets'),join(root,'frontend/node_modules/katex/dist/fonts'))
+ const mathWorkers=paths.filter(path=>/^mathWorker-[^/]+\.js$/.test(basename(path)));assert.equal(mathWorkers.length,1,'One local math worker bundle')
+ console.log('Production frontend contains one bundled math worker, one bundled DOT worker and no acceptance bridge/Python assets')
 }
 if(args.includes('--check'))await check()
 if(args.includes('--check-frontend'))await checkFrontend()
@@ -35,7 +39,7 @@ if(args.includes('--collect')){
  const packageName=`MarkWriter_${version}_${{'macos-arm64':'aarch64','windows-x64':'x64-setup','ubuntu-26.04-x64':'amd64'}[platform]}${expected[2]}`
  // Cargo caches can contain previous-version packages; select current bytes by
  // exact Tauri filename while retaining older local artifacts unchanged.
- const packages=(await files(join(root,'src-tauri/target/release/bundle'))).filter(path=>basename(path)===packageName && !relative(join(root,'src-tauri/target/release/bundle'),path).split(/[\\/]/).includes('macos'))
+ const packages=(await files(join(targetDir,'release/bundle'))).filter(path=>basename(path)===packageName && !relative(join(targetDir,'release/bundle'),path).split(/[\\/]/).includes('macos'))
  assert.equal(packages.length,1,'Exactly one requested installation format')
  const file=`MarkWriter-${version}-${platform}${expected[2]}`;await copyFile(packages[0],join(assets,file))
  const data=await readFile(join(assets,file));const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
@@ -87,7 +91,7 @@ if(args.includes('--collect')){
  const manifest={schemaVersion:1,product:'MarkWriter',technology:'Tauri 2',version,source:process.env.GITHUB_SHA??command('git',['rev-parse','HEAD']),buildRun:process.env.GITHUB_RUN_ID??null,buildUrl:process.env.GITHUB_RUN_ID?`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`:null,platform,architecture:process.arch,asset:{name:file,size:data.length,sha256:sha(data)},signing,iconInspection,baseline,binaryInspection,runner:{image:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},toolchain:{node:process.version,rust:command('rustc',['--version']),tauriCli:JSON.parse(await readFile(join(root,'frontend/node_modules/@tauri-apps/cli/package.json'),'utf8')).version},frontend,acceptance}
  await writeFile(join(assets,`${platform}.manifest.json`),JSON.stringify(manifest,null,2)+'\n')
  await copyFile(join(root,'frontend/public/THIRD_PARTY_NOTICES.txt'),join(assets,'THIRD_PARTY_NOTICES.txt'))
- await copyFile(join(root,'docs/install-alpha3.md'),join(assets,'INSTALL-UPGRADE-ROLLBACK.md'))
+ await copyFile(join(root,'docs/install-2.5-alpha1.md'),join(assets,'INSTALL-UPGRADE-ROLLBACK.md'))
  console.log('Collected',file,manifest.asset.sha256)
 }
 if(args.includes('--aggregate')){

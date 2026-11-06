@@ -1,4 +1,5 @@
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
+import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -141,13 +142,13 @@ try{
  await closeCurrentDocument()
  cases.push('toolbar/View syntax synchronization and Auto/Light/Dark toolbar themes in both modes with exact fresh Save As')
  await menu('File','Settings…');await run(`for(const [name,value] of [['Source text size','18'],['Rendered text size','24']]){const label=[...document.querySelectorAll('dialog label')].find(e=>e.textContent.startsWith(name));const select=label.querySelector('select');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}))}`);await click('//dialog//button[normalize-space(.)="Apply"]');await wait(async()=>JSON.parse(await readFile(join(profile,'preferences.json'),'utf8')).config.renderedFontSize===24,'native preferences file');cases.push('independent font Settings persistence')
- const draftSource='# Interrupted DOT draft\n\n```dot\ndigraph { recovered -> ready }\n```\n'
+ const draftSource='# Interrupted DOT draft\n\n```dot\ndigraph { recovered -> ready }\n```\n\n```math\n\\frac{1}{2}+x^2\n```\n\nInline `a  b` and `   `.\n'
  await newDocument();await mode(true);await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();document.execCommand('insertText',false,arguments[0])`,draftSource)
  const recovery=await wait(async()=>{const data=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'));return data.documents.find(d=>d.content.includes('Interrupted DOT draft'))},'flushed draft recovery');assert.equal(recovery.content,draftSource,'Real multiline DOT draft persisted exactly')
  const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'installed.png'),Buffer.from(shot,'base64'))
  // Abruptly end only the installed test process after its real recovery snapshot exists.
  await stopOwnedApplication(driver.pid,binary)
- await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT')
+ await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT');await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=math] .katex")'),'recovered offline math')
  assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'18','Restored source font is active in ordinary UI')
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
@@ -169,6 +170,11 @@ try{
    await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
+ const technical=await verifyTechnicalWriting({root,artifacts,dir:fixture,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),
+   exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,request,session,assets:join(root,'frontend/dist/assets')})
+ cases.push(...technical.cases)
+ await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
 }catch(error){if(session){const alert=await request('GET',`/session/${session}/alert/text`).catch(()=>null);if(alert)await writeFile(join(artifacts,'native-alert.json'),JSON.stringify({alert},null,2));const html=await request('GET',`/session/${session}/source`).catch(()=>null);if(html)await writeFile(join(artifacts,'failure.html'),html);const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'failure.png'),Buffer.from(shot,'base64'))}throw error}

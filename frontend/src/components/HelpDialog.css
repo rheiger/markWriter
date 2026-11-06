@@ -36,7 +36,7 @@
 .help-content tbody th { font-weight: 500; }
 .help-actions { display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--border-color); }
 .help-actions button { padding: 6px 20px; border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); background: var(--bg-secondary); cursor: pointer; }
-.help-dialog button:focus-visible, .help-search input:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.help-dialog button:focus-visible, .help-search input:focus-visible, .help-content:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 @media (max-width: 520px) {
   .help-header { align-items: stretch; flex-direction: column; gap: 12px; }
   .help-search { flex-basis: auto; }

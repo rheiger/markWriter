@@ -229,3 +229,12 @@
 .dot-diagram svg, [data-type="dot"] svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .dot-source-hint { font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); padding: 4px 8px; }
 .dot-node.ProseMirror-selectednode { outline: 2px solid var(--accent-color); }
+
+/* Inline-code whitespace is meaningful; keep it visible in each rendered view. */
+.tiptap :not(pre) > code, .markwriter-preview :not(pre) > code {
+  white-space: pre-wrap;
+  white-space: break-spaces;
+}
+
+.markwriter-preview .math-block { max-width: 100%; overflow-x: auto; }
+.markwriter-preview .math-block[role="status"] { white-space: pre-wrap; overflow-wrap: anywhere; }

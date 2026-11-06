@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
-    branches: [main, 'codex/highlighting-theme-alpha3']
+    branches: [main, 'codex/2.5-technical-writing']
     tags: ['v2.*']
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:

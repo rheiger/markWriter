@@ -127,3 +127,11 @@ describe('inline code whitespace fidelity', () => {
     expect(fromWysiwygHtml('<p>ordinary   prose <code>a  b</code> after   text</p>')).toBe('ordinary prose `a  b` after text')
   })
 })
+
+it.each(['|', '\\|', '\\\\|'])('preserves literal backslashes and spaces before %s inside table inline code', pipe => {
+  const content='a  '+pipe+'b'
+  const html='<table><tbody><tr><th>Code</th></tr><tr><td><p><code>'+content+'</code></p></td></tr></tbody></table>'
+  const saved=fromWysiwygHtml(html)
+  const doc=new DOMParser().parseFromString(toWysiwygHtml(saved),'text/html')
+  expect(doc.querySelector('td code')?.textContent).toBe(content)
+})

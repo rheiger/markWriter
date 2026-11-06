@@ -61,7 +61,7 @@ export function HelpDialog({ onClose, returnFocusRef }: HelpDialogProps) {
         <p aria-live="polite">{query.trim() ? `${topics.length} ${topics.length === 1 ? 'topic' : 'topics'} found` : 'Topics'}</p>
         {topics.map(topic => <button key={topic.id} type="button" aria-pressed={active?.id === topic.id} onClick={() => setSelected(topic.id)}>{topic.title}</button>)}
       </nav>
-      <article className="help-content" ref={article}>
+      <article className="help-content" ref={article} tabIndex={0} aria-label={active?.title ?? 'Help content'}>
         {active ? <TopicContent topic={active} /> : <p>No help topics match your search. Try another word or clear the search.</p>}
       </article>
     </div>

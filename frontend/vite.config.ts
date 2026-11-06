@@ -9,12 +9,14 @@ export default defineConfig(async () => ({
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (req.url?.startsWith('/src/lib/dotWorker.ts?')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
+        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
         if (/^\/assets\/dotWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
+        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },
@@ -45,6 +47,9 @@ export default defineConfig(async () => ({
   
   // 4. Build configuration
   build: {
+    // Keep app fonts self-hosted under the existing font-src policy. Export's
+    // explicit ?inline imports remain embedded independently.
+    assetsInlineLimit: 0,
     // Tauri supports es2021
     target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
     // don't minify for debug builds

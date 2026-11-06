@@ -36,10 +36,10 @@ export const helpTopics: HelpTopic[] = [
   },
   {
     id: 'math', title: 'Mathematics', blocks: [
-      { kind: 'paragraph', text: 'Use an explicit math fence for a mathematical block. Put the expression on lines between the opening and closing fences, and edit its source in the Markdown view.' },
+      { kind: 'paragraph', text: 'Use Insert → Math block for a starter, or an explicit math fence for a mathematical block. Put the expression on lines between the opening and closing fences, and edit its source in the Markdown view or with Edit math source in WYSIWYG. Typing changes the document immediately; use Save to write it to disk. Done closes the source field.' },
       { kind: 'example', label: 'Math fence', code: '```math\n\\frac{a}{b} = c\n```' },
       { kind: 'paragraph', text: 'Math blocks use supported TeX-style expressions and render offline. This is a bounded subset, not arbitrary TeX. Inline dollar delimiters, equation numbering and cross-references are not supported.' },
-      { kind: 'paragraph', text: 'If an expression is invalid or unsupported, its source remains available for correction.' },
+      { kind: 'paragraph', text: 'If an expression is invalid or unsupported, its source remains available for correction and HTML export includes a readable source fallback. Rendering is limited to 16 KiB per block and 64 blocks / 256 KiB source per document. To copy exact TeX, use Edit math source or the Markdown view.' },
     ],
   },
   {

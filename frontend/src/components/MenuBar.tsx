@@ -4,9 +4,10 @@ import { open, save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
-import { mermaidErdTemplate, dotTemplate } from '../lib/templates'
+import { mermaidErdTemplate, dotTemplate, mathTemplate } from '../lib/templates'
 import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
+import { HelpDialog } from './HelpDialog'
 
 interface MenuBarProps {
   editorMode?: EditorMode
@@ -41,6 +42,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     return () => document.removeEventListener('keydown', dismiss)
   }, [activeMenu])
 
+  const [helpOpen, setHelpOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
@@ -324,7 +326,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         state.activateDocument(docs[(index + (e.shiftKey ? -1 : 1) + docs.length) % docs.length].id)
         return
       }
-      if ((e.target as HTMLElement)?.closest('input, textarea, select, .markwriter-preview')) return
+      const target = e.target as HTMLElement
+      if (target?.closest('input, textarea, select, .markwriter-preview')) {
+        // The math source field edits the active document. Save must work while
+        // it owns focus; other form fields retain their ordinary input shortcuts.
+        const owner = target.closest<HTMLElement>('[data-active="true"]')
+        if (!e.isComposing && modKey && e.key.toLowerCase() === 's' && target.closest('.math-source-editor') && owner?.dataset.documentId === currentDocument?.id) {
+          e.preventDefault(); e.stopPropagation()
+          if (e.shiftKey) void handleSaveAs(); else void handleSave()
+        }
+        return
+      }
       if (modKey) {
         let shouldPrevent = false
         let actionToExecute: (() => void) | null = null
@@ -550,6 +562,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
           <div className="menu-label">Diagram</div>
           <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mermaidErdTemplate); closeMenus() }}>Mermaid ERD</button>
           <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(dotTemplate); closeMenus() }}>DOT</button>
+          <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mathTemplate); closeMenus() }}>Math block</button>
         </div>}
       </div>
       {/* View Menu */}
@@ -611,6 +624,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         </button>
         {activeMenu === 'help' && (
           <div className="menu-dropdown">
+            <button className="menu-option" onClick={() => { closeMenus(); setHelpOpen(true) }}>User Guide</button>
             <button className="menu-option" onClick={handleAbout}>
               <span>About MarkWriter</span>
             </button>
@@ -618,6 +632,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         )}
       </div>
 
+      {helpOpen && <HelpDialog returnFocusRef={helpRef} onClose={() => { setHelpOpen(false); helpRef.current?.focus() }} />}
       {aboutOpen && <AboutDialog onClose={() => { setAboutOpen(false); helpRef.current?.focus() }} />}
 
       {/* Document Title Display */}

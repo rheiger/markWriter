@@ -16,8 +16,8 @@ export function findEmbeddedSource(state: EditorState) {
       const marker = fence[1][0], length = fence[1].length
       let end = n + 1
       while (end <= state.doc.lines && !new RegExp(`^ {0,3}${marker === '`' ? '`' : '~'}{${length},}\\s*$`).test(state.doc.line(end).text)) end++
-      if (end <= state.doc.lines && ['mermaid', 'dot', 'graphviz'].includes(fence[2].trim()) && end > n + 1) {
-        result.push({ from: line.to, to: state.doc.line(end).from - 1, kind: fence[2].trim() === 'mermaid' ? 'Mermaid' : 'DOT' })
+      if (end <= state.doc.lines && ['mermaid', 'dot', 'graphviz', 'math'].includes(fence[2].trim()) && end > n + 1) {
+        result.push({ from: line.to, to: state.doc.line(end).from - 1, kind: fence[2].trim() === 'mermaid' ? 'Mermaid' : fence[2].trim() === 'math' ? 'Math' : 'DOT' })
       }
       n = end
       continue
