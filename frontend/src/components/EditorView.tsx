@@ -73,6 +73,7 @@ export interface EditorViewRef {
   redo: () => void
   focus: () => void
   getSelection: () => string
+  getSelectionIdentity: () => { editor: object; selection: string } | null
   insertText: (text: string) => void
   insertMarkdown: (text: string) => void
   selectAll: () => void
@@ -358,6 +359,12 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (editorViewRef.current) {
         editorViewRef.current.focus()
       }
+    },
+    getSelectionIdentity: () => {
+      if (editorMode === 'wysiwyg') return tiptap && !tiptap.isDestroyed
+        ? { editor: tiptap, selection: JSON.stringify({ mode: editorMode, selection: tiptap.state.selection.toJSON() }) } : null
+      return editorViewRef.current
+        ? { editor: editorViewRef.current, selection: JSON.stringify({ mode: editorMode, selection: editorViewRef.current.state.selection.toJSON() }) } : null
     },
     getSelection: () => {
       if (editorMode === 'wysiwyg' && tiptap) {

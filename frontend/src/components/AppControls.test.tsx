@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import App from '../App'
 import { useAppStore } from '../store/useAppStore'
 import { defaultConfig } from '../lib/preferences'
 import { version } from '../../package.json'
 import type { Editor } from '@tiptap/core'
+import { EditorView as CodeMirrorView } from '@codemirror/view'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: vi.fn() }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn() }))
@@ -14,7 +15,60 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); 
 
 const source = '# Controls\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```'
 
+async function clipboardEditor(container: HTMLElement, mode: 'markdown' | 'wysiwyg') {
+  const markdown = mode === 'markdown'
+  if (screen.getByRole('switch').getAttribute('aria-checked') !== String(markdown)) fireEvent.click(screen.getByRole('switch'))
+  await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', String(markdown)))
+  if (markdown) {
+    await waitFor(() => expect(container.querySelector('[data-active=true] .cm-content')).toBeVisible())
+    const editor = CodeMirrorView.findFromDOM(container.querySelector<HTMLElement>('[data-active=true] .cm-editor')!)!
+    return {
+      select: (from: number, to: number) => act(() => editor.dispatch({ selection: { anchor: from, head: to } })),
+      append: () => act(() => editor.dispatch({ changes: { from: editor.state.doc.length, insert: '!' } })),
+      text: () => editor.state.doc.toString(),
+    }
+  }
+  await waitFor(() => expect((container.querySelector('[data-active=true] .tiptap') as HTMLElement & { editor: Editor }).editor.isInitialized).toBe(true))
+  const editor = (container.querySelector('[data-active=true] .tiptap') as HTMLElement & { editor: Editor }).editor
+  return {
+    select: (from: number, to: number) => act(() => { editor.commands.setTextSelection({ from: from + 1, to: to + 1 }) }),
+    append: () => act(() => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, '!') }),
+    text: () => editor.getText(),
+  }
+}
+
+function deferredClipboard() {
+  let resolve!: (value: string) => void
+  const pending = new Promise<string>(done => { resolve = done })
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+    readText: vi.fn(() => pending), writeText: vi.fn(() => pending.then(() => {})),
+  } })
+  return {
+    finish: () => act(async () => { resolve('pasted'); await pending }),
+    restore: () => { if (previous) Object.defineProperty(navigator, 'clipboard', previous); else Reflect.deleteProperty(navigator, 'clipboard') },
+  }
+}
+
 describe('application view controls', () => {
+  it('does not let a completed file operation dismiss a subsequently opened menu', async () => {
+    const state = useAppStore.getState()
+    state.setCurrentDocument({ ...state.currentDocument!, path: '/controls.md' })
+    let finishSave!: () => void
+    const saving = new Promise<void>(resolve => { finishSave = resolve })
+    const originalSave = useAppStore.getState().saveDocument
+    const save = vi.spyOn(useAppStore.getState(), 'saveDocument').mockReturnValue(saving)
+    try {
+      render(<App />)
+      fireEvent.click(screen.getByRole('button', { name: 'File', exact: true }))
+      fireEvent.click(screen.getByRole('button', { name: /^Save ⌘S$/ }))
+      expect(save).toHaveBeenCalledWith('controls')
+      fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+      expect(screen.getByRole('button', { name: /^Undo / })).toBeVisible()
+      await act(async () => { finishSave(); await saving })
+      expect(screen.getByRole('button', { name: /^Undo / })).toBeVisible()
+    } finally { save.mockRestore(); useAppStore.setState({ saveDocument: originalSave }) }
+  })
   it('dismisses the theme menu with Escape and returns focus to its trigger', () => {
     render(<App />)
     const view = screen.getByRole('button', { name: 'View', exact: true })
@@ -33,6 +87,53 @@ describe('application view controls', () => {
       config: { ...defaultConfig, theme: 'light' },
     })
     useAppStore.getState().setCurrentDocument({ id: 'controls', title: 'Controls', content: source, isDirty: false, lastModified: new Date() })
+  })
+
+  describe.each(['Cut', 'Paste'] as const)('delayed %s ownership', operation => {
+    it.each(['markdown', 'wysiwyg'] as const)('applies to an unchanged %s editor selection', async mode => {
+      const doc = { ...useAppStore.getState().currentDocument!, content: 'alpha omega' }
+      useAppStore.setState({ documents: [doc], currentDocument: doc })
+      const { container } = render(<App />)
+      const editor = await clipboardEditor(container, mode)
+      editor.select(0, 5)
+      const clipboard = deferredClipboard()
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${operation} `) }))
+        // The exposed React handle may be recreated; the actual editor still owns this selection.
+        act(() => useAppStore.getState().updateConfig({ theme: 'dark' }))
+        await clipboard.finish()
+        expect(editor.text()).toBe(operation === 'Cut' ? ' omega' : 'pasted omega')
+        expect(useAppStore.getState().currentDocument?.isDirty).toBe(true)
+      } finally { clipboard.restore() }
+    })
+
+    describe.each(['tab', 'selection', 'revision', 'mode'] as const)('after %s changes', changed => {
+      it.each(['markdown', 'wysiwyg'] as const)('rejects the stale %s completion', async mode => {
+        const doc = { ...useAppStore.getState().currentDocument!, content: 'alpha omega' }
+        useAppStore.setState({ documents: [doc], currentDocument: doc })
+        const { container } = render(<App />)
+        const editor = await clipboardEditor(container, mode)
+        editor.select(0, 5)
+        const clipboard = deferredClipboard()
+        try {
+          fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+          fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${operation} `) }))
+          if (changed === 'tab') {
+            act(() => useAppStore.getState().setCurrentDocument({ id: 'clipboard-B', title: 'B', content: 'other place', isDirty: false, lastModified: new Date() }))
+            const other = await clipboardEditor(container, mode)
+            other.select(0, 5)
+          } else if (changed === 'selection') editor.select(6, 11)
+          else if (changed === 'revision') { editor.append(); editor.select(0, 5) }
+          else { const other = await clipboardEditor(container, mode === 'markdown' ? 'wysiwyg' : 'markdown'); other.select(0, 5) }
+          await clipboard.finish()
+          const original = useAppStore.getState().documents.find(item => item.id === 'controls')!
+          expect(original.content).toBe(changed === 'revision' ? 'alpha omega!' : 'alpha omega')
+          expect(original.isDirty).toBe(changed === 'revision')
+          if (changed === 'tab') expect(useAppStore.getState().currentDocument).toMatchObject({ id: 'clipboard-B', content: 'other place', isDirty: false })
+        } finally { clipboard.restore() }
+      })
+    })
   })
 
   it('synchronizes explicit Auto/Light/Dark choices and the persisted highlighting controls', async () => {

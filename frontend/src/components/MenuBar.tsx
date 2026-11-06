@@ -47,6 +47,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
   // File menu handlers
   const handleNew = async () => {
+    setActiveMenu(null)
     console.log('[DEBUG] handleNew called')
     try {
       console.log('[MENU] Creating new document...')
@@ -56,10 +57,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       console.error('[MENU] Failed to create new document:', error)
       alert(`Failed to create new document: ${error}`)
     }
-    setActiveMenu(null)
   }
 
   const handleOpen = async () => {
+    setActiveMenu(null)
     console.log('[DEBUG] handleOpen called')
     try {
       console.log('[MENU] Opening file dialog...')
@@ -84,10 +85,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       console.error('[MENU] Failed to open file:', error)
       alert(`Failed to open file: ${error}`)
     }
-    setActiveMenu(null)
   }
 
   const handleSave = async () => {
+    setActiveMenu(null)
     console.log('[DEBUG] handleSave called')
     try {
       if (currentDocument?.path) {
@@ -102,10 +103,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       console.error('[MENU] Failed to save document:', error)
       alert(`Failed to save document: ${error}`)
     }
-    setActiveMenu(null)
   }
 
   const handleSaveAs = async () => {
+    setActiveMenu(null)
     const snapshot = currentDocument
     if (!snapshot) return
     console.log('[DEBUG] handleSaveAs called')
@@ -131,10 +132,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       console.error('[MENU] Failed to save file:', error)
       alert(`Failed to save file: ${error}`)
     }
-    setActiveMenu(null)
   }
 
   const handleExportHTML = async () => {
+    setActiveMenu(null)
     const snapshot = currentDocument
     if (!snapshot) return
     console.log('[DEBUG] handleExportHTML called')
@@ -160,10 +161,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       console.error('[MENU] Failed to export file:', error)
       alert(`Failed to export file: ${error}`)
     }
-    setActiveMenu(null)
   }
 
   const handleQuit = async () => {
+    setActiveMenu(null)
     try {
       if (!await confirmDiscardChanges()) return
       await invoke('quit_app')
@@ -201,23 +202,41 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     setActiveMenu(null)
   }
 
+  // Clipboard permission/OS work may finish after navigation or another edit.
+  // A cancelled Cut still copies text, but must never delete a newer selection.
+  const clipboardTarget = () => {
+    const editor = editorViewRef?.current, document = useAppStore.getState().currentDocument
+    const selection = editor?.getSelectionIdentity()
+    if (!editor || !document || selection == null) return null
+    const revision = document.revision ?? 0
+    return { editor, valid: () => {
+      const current = useAppStore.getState().currentDocument
+      const activeSelection = editorViewRef?.current?.getSelectionIdentity()
+      return current?.id === document.id && (current.revision ?? 0) === revision &&
+        activeSelection?.editor === selection.editor && activeSelection.selection === selection.selection
+    } }
+  }
+
   const handleCut = async () => {
-    if (editorViewRef?.current) {
+    setActiveMenu(null)
+    const target = clipboardTarget()
+    if (target) {
       try {
-        const selection = editorViewRef.current.getSelection()
+        const selection = target.editor.getSelection()
         if (selection) {
           await navigator.clipboard.writeText(selection)
-          editorViewRef.current.insertText('') // Replace selection with empty string
+          if (!target.valid()) return
+          target.editor.insertText('') // Replace only the captured, still-current selection.
           console.log('[MENU] Cut selection to clipboard')
         }
       } catch (error) {
         console.error('[MENU] Cut failed:', error)
       }
     }
-    setActiveMenu(null)
   }
 
   const handleCopy = async () => {
+    setActiveMenu(null)
     if (editorViewRef?.current) {
       try {
         const selection = editorViewRef.current.getSelection()
@@ -229,20 +248,21 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         console.error('[MENU] Copy failed:', error)
       }
     }
-    setActiveMenu(null)
   }
 
   const handlePaste = async () => {
-    if (editorViewRef?.current) {
+    setActiveMenu(null)
+    const target = clipboardTarget()
+    if (target) {
       try {
         const text = await navigator.clipboard.readText()
-        editorViewRef.current.insertText(text)
+        if (!target.valid()) return
+        target.editor.insertText(text)
         console.log('[MENU] Pasted from clipboard')
       } catch (error) {
         console.error('[MENU] Paste failed:', error)
       }
     }
-    setActiveMenu(null)
   }
 
   const handleSelectAll = () => {

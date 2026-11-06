@@ -1,26 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 // 40×40 is the supported insertion bound; numeric controls reach sizes beyond the visible grid.
 export function TablePicker({ onInsert, onClose }: { onInsert: (rows: number, cols: number) => void; onClose: () => void }) {
   const [size, setSize] = useState({ rows: 1, cols: 1 })
   const [limits, setLimits] = useState({ rows: 5, cols: 5 })
+  const [leftOffset, setLeftOffset] = useState(0)
   const root = useRef<HTMLDivElement>(null)
   const grid = useRef<HTMLDivElement>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const measure = () => {
       const rect = root.current?.getBoundingClientRect()
       if (!rect) return
-      setLimits({ cols: Math.max(5, Math.min(16, Math.floor((window.innerWidth - Math.max(8, rect.left) - 32) / 24))), rows: Math.max(5, Math.min(16, Math.floor((window.innerHeight - rect.top - 150) / 24))) })
+      const anchorLeft = root.current!.parentElement?.getBoundingClientRect().left ?? rect.left
+      const left = Math.max(8, Math.min(anchorLeft, window.innerWidth - rect.width - 8))
+      setLeftOffset(offset => Math.abs(offset - (left - anchorLeft)) < .5 ? offset : left - anchorLeft)
+      // The panel may shift left as its grid grows, so its columns can use the
+      // viewport's full available width rather than only the trigger's right side.
+      const cols = Math.max(5, Math.min(16, Math.floor((window.innerWidth - 32) / 24)))
+      const rows = Math.max(5, Math.min(16, Math.floor((window.innerHeight - rect.top - 150) / 24)))
+      setLimits(previous => previous.cols === cols && previous.rows === rows ? previous : { cols, rows })
     }
     measure(); grid.current?.focus()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    if (root.current) observer?.observe(root.current)
     window.addEventListener('resize', measure)
     const outside = (event: PointerEvent) => { if (root.current && !root.current.contains(event.target as Node)) onClose() }
     document.addEventListener('pointerdown', outside)
-    return () => { window.removeEventListener('resize', measure); document.removeEventListener('pointerdown', outside) }
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); document.removeEventListener('pointerdown', outside) }
   }, [onClose])
   const rows = Math.min(limits.rows, Math.max(5, size.rows + 1)), cols = Math.min(limits.cols, Math.max(5, size.cols + 1))
   const value = (number: number) => Math.min(40, Math.max(1, Number.isFinite(number) ? Math.floor(number) : 1))
-  return <div ref={root} role="dialog" aria-label="Insert table" className="table-picker" onKeyDown={event => {
+  return <div ref={root} role="dialog" aria-label="Insert table" className="table-picker" style={{ left: leftOffset }} onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose() }
   }}>
     <div className="toolbar-dropdown-header"><output aria-live="polite">{size.cols} × {size.rows} · {size.cols * size.rows} cells</output></div>
