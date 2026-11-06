@@ -118,7 +118,7 @@ jobs:
         run: ./tools/setup-windows-acceptance.ps1
       - name: Exercise Linux desktop application
         if: runner.os == 'Linux'
-        run: xvfb-run -a node tools/native-acceptance.mjs
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' node tools/native-acceptance.mjs
         env:
           GDK_BACKEND: x11
       - name: Exercise Windows desktop application

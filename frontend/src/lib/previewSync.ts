@@ -32,6 +32,27 @@ export function previewPoint(root: HTMLElement, map: PreviewMap, node: Node, off
   return block ? { position: bias > 0 ? block.from : block.to, exact: false } : null
 }
 
+// Source-map offsets and DOM Range text offsets both count UTF-16 code units.
+// Syntax highlighting may split a mapped segment across nested token spans.
+function descendantTextPoint(root: Element, offset: number): { node: Text; offset: number } | null {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node = walker.nextNode() as Text | null, last: Text | null = null
+  let remaining = Math.max(0, offset)
+  while (node) {
+    if (remaining <= node.length) return { node, offset: remaining }
+    remaining -= node.length; last = node; node = walker.nextNode() as Text | null
+  }
+  return last ? { node: last, offset: last.length } : null
+}
+
+function descendantTextRange(root: Element, from: number, to: number): Range | null {
+  const start = descendantTextPoint(root, from), end = descendantTextPoint(root, to)
+  if (!start || !end) return null
+  const range = root.ownerDocument.createRange()
+  range.setStart(start.node, start.offset); range.setEnd(end.node, end.offset)
+  return range
+}
+
 interface Options {
   view: EditorView; root: HTMLElement; scroller: HTMLElement
   getMap: () => PreviewMap | null; getSource: () => string; valid: (map: PreviewMap) => boolean
@@ -78,18 +99,19 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
     for (const segment of map.segments) {
       const first = segment.starts[0], last = segment.ends[segment.ends.length - 1]
       if (last < from || first > to) continue
-      const element = root.querySelector(`[data-mw-text="${segment.id}"]`), text = element?.firstChild
-      if (!text || text.nodeType !== Node.TEXT_NODE) continue
-      const range = document.createRange()
+      const element = root.querySelector(`[data-mw-text="${segment.id}"]`)
+      if (!element) continue
       let start = renderedOffset(segment, Math.max(from, first)), end = renderedOffset(segment, Math.min(to, last))
       if (to > from && end < segment.text.length && segment.starts[end] < to) end++
       if (selection.empty && (from < first || from > last)) continue
       if (!selection.empty && end <= start) continue
       if (selection.empty) end = start
-      range.setStart(text, Math.min(start, text.textContent!.length)); range.setEnd(text, Math.min(end, text.textContent!.length))
+      let range = descendantTextRange(element, start, end)
+      if (!range) continue
       let rects = Array.from(range.getClientRects())
       if (selection.empty && (!rects.length || !rects[0].height)) {
-        start = Math.min(start, Math.max(0, segment.text.length - 1)); range.setStart(text, start); range.setEnd(text, start + 1); rects = Array.from(range.getClientRects())
+        start = Math.min(start, Math.max(0, segment.text.length - 1)); range = descendantTextRange(element, start, start + 1)
+        rects = range ? Array.from(range.getClientRects()) : []
       }
       for (const rect of rects) if (rect.bottom >= pvRect.top && rect.top <= pvRect.bottom) {
         rectangles.push({ left: rect.left - pvRect.left + pv.scrollLeft, top: rect.top - pvRect.top + pv.scrollTop, width: selection.empty ? 2 : rect.width, height: rect.height })

@@ -1,5 +1,6 @@
 $ErrorActionPreference='Stop'
-$installer=(Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName
+$packageVersion=(Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json).version
+$installer=(Get-Item -LiteralPath "src-tauri/target/release/bundle/nsis/MarkWriter_${packageVersion}_x64-setup.exe").FullName
 $destination=Join-Path $env:RUNNER_TEMP 'MarkWriter-installed'
 # Current-user NSIS install uses the same normal installer in silent UI automation.
 & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/run-installer-windows.ps1" -Installer $installer -Destination $destination

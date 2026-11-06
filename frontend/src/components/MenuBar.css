@@ -11,6 +11,8 @@
 
 .menu-item {
   position: relative;
+  /* Triggers remain reachable above the click-outside backdrop. */
+  z-index: 100;
   margin-right: 1.5rem;
 }
 

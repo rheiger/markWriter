@@ -213,7 +213,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!snapshot) return
       try {
         if (format !== 'html') throw new Error(`Unsupported export format: ${format}`)
-        const html = await createHtmlExport(snapshot.content, `${snapshot.id}:${snapshot.revision ?? 0}:export:${crypto.randomUUID()}`)
+        const highlighting = get().config.syntaxHighlighting
+        const html = await createHtmlExport(snapshot.content, `${snapshot.id}:${snapshot.revision ?? 0}:export:${crypto.randomUUID()}`, highlighting)
         await invoke('export_document', { html, id: snapshot.id, content: snapshot.content, path, format })
       } catch (error) { set({ error: errorMessage(error, 'Failed to export document') }) }
     },

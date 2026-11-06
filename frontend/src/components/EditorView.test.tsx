@@ -1,4 +1,5 @@
 import { foldedRanges } from '@codemirror/language'
+import { EditorView as CMView } from '@codemirror/view'
 import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
@@ -34,6 +35,104 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('keeps source synchronization out of rendered Undo history', async () => {
+    let historyTime = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => historyTime)
+    const source = '# History\n\nBefore paragraph.\n\n```js\nconst value = 42;\n```\n'
+    const { ref, editor } = await mount(source)
+    try {
+      await markdown(ref)
+      act(() => {
+        const cm = ref.current!.getEditorView()!
+        cm.dispatch({ selection: { anchor: cm.state.doc.length } })
+        ref.current!.insertText('Source history probe.')
+      })
+      await wysiwyg(ref)
+      await waitFor(() => expect(editor.getText()).toContain('Source history probe.'))
+      historyTime += 1000 // Separate first sync; second sync and user input share one history window.
+      await markdown(ref)
+      act(() => ref.current!.undo())
+      expect(ref.current!.getMarkdown()).toBe(source)
+      await wysiwyg(ref)
+      await waitFor(() => expect(editor.getText()).not.toContain('Source history probe.'))
+      const before = editor.getJSON()
+      let position = 0
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph' && node.textContent === 'Before paragraph.') position = pos + 1
+      })
+      act(() => editor.view.dispatch(editor.state.tr.insertText('Edited ', position)))
+      expect(editor.getText()).toContain('Edited Before paragraph.')
+      act(() => {
+        useAppStore.getState().updateConfig({ syntaxHighlighting: false })
+        useAppStore.getState().updateConfig({ syntaxHighlighting: true })
+      })
+      act(() => ref.current!.undo())
+      expect(editor.getJSON()).toEqual(before)
+      expect(ref.current!.getMarkdown()).not.toContain('Source history probe.')
+    } finally { clock.mockRestore() }
+  })
+
+  it('updates Auto editor themes when the OS appearance changes without document writes', async () => {
+    const prior = useAppStore.getState().config
+    const listeners = new Set<() => void>()
+    const media = { matches: false, addEventListener: (_event: string, fn: () => void) => listeners.add(fn), removeEventListener: (_event: string, fn: () => void) => listeners.delete(fn) }
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = query => query === '(prefers-color-scheme: dark)' ? media as unknown as MediaQueryList : originalMatchMedia(query)
+    useAppStore.getState().updateConfig({ theme: 'system' })
+    const { ref, unmount } = await mount('```js\nconst value = 42;\n```')
+    try {
+      await markdown(ref)
+      const cm = ref.current!.getEditorView()!
+      expect(cm.state.facet(CMView.darkTheme)).toBe(false)
+      act(() => { media.matches = true; listeners.forEach(fn => fn()) })
+      await waitFor(() => expect(cm.state.facet(CMView.darkTheme)).toBe(true))
+      act(() => useAppStore.getState().updateConfig({ theme: 'light' }))
+      expect(cm.state.facet(CMView.darkTheme)).toBe(false)
+      expect(ref.current!.getMarkdown()).toBe('```js\nconst value = 42;\n```')
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    } finally { unmount(); window.matchMedia = originalMatchMedia; useAppStore.setState({ config: prior }) }
+  })
+
+  it('projects fenced syntax tokens across quote/list chunks without coloring prefixes', async () => {
+    useAppStore.getState().updateConfig({ syntaxHighlighting: true })
+    const source = '> - ```js\n>   const first = 1;\n>   const second = 2;\n>   ```'
+    const { ref, container } = await mount(source)
+    await markdown(ref)
+    await waitFor(() => expect(Array.from(container.querySelectorAll('.cm-content .hljs-keyword'), span => span.textContent)).toEqual(['const','const']))
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it('toggles both real code engines and Preview without source, history, selection or fold mutations', async () => {
+    useAppStore.getState().updateConfig({ syntaxHighlighting: true, collapseSource: true })
+    const source = '```js\r\nconst value = "😀<tag>";\r\n```\r\n\r\n```mermaid\r\nflowchart TD\r\n A --> B\r\n```\r\n'
+    const { ref, editor, container } = await mount(source)
+    expect(container.querySelector('.tiptap .hljs-keyword')).not.toBeNull()
+    const json = editor.getJSON()
+    act(() => useAppStore.getState().updateConfig({ syntaxHighlighting: false }))
+    await waitFor(() => expect(container.querySelector('.tiptap [class*=hljs-]')).toBeNull())
+    expect(editor.getJSON()).toEqual(json)
+    await markdown(ref)
+    const cm = ref.current!.getEditorView()!
+    act(() => cm.dispatch({ selection: { anchor: 12, head: 17 } }))
+    const selection = cm.state.selection, folds = foldedRanges(cm.state).size
+    act(() => useAppStore.getState().updateConfig({ syntaxHighlighting: true }))
+    await waitFor(() => expect(container.querySelector('.cm-content .hljs-keyword')).not.toBeNull())
+    await waitFor(() => expect(container.querySelector('.markwriter-preview .hljs-keyword')).not.toBeNull())
+    expect(cm.state.selection.eq(selection)).toBe(true)
+    expect(foldedRanges(cm.state).size).toBe(folds)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    act(() => { ref.current!.insertText('edited'); ref.current!.undo() })
+    expect(ref.current!.getMarkdown()).toBe(source)
+    await wysiwyg(ref)
+    expect(editor.getJSON()).toEqual(json)
+    act(() => { editor.commands.insertContentAt(editor.state.doc.content.size, '<p>Edited</p>'); editor.commands.undo() })
+    // Real rendered edits use the existing serializer; Undo must restore the document model.
+    // Exact original CRLF bytes above are required for all view-only operations.
+    expect(editor.getJSON()).toEqual(json)
+  })
 
   it('completes DOT Preview for a clean opened document whose initial revision is implicit zero', async () => {
     const { dotRenderer } = await import('../lib/dotRenderer')
@@ -491,6 +590,151 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getMarkdown()).toBe(fixture)
   })
 
+})
+
+describe('technical text correction boundaries', () => {
+  const source = 'Prose before.\n\n```js\nconst teh_block = "😀";\n```\n\nProse with `teh_inline` here.\n\n> teh_quote\n\nProse after.\n'
+  const attributes = { autocorrect: 'off', spellcheck: 'false', autocapitalize: 'off', writingsuggestions: 'false' }
+  const contexts = ['codeBlock', 'inlineCode', 'blockquote', 'storedCode'] as const
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  function position(editor: Editor, text: string) {
+    let found = -1
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text?.includes(text)) found = pos + node.text.indexOf(text)
+    })
+    expect(found).toBeGreaterThanOrEqual(0)
+    return found
+  }
+  function selectContext(editor: Editor, context: typeof contexts[number], verify?: () => void) {
+    const text = { codeBlock: 'teh_block', inlineCode: 'teh_inline', blockquote: 'teh_quote', storedCode: 'Prose after.' }[context]
+    act(() => {
+      editor.commands.setTextSelection(position(editor, text) + 2)
+      if (context === 'storedCode') editor.commands.setMark('code')
+      verify?.()
+    })
+  }
+  function beforeInput(element: HTMLElement, inputType = 'insertReplacementText', data = 'the', isComposing = false, cancelable = true) {
+    const event = new InputEvent('beforeinput', { bubbles: true, cancelable, inputType, data, isComposing })
+    act(() => { element.dispatchEvent(event) })
+    return event
+  }
+
+  it('synchronously scopes rendered host correction attributes to selection and stored inline-code marks without writes or Undo entries', async () => {
+    const { editor, ref, container } = await mount(source)
+    const host = container.querySelector<HTMLElement>('.tiptap')!
+    for (const context of contexts) {
+      selectContext(editor, context, () => {
+        for (const [name, value] of Object.entries(attributes)) expect(host).toHaveAttribute(name, value)
+      })
+      act(() => {
+        editor.commands.setTextSelection(position(editor, 'Prose after.') + 2)
+        for (const [name, value] of Object.entries(attributes)) expect(host.getAttribute(name)).not.toBe(value)
+      })
+    }
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    let undone = true
+    act(() => { undone = editor.commands.undo() })
+    expect(undone).toBe(false)
+    expect(ref.current!.getMarkdown()).toBe(source)
+  })
+
+  it('protects technical nodes explicitly and nested block code through ancestor and editing-host policies', async () => {
+    const { container, editor, ref } = await mount(source)
+    act(() => editor.commands.setTextSelection(position(editor, 'Prose before.') + 2))
+    const nodes = container.querySelectorAll('.tiptap pre, .tiptap p code, .tiptap blockquote')
+    expect(nodes).toHaveLength(3)
+    for (const node of nodes) for (const [name, value] of Object.entries(attributes)) expect(node).toHaveAttribute(name, value)
+    const host = container.querySelector<HTMLElement>('.tiptap')!, innerCode = host.querySelector('pre code')!
+    // Spellcheck/writing suggestions inherit the nearest explicit ancestor policy.
+    // Autocorrection/capitalization for an editable region use its editing host.
+    // https://html.spec.whatwg.org/multipage/interaction.html#editing-2
+    expect(innerCode.closest('[spellcheck]')).toHaveAttribute('spellcheck', 'false')
+    expect(innerCode.closest('[writingsuggestions]')).toHaveAttribute('writingsuggestions', 'false')
+    expect(innerCode.closest('[contenteditable]')).toBe(host)
+    selectContext(editor, 'codeBlock', () => {
+      expect(host).toHaveAttribute('autocorrect', 'off')
+      expect(host).toHaveAttribute('autocapitalize', 'off')
+    })
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it.each(contexts)('cancels cancelable noncomposing replacement input in rendered %s', async context => {
+    const { container, editor, ref } = await mount(source)
+    selectContext(editor, context)
+    const event = beforeInput(container.querySelector<HTMLElement>('.tiptap')!)
+    expect(event.defaultPrevented).toBe(true)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it.each(contexts)('allows typing, Unicode, paste and composition input in rendered %s', async context => {
+    const { container, editor, ref } = await mount(source)
+    selectContext(editor, context)
+    const host = container.querySelector<HTMLElement>('.tiptap')!
+    for (const [type, data, composing] of [
+      ['insertText', 'ordinary', false], ['insertText', '😀漢', false], ['insertFromPaste', 'literal <&> 😀', false],
+      ['insertCompositionText', '漢', true], ['insertReplacementText', '漢', true],
+    ] as const) expect(beforeInput(host, type, data, composing).defaultPrevented).toBe(false)
+    expect(beforeInput(host, 'insertReplacementText', 'the', false, false).defaultPrevented).toBe(false)
+    // Synthetic beforeinput has no OS editing default: this checks only local cancellation.
+    expect(ref.current!.getMarkdown()).toBe(source)
+  })
+
+  it.each(['pre code', 'p code', 'blockquote'])('cancels a replacement targeting %s after the caret moved back to prose', async selector => {
+    const { container, editor, ref } = await mount(source)
+    act(() => editor.commands.setTextSelection(position(editor, 'Prose after.') + 2))
+    const host = container.querySelector<HTMLElement>('.tiptap')!
+    const walker = document.createTreeWalker(host.querySelector(selector)!, NodeFilter.SHOW_TEXT)
+    let text = walker.nextNode() as Text | null
+    while (text && !text.data.includes('teh_')) text = walker.nextNode() as Text | null
+    expect(text).not.toBeNull()
+    const range = document.createRange(), from = text!.data.indexOf('teh_')
+    range.setStart(text!, from); range.setEnd(text!, from + 3)
+    const event = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertReplacementText', data: 'the' })
+    Object.defineProperty(event, 'getTargetRanges', { value: () => [range] })
+    act(() => { host.dispatchEvent(event) })
+    expect(event.defaultPrevented).toBe(true)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it('leaves ordinary rendered prose replacement input available', async () => {
+    const { container, editor, ref } = await mount(source)
+    act(() => editor.commands.setTextSelection(position(editor, 'Prose after.') + 2))
+    expect(beforeInput(container.querySelector<HTMLElement>('.tiptap')!).defaultPrevented).toBe(false)
+    expect(ref.current!.getMarkdown()).toBe(source)
+  })
+
+  it('keeps the source editing host correction attributes off across technical and prose selections', async () => {
+    const { ref } = await mount(source)
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    for (const text of ['teh_block', 'teh_inline', 'teh_quote', 'Prose after.']) {
+      act(() => view.dispatch({ selection: { anchor: source.indexOf(text) + 2 } }))
+      for (const [name, value] of Object.entries(attributes)) expect(view.contentDOM).toHaveAttribute(name, value)
+    }
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it('cancels source replacement input without blocking ordinary input or changing its model/history', async () => {
+    const { ref } = await mount(source)
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    act(() => view.dispatch({ selection: { anchor: source.indexOf('teh_block') + 2 } }))
+    expect(beforeInput(view.contentDOM).defaultPrevented).toBe(true)
+    for (const [type, data, composing] of [
+      ['insertText', 'ordinary', false], ['insertText', '😀漢', false], ['insertFromPaste', 'literal <&> 😀', false],
+      ['insertCompositionText', '漢', true], ['insertReplacementText', '漢', true],
+    ] as const) expect(beforeInput(view.contentDOM, type, data, composing).defaultPrevented).toBe(false)
+    expect(view.state.doc.toString()).toBe(source)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
 })
 
 describe('canonical CRLF source editing', () => {

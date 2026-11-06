@@ -10,7 +10,8 @@ import { searchKeymap } from '@codemirror/search'
 import { useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { closeHistory } from '@tiptap/pm/history'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -24,8 +25,10 @@ import Blockquote from '@tiptap/extension-blockquote'
 import HardBreak from '@tiptap/extension-hard-break'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { common, createLowlight } from 'lowlight'
+import { HighlightedCodeBlock, codeHighlightKey, sourceCodeHighlighting } from '../lib/editorCodeHighlight'
+import { useResolvedDark } from '../lib/theme'
+import { cancelAutomaticReplacement, literalInputAttributes, technicalInput } from '../lib/technicalInput'
+import '../lib/codeHighlight.css'
 import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
@@ -48,8 +51,14 @@ import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/source
 import { wrapContinuation } from '../lib/wrapContinuation'
 import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
-
-const lowlight = createLowlight(common)
+// Source synchronization is a view update, never a rendered Undo event. Close
+// the prior group as well, so the next real rendered edit starts its own event.
+function synchronizeRendered(editor: Editor, source: string) {
+  editor.chain()
+    .command(({ tr }) => { closeHistory(tr); tr.setMeta('addToHistory', false); return true })
+    .setContent(toWysiwygHtml(source), { emitUpdate: false })
+    .run()
+}
 
 export type EditorMode = 'markdown' | 'wysiwyg'
 interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
@@ -65,6 +74,7 @@ export interface EditorViewRef {
   redo: () => void
   focus: () => void
   getSelection: () => string
+  getSelectionIdentity: () => { editor: object; selection: string } | null
   insertText: (text: string) => void
   insertMarkdown: (text: string) => void
   selectAll: () => void
@@ -109,6 +119,7 @@ export interface EditorViewRef {
 
 const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
   const preferences = useRef(new Compartment())
+  const highlighting = useRef(new Compartment())
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -133,6 +144,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   const currentDocument = useAppStore(state => state.documents.find(doc => doc.id === documentId) ?? null)
   const config = useAppStore(state => state.config)
+  const isDark = useResolvedDark(config.theme)
   const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId), [documentId])
   const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
@@ -159,16 +171,17 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         link: false,
       }),
       renderedSearchDecorations,
-      CodeBlockLowlight.configure({ lowlight }),
+      technicalInput,
+      HighlightedCodeBlock.configure({ highlighting: config.syntaxHighlighting, HTMLAttributes: literalInputAttributes }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       BulletList,
       OrderedList,
       ListItem,
       Heading.configure({ levels: [1,2,3,4,5,6] }),
-      Blockquote,
+      Blockquote.configure({ HTMLAttributes: literalInputAttributes }),
       HardBreak,
       HorizontalRule,
-      Code,
+      Code.configure({ HTMLAttributes: literalInputAttributes }),
       Strike,
       Underline,
       Link.configure({ autolink: false, linkOnPaste: false }),
@@ -275,7 +288,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           if (request !== modeRequest.current || tiptap.isDestroyed) return
           const text = source()
           if (lastTiptapSource.current !== text) {
-            tiptap.commands.setContent(toWysiwygHtml(text), { emitUpdate: false })
+            synchronizeRendered(tiptap, text)
             lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
           }
           lastTiptapSource.current = text
@@ -315,7 +328,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     getMarkdown: () => source(),
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
-      tiptap?.commands.setContent(toWysiwygHtml(content), { emitUpdate: false })
+      if (tiptap) synchronizeRendered(tiptap, content)
       if (tiptap) lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
       lastTiptapSource.current = content
       if (editorViewRef.current) {
@@ -348,6 +361,12 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (editorViewRef.current) {
         editorViewRef.current.focus()
       }
+    },
+    getSelectionIdentity: () => {
+      if (editorMode === 'wysiwyg') return tiptap && !tiptap.isDestroyed
+        ? { editor: tiptap, selection: JSON.stringify({ mode: editorMode, selection: tiptap.state.selection.toJSON() }) } : null
+      return editorViewRef.current
+        ? { editor: editorViewRef.current, selection: JSON.stringify({ mode: editorMode, selection: editorViewRef.current.state.selection.toJSON() }) } : null
     },
     getSelection: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
@@ -583,7 +602,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const abort = dotPreviewAbort.current = new AbortController()
     const generation = ++previewGeneration.current
     const doc = useAppStore.getState().documents.find(item => item.id === documentId)
-    const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation })
+    const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation }, config.syntaxHighlighting)
     previewMap.current = map
     container.innerHTML = map.html
     syncRef.current?.invalidate()
@@ -606,7 +625,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected) { element.textContent = `DOT error: ${error.message}`; syncRef.current?.invalidate() }
       })
     }
-    const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: isDark ? 'dark' : 'default' })
     requestAnimationFrame(async () => {
       for (const [index, element] of elements.entries()) {
@@ -619,7 +637,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
     })
-  }, [config.theme, active, documentId])
+  }, [isDark, config.syntaxHighlighting, active, documentId])
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview
@@ -635,9 +653,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const timer = setTimeout(() => {
       if (!editorRef.current) return
 
-    const isDark = config.theme === 'dark' ||
-      (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
     console.log('[EDITOR] Theme is dark:', isDark)
     console.log('[EDITOR] Config theme:', config.theme)
 
@@ -650,8 +665,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       doc: defaultContent,
       extensions: [
         markdown({ base: markdownLanguage }),
+        CodeMirrorView.domEventHandlers({ beforeinput: event => cancelAutomaticReplacement(event) }),
         embeddedSourceFolds(),
         sourceSearchDecorations,
+        highlighting.current.of(config.syntaxHighlighting ? [sourceCodeHighlighting] : []),
         CodeMirrorView.clipboardOutputFilter.of(() => {
           const view = editorViewRef.current
           if (!view) return ''
@@ -746,15 +763,19 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, documentId, currentDocument?.id, config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, documentId, currentDocument?.id, isDark, config.theme, config.syntaxHighlighting, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
 
   useEffect(() => {
-    const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     editorViewRef.current?.dispatch({ effects: preferences.current.reconfigure([
-      ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(dark ? [oneDark] : []),
+      ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(isDark ? [oneDark] : []),
       ...(config.wrapContinuation ? [wrapContinuation()] : []),
     ]) })
-  }, [config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth])
+  }, [isDark, config.wordWrap, config.wrapContinuation, config.tabWidth])
+
+  useEffect(() => {
+    editorViewRef.current?.dispatch({ effects: highlighting.current.reconfigure(config.syntaxHighlighting ? [sourceCodeHighlighting] : []) })
+    if (tiptap && !tiptap.isDestroyed) tiptap.view.dispatch(tiptap.state.tr.setMeta(codeHighlightKey, config.syntaxHighlighting).setMeta('addToHistory', false))
+  }, [config.syntaxHighlighting, tiptap])
 
   useEffect(() => {
     const view = editorViewRef.current

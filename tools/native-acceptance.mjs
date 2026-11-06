@@ -2,6 +2,8 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { codeFixtureCases } from './code-fixtures.mjs'
 import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
@@ -28,6 +30,8 @@ if (!['linux', 'win32'].includes(process.platform)) {
 
 await mkdir(artifacts, { recursive: true })
 const fixtureDir = await mkdtemp(join(tmpdir(), 'markwriter-native-'))
+const profileDir = join(fixtureDir, 'profile')
+await mkdir(profileDir)
 const sourcePath = join(fixtureDir, 'source.md')
 const savedPath = join(fixtureDir, 'saved.md')
 const htmlPath = join(fixtureDir, 'export.html')
@@ -40,7 +44,7 @@ const driverPath = process.env.MARKWRITER_TAURI_DRIVER ?? join(homedir(), '.carg
 const binaryPath = resolve(process.env.MARKWRITER_BINARY ?? join(root, 'src-tauri', 'target', 'debug', `markwriter${extension}`))
 const driverArgs = ['--port', '4444', '--native-port', '4445']
 if (process.env.MARKWRITER_NATIVE_DRIVER) driverArgs.push('--native-driver', process.env.MARKWRITER_NATIVE_DRIVER)
-const driver = spawn(driverPath, driverArgs, { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' })
+const driver = spawn(driverPath, driverArgs, { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', env: { ...process.env, MARKWRITER_PROFILE_DIR: profileDir } })
 let driverLog = ''
 let launchError
 driver.on('error', error => { launchError = error })
@@ -87,6 +91,8 @@ async function click(xpath) {
   await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/click`, {})
 }
 async function mode(name) {
+  // Tab mounting and its shared toolbar mode notification settle in separate commits.
+  await waitFor(() => run(`const s=document.querySelector('button[role="switch"]'),a=document.querySelector('[data-active=true]');if(!s||!a)return false;const m=s.getAttribute('aria-checked')==='true',e=a.querySelector(m?'.cm-content':'.tiptap');return !!e&&e.getBoundingClientRect().height>0`), 'active editor and toolbar mode agree')
   const markdown = await run(`return document.querySelector('button[role="switch"]').getAttribute('aria-checked') === 'true'`)
   if (markdown !== (name === 'Markdown')) await click('//button[@role="switch" and @aria-label="Markdown mode"]')
   await waitFor(() => run(`const e=document.querySelector(arguments[0]); const checked=document.querySelector('button[role="switch"]').getAttribute('aria-checked')==='true'; return !!e && e.getBoundingClientRect().height>0 && checked===arguments[1]`, name === 'Markdown' ? '[data-active=true] .cm-content' : '[data-active=true] .tiptap', name === 'Markdown'), `${name} editor`)
@@ -95,6 +101,48 @@ async function preview() {
   await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
   await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length === 2'), 'two offline DOT preview diagrams')
 }
+async function menu(name, option) {
+  await click(`//button[normalize-space(.)="${name}"]`)
+  await click(`//button[normalize-space(.)="${option}" or .//span[normalize-space(.)="${option}"]]`)
+}
+async function dismissMenu() {
+  // Exercise normal outside-click dismissal with real pointer input, away
+  // from every dropdown. Do not use a synthetic DOM click.
+  const point = await waitFor(() => run(`const overlay=document.querySelector('.menu-overlay'),x=innerWidth-8,y=innerHeight-8;return overlay&&document.elementFromPoint(x,y)===overlay?{x,y}:null`), 'menu outside-click target')
+  await request('POST', `/session/${session}/actions`, { actions: [{ type: 'pointer', id: 'menu-dismiss', parameters: { pointerType: 'mouse' }, actions: [
+    { type: 'pointerMove', origin: 'viewport', duration: 0, x: point.x, y: point.y },
+    { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 },
+  ] }] })
+  await waitFor(() => run('return !document.querySelector(".menu-overlay")'), 'menu dismissed by outside click')
+}
+async function syntax(enabled, control = 'toolbar') {
+  const current = (await snapshot()).config.syntaxHighlighting
+  await waitFor(() => run(`return document.querySelector('button[aria-label="Syntax highlighting"]')?.getAttribute('aria-pressed')===String(arguments[0])`, current), 'syntax toolbar reflects config')
+  if (current !== enabled) {
+    if (control === 'toolbar') await click('//button[@aria-label="Syntax highlighting"]')
+    else await menu('View', 'Syntax highlighting')
+  }
+  await waitFor(async () => (await snapshot()).config.syntaxHighlighting === enabled, 'syntax preference update')
+  assert.equal(await run(`return document.querySelector('button[aria-label="Syntax highlighting"]').getAttribute('aria-pressed')`), String(enabled))
+  await click('//button[normalize-space(.)="View"]')
+  assert.equal(await run('return document.querySelector("button[role=menuitemcheckbox]").getAttribute("aria-checked")'), String(enabled))
+  await dismissMenu()
+}
+async function theme(name) {
+  await menu('View', name)
+  const expected = name === 'Auto' ? 'system' : name.toLowerCase()
+  await waitFor(async () => (await snapshot()).config.theme === expected, `${name} theme preference`)
+  await waitFor(() => run('return document.documentElement.getAttribute("data-theme")===arguments[0]', expected === 'system' ? null : expected), `${name} applied theme`)
+  await click('//button[normalize-space(.)="View"]')
+  assert.equal(await run('return [...document.querySelectorAll("button[role=menuitemradio]")].find(b=>b.getAttribute("aria-checked")==="true").querySelector("span").textContent'), name)
+  await dismissMenu()
+}
+const renderedModel = () => run(`return document.querySelector('[data-active=true] .tiptap').editor.getJSON()`)
+async function editRenderedProbe() {
+  await run(`const p=[...document.querySelectorAll('[data-active=true] .tiptap p')].find(e=>e.textContent==='Before paragraph.');p.parentElement.focus();const r=document.createRange();r.setStart(p.firstChild,0);r.collapse(true);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('insertText',false,'Edited ');`)
+  await waitFor(async () => (await snapshot()).document.content.includes('Edited Before paragraph.'), 'rendered history edit')
+}
+const alpha3Cases = [], alpha3Evidence = { languages: [], viewports: [] }
 
 try {
   await waitFor(async () => (await request('GET', '/status')).ready === true, 'driver startup')
@@ -275,6 +323,169 @@ try {
     await action('saveAs',join(fixtureDir,`dot-${name}-copy.md`));assert.equal(await readFile(join(fixtureDir,`dot-${name}-copy.md`),'utf8'),text)
   }
   await action('open',dotPath);await mode('Markdown');await waitFor(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'),'native DOT recovery after timeout')
+  // Alpha3: small per-block documents keep every token visible in CodeMirror's
+  // virtualized DOM. Both real engines and native I/O run without lexer mocks.
+  const syntaxFixture = await readFile(join(root, 'tools', 'fixtures', 'code-highlighting-alpha3.md'), 'utf8')
+  const codeCases = codeFixtureCases(syntaxFixture)
+  assert.equal(codeCases.length, 26)
+  await syntax(true)
+  for (const [index, match] of codeCases.entries()) {
+    const [, info, code] = match, text = `# Native code ${index + 1}\n\n${match[0]}\n`
+    const highlighted = !['plaintext', 'unknown'].includes(info) && code !== 'x = 1'
+    const path = join(fixtureDir, `code-${index + 1}.md`)
+    await writeFile(path, text)
+    const id = (await action('open', path)).document.id
+    await mode('Markdown')
+    await waitFor(() => run(`const cm=document.querySelector('[data-active=true] .cm-content'),pv=document.querySelector('[data-active=true] .markwriter-preview pre code');return !!cm&&!!pv&&pv.textContent.replace(/\\n$/,'')===arguments[0]&&!!cm.querySelector('[class*=hljs-]')===arguments[1]&&!!pv.querySelector('[class*=hljs-]')===arguments[1]`, code, highlighted), `source and Preview code ${index + 1}: ${info || 'auto'}`)
+    await mode('WYSIWYG')
+    await waitFor(() => run(`const code=document.querySelector('[data-active=true] .tiptap pre code');return !!code&&code.textContent.replace(/\\n$/,'')===arguments[0]&&!!code.querySelector('[class*=hljs-]')===arguments[1]`, code, highlighted), `rendered code ${index + 1}: ${info || 'auto'}`)
+    assert.equal((await snapshot()).document.content, text, 'code language detection is view-only')
+    assert.equal((await snapshot()).document.isDirty, false)
+    assert.equal(await run('return typeof window.__codeExecuted'), 'undefined', 'code markup never executes')
+    const copy = join(fixtureDir, `code-${index + 1}-copy.md`)
+    await action('saveAs', copy)
+    assert.equal(await readFile(copy, 'utf8'), text, 'both-engine native code Save As preserves bytes')
+    alpha3Evidence.languages.push({ info: info || '(unlabeled)', highlighted, code, sourcePreserved: true })
+    await action('close', id)
+  }
+  alpha3Cases.push('all19 supported language variants in real CodeMirror, Preview and Tiptap with byte-identical native saves', 'native alias/plain/unknown/convincing-auto/ambiguous-auto and escaped Unicode code')
+
+  const controlsSource = '# Alpha3 view controls\n\nBefore paragraph.\n\n```js\nconst value = "😀<script>window.__codeExecuted = true</script>";\n```\n\n```mermaid\nflowchart LR\n A --> B\n```\n\n```dot\ndigraph { a -> b }\n```\n'
+  const controlsPath = join(fixtureDir, 'alpha3-controls.md')
+  await writeFile(controlsPath, controlsSource)
+  const controlsId = (await action('open', controlsPath)).document.id
+  await mode('Markdown')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()?.folds===2'), 'controls diagram folds')
+  await run('window.__MARKWRITER_ACCEPTANCE__.selectSource(arguments[0],arguments[1])', controlsSource.indexOf('const') + 2, controlsSource.indexOf('😀') + 2)
+  await waitFor(() => run('return !!document.querySelector("[data-active=true] .preview-correspondence .correspondence-range")&&!document.querySelector("[data-active=true] .markwriter-preview .correspondence-block")'), 'exact highlighted source-to-Preview range')
+  await run(`const root=document.querySelector('[data-active=true] .markwriter-preview'),span=root.querySelector('pre [data-mw-text]'),walker=document.createTreeWalker(span,NodeFilter.SHOW_TEXT);let text;while(text=walker.nextNode()){if(!text.textContent.includes('😀'))continue;const start=text.textContent.indexOf('😀'),range=document.createRange();range.setStart(text,start);range.setEnd(text,start+2);root.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));getSelection().removeAllRanges();getSelection().addRange(range);document.dispatchEvent(new Event('selectionchange'));document.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));break}`)
+  await waitFor(() => run('const s=window.__MARKWRITER_ACCEPTANCE__.sourceInfo()?.selection;return s?.anchor===arguments[0]&&s.head===arguments[0]+2', controlsSource.indexOf('😀')), 'highlighted Preview emoji selection maps to exact UTF-16 source')
+  assert.equal((await snapshot()).document.content, controlsSource)
+  assert.equal((await snapshot()).document.isDirty, false)
+  alpha3Cases.push('exact native highlighted source/Preview correspondence through nested token spans and UTF-16 emoji')
+  await run(`window.__MARKWRITER_ACCEPTANCE__.selectSource(arguments[0]);document.querySelector('[data-active=true] .cm-content').focus();`, controlsSource.length)
+  await waitFor(() => run(`const e=document.querySelector('[data-active=true] .cm-content');return document.activeElement===e&&e.contains(getSelection()?.focusNode)`), 'source native selection is focused before editing')
+  await run(`document.execCommand('insertText',false,'Source history probe.');`)
+  await waitFor(async () => (await snapshot()).document.content === controlsSource + 'Source history probe.', 'source history edit')
+  await run('window.__MARKWRITER_ACCEPTANCE__.selectSource(arguments[0],arguments[0]+5)', controlsSource.indexOf('value ='))
+  const sourceSelection = await run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()')
+  const editedSource = (await snapshot()).document
+  await syntax(false, 'toolbar')
+  await waitFor(() => run('return !document.querySelector("[data-active=true] .cm-content [class*=hljs-],[data-active=true] .markwriter-preview [class*=hljs-]")'), 'source and Preview highlighting disabled')
+  const disabledSource = await run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()')
+  assert.deepEqual(disabledSource.selection, sourceSelection.selection)
+  assert.equal(disabledSource.folds, sourceSelection.folds)
+  assert.equal((await snapshot()).document.revision, editedSource.revision)
+  await mode('WYSIWYG')
+  await waitFor(() => run('return !document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'), 'rendered highlighting disabled')
+  await syntax(true, 'menu')
+  await waitFor(() => run('return !!document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'), 'View menu enables rendered highlighting')
+  await mode('Markdown')
+  assert.equal((await snapshot()).document.content, editedSource.content)
+  assert.deepEqual((await run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()')).selection, sourceSelection.selection)
+  await menu('Edit', 'Undo')
+  await waitFor(async () => (await snapshot()).document.content === controlsSource, 'syntax toggle leaves source Undo history intact')
+  assert.equal((await snapshot()).document.isDirty, false)
+  await action('save')
+  assert.equal(await readFile(controlsPath, 'utf8'), controlsSource)
+  // Real rendered edits use the established Markdown serializer, which may
+  // normalize whitespace. Compare Undo with an independently edited/Undone
+  // control copy, retaining exact model + native-byte equivalence. Every
+  // view-only operation above still has to preserve the original source bytes.
+  const referencePath = join(fixtureDir, 'alpha3-rendered-undo-control.md')
+  await writeFile(referencePath, controlsSource)
+  const referenceId = (await action('open', referencePath)).document.id
+  await mode('WYSIWYG')
+  const referenceModel = await renderedModel()
+  await editRenderedProbe()
+  await menu('Edit', 'Undo')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(referenceModel), 'untoggled rendered Undo restores exact document model')
+  const controlsAfterEdit = (await snapshot()).document.content
+  const referenceUndoDirty = (await snapshot()).document.isDirty
+  await action('save')
+  assert.equal(await readFile(referencePath, 'utf8'), controlsAfterEdit)
+  await action('close', referenceId)
+  await action('activate', controlsId)
+  await mode('WYSIWYG')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(referenceModel), 'toggled and untoggled copies start with the same rendered model')
+  const beforeRenderedEdit = await renderedModel()
+  await editRenderedProbe()
+  const renderedSelection = await run(`const e=document.querySelector('[data-active=true] .tiptap').editor;return {from:e.state.selection.from,to:e.state.selection.to}`)
+  const renderedRevision = (await snapshot()).document.revision
+  await syntax(false, 'menu'); await syntax(true, 'toolbar')
+  assert.deepEqual(await run(`const e=document.querySelector('[data-active=true] .tiptap').editor;return {from:e.state.selection.from,to:e.state.selection.to}`), renderedSelection)
+  assert.equal((await snapshot()).document.revision, renderedRevision)
+  await menu('Edit', 'Undo')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(beforeRenderedEdit), 'syntax toggle leaves exact rendered Undo model intact')
+  assert.equal((await snapshot()).document.content, controlsAfterEdit, 'toggled and untoggled rendered Undo produce identical Markdown')
+  assert.equal((await snapshot()).document.isDirty, referenceUndoDirty, 'toggled and untoggled rendered Undo have identical dirty state')
+  await action('save')
+  assert.equal(await readFile(controlsPath, 'utf8'), await readFile(referencePath, 'utf8'), 'toggled and untoggled rendered Undo save byte-identically')
+  const originalBytes = Buffer.from(controlsSource), serializedBytes = Buffer.from(controlsAfterEdit)
+  const firstDifference = originalBytes.findIndex((byte, index) => serializedBytes[index] !== byte)
+  const sha256 = value => createHash('sha256').update(value).digest('hex')
+  alpha3Evidence.renderedUndo = {
+    originalViewOnlySource: controlsSource, referenceSource: controlsAfterEdit, toggledSource: (await snapshot()).document.content,
+    originalSHA256: sha256(originalBytes), referenceSHA256: sha256(serializedBytes), toggledSHA256: sha256(await readFile(controlsPath)),
+    originalBytes: originalBytes.length, serializedBytes: serializedBytes.length,
+    firstDifferentByte: originalBytes.equals(serializedBytes) ? null : firstDifference < 0 ? originalBytes.length : firstDifference,
+    modelRestored: true, dirtyBeforeSave: referenceUndoDirty,
+  }
+  assert.equal((await snapshot()).document.isDirty, false)
+  alpha3Cases.push('toolbar and View syntax controls synchronized across both engines without selection/fold/revision/history changes')
+
+  const fontSettings = (await snapshot()).config
+  // Measure chrome against a settled window before resizing. Sampling innerWidth
+  // immediately after setWindowRect can observe the previous WebView draw.
+  const originalBounds = await request('GET', `/session/${session}/window/rect`)
+  const chromeWidth = originalBounds.width - await run('return window.innerWidth')
+  for (const width of [800, 1024, 1440]) {
+    const windowBounds = await request('POST', `/session/${session}/window/rect`, { width: width + chromeWidth, height: 900 })
+    await waitFor(() => run('return window.innerWidth===arguments[0]', width), `actual native ${width}px viewport`)
+    for (const name of ['Light', 'Dark', 'Auto']) {
+      await theme(name)
+      for (const editorMode of ['Markdown', 'WYSIWYG']) {
+        await mode(editorMode)
+        const style = await run(`const t=document.querySelector('.toolbar'),s=getComputedStyle(t),dark=arguments[0]==='Dark'||arguments[0]==='Auto'&&matchMedia('(prefers-color-scheme: dark)').matches,primary=dark?'rgb(26, 26, 26)':'rgb(255, 255, 255)',secondary=dark?'rgb(45, 45, 45)':'rgb(248, 249, 250)',text=dark?'rgb(255, 255, 255)':'rgb(33, 37, 41)',buttons=[...t.querySelectorAll('button,select')].filter(e=>e.getBoundingClientRect().width>0);return {width:innerWidth,mode:arguments[1],theme:arguments[0],dark,background:s.backgroundColor,expectedBackground:secondary,text:s.color,expectedText:text,primary,withinViewport:buttons.every(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),fontBackground:getComputedStyle(t.querySelector('select')).backgroundColor,colorScheme:s.colorScheme}`, name, editorMode)
+        style.windowBounds = windowBounds
+        assert.equal(style.background, style.expectedBackground)
+        assert.equal(style.text, style.expectedText)
+        assert.equal(style.fontBackground, style.primary)
+        assert.equal(style.colorScheme, style.dark ? 'dark' : 'light')
+        assert.ok(style.withinViewport, JSON.stringify(style))
+        assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`), String(editorMode === 'Markdown' ? fontSettings.fontSize : fontSettings.renderedFontSize))
+        await click('//button[@title="Headings"]')
+        assert.equal(await run('return getComputedStyle(document.querySelector(".toolbar-dropdown-menu")).backgroundColor'), style.primary)
+        await click('//button[@title="Headings"]')
+        await click('//button[@aria-label="Insert Table"]')
+        const table = await run('const e=document.querySelector(".table-picker"),r=e.getBoundingClientRect();return {background:getComputedStyle(e).backgroundColor,within:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}')
+        assert.equal(table.background, style.primary); assert.ok(table.within, JSON.stringify(table))
+        await click('//div[@role="dialog" and @aria-label="Insert table"]//button[normalize-space(.)="Cancel"]')
+        assert.equal((await snapshot()).document.content, controlsAfterEdit)
+        assert.equal((await snapshot()).document.isDirty, false)
+        alpha3Evidence.viewports.push(style)
+      }
+    }
+  }
+  assert.equal((await snapshot()).config.fontSize, fontSettings.fontSize)
+  assert.equal((await snapshot()).config.renderedFontSize, fontSettings.renderedFontSize)
+  // Settings and the new View menu read/write the same theme preference.
+  await menu('File', 'Settings…')
+  assert.equal(await run('return [...document.querySelectorAll("dialog label")].find(e=>e.textContent.startsWith("Theme")).querySelector("select").value'), 'system')
+  await click('//dialog//button[normalize-space(.)="Cancel"]')
+  alpha3Cases.push('native toolbar/menu/table/font themes in both modes at actual800/1024/1440px viewports with independent fonts preserved')
+  const syntaxExportOn = join(fixtureDir, 'syntax-on.html'), syntaxExportOff = join(fixtureDir, 'syntax-off.html')
+  await action('exportHtml', syntaxExportOn)
+  const highlightedExport = await readFile(syntaxExportOn, 'utf8')
+  assert.match(highlightedExport, /<span class="hljs-/)
+  assert.match(highlightedExport, /\.hljs-keyword/)
+  assert.ok(!/<script\b|data-mw-/.test(highlightedExport))
+  await syntax(false, 'toolbar')
+  await action('exportHtml', syntaxExportOff)
+  assert.ok(!/<span class="hljs-/.test(await readFile(syntaxExportOff, 'utf8')))
+  assert.equal((await snapshot()).document.content, controlsAfterEdit)
+  await theme('Dark')
+  alpha3Cases.push('native HTML export captures syntax preference and embeds escaped static token CSS')
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   const recoveryText = (await snapshot()).document.content
@@ -293,6 +504,19 @@ try {
   assert.equal(restored.config.fontSize,18)
   assert.equal(restored.config.syncPreview,true)
   assert.equal(restored.config.wrapContinuation,true)
+  assert.equal(restored.config.syntaxHighlighting,false)
+  assert.equal(restored.config.theme,'dark')
+  await action('activate', controlsId)
+  assert.equal(await run(`return document.querySelector('button[aria-label="Syntax highlighting"]').getAttribute('aria-pressed')`), 'false')
+  assert.equal(await run('return document.documentElement.getAttribute("data-theme")'), 'dark')
+  for (const editorMode of ['Markdown', 'WYSIWYG']) {
+    await mode(editorMode)
+    await waitFor(() => run('return !document.querySelector("[data-active=true] [class*=hljs-]")'), `disabled syntax restored in ${editorMode}`)
+    assert.equal((await snapshot()).document.content, controlsAfterEdit)
+    assert.equal((await snapshot()).document.isDirty, false)
+  }
+  alpha3Cases.push('syntax and theme preferences persist through actual process restart and both-engine UI restoration')
+  await writeFile(join(artifacts,'alpha3-evidence.json'), JSON.stringify({ platform: process.platform, profile: profileDir, ...alpha3Evidence },null,2))
   assert.ok(restored.documents.some(doc=>doc.id===recoveryId && doc.content===recoveryText && doc.isDirty),'unnamed draft recovery')
   await action('activate', recoveryId)
   // Close Cancel retains the draft; deliberate Discard removes it from the next recovery snapshot.
@@ -306,10 +530,12 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery', ...alpha3Cases] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {
+    const state = await snapshot().catch(() => null)
+    if (state) await writeFile(join(artifacts, 'failure-state.json'), JSON.stringify({ document: state.document, config: state.config, error: state.error }, null, 2)).catch(() => {})
     await writeFile(join(artifacts, 'page.html'), await request('GET', `/session/${session}/source`).catch(() => '')).catch(() => {})
     const screenshot = await request('GET', `/session/${session}/screenshot`).catch(() => null)
     if (screenshot) await writeFile(join(artifacts, 'failure.png'), Buffer.from(screenshot, 'base64'))

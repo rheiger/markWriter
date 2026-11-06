@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig, parsePreferences } from './preferences'
 
 describe('preferences schema', () => {
+  it('defaults highlighting on and persists a validated view-only boolean', () => {
+    expect(parsePreferences({ config: {} }).syntaxHighlighting).toBe(true)
+    expect(parsePreferences({ config: { syntaxHighlighting: false } }).syntaxHighlighting).toBe(false)
+    expect(() => parsePreferences({ config: { syntaxHighlighting: 'yes' } })).toThrow(/syntaxHighlighting/)
+  })
   it('migrates missing fields and the legacy single font size', () => {
     expect(parsePreferences({ fontSize: 18, autoSave: true })).toMatchObject({ fontSize: 18, renderedFontSize: 20, restoreSession: true })
     expect(parsePreferences({ version: 1, config: { theme: 'dark' } })).toEqual({ ...defaultConfig, theme: 'dark' })

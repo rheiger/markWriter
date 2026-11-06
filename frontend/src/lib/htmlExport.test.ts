@@ -3,6 +3,16 @@ import mermaid from 'mermaid'
 import { createHtmlExport } from './htmlExport'
 
 describe('standalone HTML export', () => {
+  it('embeds escaped readable code tokens and honors a captured disabled preference', async () => {
+    const source = '```js\nconst value = "<script>alert(1)</script>";\n```'
+    const on = new DOMParser().parseFromString(await createHtmlExport(source, 'on', true), 'text/html')
+    expect(on.querySelector('code .hljs-keyword')?.textContent).toBe('const')
+    expect(on.querySelector('style')?.textContent).toContain('.hljs-keyword')
+    expect(on.querySelector('script')).toBeNull()
+    const off = new DOMParser().parseFromString(await createHtmlExport(source, 'off', false), 'text/html')
+    expect(off.querySelector('code span')).toBeNull()
+    expect(off.querySelector('code')?.textContent).toBe(on.querySelector('code')?.textContent)
+  })
   it('renders tables, checked tasks and Mermaid SVG without external scripts', async () => {
     const source = '# Export\n\n| Name | Value |\n| --- | --- |\n| **Bold** | 2 |\n\n- [x] Done\n\n```mermaid\nflowchart TD\n A --> B\n```'
     const html = await createHtmlExport(source)

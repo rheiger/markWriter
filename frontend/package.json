@@ -1,7 +1,7 @@
 {
   "name": "markwriter-frontend",
   "private": true,
-  "version": "2.1.0-alpha2",
+  "version": "2.1.0-alpha3",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
@@ -33,6 +33,7 @@
     "@tiptap/extension-bold": "^3.32.3",
     "@tiptap/extension-bullet-list": "^3.32.3",
     "@tiptap/extension-code": "^3.32.3",
+    "@tiptap/extension-code-block": "3.32.3",
     "@tiptap/extension-code-block-lowlight": "^3.32.3",
     "@tiptap/extension-hard-break": "^3.32.3",
     "@tiptap/extension-heading": "^3.32.3",

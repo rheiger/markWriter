@@ -1,0 +1,35 @@
+/* The same token palette is used by both editing engines and Preview. */
+:root, [data-theme="light"] {
+  --code-keyword: #7b2585;
+  --code-string: #216127;
+  --code-number: #155b9b;
+  --code-comment: #626a72;
+  --code-name: #8c3b0d;
+  --code-meta: #6c4212;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --code-keyword: #dfadf5;
+    --code-string: #a2d49c;
+    --code-number: #8ac9f5;
+    --code-comment: #b0b7c0;
+    --code-name: #ffc08d;
+    --code-meta: #e5cf95;
+  }
+}
+[data-theme="dark"] {
+  --code-keyword: #dfadf5;
+  --code-string: #a2d49c;
+  --code-number: #8ac9f5;
+  --code-comment: #b0b7c0;
+  --code-name: #ffc08d;
+  --code-meta: #e5cf95;
+}
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type { color: var(--code-keyword); }
+.hljs-string, .hljs-regexp, .hljs-addition { color: var(--code-string); }
+.hljs-number, .hljs-built_in, .hljs-symbol, .hljs-bullet { color: var(--code-number); }
+.hljs-comment, .hljs-quote { color: var(--code-comment); font-style: italic; }
+.hljs-title, .hljs-section, .hljs-tag, .hljs-name, .hljs-attr, .hljs-attribute, .hljs-selector-class, .hljs-selector-id, .hljs-selector-pseudo, .hljs-deletion { color: var(--code-name); }
+.hljs-meta, .hljs-doctag, .hljs-variable, .hljs-template-variable { color: var(--code-meta); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }

@@ -2,23 +2,28 @@
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
   gap: 8px;
   flex-wrap: wrap;
+  color-scheme: light;
 }
 
 .toolbar-section {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .toolbar-separator {
   width: 1px;
   height: 24px;
-  background: #dee2e6;
+  background: var(--border-color);
   margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .toolbar-btn {
@@ -31,31 +36,43 @@
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #495057;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.toolbar-btn:hover {
-  background: #e9ecef;
-  border-color: #ced4da;
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
 }
 
-.toolbar-btn:active {
-  background: #dee2e6;
+.toolbar-btn:active:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-primary);
 }
 
-.toolbar-btn.active {
-  background: #e9ecef;
-  border-color: #adb5bd;
-  color: #000;
+.toolbar-btn.active,
+.toolbar-btn[aria-pressed="true"] {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
 }
 
 .toolbar-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.toolbar-btn:focus-visible,
+.toolbar-dropdown-menu button:focus-visible,
+.table-picker button:focus-visible,
+.table-picker input:focus-visible,
+select.font-size:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 /* Dropdown menus */
@@ -69,10 +86,14 @@
   left: 0;
   z-index: 1000;
   min-width: 200px;
-  background: white;
-  border: 1px solid #dee2e6;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   padding: 8px 0;
   margin-top: 4px;
 }
@@ -80,8 +101,8 @@
 .toolbar-dropdown-header {
   padding: 8px 16px;
   font-weight: 600;
-  color: #495057;
-  border-bottom: 1px solid #e9ecef;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
   margin-bottom: 8px;
 }
 
@@ -94,12 +115,12 @@
   text-align: left;
   cursor: pointer;
   font-size: 14px;
-  color: #495057;
+  color: var(--text-primary);
   transition: background-color 0.2s ease;
 }
 
-.toolbar-dropdown-menu button:hover {
-  background: #f8f9fa;
+.toolbar-dropdown-menu button:hover:not(:disabled) {
+  background: var(--bg-tertiary);
 }
 
 /* Table grid for table insertion */
@@ -113,34 +134,35 @@
 .table-cell {
   width: 32px;
   height: 32px;
-  border: 1px solid #dee2e6;
-  background: white;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .table-cell:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
 }
 
 .table-cell.active {
-  background: #d0ebff;
-  border-color: #74c0fc;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
 /* Font size display */
 .font-size {
   font-size: 14px;
   font-weight: 500;
-  color: #495057;
+  color: var(--text-primary);
   padding: 4px 8px;
-  background: white;
-  border: 1px solid #dee2e6;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   min-width: 40px;
   text-align: center;
@@ -155,17 +177,24 @@
   padding: 2px;
   box-sizing: border-box;
   border-radius: 12px;
-  background: #a0a7af;
+  background: var(--text-secondary);
+  flex-shrink: 0;
 }
 .mode-switch-track span {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: white;
+  background: var(--bg-primary);
 }
-.mode-switch[aria-checked="true"] .mode-switch-track { background: #386da8; justify-content: flex-end; }
-.mode-switch:focus-visible, select.font-size:focus-visible { outline: 2px solid #386da8; outline-offset: 2px; }
+.mode-switch[aria-checked="true"] .mode-switch-track { background: var(--accent-primary); justify-content: flex-end; }
 select.font-size { height: 32px; cursor: pointer; }
+
+/* Native option menus must follow the selected app theme, including explicit
+   Light while the operating system is dark (and the inverse). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .toolbar { color-scheme: dark; }
+}
+:root[data-theme="dark"] .toolbar { color-scheme: dark; }
 
 /* Responsive design */
 @media (max-width: 768px) {
@@ -185,7 +214,7 @@ select.font-size { height: 32px; cursor: pointer; }
   }
 }
 .table-trigger { font-size: 24px; }
-.table-picker { position: absolute; top: calc(100% + 4px); right: 0; z-index: 1000; width: max-content; max-width: calc(100vw - 16px); max-height: calc(100vh - 140px); overflow: auto; padding: 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 12px #0002; font-size: 12px; }
+.table-picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 1000; width: max-content; max-width: calc(100vw - 16px); max-height: calc(100vh - 140px); overflow: auto; padding: 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: var(--shadow-md); font-size: 12px; }
 .table-picker .table-grid { display: grid; gap: 0; padding: 4px 0; }
 .table-picker .table-cell { width: 24px; height: 24px; border: 1px solid var(--border-color); }
 .table-picker .table-cell.active { background: var(--accent-primary); }
@@ -194,3 +223,6 @@ select.font-size { height: 32px; cursor: pointer; }
 .table-dimensions label { display: flex; flex-direction: column; gap: 4px; }
 .table-dimensions input { width: 80px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px; }
 .table-picker p { max-width: 240px; margin: 8px 0; }
+.table-picker > button { padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); }
+.table-picker > button + button { margin-left: 4px; }
+.table-picker > button:hover:not(:disabled) { background: var(--bg-tertiary); border-color: var(--border-hover); }
