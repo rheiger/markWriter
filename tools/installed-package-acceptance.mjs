@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { stopOwnedApplication, processInventory, ownedDescendants } from './owned-process.mjs'
-import { mkdir, mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises'
+import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -40,9 +41,7 @@ try{
  await menu('Help','About MarkWriter');const version=JSON.parse(await readFile(join(root,'frontend/package.json'),'utf8')).version
  assert.ok(await run('return document.querySelector("dialog[open]").textContent.includes(arguments[0])','Version '+version));assert.ok(await run(`return document.querySelector('dialog[open]').textContent.includes("This program was completely built using vibe coding under the direction of 'Richie'.")`));await click('//dialog//button[normalize-space(.)="Close"]');cases.push('installed native/bundled About and credit')
  await menu('File','Open...');await dialog(original);await wait(()=>run('return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes("original.md")'),'native document after OS Open');await mode(true);await diagrams();cases.push('ordinary OS Open dialog and offline diagrams')
- const workerName=(await readdir(join(root,'frontend/dist/assets'))).find(name=>/^dotWorker-.*\.js$/.test(name));assert.ok(workerName)
- workerPolicy=await request('POST',`/session/${session}/execute/async`,{script:`const done=arguments[arguments.length-1];fetch(arguments[0]).then(r=>done({status:r.status,url:r.url,policy:r.headers.get('content-security-policy')})).catch(e=>done({error:String(e)}))`,args:['/assets/'+workerName]})
- assert.ok(workerPolicy.policy?.includes("script-src 'self' 'wasm-unsafe-eval'") && workerPolicy.policy.includes("connect-src 'none'"),JSON.stringify(workerPolicy));cases.push('installed production worker response CSP')
+ workerPolicy=await verifyNativeWorkerResponse(request,session,join(root,'frontend/dist/assets'));cases.push('installed production worker response bytes, MIME and exact CSP')
  for(let i=0;i<3;i++){await mode(false);await wait(()=>run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===2'),'opaque DOT nodes');await mode(true);await diagrams()}
  await menu('File','Save As...');await dialog(saved);await wait(async()=>await readFile(saved,'utf8').catch(()=>null)===source,'byte-identical ordinary Save As');cases.push('mode cycles and exact native Save As')
  await menu('Edit','Replace...');await wait(()=>run('return !!document.querySelector("[role=search]")'),'source Find')

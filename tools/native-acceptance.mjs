@@ -2,6 +2,7 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import assert from 'node:assert/strict'
+import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir, homedir } from 'node:os'
@@ -226,13 +227,7 @@ try {
   await action('exportHtml',previewExport)
   assert.ok(!(await readFile(previewExport,'utf8')).includes('data-mw-'), 'view-only mappings excluded from export')
   // DOT jobs use production bundled worker responses, not the test bridge policy.
-  const workerName = (await readdir(join(root,'frontend','dist-acceptance','assets'))).find(name=>name.startsWith('dotWorker-') && name.endsWith('.js'))
-  assert.ok(workerName)
-  const workerPolicy = await request('POST', `/session/${session}/execute/async`, {
-    script: `const path=arguments[0],done=arguments[arguments.length-1]; fetch(path).then(r=>done({url:r.url,status:r.status,policy:r.headers.get('content-security-policy')})).catch(e=>done({error:String(e)}));`, args: ['/assets/'+workerName],
-  })
-  assert.ok(workerPolicy.policy?.includes("'wasm-unsafe-eval'"), JSON.stringify(workerPolicy))
-  assert.ok(workerPolicy.policy?.includes("connect-src 'none'"), JSON.stringify(workerPolicy))
+  const workerPolicy=await verifyNativeWorkerResponse(request,session,join(root,'frontend','dist-acceptance','assets'))
   const dotPath = join(fixtureDir, 'dot-draft.md')
   await writeFile(dotPath, '# DOT recovery\n\n' + source.slice(source.indexOf('```dot')))
   const dotOwnerId=(await action('open', dotPath)).document.id; await mode('Markdown'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'), 'DOT aliases after open')
