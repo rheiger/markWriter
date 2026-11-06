@@ -36,3 +36,30 @@ it('does not duplicate enclosing blockquote prefixes after an unrelated rendered
   expect(doc.querySelector('blockquote [data-type="dot"]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
   editor.destroy()
 })
+
+it.each(['dot','graphviz'])('closes an unmatched %s fence before subsequently inserted rendered prose', notation => {
+  const editor=new Editor({extensions:[StarterKit,DotNode],content:toWysiwygHtml(`Before\n\n~~~~${notation}\ndigraph {a -> b}\n`)})
+  editor.commands.insertContentAt(editor.state.doc.content.size,'<p>New rendered paragraph.</p>')
+  const doc=new DOMParser().parseFromString(toWysiwygHtml(fromWysiwygHtml(editor.getHTML())),'text/html')
+  expect(doc.querySelector('[data-type=dot]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
+  expect(Array.from(doc.querySelectorAll('p')).map(p=>p.textContent)).toContain('New rendered paragraph.')
+  editor.destroy()
+})
+
+it('keeps CR-only fence metadata separate from subsequent prose after a rendered edit', () => {
+  const source='```dot\rdigraph {a -> b}\r```\r\rAfter'
+  const editor=new Editor({extensions:[StarterKit,DotNode],content:toWysiwygHtml(source)})
+  editor.commands.insertContentAt(editor.state.doc.content.size,'<p>New rendered paragraph.</p>')
+  const doc=new DOMParser().parseFromString(toWysiwygHtml(fromWysiwygHtml(editor.getHTML())),'text/html')
+  expect(doc.querySelector('[data-type=dot]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
+  expect(Array.from(doc.querySelectorAll('p')).map(p=>p.textContent)).toEqual(['After','New rendered paragraph.'])
+  editor.destroy()
+})
+
+it('does not let stale raw-fence metadata override a changed chart', () => {
+  const atom=document.createElement('div')
+  atom.setAttribute('data-type','dot');atom.setAttribute('data-chart','digraph {new -> chart}\n')
+  atom.setAttribute('data-source-fence',JSON.stringify('```dot\ndigraph {old -> chart}\n```'))
+  const doc=new DOMParser().parseFromString(toWysiwygHtml(fromWysiwygHtml(atom.outerHTML)),'text/html')
+  expect(doc.querySelector('[data-type=dot]')?.getAttribute('data-chart')).toBe('digraph {new -> chart}\n')
+})

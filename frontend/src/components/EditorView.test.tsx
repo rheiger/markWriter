@@ -68,6 +68,27 @@ describe('document fidelity with real editors', () => {
     } finally { window.getSelection()?.removeAllRanges();spy.mockRestore() }
   })
 
+  it('retains an unmatched fence during view changes but safely closes it before a new rendered paragraph', async () => {
+    const source='Before\n\n~~~~graphviz\ndigraph {a -> b}\n'
+    const {ref,editor}=await mount(source)
+    await markdown(ref);await wysiwyg(ref)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    act(()=>editor.commands.insertContentAt(editor.state.doc.content.size,'<p>After diagram.</p>'))
+    const doc=new DOMParser().parseFromString(toWysiwygHtml(ref.current!.getMarkdown()),'text/html')
+    expect(doc.querySelector('[data-type=dot]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
+    expect(Array.from(doc.querySelectorAll('p')).map(p=>p.textContent)).toContain('After diagram.')
+  })
+
+  it('opens oversized unmatched DOT with many backtick runs as a recoverable error without rewriting source', async () => {
+    const source='```dot\n'+'`a'.repeat(150000)
+    const {ref,container}=await mount(source)
+    await markdown(ref)
+    await waitFor(()=>expect(container.querySelector('.markwriter-preview [data-type=dot]')?.textContent).toContain('64 KiB'))
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+  })
+
   it('formats selected source list lines without deleting text or inserting a marker below the line', async () => {
     const { ref } = await mount('first\nsecond\nuntouched')
     await markdown(ref)

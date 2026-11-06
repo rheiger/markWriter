@@ -22,8 +22,8 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]
   const notation = token.info.trim()
   if (notation === 'dot' || notation === 'graphviz') {
-    const lines = (env?.source as string | undefined)?.match(/[^\n]*\n|[^\n]+$/g) ?? []
-    const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/\r?\n$/, '') : ''
+    const lines = (env?.source as string | undefined)?.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
+    const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/(?:\r\n|\r|\n)$/, '') : ''
     const escape = markdown.utils.escapeHtml
     return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
   }
@@ -91,13 +91,25 @@ export function toWysiwygHtml(source: string): string {
 }
 
 function dotFence(node: HTMLElement): string {
+  const chart = node.getAttribute('data-chart') ?? ''
+  const notation = node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
   const raw = node.getAttribute('data-source-fence')
   if (raw) {
-    try { const fence = JSON.parse(raw); if (typeof fence === 'string' && fence) return `\n\n${fence}\n\n` } catch { /* Pasted invalid metadata falls back to the source attribute. */ }
+    try {
+      const sourceFence = JSON.parse(raw)
+      if (typeof sourceFence === 'string' && sourceFence) {
+        const tokens = markdown.parse(sourceFence, {}), token = tokens[0]
+        const closer = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(sourceFence.split(/\r\n?|\n/).at(-1) ?? '')
+        // Reuse only a complete, semantically matching fence. Unmatched or stale
+        // pasted metadata must not swallow subsequently inserted rendered prose.
+        if (tokens.length === 1 && token.type === 'fence' && token.info.trim() === notation && token.content === chart &&
+          closer && closer[1][0] === token.markup[0] && closer[1].length >= token.markup.length) return `\n\n${sourceFence}\n\n`
+      }
+    } catch { /* Invalid metadata falls back to a safely closed source fence. */ }
   }
-  const chart = node.getAttribute('data-chart') ?? ''
-  const fence = '`'.repeat(Math.max(3, ...Array.from(chart.matchAll(/`+/g), match => match[0].length + 1)))
-  const notation = node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
+  let size = 3
+  for (const match of chart.matchAll(/`+/g)) size = Math.max(size, match[0].length + 1)
+  const fence = '`'.repeat(size)
   return `\n\n${fence}${notation}\n${chart.replace(/\n$/, '')}\n${fence}\n\n`
 }
 function mermaidFence(node: HTMLElement): string {
