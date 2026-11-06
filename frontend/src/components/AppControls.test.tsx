@@ -90,6 +90,12 @@ describe('application view controls', () => {
     expect(useAppStore.getState().currentDocument?.isDirty).toBe(true)
     expect(container.querySelector('.menu-dropdown')).toBeNull()
     if(mode==='wysiwyg')expect(container.querySelector('.tiptap [data-type=dot]')).not.toBeNull()
+    const inserted=useAppStore.getState().currentDocument!.content
+    for(let i=0;i<2;i++){
+      fireEvent.click(screen.getByRole('switch',{name:'Markdown mode'}))
+      await waitFor(()=>expect(screen.getByRole('switch')).toHaveAttribute('aria-checked',String(mode==='wysiwyg' ? i===0 : i!==0)))
+      expect(useAppStore.getState().currentDocument!.content).toBe(inserted)
+    }
     fireEvent.click(screen.getByRole('button',{name:'Edit',exact:true}))
     fireEvent.click(screen.getByRole('button',{name:/^Undo/}))
     await waitFor(()=>expect(useAppStore.getState().currentDocument?.content).toBe(source))
