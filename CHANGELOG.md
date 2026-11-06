@@ -1,9 +1,9 @@
-## Unreleased 2.5.0-alpha1 — 2026-11-06
+## [2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) — 2026-11-06
 
 - Preserve meaningful inline-code spaces, tabs, whitespace-only spans and backticks through rendered parsing/serialization, ordinary editing, clipboard parsing and HTML export. View-only canonical Markdown remains byte-identical; real rendered edits may normalize surrounding Markdown syntax.
 - Add explicit `math` fences with bounded offline KaTeX rendering, literal WYSIWYG source editing, document Undo/Redo, source folds/correspondence, recovery and static HTML export with embedded fonts and licenses. Inline dollars, numbering/references and arbitrary TeX packages remain deferred.
 - Add bundled searchable Help with editing conventions, actual shortcuts, recovery/font guidance and keyboard-accessible Light/Dark navigation.
-- Extend native and ordinary installed-package acceptance with technical-writing fixtures and strict worker/font/export checks. Release remains gated on final exact-source qualification.
+- Extend native and ordinary installed-package acceptance with technical-writing fixtures and strict worker/font/export checks. Released after exact merged/tag qualification; all 12 anonymous public assets match accepted bytes/IDs. See docs/technical-writing-2.5-release-acceptance.md.
 
 ## [2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) — 2026-11-06
 
@@ -20,7 +20,7 @@
 - Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export.
 - Add a production Tauri DMG/NSIS/DEB build/install/ordinary-dialog acceptance pipeline, isolated optional profile directory, complete bundled notices and exact-source platform/checksum manifests. Isolate the historical Python publisher; only the Tauri workflow may draft v2 prereleases.
 - Preserve the exact Richie About attribution and synchronize version metadata to2.1.0-alpha2. DBML/PlantUML/draw.io/logs and other deferred scope remain deferred.
-- Released source 9bfd2c1 via PR #36 after exact-source three-platform quality/package acceptance and final-byte verification. All12 public assets match verified bytes; old releases/tags/latest remain unchanged. Windows is unsigned; macOS is linker-ad-hoc/unsealed with failed strict bundle verification, qualified only for the recorded normal launch path under the unsigned experimental allowance. See docs/offline-dot-alpha2-acceptance.md.
+- Released source 9bfd2c1 via PR #36 after exact-source three-platform quality/package acceptance and final-byte verification. All 12 public assets match verified bytes; old releases/tags/latest remain unchanged. Windows is unsigned; macOS is linker-ad-hoc/unsealed with failed strict bundle verification, qualified only for the recorded normal launch path under the unsigned experimental allowance. See docs/offline-dot-alpha2-acceptance.md.
 
 ## Unreleased preparation — 2026-11-06
 

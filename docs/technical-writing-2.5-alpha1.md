@@ -1,8 +1,8 @@
 # MarkWriter 2.5.0-alpha1 technical writing
 
-## Implemented candidate
+## Released scope
 
-This increment implements #46 inline-code whitespace fidelity, #50 explicitly fenced offline mathematics and #47 bundled searchable Help. The public release remains gated on reviewed exact-source native/package and downloaded Mac acceptance. Existing alpha3 is complete; its evidence is historical.
+This increment implements #46 inline-code whitespace fidelity, #50 explicitly fenced offline mathematics and #47 bundled searchable Help. The public experimental prerelease is qualified; see [final acceptance](technical-writing-2.5-release-acceptance.md) and attached QUALIFICATION.json. Existing alpha3 is complete; its evidence is historical.
 
 Markdown remains canonical. View changes, themes, Help and source navigation preserve the original bytes. Real WYSIWYG edits use Markdown serialization: meaningful code spaces/tabs are preserved, while surrounding prose, delimiter choice and final line endings can normalize. Raw-source Undo preserves exact bytes; rendered Undo restores the document model and meaningful content. No broader lexical rendered-edit guarantee is claimed.
 
@@ -28,4 +28,4 @@ Java/Perl/AWK/sed/CMake and broader autodetection #44 remain deferred unless sep
 
 ## Qualification checkpoint
 
-Local 315 frontend tests,10 Node checks,21 macOS Rust tests, lint/typecheck, production build and all 20 font-byte checks pass at the initial integrated checkpoint. New native journeys cover both editors, code/math preservation, malformed/adversarial/document budgets, offline fonts, static exports, Help themes/minimum size/keyboard, actual save/reopen/Undo and recovery. These are required gates, not yet claims of passing native packages. Final exact source/run/platform/artifact/seal evidence will be recorded in the release qualification and installation guide.
+Local 315 frontend tests,10 Node checks,21 macOS Rust tests, lint/typecheck, production build and all 20 font-byte checks pass at the initial integrated checkpoint. New native journeys cover both editors, code/math preservation, malformed/adversarial/document budgets, offline fonts, static exports, Help themes/minimum size/keyboard, actual save/reopen/Undo and recovery. Final exact merged/tag native/package and public integrity results are recorded in the final release acceptance and attached qualification.

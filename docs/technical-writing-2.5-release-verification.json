@@ -1,0 +1,142 @@
+{
+  "version": "2.5.0-alpha1",
+  "source": "ee0b534c70ea53988a7e6263ae634e7f87d914cb",
+  "pr": 51,
+  "releaseId": 437063381,
+  "releaseUrl": "https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1",
+  "prerelease": true,
+  "makeLatest": false,
+  "annotatedTag": {
+    "object": "37858696a3b543e5b676a730b381ecb886de820a",
+    "target": "ee0b534c70ea53988a7e6263ae634e7f87d914cb"
+  },
+  "ci": {
+    "candidateQuality": {
+      "run": 42290440961,
+      "head": "1a4e55b94bf88e0df1d59b36b8367268a4ecf0d0",
+      "event": "push",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42290440961"
+    },
+    "candidatePackages": {
+      "run": 42290441104,
+      "head": "1a4e55b94bf88e0df1d59b36b8367268a4ecf0d0",
+      "event": "push",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42290441104"
+    },
+    "mergedQuality": {
+      "run": 42292835912,
+      "head": "ee0b534c70ea53988a7e6263ae634e7f87d914cb",
+      "event": "push",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42292835912"
+    },
+    "mergedPackages": {
+      "run": 42292835918,
+      "head": "ee0b534c70ea53988a7e6263ae634e7f87d914cb",
+      "event": "push",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42292835918"
+    },
+    "tagPackages": {
+      "run": 42295266255,
+      "head": "ee0b534c70ea53988a7e6263ae634e7f87d914cb",
+      "event": "push",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42295266255"
+    }
+  },
+  "assets": [
+    {
+      "id": 718617432,
+      "name": "INSTALL-UPGRADE-ROLLBACK.md",
+      "size": 1646,
+      "digest": "sha256:880b710533a39dad96a6cca4a281ad0aae30d64b871af131d4d41f645aa8ac33",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/INSTALL-UPGRADE-ROLLBACK.md"
+    },
+    {
+      "id": 718617452,
+      "name": "macos-arm64.manifest.json",
+      "size": 28335,
+      "digest": "sha256:55b04c370c964bf5cceb6ee14646317fdad171e91a2aefac026a827370201d0b",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/macos-arm64.manifest.json"
+    },
+    {
+      "id": 718617425,
+      "name": "MarkWriter-2.5.0-alpha1-macos-arm64.dmg",
+      "size": 7451890,
+      "digest": "sha256:5a57f2e5c378ec723c764ca25c36230d27d3e02aeda778fecd117fc896030170",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/MarkWriter-2.5.0-alpha1-macos-arm64.dmg"
+    },
+    {
+      "id": 718617434,
+      "name": "MarkWriter-2.5.0-alpha1-ubuntu-26.04-x64.deb",
+      "size": 7338756,
+      "digest": "sha256:bce272b58f47490adae848797f412205810244d0b092c20d4e4a12aa68b08f56",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/MarkWriter-2.5.0-alpha1-ubuntu-26.04-x64.deb"
+    },
+    {
+      "id": 718617426,
+      "name": "MarkWriter-2.5.0-alpha1-windows-x64.exe",
+      "size": 5881950,
+      "digest": "sha256:015feec393869a0006a4eb8476c550e520834e5676438fd392dff533dd7e5a62",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/MarkWriter-2.5.0-alpha1-windows-x64.exe"
+    },
+    {
+      "id": 718632833,
+      "name": "QUALIFICATION-SHA256SUMS",
+      "size": 85,
+      "digest": "sha256:a96594bd7661204c79d974ace8fd706fd2f870ea5c9265423f90acd9458c9759",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/QUALIFICATION-SHA256SUMS"
+    },
+    {
+      "id": 718632831,
+      "name": "QUALIFICATION.json",
+      "size": 93182,
+      "digest": "sha256:0dc3574dce0bc749dbbccab1d89c1314f18bfa379e816a7e58ecd10019759fd0",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/QUALIFICATION.json"
+    },
+    {
+      "id": 718617468,
+      "name": "release-manifest.json",
+      "size": 115122,
+      "digest": "sha256:03d3eed2970ea7f5515c97793333cb9cd0f44fd00ffa2a1d5839b30f6a4a5815",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/release-manifest.json"
+    },
+    {
+      "id": 718617433,
+      "name": "SHA256SUMS",
+      "size": 876,
+      "digest": "sha256:58e60b8f200863a69decbeffeb530e71b7d1d7f122ad08a5f969606f7b53af9b",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/SHA256SUMS"
+    },
+    {
+      "id": 718617446,
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "size": 5031294,
+      "digest": "sha256:b3906c1d40aa10bc11fc08c32abae744c46444296f9573b19e1e20ce34abd6e6",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/THIRD_PARTY_NOTICES.txt"
+    },
+    {
+      "id": 718617463,
+      "name": "ubuntu-26.04-x64.manifest.json",
+      "size": 38125,
+      "digest": "sha256:67403a535813c26c24ec05fded2216622272c3764a2f6ab8a929f1b9e73f69d7",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/ubuntu-26.04-x64.manifest.json"
+    },
+    {
+      "id": 718617465,
+      "name": "windows-x64.manifest.json",
+      "size": 36635,
+      "digest": "sha256:f99a4cbb8e0ff5f27ff1c9335157116379f784769576d7ac3951f827a3090ea3",
+      "url": "https://github.com/rheiger/markWriter/releases/download/v2.5.0-alpha1/windows-x64.manifest.json"
+    }
+  ],
+  "anonymousAssetsVerified": 12,
+  "acceptedDraftId": 437063381,
+  "sameDraftAssetIdsAndBytes": true,
+  "historicalReleases": 10,
+  "historicalAssets": 40,
+  "historicalTagRefs": 15,
+  "latestReleaseId": 243493855,
+  "historyPreserved": true,
+  "userFiles": 23,
+  "userHashesMatch": true,
+  "qualificationSha256": "0dc3574dce0bc749dbbccab1d89c1314f18bfa379e816a7e58ecd10019759fd0"
+}
