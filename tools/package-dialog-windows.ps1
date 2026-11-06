@@ -2,6 +2,7 @@ param([Parameter(Mandatory=$true)][string]$Path)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+try {
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')
 $applicationIds=@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $env:MARKWRITER_BINARY } | ForEach-Object ProcessId)
@@ -18,15 +19,6 @@ for ($attempt=0; $attempt -lt 300; $attempt++) {
 if (-not $dialog) {
   $visible=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
   $visible | ForEach-Object { Write-Output ($_.Current.Name+' / '+$_.Current.ClassName+' / PID '+$_.Current.ProcessId) }
-  Add-Type -AssemblyName System.Windows.Forms
-  Add-Type -AssemblyName System.Drawing
-  $bounds=[System.Windows.Forms.SystemInformation]::VirtualScreen
-  $capture=[System.Drawing.Bitmap]::new($bounds.Width,$bounds.Height)
-  $graphics=[System.Drawing.Graphics]::FromImage($capture)
-  try {
-    $graphics.CopyFromScreen($bounds.Left,$bounds.Top,0,0,$bounds.Size)
-    $capture.Save((Join-Path (Get-Location) 'package-acceptance-results/os-dialog-failure.png'))
-  } finally { $graphics.Dispose();$capture.Dispose() }
   throw 'No ordinary OS file dialog appeared within30s'
 }
 # CommonItemDialog may expose File name as an editable ComboBox rather than
@@ -59,3 +51,24 @@ foreach($button in $buttons) {
   }
 }
 throw 'No normal Open/Save confirmation button'
+
+} catch {
+ $dialogFailure=$_
+ try {
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
+  $bounds=[System.Windows.Forms.SystemInformation]::VirtualScreen
+  $capture=[System.Drawing.Bitmap]::new($bounds.Width,$bounds.Height)
+  $graphics=[System.Drawing.Graphics]::FromImage($capture)
+  try {
+   $graphics.CopyFromScreen($bounds.Left,$bounds.Top,0,0,$bounds.Size)
+   $capture.Save((Join-Path (Get-Location) 'package-acceptance-results/os-dialog-failure.png'))
+  } finally {$graphics.Dispose();$capture.Dispose()}
+  if($dialog){
+   $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition) | Select-Object -First 300 | ForEach-Object {
+    @{name=$_.Current.Name;id=$_.Current.AutomationId;type=$_.Current.ControlType.ProgrammaticName;class=$_.Current.ClassName;pid=$_.Current.ProcessId;offscreen=$_.Current.IsOffscreen}
+   } | ConvertTo-Json -Depth 4 | Set-Content package-acceptance-results/native-dialog-tree.json
+  }
+ } catch {Write-Warning ('Native diagnostic capture failed: '+$_)}
+ throw $dialogFailure
+}
