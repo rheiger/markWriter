@@ -32,3 +32,14 @@ describe('parser source sidecar', () => {
     expect(map.segments.some(s => s.text === 'a | b')).toBe(true)
   })
 })
+
+it('maps code, nested tasks and underline/strike boundaries without attributing syntax to text', () => {
+  const source = '- [x] **done**\n  - [ ] child\n\n++under++ ~~strike~~ `a  b`\n'
+  const map = renderMappedMarkdown(source, { documentId: 'A', revision: 0, generation: 1 })
+  for (const text of ['done', 'child', 'under', 'strike', 'a  b']) {
+    const segment = map.segments.find(s => s.text.includes(text))!
+    expect(segment).toBeDefined()
+    const i = segment.text.indexOf(text)
+    expect(source.slice(segment.starts[i], segment.ends[i + text.length - 1])).toBe(text)
+  }
+})

@@ -26,3 +26,19 @@ describe('Markdown parsing and serialization boundaries', () => {
   })
 
 })
+
+it('uses safe fences for edited ordinary code containing closing backticks', () => {
+  const source = fromWysiwygHtml('<pre><code>one\n```\ntwo</code></pre>')
+  expect(source.startsWith('````')).toBe(true)
+  expect(new DOMParser().parseFromString(toWysiwygHtml(source), 'text/html').querySelector('code')!.textContent).toBe('one\n```\ntwo\n')
+})
+
+it('escapes literal plus and tilde prefixes exactly once, including existing backslashes', () => {
+  for (const text of ['+ list', '++underline++', '~~strike~~', '\\++literal++']) {
+    const html = '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>'
+    const saved = fromWysiwygHtml(html)
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(saved), 'text/html')
+    expect(doc.body.textContent!.trim()).toBe(text)
+    expect(doc.querySelector('ul,ins,s')).toBeNull()
+  }
+})

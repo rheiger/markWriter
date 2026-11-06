@@ -92,6 +92,15 @@ export function mapTokens(source: string, tokens: Token[], owner: MapOwner, deco
       if (!token.hidden) token.attrSet('data-mw-block', String(block.id))
       token.meta = { ...token.meta, navigationBlock: block.id }
       if (token.type === 'tr_open') { rowCells = cells(norm.text, from, to); cell = 0 }
+      if ((token.type === 'fence' && token.info.trim() !== 'mermaid' || token.type === 'code_block') && token.content) {
+        const origins = inlineOrigins(norm.text, token.content.replace(/\n$/, ''), norm.lines[token.map[0] + (token.type === 'fence' ? 1 : 0)], to)
+        if (origins) {
+          const text = token.content.replace(/\n$/, '')
+          const segment = { id: map.segments.length, block: block.id, text,
+            starts: origins.map(i => norm.starts[i]), ends: origins.map(i => norm.ends[i]) }
+          map.segments.push(segment); token.meta = { ...token.meta, navigationText: segment.id }
+        }
+      }
     }
     if (token.type !== 'inline' || !block) continue
     let origins: number[] | null

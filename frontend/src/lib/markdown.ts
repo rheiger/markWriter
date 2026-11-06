@@ -44,7 +44,9 @@ for (const type of ['text', 'code_inline']) {
 for (const type of ['fence', 'code_block']) {
   const original = markdown.renderer.rules[type]!
   mappedRenderer.rules[type] = (tokens, index, options, env, renderer) => {
-    const body = original(tokens, index, options, env, renderer)
+    let body = original(tokens, index, options, env, renderer)
+    const segment = tokens[index].meta?.navigationText
+    if (segment !== undefined) body = body.replace(/(<code[^>]*>)([\s\S]*?)(\n?<\/code>)/, `$1<span data-mw-text="${segment}">$2</span>$3`)
     return `<div data-mw-block="${tokens[index].meta?.navigationBlock}">${body}</div>`
   }
 }
@@ -90,6 +92,9 @@ const turndown = new TurndownService({
     return (node as HTMLElement & { isBlock: boolean }).isBlock ? '\n\n' : ''
   },
 })
+// Extensions use ++ and ~~ delimiters. Literal text must never become those marks on reopen.
+const escapeText = turndown.escape.bind(turndown)
+turndown.escape = text => escapeText(text).replace(/(\\*)([+~])/g, (_match, slashes: string, char: string) => slashes + (slashes.length % 2 ? '' : '\\') + char)
 turndown.use(gfm)
 turndown.addRule('mermaid', {
   filter: node => node.getAttribute('data-type') === 'mermaid',
