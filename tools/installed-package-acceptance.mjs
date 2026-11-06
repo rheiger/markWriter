@@ -25,9 +25,8 @@ const run=(script,...args)=>request('POST',`/session/${session}/execute/sync`,{s
 async function wait(check,name,timeout=30000){const end=Date.now()+timeout;let error;while(Date.now()<end){if(launchError)throw launchError;try{const v=await check();if(v)return v}catch(e){error=e}await delay(100)}throw new Error('Timed out: '+name+(error?': '+error:''))}
 async function click(xpath){const e=await request('POST',`/session/${session}/element`,{using:'xpath',value:xpath});await request('POST',`/session/${session}/element/${e['element-6066-11e4-a52e-4f735466cecf']}/click`,{})}
 async function closeMenu(){
- // Open menus put a click-outside overlay above their triggers. Click that
- // overlay at a safe viewport edge using real pointer input, not the covered
- // trigger or a DOM click (the overlay center can overlap menus at 800px).
+ // Exercise outside-click dismissal using real pointer input at a viewport
+ // edge; the overlay center can overlap the dropdown at 800px.
  const point=await run('return {x:innerWidth-8,y:innerHeight-8}')
  await request('POST',`/session/${session}/actions`,{actions:[{type:'pointer',id:'menu-dismiss',parameters:{pointerType:'mouse'},actions:[{type:'pointerMove',duration:0,origin:'viewport',x:point.x,y:point.y},{type:'pointerDown',button:0},{type:'pointerUp',button:0}]}]})
  await wait(()=>run('return !document.querySelector(".menu-overlay,.menu-dropdown")'),'ordinary menu dismissed by outside click')

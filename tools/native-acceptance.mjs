@@ -2,6 +2,7 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
 import { spawn } from 'node:child_process'
@@ -105,9 +106,8 @@ async function menu(name, option) {
   await click(`//button[normalize-space(.)="${option}" or .//span[normalize-space(.)="${option}"]]`)
 }
 async function dismissMenu() {
-  // The menu's outside-click overlay covers its triggers. Use a real pointer
-  // click on the overlay, away from every dropdown, rather than clicking View
-  // through the overlay or executing a synthetic DOM click.
+  // Exercise normal outside-click dismissal with real pointer input, away
+  // from every dropdown. Do not use a synthetic DOM click.
   const point = await waitFor(() => run(`const overlay=document.querySelector('.menu-overlay'),x=innerWidth-8,y=innerHeight-8;return overlay&&document.elementFromPoint(x,y)===overlay?{x,y}:null`), 'menu outside-click target')
   await request('POST', `/session/${session}/actions`, { actions: [{ type: 'pointer', id: 'menu-dismiss', parameters: { pointerType: 'mouse' }, actions: [
     { type: 'pointerMove', origin: 'viewport', duration: 0, x: point.x, y: point.y },
@@ -136,6 +136,11 @@ async function theme(name) {
   await click('//button[normalize-space(.)="View"]')
   assert.equal(await run('return [...document.querySelectorAll("button[role=menuitemradio]")].find(b=>b.getAttribute("aria-checked")==="true").querySelector("span").textContent'), name)
   await dismissMenu()
+}
+const renderedModel = () => run(`return document.querySelector('[data-active=true] .tiptap').editor.getJSON()`)
+async function editRenderedProbe() {
+  await run(`const p=[...document.querySelectorAll('[data-active=true] .tiptap p')].find(e=>e.textContent==='Before paragraph.');p.parentElement.focus();const r=document.createRange();r.setStart(p.firstChild,0);r.collapse(true);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('insertText',false,'Edited ');`)
+  await waitFor(async () => (await snapshot()).document.content.includes('Edited Before paragraph.'), 'rendered history edit')
 }
 const alpha3Cases = [], alpha3Evidence = { languages: [], viewports: [] }
 
@@ -383,16 +388,49 @@ try {
   assert.equal((await snapshot()).document.isDirty, false)
   await action('save')
   assert.equal(await readFile(controlsPath, 'utf8'), controlsSource)
+  // Real rendered edits use the established Markdown serializer, which may
+  // normalize whitespace. Compare Undo with an independently edited/Undone
+  // control copy, retaining exact model + native-byte equivalence. Every
+  // view-only operation above still has to preserve the original source bytes.
+  const referencePath = join(fixtureDir, 'alpha3-rendered-undo-control.md')
+  await writeFile(referencePath, controlsSource)
+  const referenceId = (await action('open', referencePath)).document.id
   await mode('WYSIWYG')
-  await run(`const p=[...document.querySelectorAll('[data-active=true] .tiptap p')].find(e=>e.textContent==='Before paragraph.');p.parentElement.focus();const r=document.createRange();r.setStart(p.firstChild,0);r.collapse(true);getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('insertText',false,'Edited ');`)
-  await waitFor(async () => (await snapshot()).document.content.includes('Edited Before paragraph.'), 'rendered history edit')
+  const referenceModel = await renderedModel()
+  await editRenderedProbe()
+  await menu('Edit', 'Undo')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(referenceModel), 'untoggled rendered Undo restores exact document model')
+  const controlsAfterEdit = (await snapshot()).document.content
+  const referenceUndoDirty = (await snapshot()).document.isDirty
+  await action('save')
+  assert.equal(await readFile(referencePath, 'utf8'), controlsAfterEdit)
+  await action('close', referenceId)
+  await action('activate', controlsId)
+  await mode('WYSIWYG')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(referenceModel), 'toggled and untoggled copies start with the same rendered model')
+  const beforeRenderedEdit = await renderedModel()
+  await editRenderedProbe()
   const renderedSelection = await run(`const e=document.querySelector('[data-active=true] .tiptap').editor;return {from:e.state.selection.from,to:e.state.selection.to}`)
   const renderedRevision = (await snapshot()).document.revision
   await syntax(false, 'menu'); await syntax(true, 'toolbar')
   assert.deepEqual(await run(`const e=document.querySelector('[data-active=true] .tiptap').editor;return {from:e.state.selection.from,to:e.state.selection.to}`), renderedSelection)
   assert.equal((await snapshot()).document.revision, renderedRevision)
   await menu('Edit', 'Undo')
-  await waitFor(async () => (await snapshot()).document.content === controlsSource, 'syntax toggle leaves rendered Undo history intact')
+  await waitFor(async () => JSON.stringify(await renderedModel()) === JSON.stringify(beforeRenderedEdit), 'syntax toggle leaves exact rendered Undo model intact')
+  assert.equal((await snapshot()).document.content, controlsAfterEdit, 'toggled and untoggled rendered Undo produce identical Markdown')
+  assert.equal((await snapshot()).document.isDirty, referenceUndoDirty, 'toggled and untoggled rendered Undo have identical dirty state')
+  await action('save')
+  assert.equal(await readFile(controlsPath, 'utf8'), await readFile(referencePath, 'utf8'), 'toggled and untoggled rendered Undo save byte-identically')
+  const originalBytes = Buffer.from(controlsSource), serializedBytes = Buffer.from(controlsAfterEdit)
+  const firstDifference = originalBytes.findIndex((byte, index) => serializedBytes[index] !== byte)
+  const sha256 = value => createHash('sha256').update(value).digest('hex')
+  alpha3Evidence.renderedUndo = {
+    originalViewOnlySource: controlsSource, referenceSource: controlsAfterEdit, toggledSource: (await snapshot()).document.content,
+    originalSHA256: sha256(originalBytes), referenceSHA256: sha256(serializedBytes), toggledSHA256: sha256(await readFile(controlsPath)),
+    originalBytes: originalBytes.length, serializedBytes: serializedBytes.length,
+    firstDifferentByte: originalBytes.equals(serializedBytes) ? null : firstDifference < 0 ? originalBytes.length : firstDifference,
+    modelRestored: true, dirtyBeforeSave: referenceUndoDirty,
+  }
   assert.equal((await snapshot()).document.isDirty, false)
   alpha3Cases.push('toolbar and View syntax controls synchronized across both engines without selection/fold/revision/history changes')
 
@@ -423,7 +461,7 @@ try {
         const table = await run('const e=document.querySelector(".table-picker"),r=e.getBoundingClientRect();return {background:getComputedStyle(e).backgroundColor,within:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}')
         assert.equal(table.background, style.primary); assert.ok(table.within, JSON.stringify(table))
         await click('//div[@role="dialog" and @aria-label="Insert table"]//button[normalize-space(.)="Cancel"]')
-        assert.equal((await snapshot()).document.content, controlsSource)
+        assert.equal((await snapshot()).document.content, controlsAfterEdit)
         assert.equal((await snapshot()).document.isDirty, false)
         alpha3Evidence.viewports.push(style)
       }
@@ -445,7 +483,7 @@ try {
   await syntax(false, 'toolbar')
   await action('exportHtml', syntaxExportOff)
   assert.ok(!/<span class="hljs-/.test(await readFile(syntaxExportOff, 'utf8')))
-  assert.equal((await snapshot()).document.content, controlsSource)
+  assert.equal((await snapshot()).document.content, controlsAfterEdit)
   await theme('Dark')
   alpha3Cases.push('native HTML export captures syntax preference and embeds escaped static token CSS')
   // Keep previous recovery fixture active for restart coverage.
@@ -474,7 +512,7 @@ try {
   for (const editorMode of ['Markdown', 'WYSIWYG']) {
     await mode(editorMode)
     await waitFor(() => run('return !document.querySelector("[data-active=true] [class*=hljs-]")'), `disabled syntax restored in ${editorMode}`)
-    assert.equal((await snapshot()).document.content, controlsSource)
+    assert.equal((await snapshot()).document.content, controlsAfterEdit)
     assert.equal((await snapshot()).document.isDirty, false)
   }
   alpha3Cases.push('syntax and theme preferences persist through actual process restart and both-engine UI restoration')
@@ -496,6 +534,8 @@ try {
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {
+    const state = await snapshot().catch(() => null)
+    if (state) await writeFile(join(artifacts, 'failure-state.json'), JSON.stringify({ document: state.document, config: state.config, error: state.error }, null, 2)).catch(() => {})
     await writeFile(join(artifacts, 'page.html'), await request('GET', `/session/${session}/source`).catch(() => '')).catch(() => {})
     const screenshot = await request('GET', `/session/${session}/screenshot`).catch(() => null)
     if (screenshot) await writeFile(join(artifacts, 'failure.png'), Buffer.from(screenshot, 'base64'))
