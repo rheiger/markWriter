@@ -8,7 +8,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": [
+      "dmg",
+      "nsis",
+      "deb"
+    ],
+    "shortDescription": "Markdown editor with offline diagrams",
+    "category": "Productivity",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   },
   "app": {
     "windows": [

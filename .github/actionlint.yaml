@@ -1,0 +1,5 @@
+# Hosted label is released in runner-images/README.md; actionlint1.7.12 predates it.
+# This config extends the validator's label vocabulary, not the runtime matrix.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

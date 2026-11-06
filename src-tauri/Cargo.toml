@@ -6,7 +6,7 @@ authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
 repository = "https://github.com/rheiger/markWriter"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.90"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

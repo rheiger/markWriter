@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 mod persistence;
 mod dot_policy;
+mod storage_profile;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -18,32 +19,41 @@ pub struct Document {
     pub last_modified: String,
 }
 
+fn storage_file(app: &tauri::AppHandle, kind: &str) -> Result<std::path::PathBuf, String> {
+    let filename = match kind {
+        "preferences" => "preferences.json",
+        "workspace" => "workspace.json",
+        _ => return Err("Unknown storage kind".into()),
+    };
+    if let Some(root) = std::env::var_os("MARKWRITER_PROFILE_DIR") {
+        return storage_profile::profile_file(std::path::Path::new(&root), filename);
+    }
+    let root = if kind == "preferences" { app.path().app_config_dir() } else { app.path().app_local_data_dir() };
+    Ok(root.map_err(|e| e.to_string())?.join(filename))
+}
+
 // Native path resolver is scoped to the current app identity.
 // https://docs.rs/tauri/2/tauri/path/struct.PathResolver.html
 #[tauri::command]
 fn load_preferences(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    persistence::read_json(&app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"))
+    persistence::read_json(&storage_file(&app, "preferences")?)
 }
 #[tauri::command]
 fn save_preferences(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
-    persistence::write_json(&app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"), &value)
+    persistence::write_json(&storage_file(&app, "preferences")?, &value)
 }
 #[tauri::command]
 fn load_workspace(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    persistence::read_json(&app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"))
+    persistence::read_json(&storage_file(&app, "workspace")?)
 }
 #[tauri::command]
 fn save_workspace(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
-    persistence::write_json(&app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"), &value)
+    persistence::write_json(&storage_file(&app, "workspace")?, &value)
 }
 
 #[tauri::command]
 fn retain_rejected_storage(app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    let path = match kind.as_str() {
-        "preferences" => app.path().app_config_dir().map_err(|e| e.to_string())?.join("preferences.json"),
-        "workspace" => app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("workspace.json"),
-        _ => return Err("Unknown storage kind".into()),
-    };
+    let path = storage_file(&app, &kind)?;
     persistence::retain_rejected(&path)
 }
 
