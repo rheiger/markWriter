@@ -145,3 +145,9 @@ Desktop.ini
 .playwright-mcp/
 frontend/dist-acceptance/
 native-acceptance-results/
+
+# Packaged third-party notices (public is otherwise ignored historically)
+!frontend/public/
+!frontend/public/THIRD_PARTY_NOTICES.txt
+package-acceptance-results/
+release-assets/

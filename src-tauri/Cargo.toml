@@ -1,12 +1,12 @@
 [package]
 name = "markwriter"
-version = "2.1.0-alpha1"
+version = "2.1.0-alpha2"
 description = "A modern Markdown editor built with Tauri"
 authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
 repository = "https://github.com/rheiger/markWriter"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.90"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

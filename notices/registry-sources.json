@@ -1,0 +1,685 @@
+{
+  "@viz-js/viz@3.31.0": [
+    {
+      "url": "https://raw.githubusercontent.com/mdaines/viz-js/c8ce050d28eb0dc1ed1629ea32ab7f3dc117db0f/LICENSE",
+      "sha256": "f1fb91bf7cbcb42b2af56949e4fa909e1979d5b57c2826cabacdb4b631457720",
+      "path": "notices/upstream/f1fb91bf7cbcb42b2af56949e4fa909e1979d5b57c2826cabacdb4b631457720.txt"
+    }
+  ],
+  "Rust/alloc-stdlib@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/6032b6a9b20e03737135c55a0270ccffcc1438ef/LICENSE",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+      "path": "notices/upstream/c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae.txt"
+    }
+  ],
+  "Rust/block2@0.5.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/block2@0.6.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:block2@0.6.1",
+      "sha256": "d73e866707555407c93c710f87a53852d1dbded3234f24d005176c4b85d5bd10",
+      "path": "notices/upstream/d73e866707555407c93c710f87a53852d1dbded3234f24d005176c4b85d5bd10.txt"
+    }
+  ],
+  "Rust/convert_case@0.4.0": [
+    {
+      "url": "reviewed-standard-MIT-supplement:convert_case@0.4.0",
+      "sha256": "9a5de16058261931db861bd18f658151350bf3dee5cb308896c1cb96e0191dec",
+      "path": "notices/upstream/9a5de16058261931db861bd18f658151350bf3dee5cb308896c1cb96e0191dec.txt"
+    }
+  ],
+  "Rust/dispatch@0.2.0": [
+    {
+      "url": "reviewed-standard-MIT-supplement:dispatch@0.2.0",
+      "sha256": "5745d01cb17829b29c84ac192c954a25d44ddebdf9d2bbd9dfc83a056dda975b",
+      "path": "notices/upstream/5745d01cb17829b29c84ac192c954a25d44ddebdf9d2bbd9dfc83a056dda975b.txt"
+    }
+  ],
+  "Rust/dispatch2@0.3.0": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:dispatch2@0.3.0",
+      "sha256": "fb58daba32bb9cc5aecc22f4dd78be7350e12d4e90f003124595b546db1120fd",
+      "path": "notices/upstream/fb58daba32bb9cc5aecc22f4dd78be7350e12d4e90f003124595b546db1120fd.txt"
+    }
+  ],
+  "Rust/fxhash@0.2.1": [
+    {
+      "url": "reviewed-standard-MIT-supplement:fxhash@0.2.1",
+      "sha256": "5d3941b301d517bc932ed04b8dc407743013fa94a1da0f7c31db4d6839a6bb4d",
+      "path": "notices/upstream/5d3941b301d517bc932ed04b8dc407743013fa94a1da0f7c31db4d6839a6bb4d.txt"
+    }
+  ],
+  "Rust/libappindicator-sys@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-MIT",
+      "sha256": "eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b",
+      "path": "notices/upstream/eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b.txt"
+    }
+  ],
+  "Rust/mac@0.1.1": [
+    {
+      "url": "reviewed-standard-MIT-supplement:mac@0.1.1",
+      "sha256": "5fa0db374a77e2b5bb60876853a682e085c9af61df6722efde3fd567d0ea2ff4",
+      "path": "notices/upstream/5fa0db374a77e2b5bb60876853a682e085c9af61df6722efde3fd567d0ea2ff4.txt"
+    }
+  ],
+  "Rust/mac-notification-sys@0.6.6": [
+    {
+      "url": "reviewed-standard-MIT-supplement:mac-notification-sys@0.6.6",
+      "sha256": "6b27a7c535a2d1f7a4387e2140d072f2084d585f80698fa0cae33f93bf7cbc8e",
+      "path": "notices/upstream/6b27a7c535a2d1f7a4387e2140d072f2084d585f80698fa0cae33f93bf7cbc8e.txt"
+    }
+  ],
+  "Rust/match_token@0.1.0": [
+    {
+      "url": "https://raw.githubusercontent.com/servo/html5ever/0e4e125b8672abad4ff14d1e0043d3be9305af6a/LICENSE-MIT",
+      "sha256": "86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3",
+      "path": "notices/upstream/86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3.txt"
+    }
+  ],
+  "Rust/ndk@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/rust-mobile/ndk/49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25/LICENSE-MIT",
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+      "path": "notices/upstream/508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1.txt"
+    }
+  ],
+  "Rust/ndk-context@0.1.1": [
+    {
+      "url": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/LICENSE-MIT",
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+      "path": "notices/upstream/508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1.txt"
+    }
+  ],
+  "Rust/ndk-sys@0.6.0+11769913": [
+    {
+      "url": "https://raw.githubusercontent.com/rust-mobile/ndk/49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25/LICENSE-MIT",
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+      "path": "notices/upstream/508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1.txt"
+    }
+  ],
+  "Rust/objc-sys@0.3.5": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2@0.5.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2@0.6.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/f5df468edf7df6a7a240a8b6cbe1d6bdf2386ef6/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2@0.6.2",
+      "sha256": "966ca9227b084a7656a7e5d77aa77206f1ea84e21f70f664739c46a4d67d1704",
+      "path": "notices/upstream/966ca9227b084a7656a7e5d77aa77206f1ea84e21f70f664739c46a4d67d1704.txt"
+    }
+  ],
+  "Rust/objc2-app-kit@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-app-kit@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-app-kit@0.3.1",
+      "sha256": "f0133bfbe239b754f5d0801026fabae02d1077b23e273fe27e63fa85e2aa3dfe",
+      "path": "notices/upstream/f0133bfbe239b754f5d0801026fabae02d1077b23e273fe27e63fa85e2aa3dfe.txt"
+    }
+  ],
+  "Rust/objc2-cloud-kit@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-cloud-kit@0.3.1",
+      "sha256": "d866c3db8b20069ca7fd4b54c96ae3912301bdc63979ec057adb6d3e21f09104",
+      "path": "notices/upstream/d866c3db8b20069ca7fd4b54c96ae3912301bdc63979ec057adb6d3e21f09104.txt"
+    }
+  ],
+  "Rust/objc2-core-data@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-core-data@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-core-data@0.3.1",
+      "sha256": "d03643514141c622c9076422f5f486c5c94aabfc23419a80e29685bc8e4fbcb9",
+      "path": "notices/upstream/d03643514141c622c9076422f5f486c5c94aabfc23419a80e29685bc8e4fbcb9.txt"
+    }
+  ],
+  "Rust/objc2-core-foundation@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-core-foundation@0.3.1",
+      "sha256": "974f7c300b879c3033b2925ec54e1b3817d02193e511d5f0c71e750449d927c3",
+      "path": "notices/upstream/974f7c300b879c3033b2925ec54e1b3817d02193e511d5f0c71e750449d927c3.txt"
+    }
+  ],
+  "Rust/objc2-core-graphics@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-core-graphics@0.3.1",
+      "sha256": "1b0644453acc0b87c16919dbe4765e88219947db9f9b0b4881ae236b7e0047d5",
+      "path": "notices/upstream/1b0644453acc0b87c16919dbe4765e88219947db9f9b0b4881ae236b7e0047d5.txt"
+    }
+  ],
+  "Rust/objc2-core-image@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-core-image@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-core-image@0.3.1",
+      "sha256": "615c2a1e5e9cca023f0928914cc642d491b39798e6172ca88b790ea2fb7ab2ec",
+      "path": "notices/upstream/615c2a1e5e9cca023f0928914cc642d491b39798e6172ca88b790ea2fb7ab2ec.txt"
+    }
+  ],
+  "Rust/objc2-encode@4.1.0": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-encode@4.1.0",
+      "sha256": "6fbbf8bd8374dd87741d2ec43c33d28b6e2eab38e70138341a5d5f79c5a2c0cd",
+      "path": "notices/upstream/6fbbf8bd8374dd87741d2ec43c33d28b6e2eab38e70138341a5d5f79c5a2c0cd.txt"
+    }
+  ],
+  "Rust/objc2-exception-helper@0.1.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-exception-helper@0.1.1",
+      "sha256": "37c6e66892ea2f0df7edb65e23648792e027ff4a0b07e5156476484017795e5c",
+      "path": "notices/upstream/37c6e66892ea2f0df7edb65e23648792e027ff4a0b07e5156476484017795e5c.txt"
+    }
+  ],
+  "Rust/objc2-foundation@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-foundation@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-foundation@0.3.1",
+      "sha256": "c7b2c393fd38331cd27ecd366184c79c61f33eecd2adb462e1eef417d90642a7",
+      "path": "notices/upstream/c7b2c393fd38331cd27ecd366184c79c61f33eecd2adb462e1eef417d90642a7.txt"
+    }
+  ],
+  "Rust/objc2-io-surface@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-io-surface@0.3.1",
+      "sha256": "d15c93e4999c2b1abef3a0d9c04901bfa8dbb722e34b4fd1a573d78e9216ed9f",
+      "path": "notices/upstream/d15c93e4999c2b1abef3a0d9c04901bfa8dbb722e34b4fd1a573d78e9216ed9f.txt"
+    }
+  ],
+  "Rust/objc2-javascript-core@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-javascript-core@0.3.1",
+      "sha256": "0f567e612b1327f0464b5c1da2d9de976de7c4ed0a61f0e468851fc043b7c19e",
+      "path": "notices/upstream/0f567e612b1327f0464b5c1da2d9de976de7c4ed0a61f0e468851fc043b7c19e.txt"
+    }
+  ],
+  "Rust/objc2-metal@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-quartz-core@0.2.2": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    }
+  ],
+  "Rust/objc2-quartz-core@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-quartz-core@0.3.1",
+      "sha256": "312009caa6ecb88ada9c8e18cdadc48862013235de4d93ed61b2655eddc7bc48",
+      "path": "notices/upstream/312009caa6ecb88ada9c8e18cdadc48862013235de4d93ed61b2655eddc7bc48.txt"
+    }
+  ],
+  "Rust/objc2-security@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-security@0.3.1",
+      "sha256": "1455ee5a6f9fc9c6ba487525fd489aaa2e99f7a085e735c91351bb14c43bccd4",
+      "path": "notices/upstream/1455ee5a6f9fc9c6ba487525fd489aaa2e99f7a085e735c91351bb14c43bccd4.txt"
+    }
+  ],
+  "Rust/objc2-ui-kit@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-ui-kit@0.3.1",
+      "sha256": "fc8cd3a0c8a378ead1a50e3e4a9803cf7bc5286864dc367378c23956a3454e2a",
+      "path": "notices/upstream/fc8cd3a0c8a378ead1a50e3e4a9803cf7bc5286864dc367378c23956a3454e2a.txt"
+    }
+  ],
+  "Rust/objc2-web-kit@0.3.1": [
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/4fc083f1c6d6784577e38b0ee8dbd344481e2fd2/LICENSE.txt",
+      "sha256": "e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5",
+      "path": "notices/upstream/e353f37b12aefbb9f9b29490e837cfee05d9bda70804b3562839a3285c1df1e5.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "path": "notices/upstream/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "url": "reviewed-standard-MIT-supplement:objc2-web-kit@0.3.1",
+      "sha256": "f585da4273f725d0197f7bcc8eb8d36b47ad9c8c2a94b91eca92c626fdeca9f4",
+      "path": "notices/upstream/f585da4273f725d0197f7bcc8eb8d36b47ad9c8c2a94b91eca92c626fdeca9f4.txt"
+    }
+  ],
+  "Rust/phf@0.8.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/81c7cc5b48649108428671d3b8ad151f6fbdb359/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf@0.10.1": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/bed01538ae576876f11189d541875d228acef9e8/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_codegen@0.8.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/81c7cc5b48649108428671d3b8ad151f6fbdb359/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_generator@0.8.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/81c7cc5b48649108428671d3b8ad151f6fbdb359/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_generator@0.10.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/3ea14b2166553ad6e7b9afe7244144f5d661b6c6/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_macros@0.10.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/3cc6f05cb07933af4cf886645d1170bdcb306b6b/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_shared@0.8.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/81c7cc5b48649108428671d3b8ad151f6fbdb359/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/phf_shared@0.10.0": [
+    {
+      "url": "https://raw.githubusercontent.com/sfackler/rust-phf/3ea14b2166553ad6e7b9afe7244144f5d661b6c6/LICENSE",
+      "sha256": "d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46",
+      "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
+    }
+  ],
+  "Rust/r-efi@5.3.0": [
+    {
+      "url": "crate:r-efi@5.3.0/AUTHORS",
+      "sha256": "ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7",
+      "path": "notices/upstream/ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7.txt"
+    }
+  ],
+  "Rust/selectors@0.24.0": [
+    {
+      "url": "https://raw.githubusercontent.com/servo/servo/e82d7868d999d84f6d59719e4c397e5252aecb85/LICENSE",
+      "sha256": "1af2d2b02d9c86030d29ed77117ca7a1b0e4b6ff35bcf8eeb124867d0f5cb59e",
+      "path": "notices/upstream/1af2d2b02d9c86030d29ed77117ca7a1b0e4b6ff35bcf8eeb124867d0f5cb59e.txt"
+    }
+  ],
+  "Rust/sigchld@0.2.4": [
+    {
+      "url": "reviewed-standard-MIT-supplement:sigchld@0.2.4",
+      "sha256": "5045bae2625d890a31914e04c8c1a1a88d71c72befc46e9819a584ff43714b9a",
+      "path": "notices/upstream/5045bae2625d890a31914e04c8c1a1a88d71c72befc46e9819a584ff43714b9a.txt"
+    }
+  ],
+  "Rust/tao-macros@0.1.3": [
+    {
+      "url": "https://raw.githubusercontent.com/tauri-apps/tao/340684d932b6126bed449fc1f4edca81776ad592/LICENSE",
+      "sha256": "6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a",
+      "path": "notices/upstream/6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/tauri-apps/tao/340684d932b6126bed449fc1f4edca81776ad592/LICENSE.spdx",
+      "sha256": "02b6448337b757772d90e5f31caaa0f9e6afaad2221c01771d0a3deaa4d4196c",
+      "path": "notices/upstream/02b6448337b757772d90e5f31caaa0f9e6afaad2221c01771d0a3deaa4d4196c.txt"
+    }
+  ],
+  "Rust/tauri-plugin@2.4.0": [
+    {
+      "url": "https://raw.githubusercontent.com/tauri-apps/tauri/b4abb6cae87f9b7afa6bde0d416bff01e1d691c4/LICENSE_MIT",
+      "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+      "path": "notices/upstream/9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d.txt"
+    }
+  ],
+  "Rust/unic-char-property@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/COPYRIGHT.md",
+      "sha256": "f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b",
+      "path": "notices/upstream/f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/AUTHORS",
+      "sha256": "2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09",
+      "path": "notices/upstream/2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09.txt"
+    }
+  ],
+  "Rust/unic-char-range@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/COPYRIGHT.md",
+      "sha256": "f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b",
+      "path": "notices/upstream/f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/AUTHORS",
+      "sha256": "2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09",
+      "path": "notices/upstream/2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09.txt"
+    }
+  ],
+  "Rust/unic-common@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/COPYRIGHT.md",
+      "sha256": "f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b",
+      "path": "notices/upstream/f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/AUTHORS",
+      "sha256": "2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09",
+      "path": "notices/upstream/2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09.txt"
+    }
+  ],
+  "Rust/unic-ucd-ident@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/8a6ce83063d90b91ae2ce59eddb803edd393fca9/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/8a6ce83063d90b91ae2ce59eddb803edd393fca9/COPYRIGHT.md",
+      "sha256": "f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b",
+      "path": "notices/upstream/f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/8a6ce83063d90b91ae2ce59eddb803edd393fca9/AUTHORS",
+      "sha256": "2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09",
+      "path": "notices/upstream/2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09.txt"
+    }
+  ],
+  "Rust/unic-ucd-version@0.9.0": [
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/COPYRIGHT.md",
+      "sha256": "f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b",
+      "path": "notices/upstream/f5c342c49f3ac804f3e8e7bb62a8040a44c50d47bb36902b1abd13f66a1adf8b.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/open-i18n/rust-unic/5878605364af97a3358368a6eaef02104af2e016/AUTHORS",
+      "sha256": "2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09",
+      "path": "notices/upstream/2748c1a1fba7616917c61d455e8d715ab952671ead63f2026ad0124410596b09.txt"
+    }
+  ],
+  "Rust/valuable@0.1.1": [
+    {
+      "url": "https://raw.githubusercontent.com/tokio-rs/valuable/9efc29b6e58cef28f6566a47aa7e142a55fead77/LICENSE",
+      "sha256": "ed60d479b8fd1f64e9cbc3de449a16a53ac1b3d1b6aeb9bf9d190a8e93061b44",
+      "path": "notices/upstream/ed60d479b8fd1f64e9cbc3de449a16a53ac1b3d1b6aeb9bf9d190a8e93061b44.txt"
+    }
+  ],
+  "Rust/webview2-com@0.38.0": [
+    {
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/c028bc6bfb3a5b85f46afa6ed87115b841f0ea45/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "path": "notices/upstream/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt"
+    }
+  ],
+  "Rust/webview2-com-macros@0.8.0": [
+    {
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/2a4d92c91002f91b49fd282abbbe8ec8d3318339/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "path": "notices/upstream/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt"
+    }
+  ],
+  "Rust/webview2-com-sys@0.38.0": [
+    {
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/c028bc6bfb3a5b85f46afa6ed87115b841f0ea45/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "path": "notices/upstream/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt"
+    }
+  ],
+  "Rust/winapi-i686-pc-windows-gnu@0.4.0": [
+    {
+      "url": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/i686/LICENSE-MIT",
+      "sha256": "ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b",
+      "path": "notices/upstream/ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b.txt"
+    }
+  ],
+  "Rust/winapi-x86_64-pc-windows-gnu@0.4.0": [
+    {
+      "url": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/x86_64/LICENSE-MIT",
+      "sha256": "ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b",
+      "path": "notices/upstream/ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b.txt"
+    }
+  ],
+  "Rust/wit-bindgen-rt@0.39.0": [
+    {
+      "url": "https://raw.githubusercontent.com/bytecodealliance/wit-bindgen/f2393e6e98fa5f9236cac580db8a3fc9de6a4b70/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "path": "notices/upstream/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt"
+    }
+  ]
+}

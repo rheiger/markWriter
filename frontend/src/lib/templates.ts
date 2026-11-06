@@ -1,1 +1,4 @@
 export const mermaidErdTemplate = '```mermaid\nerDiagram\n    CUSTOMER ||--o{ ORDER : places\n    ORDER ||--|{ ORDER_ITEM : contains\n    PRODUCT ||--o{ ORDER_ITEM : includes\n    CUSTOMER {\n        int id PK\n        string name\n        string email UK\n    }\n    ORDER {\n        int id PK\n        int customer_id FK\n        date ordered_at\n    }\n    ORDER_ITEM {\n        int order_id PK, FK\n        int product_id PK, FK\n        int quantity\n    }\n    PRODUCT {\n        int id PK\n        string name\n        float price\n    }\n```\n'
+
+// Blank lines keep the starter a separate block when inserted within prose.
+export const dotTemplate = '\n\n```dot\ndigraph {\n    rankdir=LR;\n    node [shape=box];\n    start [label="Start"];\n    finish [label="Finish"];\n    start -> finish;\n}\n```\n\n'

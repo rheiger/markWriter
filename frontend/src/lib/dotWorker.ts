@@ -1,0 +1,21 @@
+/// <reference lib="webworker" />
+import { instance } from '@viz-js/viz'
+import { DOT_LIMITS, validateDot, checkedDotErrors } from './dotSafety'
+
+const scope = self as unknown as DedicatedWorkerGlobalScope
+// The WASM bytes are embedded in the locally bundled runtime. No fetch/importScripts.
+instance().then(viz => {
+  scope.onmessage = event => {
+    const { id, owner, source } = event.data
+    try {
+      validateDot(source)
+      const result = viz.render(source, { format: 'svg', engine: 'dot' })
+      const errors = checkedDotErrors(result.errors)
+      if (result.status !== 'success' || errors.length) throw new Error(errors.map(error => error.message).join('; ').slice(0, 512) || 'DOT layout failed')
+      const svg = result.output
+      if (svg.length > DOT_LIMITS.outputBytes || new TextEncoder().encode(svg).length > DOT_LIMITS.outputBytes) throw new Error('DOT exceeds 2 MiB SVG limit')
+      scope.postMessage({ id, owner, svg })
+    } catch (error) { scope.postMessage({ id, owner, error: String(error).slice(0, 512) }) }
+  }
+  scope.postMessage({ ready: true, graphvizVersion: viz.graphvizVersion })
+}).catch(() => scope.postMessage({ startupError: 'Cannot initialize the bundled DOT runtime' }))

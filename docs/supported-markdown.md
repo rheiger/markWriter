@@ -1,8 +1,8 @@
 # Markdown and editing conventions
 
-MarkWriter 2.1.0-alpha1 keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
+MarkWriter 2.1.0-alpha2 keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
 
-Supported: ATX headings, paragraphs, bold/italic/strike, inline/fenced code, quotes, nested bullet/ordered/task lists, links, embedded images, GFM tables/alignment and Mermaid fences. `++text++` is underline. Table cells can contain the narrowly allowed safe `<br>` line break. Arbitrary HTML is displayed literally, not executed; merged cells and arbitrary HTML styling are outside this subset.
+Supported: ATX headings, paragraphs, bold/italic/strike, inline/fenced code, quotes, nested bullet/ordered/task lists, links, embedded images, GFM tables/alignment, Mermaid fences and the DOT subset below. `++text++` is underline. Table cells can contain the narrowly allowed safe `<br>` line break. Arbitrary HTML is displayed literally, not executed; merged cells and arbitrary HTML styling are outside this subset.
 
 WYSIWYG typing and plain-text paste are literal, including `# `, `> `, `- `, `1. `, fences, emphasis and links. Toolbar/menu actions and editor keyboard shortcuts apply formatting. Enter continues existing lists/tasks; automatic Markdown input and paste rules and automatic link detection are disabled. Serialization escapes literal syntax, including extension delimiters. Source typing remains Markdown syntax.
 
@@ -13,3 +13,25 @@ The table picker begins at 5 × 5. Pointer movement grows/shrinks the visible ar
 Find searches the current tab only. Markdown scope includes all canonical source and folded payloads, including pasted multiline queries. WYSIWYG scope is editable text inside each text block; matches may cross inline marks but stop at atoms/hard breaks/block boundaries. Search source explicitly to access diagram internals. Literal queries, case/whole-word options, wrapping next/previous, current replacement and one-step Replace All are supported; regular expressions and project search are deferred.
 
 GFM permits multiple spaces after a list marker and four-space nesting. Those forms are not corruption. Practical markdownlint configuration may disable MD013 (line length, especially URLs/diagram/data payloads), MD024 (repeated headings), MD033 only for the documented table `<br>` extension, and MD046 when accepting both valid code forms. Set MD004/MD007/MD030 to the team's chosen list style or disable style-only checks for normalized WYSIWYG output. Do not rewrite user documents solely to satisfy lint. Source and rendered fonts are independent display settings, not document formatting.
+
+## Offline DOT / Graphviz
+
+Use a fenced `dot` block (`graphviz` is an alias). The source stays editable in Markdown; WYSIWYG treats the diagram as an opaque atom. Preview clicks and source selection use an explicit dashed block fallback, with no invented text positions inside SVG. Source Find includes folded notation; rendered Find excludes atom internals. View-only changes preserve the original fence/alias/line endings. A genuine rendered edit preserves the graph source but can normalize enclosing Markdown, as with other supported blocks.
+
+**Insert → Diagram → DOT** inserts a small directed graph. Switch to Markdown to edit its source; Undo removes the insertion in one operation. In source mode the starter replaces the current selection; insert outside an existing code fence. In WYSIWYG it inserts after the current block, including after a table.
+
+```dot
+digraph {
+    rankdir=LR;
+    node [shape=box];
+    start [label="Start"];
+    finish [label="Finish"];
+    start -> finish;
+}
+```
+
+The bundled Viz3.31.0 / Graphviz16.1.0 runtime uses the `dot` layout engine locally, with no hosted renderer, upload, Graphviz installation or runtime download. Limits:64KiB UTF-8 source,2MiB SVG,2s layout after up to5s startup,32 waiting jobs. A worker is terminated on timeout/cancellation; JavaScript/WASM does not provide a hard memory bound. Malformed, empty, unsupported or oversized notation remains intact with an inline recoverable error. Simplify the graph or edit its source.
+
+Supported attributes are deliberately restricted: labels/tooltips, rank/direction/spacing, shape/style, colors/fonts, line/arrow properties, dimensions/margins and ordinary cluster/edge layout options listed in the [DOT safety ADR](adr-offline-dot.md). External images/files, links/URLs, include/resource settings, HTML labels, concatenated strings, gradient/multicolor paints, radial styles and unknown attributes are rejected. Unsupported Graphviz features/warnings also fail closed. Unicode labels retain their text; the embedded runtime's approximate non-ASCII metrics can affect glyph fit and do not guarantee identical typography across installed fonts.
+
+HTML export embeds sanitized static SVG, strips diagram source/mapping metadata and needs no renderer script. Ordinary document links remain active in exported HTML. DOT's SVG is reconstructed from a small geometry/text subset; scripts, handlers, foreign objects, resource URLs and CSS are removed. The canvas remains white in both UI themes to preserve explicit diagram colors.

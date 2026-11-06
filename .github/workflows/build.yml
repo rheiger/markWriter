@@ -1,19 +1,16 @@
-name: Build Desktop Apps
+name: Historical Python builds (manual only)
 
-# Required for publishing releases from the workflow
+# Historical Python builds are manual artifacts only; Tauri owns v2 publication.
 permissions:
-  contents: write
+  contents: read
 
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
   workflow_dispatch:
 
 jobs:
   build-macos:
     name: macOS
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -137,79 +134,3 @@ jobs:
             ${{ env.NSIS_EXE }}
 
       # Windows job only builds and uploads artifacts; publishing is done in a separate job
-
-  build-linux:
-    name: Linux
-    if: false # disabled for now
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libxrender1 libxext6 libx11-6 libdbus-1-3 libglib2.0-0 libxcomposite1 libxi6 libxcursor1 libxdamage1 libxtst6 libnss3 libasound2
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install -U pip
-          pip install -r requirements.txt
-
-      - name: Build app with PyInstaller (Linux)
-        run: |
-          pyinstaller -y MarkWrite-linux.spec
-
-      - name: Zip app
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="latest"
-          fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "ZIP_NAME=MarkWrite-$VERSION-linux.zip" >> "$GITHUB_ENV"
-          cd dist && zip -r "${ZIP_NAME}" MarkWrite
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ZIP_NAME }}
-          path: dist/${{ env.ZIP_NAME }}
-
-      - name: Publish GitHub Release (Linux)
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          files: dist/${{ env.ZIP_NAME }}
-          generate_release_notes: true
-
-  publish-release:
-    name: Publish Release
-    needs: [build-macos, build-windows]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: '*'
-          path: release_assets
-          merge-multiple: true
-
-      - name: List assets to publish
-        run: |
-          ls -lAh release_assets
-
-      - name: Publish GitHub Release (combined)
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release_assets/**
-          generate_release_notes: true

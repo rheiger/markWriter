@@ -21,7 +21,9 @@ permissions:
 
 concurrency:
   group: v2-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Retain expensive native acceptance when a later packaging/docs fix is pushed.
+  # GitHub keeps only the newest pending run; final-source green is still required.
+  cancel-in-progress: false
 
 jobs:
   frontend:
@@ -36,7 +38,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '24.22.2'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -52,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-26, ubuntu-26.04, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     defaults:
@@ -64,23 +66,16 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '24.22.2'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install Linux WebKit and desktop dependencies
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          if apt-cache show webkitgtk-webdriver > /dev/null 2>&1; then
-            native_webdriver_package=webkitgtk-webdriver
-          else
-            native_webdriver_package=webkit2gtk-driver
-          fi
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf "$native_webdriver_package" xvfb
+        run: bash tools/setup-linux-packages.sh native
       - name: Select stable Rust
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          rustup toolchain install 1.90.0 --profile minimal
+          rustup default 1.90.0
       - name: Restore native build cache
         id: cargo-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

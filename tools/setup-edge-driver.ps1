@@ -32,3 +32,6 @@ if ($reported -notmatch '(\d+\.\d+\.\d+)\.\d+' -or $Matches[1] -ne $build) {
 }
 Write-Host $reported
 "MARKWRITER_NATIVE_DRIVER=$driver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+"MARKWRITER_WEBVIEW_RUNTIME=$($runtime.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+"WEBVIEW2_BROWSER_EXECUTABLE_FOLDER=$($runtime.Directory.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append

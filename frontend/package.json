@@ -1,7 +1,7 @@
 {
   "name": "markwriter-frontend",
   "private": true,
-  "version": "2.1.0-alpha1",
+  "version": "2.1.0-alpha2",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
@@ -56,6 +56,7 @@
     "@tiptap/react": "^3.32.3",
     "@tiptap/starter-kit": "^3.32.3",
     "@types/turndown": "^5.0.5",
+    "@viz-js/viz": "3.31.0",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "highlight.js": "11.11.1",

@@ -2,6 +2,7 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import assert from 'node:assert/strict'
+import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir, homedir } from 'node:os'
@@ -30,7 +31,8 @@ const fixtureDir = await mkdtemp(join(tmpdir(), 'markwriter-native-'))
 const sourcePath = join(fixtureDir, 'source.md')
 const savedPath = join(fixtureDir, 'saved.md')
 const htmlPath = join(fixtureDir, 'export.html')
-const source = '# Native acceptance\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```\n\n```mermaid\nstateDiagram-v2\n [*] --> Ready\n```\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| **Bold** | a \\| b | 3 |\n\n- [x] Done\n- [ ] Pending\n'
+const baselineSource = '# Native acceptance\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```\n\n```mermaid\nstateDiagram-v2\n [*] --> Ready\n```\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| **Bold** | a \\| b | 3 |\n\n- [x] Done\n- [ ] Pending\n'
+const source = baselineSource + '\n' + '```dot\ndigraph { rankdir=LR; a [label=" a   b ", shape=box]; a -> b }\n```\n\n~~~~graphviz\ndigraph { cluster_1 [label="Grüße 漢"]; cluster_1 -> end }\n~~~~\n'
 await writeFile(sourcePath, source)
 
 const extension = process.platform === 'win32' ? '.exe' : ''
@@ -91,6 +93,7 @@ async function mode(name) {
 }
 async function preview() {
   await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length === 2'), 'two offline DOT preview diagrams')
 }
 
 try {
@@ -132,7 +135,7 @@ try {
   assert.equal((await action('open', savedPath)).document.content, edited)
   await action('exportHtml', htmlPath)
   const html = await readFile(htmlPath, 'utf8')
-  assert.equal((html.match(/<svg\b/g) ?? []).length, 3)
+  assert.equal((html.match(/<svg\b/g) ?? []).length, 5)
   assert.equal((html.match(/<table\b/g) ?? []).length, 1)
   assert.equal((html.match(/type="checkbox"/g) ?? []).length, 2)
   assert.ok(!/<script\b/i.test(html))
@@ -167,7 +170,7 @@ try {
   await action('open', savedPath)
   const beforeFold = (await snapshot()).document.content
   await mode('Markdown')
-  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .source-fold").length===3'), 'default Mermaid folds')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .source-fold").length===5'), 'default diagram folds')
   await click('(//*[@data-active="true"]//button[contains(@class,"source-fold")])[1]')
   assert.equal((await snapshot()).document.content, beforeFold)
   assert.equal((await snapshot()).document.isDirty, false)
@@ -182,6 +185,17 @@ try {
   await action('exportHtml', erdPath)
   const erd = await readFile(erdPath,'utf8')
   assert.ok(erd.includes('<svg') && erd.includes('CUSTOMER') && !/<script\b/i.test(erd))
+  for(const editorMode of ['Markdown','WYSIWYG']){
+    await action('create');await mode(editorMode)
+    await click('//button[normalize-space(.)="Insert"]');await click('//button[normalize-space(.)="DOT"]')
+    await waitFor(()=>run('return document.querySelectorAll(arguments[0]).length===1',editorMode==='Markdown'?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'DOT starter in '+editorMode)
+    const inserted=(await snapshot()).document.content;assert.ok(inserted.includes('start -> finish;'))
+    const path=join(fixtureDir,'dot-starter-'+editorMode+'.md');await action('saveAs',path);assert.equal(await readFile(path,'utf8'),inserted)
+    await mode(editorMode==='Markdown'?'WYSIWYG':'Markdown');await mode(editorMode)
+    assert.equal((await snapshot()).document.content,inserted,'Starter source preserved through both editor views')
+    await click('//button[normalize-space(.)="Edit"]');await click('//button[.//span[normalize-space(.)="Undo"]]')
+    await action('save');assert.equal(await readFile(path,'utf8'),'','One DOT starter Undo restores the empty native file')
+  }
   // 2.1 editing/search/navigation operate on real engines with native file writes.
   const navigationPath = join(fixtureDir, 'navigation.md')
   const navigation = '# Navigation\n\n' + Array.from({length: 35}, (_, i) => `## Anchor ${i}\n\nParagraph ${i} with **same** &amp; 😀 repeated prose.\n\n`).join('') + '```mermaid\nflowchart TD\n A[same] --> B[end]\n```\n'
@@ -223,6 +237,44 @@ try {
   const previewExport = join(fixtureDir,'navigation.html')
   await action('exportHtml',previewExport)
   assert.ok(!(await readFile(previewExport,'utf8')).includes('data-mw-'), 'view-only mappings excluded from export')
+  // DOT jobs use production bundled worker responses, not the test bridge policy.
+  const workerPolicy=await verifyNativeWorkerResponse(request,session,join(root,'frontend','dist-acceptance','assets'))
+  const dotPath = join(fixtureDir, 'dot-draft.md')
+  await writeFile(dotPath, '# DOT recovery\n\n' + source.slice(source.indexOf('```dot')))
+  const dotOwnerId=(await action('open', dotPath)).document.id; await mode('Markdown'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'), 'DOT aliases after open')
+  const dotBefore = (await snapshot()).document.content
+  await run(`const text=document.querySelector('[data-active=true] .markwriter-preview [data-mw-text]').firstChild,range=document.createRange();range.setStart(text,0);range.setEnd(text,3);getSelection().removeAllRanges();getSelection().addRange(range)`)
+  await click('(//*[@data-active="true"]//*[@data-type="dot"]/*[local-name()="svg"])[1]')
+  await waitFor(()=>run(`return document.querySelector('[data-active=true] .markwriter-preview [data-type=dot]')?.closest('[data-mw-block]')?.classList.contains('correspondence-block')`),'DOT source block after prior Preview text selection')
+  await action('create'); await action('activate', dotOwnerId)
+  await mode('WYSIWYG'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===2'), 'DOT rendered nodes after tab switch')
+  assert.equal((await snapshot()).document.content,dotBefore);assert.equal((await snapshot()).document.isDirty,false)
+  const dotExport = join(fixtureDir,'dot-export.html'); await action('exportHtml',dotExport)
+  const dotHtml = await readFile(dotExport,'utf8');assert.equal((dotHtml.match(/<svg\b/g)??[]).length,2);assert.ok(!/data-(?:mw-|chart|source-fence)|<script|javascript:/.test(dotHtml))
+  await writeFile(join(artifacts,'dot-worker-policy.json'),JSON.stringify(workerPolicy,null,2))
+  for(const [name,text,paragraph] of [['unmatched','Before\n\n~~~~graphviz\ndigraph {a -> b}\n','Before'],['cr-only','```dot\rdigraph {a -> b}\r```\r\rAfter','After']]){
+    const path=join(fixtureDir,`dot-codec-${name}.md`);await writeFile(path,text);await action('open',path);await mode('WYSIWYG')
+    await waitFor(()=>run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===1'),'native codec fixture '+name)
+    await mode('Markdown');await mode('WYSIWYG');assert.equal((await snapshot()).document.content,text,'Codec edge fixture stays canonical and clean across views');assert.equal((await snapshot()).document.isDirty,false)
+    await run(`const e=document.querySelector('[data-active=true] .tiptap').editor;e.commands.insertContentAt(e.state.doc.content.size,'<p>New rendered paragraph.</p>')`)
+    const saved=join(fixtureDir,`dot-codec-${name}-saved.md`);await action('saveAs',saved)
+    const reopened=join(fixtureDir,`dot-codec-${name}-reopened.md`);await writeFile(reopened,await readFile(saved));await action('open',reopened);await mode('WYSIWYG')
+    const result=await run(`const e=document.querySelector('[data-active=true] .tiptap').editor,d=new DOMParser().parseFromString(e.getHTML(),'text/html');return {charts:[...d.querySelectorAll('[data-type=dot]')].map(n=>n.getAttribute('data-chart')),paragraphs:[...d.querySelectorAll('p')].map(n=>n.textContent).filter(Boolean)}`)
+    assert.deepEqual(result,{charts:['digraph {a -> b}\n'],paragraphs:[paragraph,'New rendered paragraph.']},'Native rendered edit/save/reopen must preserve distinct graph and prose')
+  }
+  const backtickSource='```dot\n'+'`a'.repeat(150000),backtickPath=join(fixtureDir,'dot-many-backticks.md')
+  await writeFile(backtickPath,backtickSource);await action('open',backtickPath);await mode('Markdown')
+  await waitFor(()=>run('return document.querySelector("[data-active=true] .markwriter-preview [data-type=dot]")?.textContent.includes("64 KiB")'),'oversized unmatched DOT is a recoverable error, not a codec stack crash')
+  await action('saveAs',join(fixtureDir,'dot-many-backticks-copy.md'));assert.equal(await readFile(join(fixtureDir,'dot-many-backticks-copy.md'),'utf8'),backtickSource)
+  const stressDot='digraph {'+Array.from({length:400},(_,i)=>`a${i} -> {${Array.from({length:20},(_,j)=>'a'+((i+j*17+1)%400)).join(' ')}}`).join('\n')+'}'
+  for(const [name,chart,error] of [['malformed','digraph {a ->}', 'syntax'],['empty','','empty'],['resource','digraph {a [URL="javascript:alert(1)"]}', 'attribute'],['oversize','x'.repeat(65537),'64 KiB'],['output-limit','digraph {node[label="'+'x'.repeat(5000)+'"];'+Array.from({length:500},(_,i)=>'a'+i+';').join('')+'}','2 MiB'],['timeout',stressDot,'timed out']]) {
+    const path=join(fixtureDir,`dot-${name}.md`),text='```dot\n'+chart+'\n```\n';await writeFile(path,text)
+    await action('open',path);await mode('Markdown')
+    await waitFor(()=>run('return document.querySelector("[data-active=true] .markwriter-preview [data-type=dot]")?.textContent.includes(arguments[0])',error),'recoverable DOT '+name)
+    assert.equal((await snapshot()).document.content,text);assert.equal((await snapshot()).document.isDirty,false)
+    await action('saveAs',join(fixtureDir,`dot-${name}-copy.md`));assert.equal(await readFile(join(fixtureDir,`dot-${name}-copy.md`),'utf8'),text)
+  }
+  await action('open',dotPath);await mode('Markdown');await waitFor(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'),'native DOT recovery after timeout')
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   const recoveryText = (await snapshot()).document.content
@@ -254,7 +306,7 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {

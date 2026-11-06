@@ -1,3 +1,15 @@
+## Unreleased 2.1.0-alpha2 — 2026-11-06
+
+- Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export.
+- Add a production Tauri DMG/NSIS/DEB build/install/ordinary-dialog acceptance pipeline, isolated optional profile directory, complete bundled notices and exact-source platform/checksum manifests. Isolate the historical Python publisher; only the Tauri workflow may draft v2 prereleases.
+- Preserve the exact Richie About attribution and synchronize version metadata to2.1.0-alpha2. DBML/PlantUML/draw.io/logs and other deferred scope remain deferred.
+- Implementation and qualification are in progress on codex/offline-dot-alpha2; no release qualification is claimed by this entry.
+
+## Unreleased preparation — 2026-11-06
+
+- Add About credit: "This program was completely built using vibe coding under the direction of 'Richie'." Version remains `2.1.0-alpha1`; verified in the ordinary rebuilt macOS app with existing frontend/static/build checks passing.
+- Record accepted alpha1 merge (PR #34 / `7e29c6f`) and plan alpha2: safe offline DOT #32 plus Tauri prerelease packaging #35; DBML #33 conditional stretch. The next-session prompt includes issue maintenance and qualified commit/push/merge/prerelease authority. No alpha2 feature, tag or release is claimed by preparation.
+
 ## Unreleased 2.1.0-alpha1 — 2026-11-06 editing/navigation
 
 - Add document-owned Find/Replace in both editors with scoped matches, keyboard/menu UI and one-step Replace All.

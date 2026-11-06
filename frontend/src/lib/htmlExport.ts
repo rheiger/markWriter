@@ -1,14 +1,21 @@
 import mermaid from 'mermaid'
 import { renderMarkdownHtml } from './markdown'
+import { dotRenderer } from './dotRenderer'
 
 // Use the same parser as Preview; diagrams become inline SVG for offline viewing.
-export async function createHtmlExport(source: string): Promise<string> {
+export async function createHtmlExport(source: string, owner = `export:${crypto.randomUUID()}`): Promise<string> {
   const doc = new DOMParser().parseFromString(renderMarkdownHtml(source), 'text/html')
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: 'default' })
   for (const element of Array.from(doc.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))) {
     const { svg } = await mermaid.render(`export-${crypto.randomUUID()}`, element.getAttribute('data-chart') ?? '')
     element.innerHTML = svg
   }
+  for (const element of Array.from(doc.querySelectorAll<HTMLElement>('[data-type="dot"]'))) {
+    element.innerHTML = await dotRenderer.render(element.getAttribute('data-chart') ?? '', owner)
+    element.className = 'dot-diagram'
+    for (const name of ['data-chart', 'data-source-fence', 'data-notation']) element.removeAttribute(name)
+  }
+  doc.querySelectorAll('[data-type="mermaid"]').forEach(element => element.removeAttribute('data-chart'))
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Exported Document</title><style>

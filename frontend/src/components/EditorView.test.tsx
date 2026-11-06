@@ -2,7 +2,7 @@ import { foldedRanges } from '@codemirror/language'
 import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { EditorView, type EditorViewRef } from './EditorView'
@@ -34,6 +34,60 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('completes DOT Preview for a clean opened document whose initial revision is implicit zero', async () => {
+    const { dotRenderer } = await import('../lib/dotRenderer')
+    const spy = vi.spyOn(dotRenderer, 'render').mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>ready</text></svg>')
+    try {
+      const source = '```dot\ndigraph {a -> b}\n```\n'
+      const { ref, container } = await mount(source)
+      await markdown(ref)
+      await waitFor(() => expect(container.querySelector('.markwriter-preview [data-type="dot"] svg')).not.toBeNull())
+      expect(screen.getByText('(1 diagram)')).toBeVisible()
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    } finally { spy.mockRestore() }
+  })
+
+  it('selects the DOT source block when its SVG is clicked after selecting Preview text', async () => {
+    const { dotRenderer }=await import('../lib/dotRenderer')
+    const spy=vi.spyOn(dotRenderer,'render').mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>ready</text></svg>')
+    try {
+      const source='Select this paragraph.\n\n```dot\ndigraph {a -> b}\n```\n'
+      const {ref,container}=await mount(source)
+      await markdown(ref)
+      await waitFor(()=>expect(container.querySelector('.markwriter-preview [data-type=dot] svg')).not.toBeNull())
+      const paragraph=container.querySelector('.markwriter-preview [data-mw-text]')!.firstChild!
+      const range=document.createRange();range.setStart(paragraph,0);range.setEnd(paragraph,6)
+      window.getSelection()!.removeAllRanges();window.getSelection()!.addRange(range)
+      const svg=container.querySelector('.markwriter-preview [data-type=dot] svg')!
+      fireEvent.pointerDown(svg);fireEvent.pointerUp(svg)
+      expect(ref.current!.getEditorView()!.state.selection.main.from).toBe(source.indexOf('```dot'))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    } finally { window.getSelection()?.removeAllRanges();spy.mockRestore() }
+  })
+
+  it('retains an unmatched fence during view changes but safely closes it before a new rendered paragraph', async () => {
+    const source='Before\n\n~~~~graphviz\ndigraph {a -> b}\n'
+    const {ref,editor}=await mount(source)
+    await markdown(ref);await wysiwyg(ref)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    act(()=>editor.commands.insertContentAt(editor.state.doc.content.size,'<p>After diagram.</p>'))
+    const doc=new DOMParser().parseFromString(toWysiwygHtml(ref.current!.getMarkdown()),'text/html')
+    expect(doc.querySelector('[data-type=dot]')?.getAttribute('data-chart')).toBe('digraph {a -> b}\n')
+    expect(Array.from(doc.querySelectorAll('p')).map(p=>p.textContent)).toContain('After diagram.')
+  })
+
+  it('opens oversized unmatched DOT with many backtick runs as a recoverable error without rewriting source', async () => {
+    const source='```dot\n'+'`a'.repeat(150000)
+    const {ref,container}=await mount(source)
+    await markdown(ref)
+    await waitFor(()=>expect(container.querySelector('.markwriter-preview [data-type=dot]')?.textContent).toContain('64 KiB'))
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+  })
 
   it('formats selected source list lines without deleting text or inserting a marker below the line', async () => {
     const { ref } = await mount('first\nsecond\nuntouched')
@@ -290,6 +344,21 @@ describe('document fidelity with real editors', () => {
     const html = toWysiwygHtml(ref.current!.getMarkdown())
     expect(new DOMParser().parseFromString(html, 'text/html').querySelectorAll('[data-type=mermaid]')).toHaveLength(2)
     expect(ref.current!.getMarkdown()).toContain('int customer_id FK')
+  })
+
+  it('inserts a valid DOT block within source prose without absorbing surrounding text and undoes once', async () => {
+    const {dotTemplate}=await import('../lib/templates')
+    const {ref}=await mount('Before after')
+    await markdown(ref)
+    act(()=>ref.current!.getEditorView()!.dispatch({selection:{anchor:7}}))
+    act(()=>ref.current!.insertMarkdown(dotTemplate))
+    const html=new DOMParser().parseFromString(toWysiwygHtml(ref.current!.getMarkdown()),'text/html')
+    expect(html.querySelectorAll('[data-type=dot]')).toHaveLength(1)
+    expect(html.querySelector('[data-type=dot]')!.getAttribute('data-chart')).not.toContain('after')
+    expect(html.body.textContent).toContain('Before')
+    expect(html.body.textContent).toContain('after')
+    act(()=>ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Before after')
   })
 
   it('retains embedded image payloads after a WYSIWYG edit and mode cycles', async () => {
