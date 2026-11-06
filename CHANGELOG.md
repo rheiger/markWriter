@@ -1,3 +1,41 @@
+## Unreleased 2.1.0-alpha1 — 2026-11-06 editing/navigation
+
+- Add document-owned Find/Replace in both editors with scoped matches, keyboard/menu UI and one-step Replace All.
+- Add persisted view-only wrap cues and adaptive 5×5 table picker with pointer/keyboard/numeric sizing to 40×40.
+- Add parser-owned UTF-16 text/block maps and content-aware bidirectional scroll/caret/selection correspondence, with native Preview text copy and explicit atom fallbacks.
+- Fix multiline Code/safe fences/Body, source lists and active formatting state; explicit format caret placement, literal WYSIWYG typing/paste escaping, fresh-vs-restored navigation and Settings focus scrolling.
+- Preserve canonical bytes, per-tab histories, captured I/O, recovery and independent fonts; remove inert CB and decorative percentage marker. Add Markdown conventions and complete historical editing disposition.
+- See docs/editing-navigation-2.1.0-alpha1.md for exact source/CI/native evidence and limits. Actual offline DOT/DBML/PlantUML spikes were independently deferred at safety/runtime/packaging gates; see docs/notation-offline-spike-2026-11-06.md. #5/#29 remain backlog. No merge/tag/release.
+
+### Historical metadata preparation
+
+- Synchronize root/frontend, Cargo and Tauri version metadata to the exact requested `2.1.0-alpha1`; no new editing/navigation/notation feature is claimed by this bump.
+- Add a next-session implementation plan/prompt and reconciled issue index. Core scope: Find/Replace #10, wrapping #21, adaptive picker #26, remaining editing #28, synchronized scroll/caret/selection #30.
+- Create notation stretch issues #31 PlantUML, #32 Graphviz/DOT, #33 DBML; keep #29 developer logs and #5 draw.io on backlog.
+- Reconcile GitHub implementation status while preserving original requirements. The last feature-qualified source remains `6c6eb56` / `2.0.0-alpha.2`; see the productivity acceptance report. No merge/tag/release.
+
+## Unreleased 2.0.0-alpha.2 — 2026-11-06 productivity increment
+
+- Add single-window document tabs with retained editor histories, safe captured-document saves, Save All, reorder/navigation and all-tab Close/Quit protection.
+- Add validated persistent Settings and atomic local session/draft recovery with detached copies for disk conflicts.
+- Add accessible WYSIWYG table row/column management, boundary rules, selection and undo.
+- Fold Mermaid and long embedded-image source without replacing Markdown; preserve full copy/search and per-tab choices.
+- Add a Mermaid ERD starter and self-contained ERD HTML export; preserve embedded images and clean table view changes.
+- See docs/productivity-increment-2026-11-06.md for evidence, final qualification and deferred scope. No release/merge/tag.
+
+## Unreleased — 2026-11-05 stabilization
+
+- Move editor mode switching from floating document buttons into a toolbar switch and View-menu choices.
+- Replace the static “66” font-size placeholder with a display text-size selector synchronized with zoom controls.
+- Show the application version in an accessible About dialog with Close/Escape and focus restoration.
+
+- Preserve original Markdown on unedited mode switches; retain Mermaid, table formatting, task states and images in covered WYSIWYG workflows.
+- Isolate editor undo histories by document and cancel stale diagram renders.
+- Use shared Markdown parsing and inline Mermaid SVG for HTML export.
+- Preserve newer edits during save completion; protect unsaved content and replace files after complete temporary writes.
+- Restore real-editor and production-command regression coverage; version dependency lockfiles.
+- See docs/stabilization-2026-11-05.md for acceptance boundaries. Still alpha; no release qualification.
+
 # Changelog
 
 All notable changes to MarkWrite will be documented in this file.
@@ -8,7 +46,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- CHANGELOG.md file for better version tracking
+- WYSIWYG Mermaid support via custom Tiptap Node/NodeView (reuses `MermaidRenderer`)
+- Underline support (extended Markdown): `++text++` in Markdown, `<u>text</u>` in preview
+- WYSIWYG editor based on Tiptap
+- Ratio-based scroll sync between Markdown and Preview
+- Draggable splitter with clamped bounds; 50/50 initial layout
+ - Table picker UX: 12×12 grid with area highlight; outside-click/Escape to close
+
+### Changed
+- Markdown editor wraps long lines (no horizontal scroll)
+- Toolbar wired to WYSIWYG for bold/italic/headings/lists/HR/blockquote/code block
+ - Mode switching stabilized: WYSIWYG ⇄ Markdown sync with caret preservation; CodeMirror kept alive across switches; sync occurs on tab switch only
+
+### Fixed
+- Dev crashes from invalid forwardRef generics and regex literal parsing
+ - Caret jump on edits/switches (stabilized)
+
+### Known Issues
+- Mermaid Preview regression: after second switch back to Markdown, diagrams disappear in raw/preview despite no edits (see Issue #28)
+- Duplicate Tiptap extension warnings (link/underline) can still surface in some sessions
+- WYSIWYG tables: round-trip to Markdown (GFM) requires verification and polish
+- Scroll-sync highlight in Preview not yet implemented
+
+## [2.0.0-alpha.1] - 2025-08-27
+
+### Added
+- Complete React + TypeScript frontend rewrite
+- CodeMirror 6 integration for Markdown editing
+- Zustand state management with Tauri integration
+- Comprehensive toolbar with file operations and formatting tools
+- Tab system for Markdown and WYSIWYG modes
+- Theme system (Light/Dark/System) with CSS variables
+- Mermaid diagram support in Markdown preview
+
+### Changed
+- Migrated from Python+Qt to Rust+Tauri+React architecture
+- Replaced Toast UI Editor with CodeMirror 6
+- Updated build system to use Vite and modern tooling
+- Implemented native desktop app with web UI flexibility
+
+### Fixed
+- Resolved blank window issue with proper component initialization
+- Fixed variable scope issues in EditorView component
+- Corrected editor reference management in useEffect cleanup
+- Added timeout delay for proper DOM initialization
+
+### Known Issues
+- **CRITICAL**: File operations (Open, Save, Save As) completely broken due to CSP and dialog permissions
+- **CRITICAL**: WYSIWYG mode shows blank content and cannot accept text input
+- **HIGH**: Content synchronization broken between Markdown and WYSIWYG modes
+- **MEDIUM**: Persistent console errors related to Tauri security configuration
+
+### Technical Notes
+- UI now fully visible and functional
+- Core editing functionality working in Markdown mode
+- Sample content with Mermaid diagrams loads correctly
+- Application architecture solid but security configuration needs fixing
 
 ## [0.2.4] - 2024-12-19
 

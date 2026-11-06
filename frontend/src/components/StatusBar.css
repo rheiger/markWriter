@@ -1,0 +1,133 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.status-left,
+.status-center,
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-left {
+  flex: 0 0 auto;
+}
+
+.status-center {
+  flex: 1;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.status-right {
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+
+.status-item {
+  white-space: nowrap;
+  font-size: inherit;
+}
+
+.status-item.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent-primary);
+}
+
+.status-item.path {
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 0.75rem;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-item.modified {
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.status-separator {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+/* Loading animation */
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+  .status-bar {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .status-center {
+    display: none; /* Hide path on mobile */
+  }
+
+  .status-right {
+    gap: 0.15rem;
+  }
+
+  .status-item.path {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-right .status-item:not(.modified) {
+    display: none;
+  }
+
+  .status-right .status-separator {
+    display: none;
+  }
+
+  /* Only show modified status on very small screens */
+  .status-right .status-item.modified {
+    display: inline;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .status-bar {
+    border-top-width: 2px;
+  }
+
+  .status-item.loading,
+  .status-item.modified {
+    font-weight: 600;
+  }
+}

@@ -1,0 +1,226 @@
+/* CodeMirror Editor Styling for MarkWriter */
+
+/* Preview pane styling for better markdown rendering */
+.markwriter-preview h1 {
+  font-size: 2em;
+  font-weight: 600;
+  margin: 1.5em 0 0.5em 0;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.markwriter-preview h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1.2em 0 0.5em 0;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.markwriter-preview h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: var(--text-primary);
+}
+
+.markwriter-preview h4,
+.markwriter-preview h5,
+.markwriter-preview h6 {
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: var(--text-primary);
+}
+
+.markwriter-preview p {
+  margin: 0.8em 0;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.markwriter-preview ul,
+.markwriter-preview ol {
+  margin: 0.5em 0; /* tighter spacing for list blocks */
+  padding-left: 1.5em;
+  color: var(--text-primary);
+}
+
+.markwriter-preview li {
+  margin: 0.1em 0; /* reduce gap between list items */
+  line-height: 1.4;
+}
+
+.markwriter-preview blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 4px solid var(--accent-primary);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.markwriter-preview code {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.markwriter-preview pre {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+  border: 1px solid var(--border-color);
+}
+
+.markwriter-preview pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markwriter-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  border: 1px solid var(--border-color);
+}
+
+.markwriter-preview th,
+.markwriter-preview td {
+  border: 1px solid var(--border-color);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.markwriter-preview th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markwriter-preview td {
+  color: var(--text-primary);
+}
+
+.markwriter-preview a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.markwriter-preview a:hover {
+  color: var(--accent-hover);
+}
+
+.markwriter-preview hr {
+  border: none;
+  border-top: 2px solid var(--border-color);
+  margin: 2em 0;
+}
+
+/* Image styling */
+.markwriter-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* Task list styling */
+.markwriter-preview input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* WYSIWYG list spacing (TipTap content) */
+.tiptap ul,
+.tiptap ol {
+  margin: 0.25em 0; /* closer to paragraph continuation */
+  padding-left: 1.25em;
+}
+.tiptap li {
+  margin: 0.05em 0;
+  line-height: 1.35;
+}
+
+/* Task list checkbox alignment */
+.tiptap li input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* WYSIWYG table visual gridlines */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.tiptap th,
+.tiptap td {
+  border: 1px solid var(--border-color);
+  padding: 6px 8px;
+}
+
+/* CodeMirror theme overrides for better integration */
+.cm-editor {
+  border-right: none !important;
+  width: 100%;
+}
+
+.cm-focused {
+  outline: none !important;
+}
+
+/* Ensure proper scrollbar styling */
+.markwriter-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.markwriter-preview::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.markwriter-preview::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.markwriter-preview::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* ProseMirror requires preserved whitespace for reliable text editing. */
+.tiptap {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-size: var(--editor-font-size, 14px);
+}
+.editor-container .tiptap, .editor-container .markwriter-preview { font-family: var(--rendered-font-family, system-ui); font-size: var(--preview-font-size, 16px); line-height: var(--rendered-line-height, 1.6); }
+.editor-container .tiptap p, .editor-container .markwriter-preview p { line-height: inherit; }
+.source-fold { max-width: 100%; white-space: normal; overflow-wrap: anywhere; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-secondary); padding: 3px 7px; font: inherit; cursor: pointer; }
+.source-fold:focus-visible { outline: 2px solid var(--accent-color, #3888dd); }
+.cm-line:has(.tok-meta) { overflow-wrap: anywhere; }
+.source-fold-actions { float: right; display: inline-flex; gap: 6px; }
+.source-fold-actions button { font-size: 12px; background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 3px; padding: 2px 5px; }
+.embedded-source { background: var(--bg-secondary); overflow-wrap: anywhere; }
+
+.document-editor-session { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.find-replace { flex: none; padding: 8px 16px; background: var(--bg-secondary); color: var(--text-primary); border-bottom: 1px solid var(--border-color); font-size: 12px; }
+.find-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.find-row label { display: inline-flex; align-items: center; gap: 4px; }
+.find-row textarea { width: 180px; max-width: 40vw; min-height: 28px; resize: vertical; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 3px 6px; }
+.find-replace button { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; padding: 4px 8px; }
+.find-replace button:disabled { opacity: .5; }
+.find-scope { color: var(--text-secondary); }
+.search-match { background: color-mix(in srgb, #e8b82e 40%, transparent); outline: 1px solid color-mix(in srgb, #e8b82e 65%, transparent); }
+.wrap-continuation::before { content: '↪'; color: var(--text-secondary); font-size: 10px; opacity: .65; }
+
+.editor-container .tiptap { padding-left: 24px; padding-right: 20px; }
+.preview-correspondence { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+.preview-correspondence > div { position: absolute; pointer-events: none; }
+.correspondence-caret { background: var(--accent-primary); opacity: .8; }
+.correspondence-range { background: color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+.correspondence-block { outline: 2px dashed var(--accent-primary); outline-offset: -2px; }

@@ -1,3 +1,5 @@
+> **Current Rust/Tauri application:** `2.1.0-alpha1` implements the qualified editing/navigation core and has been manually accepted for integration into `main`. See [current status](QUICK_STATUS.md), [acceptance evidence](docs/editing-navigation-2.1.0-alpha1.md) and [remaining issues](docs/issue-status-2026-11-06.md). The content below describes the historical Python/Qt release. This integration does not publish a release.
+
 # MarkWrite
 
 [![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main&event=push)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)

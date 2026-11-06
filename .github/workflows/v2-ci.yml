@@ -1,0 +1,154 @@
+name: V2 quality and native builds
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'src-tauri/**'
+      - '.github/workflows/v2-ci.yml'
+      - 'tools/**'
+  push:
+    branches: [main, v2-development, 'codex/**']
+    paths:
+      - 'frontend/**'
+      - 'src-tauri/**'
+      - '.github/workflows/v2-ci.yml'
+      - 'tools/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:acceptance
+      - run: node ../tools/native-acceptance.mjs --check-builds-only
+      - run: npm audit --audit-level=low
+
+  native:
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Linux WebKit and desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          if apt-cache show webkitgtk-webdriver > /dev/null 2>&1; then
+            native_webdriver_package=webkitgtk-webdriver
+          else
+            native_webdriver_package=webkit2gtk-driver
+          fi
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf "$native_webdriver_package" xvfb
+      - name: Select stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Restore native build cache
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - run: npm ci --prefix frontend
+      - run: npm run build --prefix frontend
+      - name: Test native code and real file operations
+        if: runner.os != 'Windows'
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Test Windows native code and real file operations
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Build desktop executable with embedded frontend
+        working-directory: src-tauri
+        run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --ci
+      - name: Build isolated application acceptance binary
+        if: runner.os != 'macOS'
+        run: |
+          npm run build:acceptance --prefix frontend
+          cd src-tauri
+          node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --ci --config tauri.acceptance.conf.json
+      - name: Install external Tauri WebDriver
+        if: runner.os != 'macOS'
+        run: cargo install tauri-driver --version 2.1.0 --locked
+      - name: Match Windows WebView2 driver
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/setup-edge-driver.ps1
+      - name: Prepare Windows tests at normal user privilege
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/setup-windows-acceptance.ps1
+      - name: Exercise Linux desktop application
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node tools/native-acceptance.mjs
+        env:
+          GDK_BACKEND: x11
+      - name: Exercise Windows desktop application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/native-acceptance.mjs"
+          exit $LASTEXITCODE
+      - name: Retain native application acceptance evidence
+        if: always() && runner.os != 'macOS' && hashFiles('native-acceptance-results/**') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-acceptance-${{ runner.os }}
+          path: native-acceptance-results/
+          retention-days: 7
+      - name: Diagnose Windows loader failures
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/diagnose-windows-loader.ps1
+      - name: Save native build cache
+        if: always() && steps.cargo-cache.outputs.cache-primary-key != '' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}

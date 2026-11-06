@@ -1,0 +1,251 @@
+/* MarkWriter Export CSS - Default styling for HTML exports */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #fff;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #1a1a1a;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 3px solid #e1e4e8;
+    padding-bottom: 0.5rem;
+}
+
+h2 {
+    font-size: 2rem;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.3rem;
+}
+
+h3 {
+    font-size: 1.5rem;
+}
+
+h4 {
+    font-size: 1.25rem;
+}
+
+h5 {
+    font-size: 1.1rem;
+}
+
+h6 {
+    font-size: 1rem;
+}
+
+p {
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: #f6f8fa;
+    border-radius: 3px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.85em;
+    padding: 0.2em 0.4em;
+}
+
+pre {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.85em;
+    overflow-x: auto;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+blockquote {
+    border-left: 4px solid #dfe2e5;
+    color: #6a737d;
+    font-style: italic;
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+}
+
+ul, ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+li {
+    margin-bottom: 0.5rem;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+}
+
+th, td {
+    border: 1px solid #dfe2e5;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+th {
+    background-color: #f6f8fa;
+    font-weight: 600;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #e1e4e8;
+    margin: 2rem 0;
+}
+
+#table-of-contents {
+    background-color: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    margin: 2rem 0;
+    padding: 1rem;
+}
+
+#table-of-contents h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #24292e;
+}
+
+#table-of-contents ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#table-of-contents li {
+    margin-bottom: 0.25rem;
+}
+
+#table-of-contents a {
+    color: #586069;
+    font-weight: 500;
+}
+
+/* Print styles */
+@media print {
+    body {
+        font-size: 12pt;
+        line-height: 1.5;
+        padding: 1rem;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+    }
+    
+    pre, blockquote {
+        page-break-inside: avoid;
+    }
+    
+    a {
+        color: #000;
+        text-decoration: underline;
+    }
+    
+    a[href]:after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: #666;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1a1a;
+        color: #e1e4e8;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        color: #f0f6fc;
+    }
+    
+    h1 {
+        border-bottom-color: #30363d;
+    }
+    
+    h2 {
+        border-bottom-color: #30363d;
+    }
+    
+    code {
+        background-color: #2d333b;
+        color: #f0f6fc;
+    }
+    
+    pre {
+        background-color: #2d333b;
+        color: #f0f6fc;
+    }
+    
+    blockquote {
+        border-left-color: #30363d;
+        color: #8b949e;
+    }
+    
+    th, td {
+        border-color: #30363d;
+    }
+    
+    th {
+        background-color: #2d333b;
+    }
+    
+    a {
+        color: #58a6ff;
+    }
+    
+    hr {
+        border-top-color: #30363d;
+    }
+    
+    #table-of-contents {
+        background-color: #2d333b;
+        border-color: #30363d;
+    }
+    
+    #table-of-contents h2 {
+        color: #f0f6fc;
+    }
+    
+    #table-of-contents a {
+        color: #8b949e;
+    }
+}

@@ -1,0 +1,186 @@
+.menu-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  position: relative;
+  z-index: 100;
+}
+
+.menu-item {
+  position: relative;
+  margin-right: 1.5rem;
+}
+
+.menu-trigger {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.menu-trigger:hover,
+.menu-trigger.active {
+  background: var(--bg-tertiary);
+}
+
+.menu-trigger:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 200px;
+  padding: 0.5rem 0;
+  z-index: 1000;
+}
+
+.menu-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: inherit;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.menu-option:hover:not(:disabled) {
+  background: var(--bg-secondary);
+}
+
+.menu-option:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.menu-option:focus {
+  outline: none;
+  background: var(--bg-secondary);
+}
+
+.shortcut {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-left: 1rem;
+}
+
+.menu-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.25rem 0;
+}
+
+.document-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+
+.title {
+  color: var(--text-primary);
+}
+
+.dirty-indicator {
+  color: var(--accent-primary);
+  margin-left: 0.25rem;
+  font-size: 1.2em;
+}
+
+.no-document {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+}
+
+/* macOS-style menu bar on macOS */
+@media (platform: macOS) {
+  .menu-bar {
+    background: rgba(246, 246, 246, 0.85);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  [data-theme="dark"] .menu-bar {
+    background: rgba(40, 40, 40, 0.85);
+  }
+}
+
+/* Keyboard navigation improvements */
+.menu-bar:focus-within .menu-trigger:focus {
+  background: var(--bg-tertiary);
+}
+
+.menu-dropdown .menu-option:focus {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.menu-dropdown .menu-option:focus .shortcut {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Animation for dropdown appearance */
+.menu-dropdown {
+  animation: menu-appear 0.15s ease-out;
+  transform-origin: top center;
+}
+
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .menu-bar {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .menu-item {
+    margin-right: 1rem;
+  }
+
+  .menu-dropdown {
+    min-width: 180px;
+  }
+
+  .document-title {
+    font-size: 0.9rem;
+  }
+}
