@@ -35,3 +35,15 @@ it('handles huge base64 and URL-encoded image payloads without altering any sour
   expect(foldedRanges(state).size).toBe(2)
   expect(state.doc.toString()).toBe(source)
 })
+
+it('emits one unfold effect per changed block and preserves bulk-replace folds when requested', async () => {
+  const {preserveEmbeddedFolds} = await import('./sourceFolds')
+  let state = EditorState.create({doc:chart,extensions:[embeddedSourceFolds()]})
+  const range=findEmbeddedSource(state)[0]
+  state=state.update({effects:foldEffect.of(range)}).state
+  const changes=[{from:range.from+2,insert:'x'},{from:range.from+5,insert:'y'}]
+  const edit=state.update({changes})
+  expect(edit.effects.filter(effect=>effect.is(unfoldEffect))).toHaveLength(1)
+  const bulk=state.update({changes,annotations:preserveEmbeddedFolds.of(true)})
+  expect(foldedRanges(bulk.state).size).toBe(1)
+})

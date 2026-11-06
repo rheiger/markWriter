@@ -13,9 +13,13 @@ export function sourceCoordinates(source: string) {
 }
 export function applyEditorChanges(source: string, changes: ChangeSet, newlineStyle?: string) {
   const coordinates = sourceCoordinates(source)
-  const edits: { from: number; to: number; text: string }[] = []
+  const chunks: string[] = []
+  let cursor = 0
   const newline = newlineStyle ?? (source.includes('\r\n') ? '\r\n' : '\n')
-  changes.iterChanges((from, to, _fromB, _toB, inserted) => edits.push({ from: coordinates.toSource(from), to: coordinates.toSource(to), text: inserted.toString().replace(/\n/g, newline) }))
-  for (const edit of edits.reverse()) source = source.slice(0, edit.from) + edit.text + source.slice(edit.to)
-  return source
+  changes.iterChanges((from, to, _fromB, _toB, inserted) => {
+    chunks.push(source.slice(cursor, coordinates.toSource(from)), inserted.toString().replace(/\n/g, newline))
+    cursor = coordinates.toSource(to)
+  })
+  chunks.push(source.slice(cursor))
+  return chunks.join('')
 }

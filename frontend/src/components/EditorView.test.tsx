@@ -117,6 +117,18 @@ describe('document fidelity with real editors', () => {
     expect(doc.body.textContent).toContain('# heading')
   })
 
+  it('reports source formatting from its own selection rather than the retained rendered caret', async () => {
+    const { ref } = await mount('# Heading\n\nplain **bold** and ++under++\n\n| H |\n|---|\n| cell |')
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('bold') + 2 } }))
+    expect(ref.current!.getFormattingState!()).toMatchObject({ blockLabel: 'Body', bold: true, underline: false })
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('under') + 2 } }))
+    expect(ref.current!.getFormattingState!()).toMatchObject({ blockLabel: 'Body', bold: false, underline: true })
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('cell') + 2 } }))
+    expect(ref.current!.getFormattingState!().blockLabel).toBe('Table')
+  })
+
   it('shows the welcome state without a document', () => {
     render(<EditorView />)
     expect(screen.getByText('Welcome to MarkWriter')).toBeVisible()

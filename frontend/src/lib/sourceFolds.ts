@@ -1,9 +1,10 @@
 import { editorText } from './sourceCoordinates'
-import { EditorState, StateField, type Extension } from '@codemirror/state'
+import { Annotation, EditorState, StateField, type Extension } from '@codemirror/state'
 import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect, foldEffect } from '@codemirror/language'
 import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 
 const cache = new WeakMap<EditorState, { from: number, to: number, kind: string }[]>()
+export const preserveEmbeddedFolds = Annotation.define<boolean>()
 export function findEmbeddedSource(state: EditorState) {
   const cached = cache.get(state)
   if (cached) return cached
@@ -62,12 +63,14 @@ export function embeddedSourceFolds(): Extension {
     } }),
     keymap.of(foldKeymap),
     EditorState.transactionExtender.of(tr => {
-      if (!tr.docChanged) return null
+      if (!tr.docChanged || tr.annotation(preserveEmbeddedFolds)) return null
       const effects: ReturnType<typeof unfoldEffect.of>[] = []
       foldedRanges(tr.startState).between(0, tr.startState.doc.length, (from, to) => {
+        let changed = false
         tr.changes.iterChangedRanges((a, b) => {
-          if (a > from && a < to || b > from && b < to) effects.push(unfoldEffect.of({ from: tr.changes.mapPos(from), to: tr.changes.mapPos(to) }))
+          if (a > from && a < to || b > from && b < to) changed = true
         })
+        if (changed) effects.push(unfoldEffect.of({ from: tr.changes.mapPos(from), to: tr.changes.mapPos(to) }))
       })
       return effects.length ? { effects } : null
     }),

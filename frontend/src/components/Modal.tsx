@@ -6,7 +6,7 @@ export function Modal({ title, onClose, children }: { title: string, onClose: ()
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     ref.current?.showModal()
-    return () => previous?.focus()
+    return () => previous?.focus({ preventScroll: true })
   }, [])
   return <dialog ref={ref} className="workspace-dialog" aria-label={title} onCancel={event => { event.preventDefault(); onClose() }}
     onKeyDown={event => {

@@ -4,6 +4,7 @@ import type { EditorView } from '@codemirror/view'
 import { isolateHistory } from '@codemirror/commands'
 import { findLiteral, renderedHits, replaceRendered, highlightRendered, revealSource, sourceHighlights, type Hit } from '../lib/editorSearch'
 import { editorText } from '../lib/sourceCoordinates'
+import { preserveEmbeddedFolds } from '../lib/sourceFolds'
 import { useAppStore } from '../store/useAppStore'
 
 interface Props {
@@ -64,7 +65,7 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
     const targets = all ? hits : picked ? hits.filter(h => h.from === picked.from && h.to === picked.to) : []
     if (!targets.length) { if (!all) navigate(1); return }
     if (mode === 'markdown' && view && view.state.doc === snapshot.doc) {
-      view.dispatch({ changes: targets.map(h => ({ ...h, insert: replacement })), annotations: isolateHistory.of('full') })
+      view.dispatch({ changes: targets.map(h => ({ ...h, insert: replacement })), annotations: [isolateHistory.of('full'), preserveEmbeddedFolds.of(all)] })
     } else if (editor && mode === 'wysiwyg' && snapshot.doc === editor.state.doc) {
       replaceRendered(editor, { doc: editor.state.doc, hits }, targets, replacement)
     }

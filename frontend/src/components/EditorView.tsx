@@ -3,7 +3,7 @@ import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror
 import { Compartment, EditorState } from '@codemirror/state'
 import { foldEffect, unfoldAll } from '@codemirror/language'
 import { embeddedSourceFolds, findEmbeddedSource, synchronizeSource } from '../lib/sourceFolds'
-import { markdown } from '@codemirror/lang-markdown'
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
@@ -44,7 +44,7 @@ import { synchronizePreview } from '../lib/previewSync'
 import type { PreviewMap } from '../lib/sourceMap'
 import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/sourceCoordinates'
 import { wrapContinuation } from '../lib/wrapContinuation'
-import { toggleSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat } from '../lib/editingCommands'
+import { toggleSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
 
 const lowlight = createLowlight(common)
@@ -209,6 +209,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   // Compute formatting state for WYSIWYG toolbar label
   const computeFormattingState = useCallback(() => {
+    if (editorMode === 'markdown' && editorViewRef.current) return sourceFormatting(editorViewRef.current)
     if (!tiptap) {
       return {
         blockLabel: 'Body', bold: false, italic: false, strike: false, underline: false, code: false, link: false,
@@ -233,11 +234,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       code: tiptap.isActive('code'),
       link: tiptap.isActive('link'),
     }
-  }, [tiptap])
+  }, [tiptap, editorMode])
+  const latestFormatting = useRef(computeFormattingState)
+  latestFormatting.current = computeFormattingState
 
   useEffect(() => {
     if (!tiptap) return
     const fire = () => {
+      if (useAppStore.getState().currentDocument?.id !== documentId) return
       const state = computeFormattingState()
       if (formattingListenerRef.current) formattingListenerRef.current(state)
     }
@@ -248,7 +252,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       tiptap.off('selectionUpdate', fire)
       tiptap.off('transaction', fire)
     }
-  }, [tiptap, computeFormattingState])
+  }, [tiptap, computeFormattingState, documentId])
 
   // All mode controls share the same fidelity-preserving transition.
   const modeRequest = useRef(0)
@@ -646,7 +650,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const state = EditorState.create({
       doc: defaultContent,
       extensions: [
-        markdown(),
+        markdown({ base: markdownLanguage }),
         embeddedSourceFolds(),
         sourceSearchDecorations,
         CodeMirrorView.clipboardOutputFilter.of(() => {
@@ -671,6 +675,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
             captureView.current()
           }
           if (update.geometryChanged) syncRef.current?.invalidate()
+          if ((update.selectionSet || update.docChanged) && useAppStore.getState().currentDocument?.id === documentId) formattingListenerRef.current?.(latestFormatting.current())
           if (update.docChanged) {
             const prior = source()
             const newContent = editorText(prior) === update.startState.doc.toString() ? applyEditorChanges(prior, update.changes, sourceNewline.current) : update.state.doc.toString()
@@ -742,7 +747,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, documentId, currentDocument?.id, config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
 
   useEffect(() => {
     const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)

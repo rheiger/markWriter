@@ -252,6 +252,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }
   useEffect(() => {
     const search = (event: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]')) return
       const mac = navigator.userAgent.includes('Mac')
       const mod = mac ? event.metaKey : event.ctrlKey
       if (!currentDocument || !mod) return

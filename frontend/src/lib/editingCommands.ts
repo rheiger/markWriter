@@ -4,6 +4,19 @@ import { closeHistory } from '@tiptap/pm/history'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { EditorView } from '@codemirror/view'
 import { isolateHistory } from '@codemirror/commands'
+import { syntaxTree } from '@codemirror/language'
+
+export function sourceFormatting(view: EditorView) {
+  const position = view.state.selection.main.head, names: string[] = []
+  for (let node = syntaxTree(view.state).resolveInner(position, -1); node; node = node.parent!) names.push(node.name)
+  const has = (name: string) => names.includes(name)
+  const heading = names.find(name => /^(?:ATX|Setext)Heading[1-6]$/.test(name))?.slice(-1)
+  const code = has('InlineCode') || has('FencedCode') || has('CodeBlock')
+  const line = view.state.doc.lineAt(position)
+  const underline = !code && Array.from(line.text.matchAll(/(?<!\\)\+\+(.+?)(?<!\\)\+\+/g)).some(match => position >= line.from + match.index! + 2 && position <= line.from + match.index! + match[0].length - 2)
+  return { blockLabel: has('FencedCode') || has('CodeBlock') ? 'Code' : has('Table') ? 'Table' : /^\s*[-+*]\s+\[[ xX]\]/.test(line.text) ? 'Task' : has('Blockquote') ? 'Quote' : heading ? `H${heading}` : 'Body',
+    bold: has('StrongEmphasis'), italic: has('Emphasis'), strike: has('Strikethrough'), underline, code, link: has('Link') || has('Autolink') }
+}
 
 export function toggleSourceMark(view: EditorView, delimiter: string, placeholder: string) {
   let { from, to } = view.state.selection.main
