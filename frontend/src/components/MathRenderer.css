@@ -1,0 +1,6 @@
+.math-render { overflow-x: auto; max-width: 100%; }
+.math-render pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.math-node.ProseMirror-selectednode { outline: 2px solid var(--accent-primary); }
+.math-source-editor { display: grid; gap: 0.5rem; }
+.math-source-editor textarea { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 7rem; resize: vertical; font-family: ui-monospace, monospace; }
+.math-source-actions { display: flex; gap: 0.5rem; }
