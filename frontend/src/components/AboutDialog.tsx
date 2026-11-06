@@ -29,6 +29,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       <h2 id="about-title">About MarkWriter</h2>
       <p className="about-version">Version {version}</p>
       <p>A Markdown editor with live preview, WYSIWYG editing, Mermaid diagrams and tables.</p>
+      <p>This program was completely built using vibe coding under the direction of 'Richie'.</p>
       <p className="about-license">MIT License</p>
       <div className="about-actions"><button ref={closeButton} type="button" onClick={() => dialog.current?.close()}>Close</button></div>
     </dialog>
