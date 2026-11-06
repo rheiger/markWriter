@@ -29,6 +29,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  useEffect(() => {
+    if (!activeMenu) return
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault(); event.stopPropagation()
+      const trigger = document.querySelector<HTMLButtonElement>('.menu-bar .menu-trigger.active')
+      setActiveMenu(null); trigger?.focus()
+    }
+    document.addEventListener('keydown', dismiss)
+    return () => document.removeEventListener('keydown', dismiss)
+  }, [activeMenu])
 
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)

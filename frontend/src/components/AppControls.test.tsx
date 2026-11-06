@@ -15,6 +15,17 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); 
 const source = '# Controls\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```'
 
 describe('application view controls', () => {
+  it('dismisses the theme menu with Escape and returns focus to its trigger', () => {
+    render(<App />)
+    const view = screen.getByRole('button', { name: 'View', exact: true })
+    fireEvent.click(view)
+    const dark = screen.getByRole('menuitemradio', { name: 'Dark', exact: true })
+    dark.focus()
+    fireEvent.keyDown(dark, { key: 'Escape' })
+    expect(screen.queryByRole('menuitemradio', { name: 'Dark', exact: true })).toBeNull()
+    expect(view).toHaveFocus()
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
   beforeEach(() => {
     useAppStore.setState({
       documents: [], currentDocument: null,

@@ -104,6 +104,17 @@ async function menu(name, option) {
   await click(`//button[normalize-space(.)="${name}"]`)
   await click(`//button[normalize-space(.)="${option}" or .//span[normalize-space(.)="${option}"]]`)
 }
+async function dismissMenu() {
+  // The menu's outside-click overlay covers its triggers. Use a real pointer
+  // click on the overlay, away from every dropdown, rather than clicking View
+  // through the overlay or executing a synthetic DOM click.
+  const point = await waitFor(() => run(`const overlay=document.querySelector('.menu-overlay'),x=innerWidth-8,y=innerHeight-8;return overlay&&document.elementFromPoint(x,y)===overlay?{x,y}:null`), 'menu outside-click target')
+  await request('POST', `/session/${session}/actions`, { actions: [{ type: 'pointer', id: 'menu-dismiss', parameters: { pointerType: 'mouse' }, actions: [
+    { type: 'pointerMove', origin: 'viewport', duration: 0, x: point.x, y: point.y },
+    { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 },
+  ] }] })
+  await waitFor(() => run('return !document.querySelector(".menu-overlay")'), 'menu dismissed by outside click')
+}
 async function syntax(enabled, control = 'toolbar') {
   const current = (await snapshot()).config.syntaxHighlighting
   await waitFor(() => run(`return document.querySelector('button[aria-label="Syntax highlighting"]')?.getAttribute('aria-pressed')===String(arguments[0])`, current), 'syntax toolbar reflects config')
@@ -115,7 +126,7 @@ async function syntax(enabled, control = 'toolbar') {
   assert.equal(await run(`return document.querySelector('button[aria-label="Syntax highlighting"]').getAttribute('aria-pressed')`), String(enabled))
   await click('//button[normalize-space(.)="View"]')
   assert.equal(await run('return document.querySelector("button[role=menuitemcheckbox]").getAttribute("aria-checked")'), String(enabled))
-  await click('//button[normalize-space(.)="View"]')
+  await dismissMenu()
 }
 async function theme(name) {
   await menu('View', name)
@@ -124,7 +135,7 @@ async function theme(name) {
   await waitFor(() => run('return document.documentElement.getAttribute("data-theme")===arguments[0]', expected === 'system' ? null : expected), `${name} applied theme`)
   await click('//button[normalize-space(.)="View"]')
   assert.equal(await run('return [...document.querySelectorAll("button[role=menuitemradio]")].find(b=>b.getAttribute("aria-checked")==="true").querySelector("span").textContent'), name)
-  await click('//button[normalize-space(.)="View"]')
+  await dismissMenu()
 }
 const alpha3Cases = [], alpha3Evidence = { languages: [], viewports: [] }
 

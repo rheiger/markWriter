@@ -24,6 +24,14 @@ async function request(method,path,body){const r=await fetch('http://127.0.0.1:4
 const run=(script,...args)=>request('POST',`/session/${session}/execute/sync`,{script,args})
 async function wait(check,name,timeout=30000){const end=Date.now()+timeout;let error;while(Date.now()<end){if(launchError)throw launchError;try{const v=await check();if(v)return v}catch(e){error=e}await delay(100)}throw new Error('Timed out: '+name+(error?': '+error:''))}
 async function click(xpath){const e=await request('POST',`/session/${session}/element`,{using:'xpath',value:xpath});await request('POST',`/session/${session}/element/${e['element-6066-11e4-a52e-4f735466cecf']}/click`,{})}
+async function closeMenu(){
+ // Open menus put a click-outside overlay above their triggers. Click that
+ // overlay at a safe viewport edge using real pointer input, not the covered
+ // trigger or a DOM click (the overlay center can overlap menus at 800px).
+ const point=await run('return {x:innerWidth-8,y:innerHeight-8}')
+ await request('POST',`/session/${session}/actions`,{actions:[{type:'pointer',id:'menu-dismiss',parameters:{pointerType:'mouse'},actions:[{type:'pointerMove',duration:0,origin:'viewport',x:point.x,y:point.y},{type:'pointerDown',button:0},{type:'pointerUp',button:0}]}]})
+ await wait(()=>run('return !document.querySelector(".menu-overlay,.menu-dropdown")'),'ordinary menu dismissed by outside click')
+}
 async function menu(name,option){await click(`//button[normalize-space(.)="${name}"]`);await click(`//button[normalize-space(.)="${option}" or .//span[normalize-space(.)="${option}"]]`)}
 async function newDocument(){
  const previous=await run('return document.querySelector("[data-active=true]")?.getAttribute("data-document-id")')
@@ -60,14 +68,14 @@ async function syntaxHighlighting(enabled,surface){
  await wait(()=>run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")===String(arguments[0])',enabled),'ordinary syntax toolbar preference')
  await click('//button[normalize-space(.)="View"]')
  assert.equal(await run('return document.querySelector("button[role=menuitemcheckbox]").getAttribute("aria-checked")'),String(enabled),'View and toolbar syntax controls agree')
- await click('//button[normalize-space(.)="View"]')
+ await closeMenu()
 }
 async function themeChoice(name){
  await menu('View',name)
  await wait(()=>run('return (document.documentElement.getAttribute("data-theme")||"system")===arguments[0]',name==='Auto'?'system':name.toLowerCase()),'ordinary '+name+' theme')
  await click('//button[normalize-space(.)="View"]')
  assert.deepEqual(await run('return [...document.querySelectorAll("button[role=menuitemradio][aria-checked=true]")].map(e=>e.querySelector("span").textContent)'),[name],'Exclusive theme menu selection')
- await click('//button[normalize-space(.)="View"]')
+ await closeMenu()
  const style=await run(`const toolbar=document.querySelector('.toolbar'),s=getComputedStyle(toolbar),dark=arguments[0]==='Dark'||arguments[0]==='Auto'&&matchMedia('(prefers-color-scheme: dark)').matches;return {theme:arguments[0],dark,background:s.backgroundColor,expectedBackground:dark?'rgb(45, 45, 45)':'rgb(248, 249, 250)',text:s.color,expectedText:dark?'rgb(255, 255, 255)':'rgb(33, 37, 41)',fontBackground:getComputedStyle(toolbar.querySelector('select')).backgroundColor,expectedFontBackground:dark?'rgb(26, 26, 26)':'rgb(255, 255, 255)'}`,name)
  assert.equal(style.background,style.expectedBackground,'Toolbar follows '+name+' theme')
  assert.equal(style.text,style.expectedText,'Toolbar text follows '+name+' theme')
