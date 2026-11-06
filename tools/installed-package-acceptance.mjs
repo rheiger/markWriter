@@ -60,9 +60,9 @@ try{
  // Abruptly end only the installed test process after its real recovery snapshot exists.
  await stopOwnedApplication(driver.pid,binary)
  await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT')
- assert.equal(await run('return document.querySelector("select[aria-label=\"Text size\"]").value'),'18','Restored source font is active in ordinary UI')
+ assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'18','Restored source font is active in ordinary UI')
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
- await mode(false);assert.equal(await run('return document.querySelector("select[aria-label=\"Text size\"]").value'),'24','Restored rendered font is active in ordinary UI')
+ await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
