@@ -216,3 +216,11 @@
 .find-replace button:disabled { opacity: .5; }
 .find-scope { color: var(--text-secondary); }
 .search-match { background: color-mix(in srgb, #e8b82e 40%, transparent); outline: 1px solid color-mix(in srgb, #e8b82e 65%, transparent); }
+.wrap-continuation::before { content: '↪'; color: var(--text-secondary); font-size: 10px; opacity: .65; }
+
+.editor-container .tiptap { padding-left: 24px; padding-right: 20px; }
+.preview-correspondence { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+.preview-correspondence > div { position: absolute; pointer-events: none; }
+.correspondence-caret { background: var(--accent-primary); opacity: .8; }
+.correspondence-range { background: color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+.correspondence-block { outline: 2px dashed var(--accent-primary); outline-offset: -2px; }

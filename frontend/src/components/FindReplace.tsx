@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@codemirror/view'
 import { isolateHistory } from '@codemirror/commands'
 import { findLiteral, renderedHits, replaceRendered, highlightRendered, revealSource, sourceHighlights, type Hit } from '../lib/editorSearch'
+import { editorText } from '../lib/sourceCoordinates'
 import { useAppStore } from '../store/useAppStore'
 
 interface Props {
@@ -26,7 +27,7 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
   const snapshot = useMemo(() => {
     void engineRevision
     const options = { query: open ? query : '', caseSensitive, wholeWord }
-    return mode === 'markdown' ? { doc: view?.state.doc, hits: findLiteral(source, options) } : editor ? renderedHits(editor.state.doc, options) : { doc: undefined, hits: [] }
+    return mode === 'markdown' ? { doc: view?.state.doc, hits: findLiteral(editorText(source), { ...options, query: editorText(options.query) }) } : editor ? renderedHits(editor.state.doc, options) : { doc: undefined, hits: [] }
     // Engine transactions can change marks/positions without changing serialized source.
   }, [mode, source, query, caseSensitive, wholeWord, editor, view, open, engineRevision])
   const hits = snapshot.hits

@@ -12,6 +12,7 @@ export function parseSession(value: unknown): SessionSnapshot {
     if (typeof doc.id !== 'string' || !doc.id || typeof doc.title !== 'string' || typeof doc.content !== 'string' || typeof doc.isDirty !== 'boolean' ||
       (doc.path !== undefined && typeof doc.path !== 'string') || (doc.savedContent !== undefined && typeof doc.savedContent !== 'string') || (doc.mode !== undefined && doc.mode !== 'markdown' && doc.mode !== 'wysiwyg') || (doc.conflictPath !== undefined && typeof doc.conflictPath !== 'string')) throw new Error('Invalid recovery document')
     if (ids.has(doc.id) || (doc.path && paths.has(doc.path))) throw new Error('Duplicate recovery document ownership')
+    if (doc.viewState !== undefined && (!doc.viewState || typeof doc.viewState !== 'object' || Array.isArray(doc.viewState) || Object.entries(doc.viewState).some(([key, value]) => !['sourceAnchor', 'sourceHead', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'].includes(key) || typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (/Anchor|Head/.test(key) && !Number.isInteger(value))))) throw new Error('Invalid recovery view state')
     ids.add(doc.id); if (doc.path) paths.add(doc.path)
     return { ...doc, lastModified: new Date(doc.lastModified || Date.now()) }
   })

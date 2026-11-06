@@ -13,3 +13,9 @@ describe('preferences schema', () => {
     expect(defaultConfig.fontSize).toBe(14)
   })
 })
+
+it('migrates synchronization and continuation defaults and validates their booleans', () => {
+  expect(parsePreferences({ version: 1, config: { theme: 'light' } })).toMatchObject({ syncPreview: true, wrapContinuation: true })
+  expect(parsePreferences({ version: 1, config: { syncPreview: false, wrapContinuation: false } })).toMatchObject({ syncPreview: false, wrapContinuation: false })
+  expect(() => parsePreferences({ config: { syncPreview: 'yes' } })).toThrow(/syncPreview/)
+})

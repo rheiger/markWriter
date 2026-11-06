@@ -26,7 +26,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
-import { toWysiwygHtml, fromWysiwygHtml, renderMarkdownHtml } from '../lib/markdown'
+import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
@@ -40,6 +40,11 @@ import { TableTools } from './TableTools'
 import { MermaidNode } from '../extensions/MermaidNode'
 import { FindReplace } from './FindReplace'
 import { renderedSearchDecorations, sourceSearchDecorations } from '../lib/editorSearch'
+import { synchronizePreview } from '../lib/previewSync'
+import type { PreviewMap } from '../lib/sourceMap'
+import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/sourceCoordinates'
+import { wrapContinuation } from '../lib/wrapContinuation'
+import { toggleSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat } from '../lib/editingCommands'
 
 
 const lowlight = createLowlight(common)
@@ -118,13 +123,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const isSyncingFromEditor = useRef(false)
-  const isSyncingFromPreview = useRef(false)
-  const positionMarkerRef = useRef<HTMLDivElement>(null)
+  const syncRef = useRef<ReturnType<typeof synchronizePreview> | null>(null)
+  const previewMap = useRef<PreviewMap | null>(null)
   const wysiwygContainerRef = useRef<HTMLDivElement>(null)
   const isUpdatingFromMarkdown = useRef(false)
   const isSwitchingModeRef = useRef(false)
-  const lastMarkdownAnchorRef = useRef(0)
+  const initialViewState = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.viewState)
+  const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
+  const sourceNewline = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.content.includes('\r\n') ? '\r\n' : '\n')
+  const captureView = useRef<() => void>(() => {})
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
 
   const currentDocument = useAppStore(state => state.documents.find(doc => doc.id === documentId) ?? null)
@@ -167,7 +174,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       Code,
       Strike,
       Underline,
-      Link,
+      Link.configure({ autolink: false, linkOnPaste: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Table.configure({ resizable: true }),
@@ -179,7 +186,12 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       Image.configure({ inline: true, allowBase64: true }),
     ],
     content: initialHtml,
-    onCreate: ({ editor }) => { lastTiptapSemantic.current = fromWysiwygHtml(editor.getHTML()) },
+    onCreate: ({ editor }) => {
+      lastTiptapSemantic.current = fromWysiwygHtml(editor.getHTML())
+      const remembered = initialViewState.current
+      if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
+      requestAnimationFrame(() => { if (wysiwygContainerRef.current && remembered?.renderedScroll !== undefined) wysiwygContainerRef.current.scrollTop = remembered.renderedScroll })
+    },
     onUpdate: ({ editor }) => {
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
@@ -191,6 +203,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     editable: true,
     autofocus: false,
+    enableInputRules: false,
+    enablePasteRules: false,
   })
 
   // Compute formatting state for WYSIWYG toolbar label
@@ -276,7 +290,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (view) {
       isSwitchingModeRef.current = true
       const text = source()
-      const anchor = Math.min(lastMarkdownAnchorRef.current || view.state.selection.main.anchor, text.length)
+      const anchor = Math.min(lastMarkdownAnchorRef.current, text.length)
       synchronizeSource(view, text, anchor, config.collapseSource)
       lastMarkdownAnchorRef.current = anchor
       updatePreview(text)
@@ -303,6 +317,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (tiptap) lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
       lastTiptapSource.current = content
       if (editorViewRef.current) {
+        isSwitchingModeRef.current = true
         editorViewRef.current.dispatch({
           changes: {
             from: 0,
@@ -310,6 +325,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
             insert: content
           }
         })
+        isSwitchingModeRef.current = false
+        latestPreview.current(content)
       }
     },
     undo: () => {
@@ -337,7 +354,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       }
       if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
-        return editorViewRef.current.state.doc.sliceString(selection.from, selection.to)
+        const text = source(), coordinates = sourceCoordinates(text)
+        return text.slice(coordinates.toSource(selection.from), coordinates.toSource(selection.to))
       }
       return ''
     },
@@ -384,28 +402,16 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     getEditorView: () => editorViewRef.current,
     toggleBold: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleBold().run()
+        tiptap.chain().focus().toggleBold().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'bold text'
-        const insert = `**${selected}**`
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert },
-          selection: { anchor: selection.from + insert.length }
-        })
+        toggleSourceMark(editorViewRef.current, '**', 'bold text')
       }
     },
     toggleItalic: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleItalic().run()
+        tiptap.chain().focus().toggleItalic().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'italic text'
-        const insert = `*${selected}*`
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert },
-          selection: { anchor: selection.from + insert.length }
-        })
+        toggleSourceMark(editorViewRef.current, '*', 'italic text')
       }
     },
     setHeadingLevel: (level: number) => {
@@ -414,9 +420,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         if (level === 0) {
           if (tiptap.isActive('codeBlock')) chain.toggleCodeBlock()
           if (tiptap.isActive('blockquote')) chain.toggleBlockquote()
-          chain.setParagraph().run()
+          chain.setParagraph().run(); finishRenderedFormat(tiptap)
         } else {
-          chain.setHeading({ level: Math.min(Math.max(level,1),6) as 1|2|3|4|5|6 }).run()
+          chain.setHeading({ level: Math.min(Math.max(level,1),6) as 1|2|3|4|5|6 }).run(); finishRenderedFormat(tiptap)
         }
       } else if (editorViewRef.current) {
         const hash = level > 0 ? '#'.repeat(level) + ' ' : ''
@@ -447,12 +453,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
             : text.replace(/^(\s{0,3}(?:>\s?)?)(?:#{1,6}\s*)?/, `$1${hash}`)
           if (newText !== text) changes.push({ from: line.from, to: line.to, insert: newText })
         }
-        if (changes.length) view.dispatch({ changes })
+        if (changes.length) {
+          const transaction = view.state.update({ changes })
+          view.dispatch({ changes, selection: { anchor: transaction.changes.mapPos(sel.to, 1) } })
+        }
       }
     },
     toggleBulletList: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleBulletList().run()
+        tiptap.chain().focus().toggleBulletList().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         editorViewRef.current.dispatch({
@@ -463,7 +472,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     toggleOrderedList: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleOrderedList().run()
+        tiptap.chain().focus().toggleOrderedList().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         editorViewRef.current.dispatch({
@@ -474,7 +483,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     insertHorizontalRule: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().setHorizontalRule().run()
+        tiptap.chain().focus().setHorizontalRule().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         editorViewRef.current.dispatch({
@@ -485,7 +494,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     toggleBlockquote: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleBlockquote().run()
+        tiptap.chain().focus().toggleBlockquote().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const view = editorViewRef.current
         const sel = view.state.selection.main
@@ -503,35 +512,22 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           const newText = allQuoted ? text.replace(/^\s{0,3}>\s?/, '') : `> ${text}`
           if (newText !== text) changes.push({ from: line.from, to: line.to, insert: newText })
         }
-        if (changes.length) view.dispatch({ changes })
+        if (changes.length) {
+          const transaction = view.state.update({ changes })
+          view.dispatch({ changes, selection: { anchor: transaction.changes.mapPos(sel.to, 1) } })
+        }
       }
     },
     toggleCodeBlock: () => {
-      if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleCodeBlock().run()
-      } else if (editorViewRef.current) {
-        const view = editorViewRef.current
-        const sel = view.state.selection.main
-        const doc = view.state.doc
-        const fromLine = doc.lineAt(sel.from)
-        const toLine = doc.lineAt(sel.to)
-        // Determine if all selected lines are already fenced
-        const selectedText = doc.sliceString(fromLine.from, toLine.to)
-        const isFenced = /^\s*```[\s\S]*```\s*$/.test(selectedText)
-        if (isFenced) {
-          const withoutFence = selectedText.replace(/^\s*```\n?/, '').replace(/\n?```\s*$/, '')
-          view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withoutFence } })
-        } else {
-          const withFence = `\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n`
-          view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withFence } })
-        }
-      }
+      if (editorMode === 'wysiwyg' && tiptap) toggleRenderedCode(tiptap)
+      else if (editorViewRef.current) toggleSourceCode(editorViewRef.current)
     },
     setLink: (url?: string) => {
       const href = url ?? (typeof window !== 'undefined' ? window.prompt('Enter URL', 'https://') || '' : '')
       if (editorMode === 'wysiwyg' && tiptap) {
         if (href) tiptap.chain().focus().setLink({ href }).run()
         else tiptap.chain().focus().unsetLink().run()
+        finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const selection = editorViewRef.current.state.selection.main
         const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'link text'
@@ -544,19 +540,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     toggleStrike: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleStrike().run()
+        tiptap.chain().focus().toggleStrike().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const view = editorViewRef.current
-        const { from, to } = view.state.selection.main
-        const selected = view.state.doc.sliceString(from, to) || 'strikethrough text'
-        const insert = selected.startsWith('~~') && selected.endsWith('~~')
-          ? selected.slice(2, -2) : `~~${selected}~~`
-        view.dispatch({ changes: { from, to, insert }, selection: { anchor: from, head: from + insert.length } })
+        toggleSourceMark(editorViewRef.current, '~~', 'strikethrough text')
       }
     },
     toggleTask: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleTaskList().run()
+        tiptap.chain().focus().toggleTaskList().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
         const view = editorViewRef.current
         const { from, to } = view.state.selection.main
@@ -587,15 +578,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     },
     toggleUnderline: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
-        tiptap.chain().focus().toggleUnderline().run()
+        tiptap.chain().focus().toggleUnderline().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        const selected = editorViewRef.current.state.doc.sliceString(selection.from, selection.to) || 'underlined'
-        const insert = `++${selected}++`
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert },
-          selection: { anchor: selection.from + insert.length }
-        })
+        toggleSourceMark(editorViewRef.current, '++', 'underlined')
       }
     },
     getFormattingState: () => computeFormattingState(),
@@ -608,7 +593,11 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const container = previewRef.current
     if (!container || !active) return
     const generation = ++previewGeneration.current
-    container.innerHTML = renderMarkdownHtml(content)
+    const doc = useAppStore.getState().documents.find(item => item.id === documentId)
+    const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation })
+    previewMap.current = map
+    container.innerHTML = map.html
+    syncRef.current?.invalidate()
     const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))
     const blocks = elements.map((element, index) => ({
       id: `preview-${generation}-${index}`, chart: element.getAttribute('data-chart') ?? '', index,
@@ -627,7 +616,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
     })
-  }, [config.theme, active])
+  }, [config.theme, active, documentId])
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview
@@ -660,10 +649,17 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         markdown(),
         embeddedSourceFolds(),
         sourceSearchDecorations,
+        CodeMirrorView.clipboardOutputFilter.of(() => {
+          const view = editorViewRef.current
+          if (!view) return ''
+          const text = source(), coordinates = sourceCoordinates(text), selection = view.state.selection.main
+          return text.slice(coordinates.toSource(selection.from), coordinates.toSource(selection.to))
+        }),
         history(), // Enable undo/redo functionality
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         preferences.current.of([
           ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []),
+          ...(config.wrapContinuation ? [wrapContinuation()] : []),
           EditorState.tabSize.of(config.tabWidth), ...(isDark ? [oneDark] : []),
         ]),
         drawSelection(),
@@ -671,9 +667,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           if (isSwitchingModeRef.current) return
           if (update.selectionSet) {
             lastMarkdownAnchorRef.current = update.state.selection.main.anchor
+            syncRef.current?.selection()
+            captureView.current()
           }
+          if (update.geometryChanged) syncRef.current?.invalidate()
           if (update.docChanged) {
-            const newContent = update.state.doc.toString()
+            const prior = source()
+            const newContent = editorText(prior) === update.startState.doc.toString() ? applyEditorChanges(prior, update.changes, sourceNewline.current) : update.state.doc.toString()
             console.log('[EDITOR] Content changed, length:', newContent.length)
             updateDocumentContent(newContent)
             latestPreview.current(newContent)
@@ -681,6 +681,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }),
         CodeMirrorView.theme({
           '&': {
+            height: '100%',
+            minHeight: '0',
             fontSize: 'var(--editor-font-size, 14px)', // Support zoom functionality
             fontFamily: 'var(--source-font-family, monospace)'
           },
@@ -712,13 +714,18 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     setSourceView(view)
     console.log('[EDITOR] CodeMirror editor created successfully')
 
-    // Restore previous caret position if available; otherwise place at end
+    // A fresh source engine starts at zero; retained engines keep their own selection.
     const anchor = Math.min(
-      lastMarkdownAnchorRef.current || defaultContent.length,
-      defaultContent.length
+      lastMarkdownAnchorRef.current,
+      view.state.doc.length
     )
     try {
-      view.dispatch({ selection: { anchor } })
+      view.dispatch({ selection: { anchor, head: Math.min(initialViewState.current?.sourceHead ?? anchor, view.state.doc.length) } })
+      requestAnimationFrame(() => {
+        if (editorViewRef.current !== view) return
+        view.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
+        if (previewScrollRef.current) previewScrollRef.current.scrollTop = initialViewState.current?.previewScroll ?? 0
+      })
       view.focus()
     } catch {}
 
@@ -735,14 +742,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, currentDocument?.id, config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
 
   useEffect(() => {
     const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     editorViewRef.current?.dispatch({ effects: preferences.current.reconfigure([
       ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(dark ? [oneDark] : []),
+      ...(config.wrapContinuation ? [wrapContinuation()] : []),
     ]) })
-  }, [config.theme, config.wordWrap, config.tabWidth])
+  }, [config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth])
 
   useEffect(() => {
     const view = editorViewRef.current
@@ -776,9 +784,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (editorViewRef.current && currentDocument) {
       const view = editorViewRef.current
       const oldDoc = view.state.doc.toString()
-      if (oldDoc !== (currentDocument.content || '')) {
+      if (oldDoc !== editorText(currentDocument.content || '')) {
         isSwitchingModeRef.current = true
-        const prevAnchor = lastMarkdownAnchorRef.current || view.state.selection.main.anchor
+        const prevAnchor = lastMarkdownAnchorRef.current
         const newLen = (currentDocument.content || '').length
         synchronizeSource(view, currentDocument.content || '', Math.min(prevAnchor, newLen), config.collapseSource)
         view.focus()
@@ -794,36 +802,50 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     editorViewRef.current = null
   }, [])
 
-  // Scroll synchronization between editor and preview
+  // Persist view state separately from content/revision/history. The ID remains captured.
   useEffect(() => {
-    const cm = editorViewRef.current?.scrollDOM
-    const pv = previewScrollRef.current
-    if (!cm || !pv) return
-
-    const onCmScroll = () => {
-      if (isSyncingFromPreview.current) return
-      isSyncingFromEditor.current = true
-      const ratio = cm.scrollTop / Math.max(1, cm.scrollHeight - cm.clientHeight)
-      pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight)
-      if (positionMarkerRef.current) positionMarkerRef.current.style.top = `${ratio * 100}%`
-      isSyncingFromEditor.current = false
+    if (!documentId || !active) return
+    let frame = 0
+    const save = () => {
+      frame = 0
+      const state = useAppStore.getState()
+      if (state.currentDocument?.id !== documentId) return
+      const patch: NonNullable<import('../store/useAppStore').Document['viewState']> = {}
+      if (sourceView) Object.assign(patch, { sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head, sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0 })
+      if (tiptap && !tiptap.isDestroyed) Object.assign(patch, { renderedAnchor: tiptap.state.selection.anchor, renderedHead: tiptap.state.selection.head, renderedScroll: wysiwygContainerRef.current?.scrollTop ?? 0 })
+      state.rememberView(documentId, patch)
     }
-
-    const onPvScroll = () => {
-      if (isSyncingFromEditor.current) return
-      isSyncingFromPreview.current = true
-      const ratio = pv.scrollTop / Math.max(1, pv.scrollHeight - pv.clientHeight)
-      cm.scrollTop = ratio * (cm.scrollHeight - cm.clientHeight)
-      isSyncingFromPreview.current = false
-    }
-
-    cm.addEventListener('scroll', onCmScroll)
-    pv.addEventListener('scroll', onPvScroll)
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(save) }
+    captureView.current = schedule
+    sourceView?.scrollDOM.addEventListener('scroll', schedule)
+    sourceView?.dom.addEventListener('keyup', schedule)
+    sourceView?.dom.addEventListener('pointerup', schedule)
+    const wys = wysiwygContainerRef.current, preview = previewScrollRef.current
+    wys?.addEventListener('scroll', schedule); preview?.addEventListener('scroll', schedule)
+    tiptap?.on('selectionUpdate', schedule)
+    document.addEventListener('selectionchange', schedule)
     return () => {
-      cm.removeEventListener('scroll', onCmScroll)
-      pv.removeEventListener('scroll', onPvScroll)
+      cancelAnimationFrame(frame)
+      if (captureView.current === schedule) captureView.current = () => {}
+      sourceView?.scrollDOM.removeEventListener('scroll', schedule); sourceView?.dom.removeEventListener('keyup', schedule); sourceView?.dom.removeEventListener('pointerup', schedule)
+      wys?.removeEventListener('scroll', schedule); preview?.removeEventListener('scroll', schedule)
+      tiptap?.off('selectionUpdate', schedule); document.removeEventListener('selectionchange', schedule)
     }
-  }, [editorMode])
+  }, [sourceView, tiptap, active, documentId])
+
+  // Attach after actual lazy engine creation; each active session owns all jobs/listeners.
+  useEffect(() => {
+    if (!sourceView || !active || editorMode !== 'markdown' || !config.syncPreview || !previewRef.current || !previewScrollRef.current) return
+    const controller = synchronizePreview({ view: sourceView, root: previewRef.current, scroller: previewScrollRef.current,
+      getMap: () => previewMap.current, getSource: source,
+      valid: map => {
+        const state = useAppStore.getState(), doc = state.documents.find(item => item.id === documentId)
+        return state.currentDocument?.id === documentId && map === previewMap.current && map.owner.documentId === documentId && map.owner.revision === (doc?.revision ?? 0)
+      },
+    })
+    syncRef.current = controller
+    return () => { controller.dispose(); if (syncRef.current === controller) syncRef.current = null }
+  }, [sourceView, active, editorMode, config.syncPreview, documentId, source])
 
   if (!currentDocument) {
     return (
@@ -902,7 +924,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
               ref={editorRef}
               style={{
                 flex: 1,
-                overflow: 'auto',
+                minHeight: 0,
+                overflow: 'hidden',
                 backgroundColor: 'var(--bg-primary)',
                 fontSize: 'var(--editor-font-size, 14px)' // Support zoom
               }}
@@ -983,7 +1006,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
               {/* HTML Preview */}
               <div
                 ref={previewRef}
-                className="markwriter-preview"
+                className="markwriter-preview" role="region" aria-label="Read-only Markdown preview" tabIndex={0}
                 style={{
                   padding: '16px',
                   color: 'var(--text-primary)',
@@ -1008,12 +1031,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
                   <div style={{ textAlign: 'center', fontSize: '0.95rem' }}>Start editing or Open file</div>
                 </div>
               )}
-              {/* Position marker */}
-              <div
-                ref={positionMarkerRef}
-                style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.25, pointerEvents: 'none' }}
-              />
-
             </div>
           </div>
       </div>

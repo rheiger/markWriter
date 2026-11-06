@@ -26,6 +26,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         {[2, 4, 8].map(n => <option key={n} value={n}>{n} spaces</option>)}
       </select></label>
       <label><input type="checkbox" checked={draft.wordWrap} onChange={e => field('wordWrap', e.target.checked)} />Wrap source lines</label>
+      <label><input type="checkbox" checked={draft.syncPreview} onChange={e => field('syncPreview', e.target.checked)} />Synchronize Markdown and Preview scrolling, caret and selection</label>
+      <label><input type="checkbox" checked={draft.wrapContinuation} onChange={e => field('wrapContinuation', e.target.checked)} />Show soft-wrap continuation markers</label>
       <label><input type="checkbox" checked={draft.collapseSource} onChange={e => field('collapseSource', e.target.checked)} />Collapse diagram and embedded-image source by default</label>
       <label><input type="checkbox" checked={draft.restoreSession} onChange={e => field('restoreSession', e.target.checked)} />Restore tabs on startup</label>
     </div>

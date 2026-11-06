@@ -1,3 +1,4 @@
+import { editorText } from './sourceCoordinates'
 import { EditorState, StateField, type Extension } from '@codemirror/state'
 import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect, foldEffect } from '@codemirror/language'
 import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
@@ -76,7 +77,7 @@ export function embeddedSourceFolds(): Extension {
 
 // Keep each block's presentation choice when WYSIWYG changes require source synchronization.
 export function synchronizeSource(view: EditorView, text: string, anchor: number, collapseDefault: boolean) {
-  if (view.state.doc.toString() === text) return
+  if (view.state.doc.toString() === editorText(text)) return
   const key = (state: EditorState, range: { from: number, to: number, kind: string }, index: number) => {
     const body = state.sliceDoc(range.from, range.to)
     let hash = 2166136261
@@ -90,6 +91,7 @@ export function synchronizeSource(view: EditorView, text: string, anchor: number
     folded.between(range.from, range.to, () => { collapsed = true })
     choices.set(key(view.state, range, index), collapsed)
   })
+  anchor = Math.min(anchor, editorText(text).length)
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor } })
   const effects = findEmbeddedSource(view.state).flatMap((range, index) =>
     (choices.get(key(view.state, range, index)) ?? collapseDefault) && (anchor <= range.from || anchor >= range.to) ? [foldEffect.of(range)] : [])

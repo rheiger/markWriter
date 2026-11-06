@@ -24,3 +24,9 @@ describe('local recovery and conflicts', () => {
     expect(() => parseSession({ ...snapshot, documents: [{ ...doc, content: null }] })).toThrow(/document/i)
   })
 })
+
+it('validates optional persisted navigation metadata separately from content', () => {
+  const document = { id: 'view', title: 'View', content: 'text', isDirty: false, lastModified: new Date(), viewState: { sourceAnchor: 0, sourceHead: 3, sourceScroll: 1.5 } }
+  expect(parseSession({ version: 1, documents: [document], activeId: 'view' }).documents[0]).toMatchObject(document)
+  expect(() => parseSession({ version: 1, documents: [{ ...document, viewState: { sourceHead: -1 } }] })).toThrow(/view state/)
+})

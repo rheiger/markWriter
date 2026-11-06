@@ -20,6 +20,7 @@ export interface Document {
   diskContent?: string
   mode?: 'markdown' | 'wysiwyg'
   revision?: number
+  viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
   savedContent?: string
   lastModified: Date
 }
@@ -31,6 +32,7 @@ export interface AppState {
   documents: Document[]
   pendingClose: { id: string, title: string, resolve: (decision: UnsavedDecision) => void } | null
   activateDocument: (id: string) => void
+  rememberView: (id: string, viewState: NonNullable<Document['viewState']>) => void
   reorderDocument: (id: string, index: number) => void
   closeDocument: (id: string) => Promise<boolean>
   saveAll: () => Promise<boolean>
@@ -112,6 +114,11 @@ export const useAppStore = create<AppState>((set, get) => {
     isLoading: false, error: null, pendingClose: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => set(state => workspace(state.documents, id)),
+    rememberView: (id, patch) => set(state => {
+      const prior = state.documents.find(doc => doc.id === id)
+      if (!prior || Object.entries(patch).every(([key, value]) => prior.viewState?.[key as keyof typeof patch] === value)) return state
+      return workspace(state.documents.map(doc => doc.id === id ? { ...doc, viewState: { ...doc.viewState, ...patch } } : doc), state.currentDocument?.id)
+    }),
     reorderDocument: (id, index) => set(state => {
       const docs = state.documents.filter(d => d.id !== id)
       const doc = state.documents.find(d => d.id === id)

@@ -73,6 +73,48 @@ describe('document fidelity with real editors', () => {
     expect(editor.getHTML()).toContain('<strong>me</strong>')
   })
 
+  it('starts fresh source at zero and toggles multiline code with safe fences and one undo', async () => {
+    const { ref } = await mount('first\nwith ``` inside\nlast\nnext')
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    expect(view.state.selection.main.head).toBe(0)
+    act(() => view.dispatch({ selection: { anchor: 25, head: 0 } }))
+    const original = ref.current!.getMarkdown()
+    act(() => ref.current!.toggleCodeBlock())
+    expect(ref.current!.getMarkdown()).toBe('````\nfirst\nwith ``` inside\nlast\n````\nnext')
+    expect(view.state.selection.main.empty).toBe(true)
+    act(() => ref.current!.toggleCodeBlock())
+    expect(ref.current!.getMarkdown()).toBe(original)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toContain('````')
+  })
+
+  it('joins selected rendered paragraphs as one code block and collapses inline formatting at its content end', async () => {
+    const { ref, editor } = await mount('one\n\ntwo\n\nend')
+    act(() => editor.commands.setTextSelection({ from: 1, to: 9 }))
+    act(() => ref.current!.toggleCodeBlock())
+    expect(editor.getJSON().content!.filter(n => n.type === 'codeBlock')).toHaveLength(1)
+    expect(editor.getJSON().content![0].content![0].text).toBe('one\ntwo')
+    act(() => ref.current!.undo())
+    act(() => editor.commands.setTextSelection({ from: 4, to: 1 }))
+    act(() => ref.current!.toggleBold())
+    expect(editor.state.selection.empty).toBe(true)
+    expect(editor.state.selection.head).toBe(4)
+    expect(editor.getHTML()).toContain('<strong>one</strong>')
+  })
+
+  it('keeps literal extension delimiters and Markdown prefixes literal after paste, serialize and reopen', async () => {
+    const { ref } = await mount('')
+    const literal = '# heading\n> quote\n- list\n1. item\n```\n**bold** ++under++ ~~strike~~ [link](url)'
+    act(() => ref.current!.insertText(literal))
+    const saved = ref.current!.getMarkdown()
+    expect(toWysiwygHtml(saved)).not.toMatch(/<h1|<blockquote|<ul|<ol|<strong|<ins|<s>|<a /)
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(saved), 'text/html')
+    expect(doc.body.textContent).toContain('++under++')
+    expect(doc.body.textContent).toContain('~~strike~~')
+    expect(doc.body.textContent).toContain('# heading')
+  })
+
   it('shows the welcome state without a document', () => {
     render(<EditorView />)
     expect(screen.getByText('Welcome to MarkWriter')).toBeVisible()
@@ -334,4 +376,33 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getMarkdown()).toBe(fixture)
   })
 
+})
+
+describe('canonical CRLF source editing', () => {
+  it('copies and edits source without normalizing unaffected newlines', async () => {
+    const { ref } = await mount('😀 first\r\nsecond\r\nlast')
+    await markdown(ref)
+    act(() => ref.current!.selectAll())
+    expect(ref.current!.getSelection()).toBe('😀 first\r\nsecond\r\nlast')
+    const view = ref.current!.getEditorView()!
+    const from = view.state.doc.toString().indexOf('second')
+    act(() => view.dispatch({ changes: { from, to: from + 6, insert: 'new' } }))
+    expect(ref.current!.getMarkdown()).toBe('😀 first\r\nnew\r\nlast')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('😀 first\r\nsecond\r\nlast')
+  })
+})
+
+describe('restored view state', () => {
+  it('restores source range without resetting existing tabs or dirtying source', async () => {
+    useAppStore.setState({ documents: [], currentDocument: null })
+    useAppStore.getState().setCurrentDocument({ id: 'restore', title: 'Restore', content: 'one\ntwo\nthree', isDirty: false, lastModified: new Date(), viewState: { sourceAnchor: 8, sourceHead: 4 } })
+    const ref = createRef<EditorViewRef>()
+    render(<EditorView ref={ref} />)
+    await markdown(ref)
+    expect(ref.current!.getEditorView()!.state.selection.main).toMatchObject({ anchor: 8, head: 4 })
+    expect(useAppStore.getState().currentDocument).toMatchObject({ isDirty: false, content: 'one\ntwo\nthree' })
+    act(() => useAppStore.getState().rememberView('restore', { sourceScroll: 20 }))
+    expect(useAppStore.getState().currentDocument!.revision).toBeUndefined()
+  })
 })
