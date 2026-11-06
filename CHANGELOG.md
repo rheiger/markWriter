@@ -1,4 +1,4 @@
-## 2.1.0-alpha3 release preparation — 2026-11-06
+## [2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) — 2026-11-06
 
 - Restore CSS, Swift and Makefile highlighting, add Objective-C `m`, and prevent automatic replacements in fenced/inline code and blockquotes while retaining intentional Unicode and composition. Corrected candidate acceptance: docs/alpha3-feedback-acceptance.md; broader detection/languages deferred to #44, existing inline-code whitespace serialization defect tracked in #46.
 - Add shared offline ordinary-code highlighting across source, WYSIWYG, Preview and self-contained HTML export, with the full requested language set, conservative unlabeled detection and a saved View/toolbar toggle.
@@ -6,7 +6,7 @@
 - Make toolbar controls follow theme tokens; add synchronized Auto/Light/Dark View choices and live system appearance updates.
 - Add a maintainable native icon master and packaged macOS/Windows/Linux assets; require a valid whole-bundle macOS ad-hoc seal. This does not establish trusted signing or notarization.
 - Fix Preview correspondence through token spans, menu stacking/Escape and late completion dismissal, viewport-clamped table picker growth, source synchronization entering rendered Undo history, stale async Cut/Paste ownership, and bounded Windows atomic preference replacement recovery with visible terminal errors.
-- Candidate PR #43; acceptance and exact source/package evidence: docs/highlighting-theme-alpha3.md. No alpha3 merge, tag or release is claimed. PDF, DBML and SQL DDL import remain deferred.
+- Released source `b40d45bd586c0c127bb696748101ded4276fce52` via PR #43 after exact merged/tagged-source three-platform checks. All 12 public downloads match the same accepted draft IDs/bytes; historical releases/assets/tags/latest remain unchanged. Current evidence: docs/alpha3-release-acceptance.md and attached QUALIFICATION.json. #38/#39/#40/#45 closed; broader detection #44, whitespace serializer #46, Help/Quick View/math and PDF/DBML/SQL DDL import remain deferred.
 
 ## [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) — 2026-11-06
 

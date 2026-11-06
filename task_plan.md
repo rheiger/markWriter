@@ -3,8 +3,8 @@
 Authority: Richard accepted the increment on 6 November 2026 and explicitly requests a more artistic app icon, slightly expanded About text, completed-issue reconciliation and a release. This supersedes the earlier alpha3 no-merge/no-release boundary. Target remains v2.1.0-alpha3, experimental prerelease/latest=false; old releases/assets/tags stay immutable.
 
 - [complete] R1 Refine editable icon/native assets and About; preserve exact Richie credit and user files
-- [in_progress] R2 Review, local/native/browser and exact-source three-platform package acceptance
-- [pending] R3 Merge qualified PR, verify final merged source, create immutable tag/draft, verify all public bytes, publish prerelease and reconcile done issues
+- [complete] R2 Review, local/native/browser and exact-source three-platform package acceptance
+- [complete] R3 Merge qualified PR, verify final merged source, create immutable tag/draft, verify all public bytes, publish prerelease and reconcile done issues
 
 Root owns About/release/docs. Icon worker owns SVG and generated native icons. Reviewer is read-only. Fresh user-file baseline: /tmp/markwriter-alpha3-release/preserved.json. Keep #44/#46, PDF/DBML and other deferred scope explicit. Do not restart completed features.
 

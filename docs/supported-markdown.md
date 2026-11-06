@@ -1,6 +1,6 @@
 # Markdown and editing conventions
 
-The 2.1.0-alpha3 candidate keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
+The 2.1.0-alpha3 release keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
 
 Supported: ATX headings, paragraphs, bold/italic/strike, inline/fenced code, quotes, nested bullet/ordered/task lists, links, embedded images, GFM tables/alignment, Mermaid fences and the DOT subset below. `++text++` is underline. Table cells can contain the narrowly allowed safe `<br>` line break. Arbitrary HTML is displayed literally, not executed; merged cells and arbitrary HTML styling are outside this subset.
 
