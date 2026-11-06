@@ -30,7 +30,14 @@ async function newDocument(){
  await wait(()=>run('const id=document.querySelector("[data-active=true]")?.getAttribute("data-document-id");return !!id&&id!==arguments[0]',previous),'new native document visible before editor interaction')
 }
 async function dialog(path){await new Promise((res,rej)=>{const p=spawn(process.platform==='win32'?'pwsh':'bash',process.platform==='win32'?['-NoProfile','-File',join(root,'tools/package-dialog-windows.ps1'),'-Path',path]:[join(root,'tools/package-dialog-linux.sh'),path],{stdio:['ignore','pipe','pipe']});let text='';p.stdout.on('data',c=>text+=c);p.stderr.on('data',c=>text+=c);p.on('error',rej);p.on('exit',code=>code===0?res():rej(new Error('OS dialog automation failed: '+text)))})}
-async function mode(markdown){const current=await run(`return document.querySelector('button[role=switch]').getAttribute('aria-checked')==='true'`);if(current!==markdown)await click('//button[@role="switch"]');await wait(()=>run(`const e=document.querySelector(arguments[0]);return !!e&&e.getBoundingClientRect().height>0`,markdown?'[data-active=true] .cm-content':'[data-active=true] .tiptap'),'editor mode')}
+async function mode(markdown){
+ // A new tab's editor commits before its passive mode notification updates the
+ // shared toolbar. Observe both surfaces settled before deciding to toggle.
+ await wait(()=>run(`const s=document.querySelector('button[role=switch]'),a=document.querySelector('[data-active=true]');if(!s||!a)return false;const m=s.getAttribute('aria-checked')==='true',e=a.querySelector(m?'.cm-content':'.tiptap');return !!e&&e.getBoundingClientRect().height>0`),'active editor and toolbar mode agree')
+ const current=await run(`return document.querySelector('button[role=switch]').getAttribute('aria-checked')==='true'`)
+ if(current!==markdown)await click('//button[@role="switch"]')
+ await wait(()=>run(`const s=document.querySelector('button[role=switch]'),e=document.querySelector(arguments[0]);return s.getAttribute('aria-checked')===String(arguments[1])&&!!e&&e.getBoundingClientRect().height>0`,markdown?'[data-active=true] .cm-content':'[data-active=true] .tiptap',markdown),'editor mode')
+}
 async function diagrams(){await wait(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview svg").length===3'),'offline Mermaid and DOT Preview')}
 async function launch(){session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:binary}}}})).sessionId;await request('POST',`/session/${session}/timeouts`,{script:30000});await wait(()=>run('return !!document.querySelector("button[role=switch]")'),'production startup');assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'),'undefined','No bridge in installed package')}
 const cases=[]
