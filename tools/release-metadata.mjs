@@ -36,10 +36,18 @@ if(args.includes('--collect')){
  const data=await readFile(join(assets,file));const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
  let baseline,signing,binaryInspection
  if(process.platform==='darwin'){
+  const binary=join(acceptance.installed,'MarkWriter.app/Contents/MacOS/markwriter')
+  assert.equal(command('lipo',['-archs',binary]),'arm64')
+  binaryInspection={format:'Mach-O',architecture:'arm64',sha256:sha(await readFile(binary)),details:command('file',['-b',binary])}
   baseline={os:command('sw_vers',[]),webview:command('/usr/bin/defaults',['read','/System/Library/Frameworks/WebKit.framework/Resources/Info','CFBundleVersion'])}
   const details=await readFile(join(root,'package-acceptance-results/signature.txt'),'utf8');signing={status:details.includes('Signature=adhoc')?'ad-hoc':'unsigned',trusted:false,notarized:false,details}
  }else if(process.platform==='linux'){
+  const binary=process.env.MARKWRITER_BINARY,details=command('file',['-b',binary])
+  assert.ok(details.startsWith('ELF 64-bit LSB') && details.includes('x86-64'),'Installed ELF architecture')
+  binaryInspection={format:'ELF',architecture:'x64',sha256:sha(await readFile(binary)),details}
   baseline={os:await readFile('/etc/os-release','utf8'),kernel:command('uname',['-r']),webview:command('pkg-config',['--modversion','webkit2gtk-4.1'])};assert.ok(baseline.os.includes('VERSION_ID="26.04"'))
+  baseline.packageName=command('dpkg-deb',['--field',packages[0],'Package'])
+  assert.equal(baseline.packageName,'mark-writer')
   signing={status:'unsigned',trusted:false};assert.ok(command('dpkg-deb',['--field',packages[0],'Version']).includes(version));assert.equal(command('dpkg-deb',['--field',packages[0],'Architecture']),'amd64')
  }else{
   const installedBinary=await readFile(process.env.MARKWRITER_BINARY);assert.equal(peArchitecture(installedBinary),'x64');binaryInspection={format:'PE',architecture:peArchitecture(installedBinary),sha256:sha(installedBinary)}

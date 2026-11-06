@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "source": "61e2262a96063e8816cd63063b40e57ba9492b11",
+  "source": "4c491277c91b5a2da3f0548067d9bf880d64f37f",
   "runtime": "Codex built-in browser; production Vite worker on loopback5187",
   "worker": {
-    "file": "dotWorker-BRdGL8_1.js",
-    "sha256": "6c1504ad14d4577878f3f4f9111f737b6916f6e768b3be8fbadbff63bddfc6f7",
+    "file": "dotWorker-DgIYrlxA.js",
+    "sha256": "e57a20eb78520cea44f45bc7f9546b1c51046e5401f28661d745d86501a51f19",
     "matchesOrdinaryProductionBundle": true,
     "responseCsp": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'"
   },
@@ -13,6 +13,10 @@
       "name": "Unicode",
       "status": "success",
       "svgBytes": 825
+    },
+    {
+      "name": "gradient",
+      "status": "expected source-preserving rejection"
     },
     {
       "name": "malformed",
@@ -45,8 +49,8 @@
       "svgBytes": 835
     }
   ],
-  "elapsedMs": 2278,
-  "tenMillisecondUiTimerBeats": 227,
+  "elapsedMs": 2290,
+  "tenMillisecondUiTimerBeats": 228,
   "observedResourceOrigins": [
     "http://127.0.0.1:5187"
   ],
@@ -91,5 +95,6 @@
     "dotPreviewClick": "unfolds matching canonical fence and uses correspondence-block fallback",
     "unexpectedConsoleErrors": 0,
     "lightTheme": true
-  }
+  },
+  "previousProbeSource": "61e2262a96063e8816cd63063b40e57ba9492b11"
 }
