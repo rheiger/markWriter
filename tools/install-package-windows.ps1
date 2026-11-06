@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $installer=(Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName
 $destination=Join-Path $env:RUNNER_TEMP 'MarkWriter-installed'
 # Current-user NSIS install uses the same normal installer in silent UI automation.
-& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "`$p=Start-Process -FilePath '$installer' -ArgumentList @('/S','/D=$destination') -Wait -PassThru;exit `$p.ExitCode"
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/run-installer-windows.ps1" -Installer $installer -Destination $destination
 if($LASTEXITCODE -ne 0){throw 'NSIS installation failed'}
 $binary=(Get-ChildItem $destination/*.exe | Where-Object Name -notmatch 'uninstall' | Select-Object -First 1).FullName
 if(-not $binary){throw 'Installed executable not found'}
