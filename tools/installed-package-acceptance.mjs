@@ -39,8 +39,43 @@ async function mode(markdown){
  await wait(()=>run(`const s=document.querySelector('button[role=switch]'),e=document.querySelector(arguments[0]);return s.getAttribute('aria-checked')===String(arguments[1])&&!!e&&e.getBoundingClientRect().height>0`,markdown?'[data-active=true] .cm-content':'[data-active=true] .tiptap',markdown),'editor mode')
 }
 async function diagrams(){await wait(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview svg").length===3'),'offline Mermaid and DOT Preview')}
+async function openDocument(path,title){
+ await menu('File','Open...');await dialog(path)
+ await wait(()=>run('return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes(arguments[0])',title),'ordinary OS Open '+title)
+}
+async function closeCurrentDocument(){
+ const id=await run('return document.querySelector("[data-active=true]")?.getAttribute("data-document-id")')
+ await menu('File','Close Tab')
+ await wait(()=>run('return document.querySelector("[data-active=true]")?.getAttribute("data-document-id")!==arguments[0]',id),'view-only code tab closes cleanly')
+}
+async function codePresentation(code,highlighted,markdown,label){
+ await mode(markdown)
+ await wait(()=>run(`const active=document.querySelector('[data-active=true]'),text=active?.querySelector(arguments[2]?' .markwriter-preview pre code':' .tiptap pre code'),editor=active?.querySelector(arguments[2]?'.cm-content':'.tiptap pre code');return !!text&&!!editor&&text.textContent.replace(/\\n$/,'')===arguments[0]&&!!text.querySelector('[class*=hljs-]')===arguments[1]&&!!editor.querySelector('[class*=hljs-]')===arguments[1]`,code,highlighted,markdown),label)
+ assert.equal(await run('return typeof window.__codeExecuted'),'undefined','Highlighted escaped code must remain inert')
+}
+async function syntaxHighlighting(enabled,surface){
+ const current=await run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")==="true"')
+ if(current!==enabled){if(surface==='menu')await menu('View','Syntax highlighting');else await click('//button[@aria-label="Syntax highlighting"]')}
+ await wait(()=>run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")===String(arguments[0])',enabled),'ordinary syntax toolbar preference')
+ await click('//button[normalize-space(.)="View"]')
+ assert.equal(await run('return document.querySelector("button[role=menuitemcheckbox]").getAttribute("aria-checked")'),String(enabled),'View and toolbar syntax controls agree')
+ await click('//button[normalize-space(.)="View"]')
+}
+async function themeChoice(name){
+ await menu('View',name)
+ await wait(()=>run('return (document.documentElement.getAttribute("data-theme")||"system")===arguments[0]',name==='Auto'?'system':name.toLowerCase()),'ordinary '+name+' theme')
+ await click('//button[normalize-space(.)="View"]')
+ assert.deepEqual(await run('return [...document.querySelectorAll("button[role=menuitemradio][aria-checked=true]")].map(e=>e.querySelector("span").textContent)'),[name],'Exclusive theme menu selection')
+ await click('//button[normalize-space(.)="View"]')
+ const style=await run(`const toolbar=document.querySelector('.toolbar'),s=getComputedStyle(toolbar),dark=arguments[0]==='Dark'||arguments[0]==='Auto'&&matchMedia('(prefers-color-scheme: dark)').matches;return {theme:arguments[0],dark,background:s.backgroundColor,expectedBackground:dark?'rgb(45, 45, 45)':'rgb(248, 249, 250)',text:s.color,expectedText:dark?'rgb(255, 255, 255)':'rgb(33, 37, 41)',fontBackground:getComputedStyle(toolbar.querySelector('select')).backgroundColor,expectedFontBackground:dark?'rgb(26, 26, 26)':'rgb(255, 255, 255)'}`,name)
+ assert.equal(style.background,style.expectedBackground,'Toolbar follows '+name+' theme')
+ assert.equal(style.text,style.expectedText,'Toolbar text follows '+name+' theme')
+ assert.equal(style.fontBackground,style.expectedFontBackground,'Toolbar font picker follows '+name+' theme')
+ return style
+}
 async function launch(){session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:binary}}}})).sessionId;await request('POST',`/session/${session}/timeouts`,{script:30000});await wait(()=>run('return !!document.querySelector("button[role=switch]")'),'production startup');assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'),'undefined','No bridge in installed package')}
 const cases=[]
+const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
@@ -64,6 +99,39 @@ try{
  await wait(()=>run('return document.querySelector("[role=search] output").textContent.includes("1 match")'),'source search result');await click('//button[normalize-space(.)="Replace All"]');await click('//button[normalize-space(.)="Close Find"]');await menu('File','Save');await wait(async()=>await readFile(saved,'utf8')===source.replace('same','changed'),'native changed revision save');await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(saved,'utf8')===source,'native Undo save');cases.push('source Find Replace All saved change then one Undo saved restoration')
  await mode(false);await menu('Edit','Find...');await wait(()=>run('return document.querySelector("[role=search] output").textContent.includes("1 match")'),'rendered Find');await click('//button[normalize-space(.)="Close Find"]');cases.push('rendered Find')
  await menu('File','Export as HTML...');await dialog(exported);await wait(async()=>!!(await readFile(exported,'utf8').catch(()=>null)),'ordinary Export dialog');const html=await readFile(exported,'utf8');assert.equal((html.match(/<svg\b/g)??[]).length,3);assert.ok(!/<script|data-mw-|data-chart|data-source-fence|javascript:/.test(html));cases.push('ordinary OS Export dialog and static sanitized SVG')
+ // Real OS Open on each small block avoids CodeMirror viewport virtualization
+ // hiding later languages. No test bridge, editor commands or store calls.
+ const syntaxSource=await readFile(join(root,'tools/fixtures/code-highlighting-alpha3.md'),'utf8')
+ const syntaxBlocks=[...syntaxSource.matchAll(/```([^\n]*)\n([\s\S]*?)```/g)]
+ assert.equal(syntaxBlocks.length,22,'All requested language/alias/plain/detection fixture cases')
+ await syntaxHighlighting(true,'toolbar')
+ for(const [index,block] of syntaxBlocks.entries()){
+  const info=block[1],code=block[2].replace(/\n$/,''),highlighted=!['plaintext','unknown'].includes(info)&&!(info===''&&code==='x = 1')
+  const title=`code-case-${String(index+1).padStart(2,'0')}.md`,path=join(fixture,title)
+  await writeFile(path,block[0]+'\n');await openDocument(path,title)
+  await codePresentation(code,highlighted,true,'installed source/Preview '+(info||'automatic')+' case '+(index+1))
+  await codePresentation(code,highlighted,false,'installed rendered '+(info||'automatic')+' case '+(index+1))
+  alpha3CodeCases.push({index:index+1,info,highlighted,source:true,preview:true,rendered:true})
+  await closeCurrentDocument()
+ }
+ cases.push('ordinary OS Open of22 code fixtures,16 language variants, aliases/plain/unknown/detection, both editors and Preview')
+ const syntaxOriginal=join(fixture,'syntax-original.md'),syntaxCycled=join(fixture,'syntax-view-cycles.md')
+ await writeFile(syntaxOriginal,syntaxSource);await openDocument(syntaxOriginal,'syntax-original.md');await mode(true)
+ await wait(()=>run('return !!document.querySelector("[data-active=true] .cm-content [class*=hljs-]")'),'highlighted installed source')
+ await syntaxHighlighting(false,'toolbar')
+ await wait(()=>run('return !document.querySelector("[data-active=true] .cm-content [class*=hljs-],[data-active=true] .markwriter-preview [class*=hljs-]")'),'toolbar disables source and Preview syntax')
+ await mode(false);await wait(()=>run('return !document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'toolbar disables rendered syntax')
+ await syntaxHighlighting(true,'menu');await wait(()=>run('return !!document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'View menu enables rendered syntax')
+ for(const markdown of [true,false]){
+  await mode(markdown)
+  for(const name of ['Light','Dark','Auto'])alpha3Themes.push({mode:markdown?'markdown':'wysiwyg',...await themeChoice(name)})
+ }
+ const syntaxShot=await request('GET',`/session/${session}/screenshot`);await writeFile(join(artifacts,'alpha3-code-theme.png'),Buffer.from(syntaxShot,'base64'))
+ await themeChoice('Dark');await syntaxHighlighting(false,'menu');await mode(true)
+ await menu('File','Save As...');await dialog(syntaxCycled);await wait(async()=>await readFile(syntaxCycled,'utf8').catch(()=>null)===syntaxSource,'fresh Save As after syntax/theme/mode cycles preserves all fixture bytes')
+ await wait(async()=>{const c=JSON.parse(await readFile(join(profile,'preferences.json'),'utf8')).config;return c.syntaxHighlighting===false&&c.theme==='dark'},'native syntax and theme preference persistence')
+ await closeCurrentDocument()
+ cases.push('toolbar/View syntax synchronization and Auto/Light/Dark toolbar themes in both modes with exact fresh Save As')
  await menu('File','Settings…');await run(`for(const [name,value] of [['Source text size','18'],['Rendered text size','24']]){const label=[...document.querySelectorAll('dialog label')].find(e=>e.textContent.startsWith(name));const select=label.querySelector('select');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}))}`);await click('//dialog//button[normalize-space(.)="Apply"]');await wait(async()=>JSON.parse(await readFile(join(profile,'preferences.json'),'utf8')).config.renderedFontSize===24,'native preferences file');cases.push('independent font Settings persistence')
  const draftSource='# Interrupted DOT draft\n\n```dot\ndigraph { recovered -> ready }\n```\n'
  await newDocument();await mode(true);await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();document.execCommand('insertText',false,arguments[0])`,draftSource)
@@ -76,6 +144,14 @@ try{
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
+ assert.equal(await run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")'),'false','Syntax-off preference restored in ordinary toolbar')
+ assert.equal(await run('return document.documentElement.getAttribute("data-theme")'),'dark','Dark preference restored in ordinary UI')
+ assert.equal(await run('return getComputedStyle(document.querySelector(".toolbar")).backgroundColor'),'rgb(45, 45, 45)','Restored toolbar uses Dark background')
+ await openDocument(syntaxOriginal,'syntax-original.md')
+ for(const markdown of [true,false]){await mode(markdown);await wait(()=>run('return !document.querySelector("[data-active=true] [class*=hljs-]")'),'restored syntax-off in '+(markdown?'source/Preview':'rendered'))}
+ const syntaxRestored=join(fixture,'syntax-restored.md');await menu('File','Save As...');await dialog(syntaxRestored);await wait(async()=>await readFile(syntaxRestored,'utf8').catch(()=>null)===syntaxSource,'restored syntax preference remains view-only through real Save As')
+ await syntaxHighlighting(true,'toolbar');await themeChoice('Auto');await closeCurrentDocument()
+ cases.push('abrupt restart retains syntax-off and Dark preferences in ordinary UI and both engines without changing saved bytes')
  for(const markdown of [true,false]){
    await newDocument();await mode(markdown);await menu('Insert','DOT')
    await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
@@ -85,7 +161,7 @@ try{
    await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
- await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
+ await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
 }catch(error){if(session){const alert=await request('GET',`/session/${session}/alert/text`).catch(()=>null);if(alert)await writeFile(join(artifacts,'native-alert.json'),JSON.stringify({alert},null,2));const html=await request('GET',`/session/${session}/source`).catch(()=>null);if(html)await writeFile(join(artifacts,'failure.html'),html);const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'failure.png'),Buffer.from(shot,'base64'))}throw error}
 finally{if(session)await request('DELETE',`/session/${session}`).catch(()=>{});if(driver.pid){try{if(process.platform==='win32')driver.kill();else process.kill(-driver.pid,'SIGTERM')}catch{}}driver.stdout.destroy();driver.stderr.destroy();await writeFile(join(artifacts,'driver.log'),log)}
