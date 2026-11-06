@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "version": "2.5.1",
+  "source": "074e4ea906430b8a051e98acbeef34e9f2c9e9da",
+  "pr": 53,
+  "reviewedHead": "7849044553727ab6bd9b8541b3ad72b21f5d5cae",
+  "tree": "df4f456f00ea0853fa16ef096b8c835305efc2c7",
+  "release": {
+    "id": 437174443,
+    "url": "https://github.com/rheiger/markWriter/releases/tag/v2.5.1",
+    "draft": false,
+    "prerelease": false,
+    "makeLatest": false
+  },
+  "annotatedTag": {
+    "object": "f234884f14e1f7caf91e195c993e66e49e673a25",
+    "target": "074e4ea906430b8a051e98acbeef34e9f2c9e9da"
+  },
+  "qualificationSha256": "bbea28d25f1b20f9fa8559073728970f274f8993ed2008f9d60689f9d8d1a1aa",
+  "assets": [
+    {
+      "id": 718928292,
+      "name": "INSTALL-UPGRADE-ROLLBACK.md",
+      "size": 1848,
+      "digest": "sha256:209495b8954ec375ec920054e015c7237ed9721c4119e6b9ea1c7580599aa0e4",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/INSTALL-UPGRADE-ROLLBACK.md"
+    },
+    {
+      "id": 718928326,
+      "name": "macos-arm64.manifest.json",
+      "size": 28322,
+      "digest": "sha256:9c89955725804a87b8cc772216c82bff0f7c15f64d8fce007093f7e34f153171",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/macos-arm64.manifest.json"
+    },
+    {
+      "id": 718928289,
+      "name": "MarkWriter-2.5.1-macos-arm64.dmg",
+      "size": 7450486,
+      "digest": "sha256:a42684cd6fcaf5fc042ea4029e2021902773ed501e0923421d9f8a25d582a308",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/MarkWriter-2.5.1-macos-arm64.dmg"
+    },
+    {
+      "id": 718928287,
+      "name": "MarkWriter-2.5.1-ubuntu-26.04-x64.deb",
+      "size": 7333492,
+      "digest": "sha256:78870770af974e08cabffd7e281aeeaf97be67044bb729620fc36077d6d4e42b",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/MarkWriter-2.5.1-ubuntu-26.04-x64.deb"
+    },
+    {
+      "id": 718928290,
+      "name": "MarkWriter-2.5.1-windows-x64.exe",
+      "size": 5880909,
+      "digest": "sha256:de3bf01b87976c39f1d70e2b388251a34abc9dfbdf5560152567205f5f9911dc",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/MarkWriter-2.5.1-windows-x64.exe"
+    },
+    {
+      "id": 718936070,
+      "name": "QUALIFICATION-SHA256SUMS",
+      "size": 85,
+      "digest": "sha256:e152e24f731761ce5c9e39a0405429eea24603bad1b1cdfd76420fd4e09763d7",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/QUALIFICATION-SHA256SUMS"
+    },
+    {
+      "id": 718936072,
+      "name": "QUALIFICATION.json",
+      "size": 74016,
+      "digest": "sha256:bbea28d25f1b20f9fa8559073728970f274f8993ed2008f9d60689f9d8d1a1aa",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/QUALIFICATION.json"
+    },
+    {
+      "id": 718928345,
+      "name": "release-manifest.json",
+      "size": 115723,
+      "digest": "sha256:a427f256c9706115339efc0d64493e75b632ab9baca802c58d39915d0405d770",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/release-manifest.json"
+    },
+    {
+      "id": 718928291,
+      "name": "SHA256SUMS",
+      "size": 855,
+      "digest": "sha256:215de385b48f5ad8428142a259046c63c3552c9db76e5383311f78f7e55bbfd4",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/SHA256SUMS"
+    },
+    {
+      "id": 718928325,
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "size": 5031294,
+      "digest": "sha256:b3906c1d40aa10bc11fc08c32abae744c46444296f9573b19e1e20ce34abd6e6",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/THIRD_PARTY_NOTICES.txt"
+    },
+    {
+      "id": 718928351,
+      "name": "ubuntu-26.04-x64.manifest.json",
+      "size": 38423,
+      "digest": "sha256:b5ee304709144a9e803726dd0afa5f8f8ffe07aa817fc4d5ce0a46b90ca8e46c",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/ubuntu-26.04-x64.manifest.json"
+    },
+    {
+      "id": 718928358,
+      "name": "windows-x64.manifest.json",
+      "size": 36933,
+      "digest": "sha256:edfed2ff6bac73d807b770c6d17ce4163e77f8d6ce37d4a7b995976b942a0d3b",
+      "browser_download_url": "https://github.com/rheiger/markWriter/releases/download/v2.5.1/windows-x64.manifest.json"
+    }
+  ],
+  "ci": {
+    "candidateQuality": {
+      "run": 42305804778,
+      "head": "7849044553727ab6bd9b8541b3ad72b21f5d5cae",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42305804778"
+    },
+    "candidatePackages": {
+      "run": 42305804734,
+      "head": "7849044553727ab6bd9b8541b3ad72b21f5d5cae",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42305804734"
+    },
+    "mergedQuality": {
+      "run": 42309075885,
+      "head": "074e4ea906430b8a051e98acbeef34e9f2c9e9da",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42309075885"
+    },
+    "mergedPackages": {
+      "run": 42309075993,
+      "head": "074e4ea906430b8a051e98acbeef34e9f2c9e9da",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42309075993"
+    },
+    "tagPackages": {
+      "run": 42311264482,
+      "head": "074e4ea906430b8a051e98acbeef34e9f2c9e9da",
+      "url": "https://github.com/rheiger/markWriter/actions/runs/42311264482"
+    }
+  },
+  "nativeMac": {
+    "payload": {
+      "Contents/Info.plist": "e2a54fcd3e4c7e2003c816557da650f5cf443d8ea564ef66ae77d5893ba88511",
+      "Contents/_CodeSignature/CodeResources": "888afaa4a2795d953d01b3af44cb131e511ae237e66c8d94d888f1afb3b4a1ee",
+      "Contents/MacOS/markwriter": "912255fb54533714ab45fda532077d297c6e9d836d09421439f1b19439e21cba",
+      "Contents/Resources/icon.icns": "cc12f3c7e385a4960154fc0e6db593b00e1a87383b59b3519c320eb08b30b6c4"
+    },
+    "evidenceHashes": {
+      "mac-ui/about.png": "6b9d5537328adc806b735873e70806ce0b416bcbde45e108b2cf4c357886876a",
+      "mac-ui/baseline.json": "f37cdc4a0e355164be85de987585866b2dd57a4adf8ea4d1bac7850550b0f03d",
+      "mac-ui/candidate-package.json": "e15e2493cb45eefd2201a0b947629823382602f11f7d46a02005646f9d5cf81a",
+      "mac-ui/example-rendered-light.png": "85eb241dfbee449d1b911411f1e8a2d03267e9e07e819474a789153adbea2adb",
+      "mac-ui/example-source-dark.png": "10a82d2007de61a6ef1a008d073dbdf0af871fc804c9f13ccf015124bc961293",
+      "mac-ui/export-check.json": "3d5f65bd236a8c1ef4ce7c0f49161e5b2de97f48e6be5e74bd4ff784b1b3f14f",
+      "mac-ui/help-math.png": "3ff9570f221cdc475b38fb62d2a5872304d46b87b164264753ee7d47ad1c0cd1",
+      "mac-ui/math-smoke.png": "7f4b387516a3d24cb4b2f2c17ec681ce32c35eea10718429adaf64d5a8c1237c",
+      "mac-ui/native-long-off.html": "55d7785d0d0ac0b12ba7f1461885cc12dfa008e5c9ce5879ba0e6ebe15d2a4df",
+      "mac-ui/native-long-on.html": "4805caf4eb2d67237bd362ebf26bdf5f735f3c96460d5ac9bb7fcb4cf210eb0c",
+      "mac-ui/observations.json": "86dc8e95bbcb23f7dad6c2cfe500ca8c3a0ca249cfd26bd885fd9b28495059e4",
+      "mac-ui/payload.json": "5bbdec9afb32257aa2d7c43aa64981cf6a8d9d6943a3f17243103f0beb1f9d13",
+      "mac-ui/python-dark.png": "202cca12bde09e4eff954f0a771d09885ebc45e9ee178fb9fc761e371be253b6",
+      "mac-ui/python-source-dark.png": "7bc4a3aaf2bc094ca6dc62861d97fc3853d1125d8453af19854c7e122074fc2b",
+      "mac-ui/save-as-check.json": "62711a282bfc480a817ba36f4c2da2cfa8777c084a3fd9b96b8035d00cd542ba",
+      "mac-ui/schema-rendered-light.png": "c83edaeac271b881bba76872e27ad07bd115ebe6ddfba9583e85f6f12acf6f34",
+      "mac-ui/schema-source-dark.png": "7916d247f67c3d2eacad15ebcd067545463a7192db840b3bfde23739209f2430"
+    },
+    "savedDocumentSha256": "8787352658e12c1395f40ef6982e1ee6d57b64f5d2d1719d4f5e531e0c372fcc"
+  },
+  "preservationAtQualification": {
+    "userFiles": 24,
+    "allMatch": true,
+    "defaultProfileFiles": 4,
+    "defaultProfileUnchanged": true,
+    "historicalReleases": 11,
+    "historicalAssets": 52,
+    "historicalTagRefs": 16,
+    "historicalLatestId": 243493855,
+    "historyVerifiedBeforePublication": true
+  },
+  "qualifiedAt": "2026-11-06T23:28:41.815630+00:00",
+  "postPublicationLiveProfile": {
+    "observedAt": "2026-11-06T23:35:30.606974+00:00",
+    "occurredAfterPublicVerification": true,
+    "workspaceModifiedUtc": "2026-11-06T23:33:35.347879+00:00",
+    "publicVerifiedUtc": "2026-11-06T23:33:00.400596+00:00",
+    "allowedDifference": "activeId among original existing document IDs only; previous snapshot may rotate from the baseline primary",
+    "documentBodiesPathsDirtyStateViewStateUnchanged": true,
+    "preferenceHashesUnchanged": true,
+    "restoredOrOverwritten": false,
+    "retainedBothBaselineAndLiveSnapshots": true
+  },
+  "postPublic": {
+    "source": "074e4ea906430b8a051e98acbeef34e9f2c9e9da",
+    "releaseId": 437174443,
+    "prerelease": false,
+    "makeLatest": false,
+    "anonymousAssetsVerified": 12,
+    "sameDraftIdsAndBytes": true,
+    "historyPreserved": true,
+    "historicalReleases": 11,
+    "historicalAssets": 52,
+    "historicalTagRefs": 16,
+    "latestReleaseId": 243493855,
+    "verifiedAt": "2026-11-06T23:33:00.400596+00:00"
+  },
+  "cleanup": {
+    "scratchRemoved": "/Volumes/AI-Cache/temp/MarkWriter/2.5.1/20261106-233141",
+    "retainedFilesHashVerified": 376,
+    "sourceBundleFreshMirrorFsckPassed": true
+  },
+  "docsOnlyCloseout": "README root bootstrap command corrected to npm install; frontend npm ci unchanged; released app/tag/assets remain immutable."
+}

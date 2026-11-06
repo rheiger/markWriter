@@ -1,3 +1,5 @@
+> **7 November 2026 follow-up:** v2.5.1 is a regular release/latest=false with the long Python/JSON highlighting fix. No open umbrella is closed by this patch; #44 remains open for broader language coverage/autodetection. See [release acceptance](2.5.1-release-acceptance.md) and [next-round proposal](next-round-after-2.5.1.md). Older dispositions below remain historical context.
+
 # GitHub issue status — 6 November 2026
 
 **18 open / 28 closed after 2.5.0-alpha1 publication.** [v2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) is public prerelease/latest=false from `ee0b534c70ea53988a7e6263ae634e7f87d914cb` via PR #51. #46 inline-code fidelity, #47 offline Help and #50 bounded explicit math are closed with qualified acceptance and preserved original requests. [Final acceptance](technical-writing-2.5-release-acceptance.md) and [public verification](technical-writing-2.5-release-verification.json) bind all 12 public IDs/bytes and preserved historical releases/tags/latest.
