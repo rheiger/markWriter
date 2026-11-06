@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './Toolbar.css'
+import { TablePicker } from './TablePicker'
 
 interface ToolbarProps {
   editorMode?: EditorMode
@@ -23,7 +24,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
 
   const [showHeadingsMenu, setShowHeadingsMenu] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
-  const [tableHover, setTableHover] = useState<{ rows: number; cols: number }>({ rows: 0, cols: 0 })
+  const tableTrigger = useRef<HTMLButtonElement>(null)
+  const closeTable = useCallback(() => { setShowTableMenu(false); tableTrigger.current?.focus() }, [])
   const [formatLabel, setFormatLabel] = useState<string>('H')
   const [fmt, setFmt] = useState<{ bold: boolean; italic: boolean; strike: boolean; underline: boolean; link: boolean }>({ bold: false, italic: false, strike: false, underline: false, link: false })
 
@@ -146,7 +148,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
     const api: any = editorViewRef?.current
     if (api && api.insertTable) {
       api.insertTable(rows, cols)
-      setShowTableMenu(false)
+      closeTable()
       return
     }
     if (editorViewRef?.current) {
@@ -156,7 +158,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
       for (let i = 0; i < rows; i++) table += '| ' + Array(cols).fill('').join(' | ') + ' |\n'
       editorViewRef.current.insertText(table)
     }
-    setShowTableMenu(false)
+    closeTable()
   }
 
   const insertBulletList = () => {
@@ -305,42 +307,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
         <button className="toolbar-btn" onClick={insertNumberedList} title="Numbered List">1.</button>
         <button className="toolbar-btn" onClick={insertCheckbox} title="Task list">☐</button>
 
-        <div className="toolbar-dropdown">
-          <button
-            className="toolbar-btn"
-            onClick={() => setShowTableMenu(!showTableMenu)}
-            title="Insert Table"
-          >
-            ⊞
-          </button>
-          {showTableMenu && (
-            <div className="toolbar-dropdown-menu" ref={tableMenuRef}>
-              <div className="toolbar-dropdown-header">Table Size {tableHover.cols > 0 && tableHover.rows > 0 ? `(${tableHover.cols} × ${tableHover.rows})` : ''}</div>
-              <div className="table-grid" style={{ gridTemplateColumns: `repeat(12, 1fr)` }}>
-                {Array.from({ length: 12 }).map((_, r) =>
-                  Array.from({ length: 12 }).map((__, c) => (
-                    <button
-                      key={`${r+1}x${c+1}`}
-                      className={`table-cell${(c+1) <= (tableHover.cols || 0) && (r+1) <= (tableHover.rows || 0) ? ' active' : ''}`}
-                      onMouseEnter={() => setTableHover({ cols: c + 1, rows: r + 1 })}
-                      onClick={() => {
-                        insertTable(r + 1, c + 1)
-                        setTableHover({ rows: 0, cols: 0 })
-                        setShowTableMenu(false)
-                      }}
-                      title={`${c + 1} x ${r + 1} table`}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+        <div className="toolbar-dropdown" ref={tableMenuRef}>
+          <button ref={tableTrigger} className="toolbar-btn table-trigger" type="button" aria-label="Insert Table" aria-haspopup="dialog" aria-expanded={showTableMenu}
+            onClick={() => setShowTableMenu(open => !open)} title="Insert Table">⊞</button>
+          {showTableMenu && <TablePicker onInsert={insertTable} onClose={closeTable} />}
         </div>
 
         <button className="toolbar-btn" onClick={insertLink} title="Insert Link">🔗</button>
         <button className="toolbar-btn" onClick={insertImage} title="Insert Image">🖼️</button>
         {/* Code Block button removed; available in Headings dropdown */}
-        <button className="toolbar-btn" title="Clipboard">CB</button>
+
       </div>
 
       <div className="toolbar-separator" />

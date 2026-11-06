@@ -184,3 +184,13 @@ select.font-size { height: 32px; cursor: pointer; }
     min-width: 180px;
   }
 }
+.table-trigger { font-size: 24px; }
+.table-picker { position: absolute; top: calc(100% + 4px); right: 0; z-index: 1000; width: max-content; max-width: calc(100vw - 16px); max-height: calc(100vh - 140px); overflow: auto; padding: 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 12px #0002; font-size: 12px; }
+.table-picker .table-grid { display: grid; gap: 0; padding: 4px 0; }
+.table-picker .table-cell { width: 24px; height: 24px; border: 1px solid var(--border-color); }
+.table-picker .table-cell.active { background: var(--accent-primary); }
+.table-picker .table-grid:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.table-dimensions { display: flex; gap: 8px; margin-top: 8px; }
+.table-dimensions label { display: flex; flex-direction: column; gap: 4px; }
+.table-dimensions input { width: 80px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px; }
+.table-picker p { max-width: 240px; margin: 8px 0; }
