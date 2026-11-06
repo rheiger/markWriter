@@ -604,7 +604,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const owner = `${documentId}:${doc?.revision ?? 0}:${generation}`
       dotRenderer.render(chart, owner, abort.signal).then(svg => {
         const current = useAppStore.getState()
-        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected && current.currentDocument?.id === documentId && current.documents.find(item => item.id === documentId)?.revision === map.owner.revision) {
+        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected && current.currentDocument?.id === documentId && (current.documents.find(item => item.id === documentId)?.revision ?? 0) === map.owner.revision) {
           element.innerHTML = svg; syncRef.current?.invalidate()
         }
       }).catch(error => {

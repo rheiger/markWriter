@@ -2,7 +2,7 @@ import { foldedRanges } from '@codemirror/language'
 import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { EditorView, type EditorViewRef } from './EditorView'
@@ -34,6 +34,19 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('completes DOT Preview for a clean opened document whose initial revision is implicit zero', async () => {
+    const { dotRenderer } = await import('../lib/dotRenderer')
+    const spy = vi.spyOn(dotRenderer, 'render').mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>ready</text></svg>')
+    try {
+      const source = '```dot\ndigraph {a -> b}\n```\n'
+      const { ref, container } = await mount(source)
+      await markdown(ref)
+      await waitFor(() => expect(container.querySelector('.markwriter-preview [data-type="dot"] svg')).not.toBeNull())
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    } finally { spy.mockRestore() }
+  })
 
   it('formats selected source list lines without deleting text or inserting a marker below the line', async () => {
     const { ref } = await mount('first\nsecond\nuntouched')
