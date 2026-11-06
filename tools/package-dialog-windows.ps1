@@ -5,15 +5,28 @@ Add-Type -AssemblyName UIAutomationTypes
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')
 $dialog = $null
-for ($attempt=0; $attempt -lt 100; $attempt++) {
-  $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+for ($attempt=0; $attempt -lt 300; $attempt++) {
+  $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
   foreach ($window in $windows) {
     if ($window.Current.Name -match 'Open|Save|Export') { $dialog=$window; break }
   }
   if ($dialog) { break }
   Start-Sleep -Milliseconds 100
 }
-if (-not $dialog) { throw 'No ordinary OS file dialog appeared' }
+if (-not $dialog) {
+  $visible=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+  $visible | ForEach-Object { Write-Output ($_.Current.Name+' / '+$_.Current.ClassName+' / PID '+$_.Current.ProcessId) }
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
+  $bounds=[System.Windows.Forms.SystemInformation]::VirtualScreen
+  $capture=[System.Drawing.Bitmap]::new($bounds.Width,$bounds.Height)
+  $graphics=[System.Drawing.Graphics]::FromImage($capture)
+  try {
+    $graphics.CopyFromScreen($bounds.Left,$bounds.Top,0,0,$bounds.Size)
+    $capture.Save((Join-Path (Get-Location) 'package-acceptance-results/os-dialog-failure.png'))
+  } finally { $graphics.Dispose();$capture.Dispose() }
+  throw 'No ordinary OS file dialog appeared within30s'
+}
 $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Edit))
 $field = $null
 foreach ($edit in $edits) {
