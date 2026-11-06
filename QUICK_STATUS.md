@@ -1,3 +1,14 @@
+# MarkWriter status — 6 November 2026
+
+**Released:** [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2), experimental prerelease/latest=false. Application source `9bfd2c1f4222e9fc7157a84097e7adc435a941c9` merged through [PR #36](https://github.com/rheiger/markWriter/pull/36). Safe bounded offline DOT is delivered across Preview/WYSIWYG, canonical fences, Insert starter, folds/search/block correspondence, undo/save/recovery and sanitized static export. Existing Markdown ownership, histories, recovery, fonts and exact Richie credit are preserved.
+
+**Verification:**134 frontend/19 Rust/5 Node tests; all 3 native builds;33 actual Windows/Linux application groups each;11 ordinary installed package groups each Windows/Linux. Downloaded final macOS normal UI matches every app file of14-group safety/codec and10-group fresh-profile UI runs. [Post-merge quality](https://github.com/rheiger/markWriter/actions/runs/42166589001), [packages](https://github.com/rheiger/markWriter/actions/runs/42166589129), [tag publisher](https://github.com/rheiger/markWriter/actions/runs/42168014190). All12 public downloads match verified bytes;8 old releases/assets, old tags and stable/latest remain unchanged. [Full acceptance](docs/offline-dot-alpha2-acceptance.md), [installation/profile/rollback](docs/install-alpha2.md), [supported DOT](docs/supported-markdown.md).
+
+**Limits:** unsigned Windows and linker-ad-hoc/unsealed macOS (strict bundle verification fails; no Developer ID/notarization/trusted-distribution claim). Actual normal launch is qualified for the recorded paths; browser quarantine is unqualified. Exact narrow OS/WebView baselines are in manifests. DBML#33 and PlantUML#31/draw.io#5/logs#29/independent windows/plugins/broad preferences remain deferred. #3/#4/#10 remain partial. #32/#35 closed;14 open / 20 closed. User Samples/Testresults/older plans preserved; original clean app session restored.
+
+<details>
+<summary>Historical status and preparation (superseded by released alpha2 above)</summary>
+
 > **Alpha2 implementation in progress (6 November 2026):** `codex/offline-dot-alpha2` implements bounded offline DOT and production Tauri packaging. [Qualification](docs/offline-dot-alpha2-acceptance.md), [DOT subset](docs/supported-markdown.md), [installation](docs/install-alpha2.md). Required native/installed/final-byte gates remain open; no alpha2 merge/tag/release is claimed. Earlier entries below are historical.
 
 # MarkWriter status — 6 November 2026
@@ -43,3 +54,5 @@ The [draw.io spike](docs/drawio-offline-spike-2026-11-06.md) proves basic local 
 Independent windows, shortcut customization, settings import/export, original-file autosave, merged cells, general image asset/path management and signing/release packaging remain deferred. Windows/Linux OS path dialogs are separate from explicit-path native tests. Recovery cannot guarantee final unflushed keystrokes after sudden loss. Large-bundle warnings remain. No merge, tag or release. Issue reconciliation and the new preparation scope are recorded separately in the issue index.
 
 Details: [productivity acceptance](docs/productivity-increment-2026-11-06.md), [native harness](docs/native-acceptance.md), [ownership ADR](docs/adr-document-ownership.md). Existing Samples/ and Testresults/ user work remains untouched. Older completion claims are historical.
+
+</details>

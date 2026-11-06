@@ -1,9 +1,9 @@
-## Unreleased 2.1.0-alpha2 — 2026-11-06
+## [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) — 2026-11-06
 
 - Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export.
 - Add a production Tauri DMG/NSIS/DEB build/install/ordinary-dialog acceptance pipeline, isolated optional profile directory, complete bundled notices and exact-source platform/checksum manifests. Isolate the historical Python publisher; only the Tauri workflow may draft v2 prereleases.
 - Preserve the exact Richie About attribution and synchronize version metadata to2.1.0-alpha2. DBML/PlantUML/draw.io/logs and other deferred scope remain deferred.
-- Implementation and qualification are in progress on codex/offline-dot-alpha2; no release qualification is claimed by this entry.
+- Released source 9bfd2c1 via PR #36 after exact-source three-platform quality/package acceptance and final-byte verification. All12 public assets match verified bytes; old releases/tags/latest remain unchanged. Windows is unsigned; macOS is linker-ad-hoc/unsealed with failed strict bundle verification, qualified only for the recorded normal launch path under the unsigned experimental allowance. See docs/offline-dot-alpha2-acceptance.md.
 
 ## Unreleased preparation — 2026-11-06
 

@@ -1,6 +1,6 @@
-> **Alpha2 implementation in progress (6 November 2026):** `codex/offline-dot-alpha2` implements bounded offline DOT and production Tauri packaging. [Qualification](docs/offline-dot-alpha2-acceptance.md), [DOT subset](docs/supported-markdown.md), [installation](docs/install-alpha2.md). Required native/installed/final-byte gates remain open; no alpha2 merge/tag/release is claimed. Earlier entries below are historical.
+> **Current Rust/Tauri release (6 November 2026):** [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) is published as an experimental prerelease/latest=false from `9bfd2c1f4222e9fc7157a84097e7adc435a941c9` via PR #36. Offline DOT and ordinary installed macOS arm64 DMG, Windows x64 NSIS and Ubuntu 26.04x64 DEB are qualified. Read [status](QUICK_STATUS.md), [acceptance/signing limits](docs/offline-dot-alpha2-acceptance.md), [installation](docs/install-alpha2.md) and [issue disposition](docs/issue-status-2026-11-06.md). macOS is linker-ad-hoc/unsealed; Windows unsigned. Historical releases remain unchanged.
 
-> **Current Rust/Tauri application:** `2.1.0-alpha1` is accepted and merged into `main` through PR #34. [Next increment: `2.1.0-alpha2`](docs/next-increment-2.1.0-alpha2-plan.md) plans safe offline DOT and qualified Tauri prerelease packages; [implementation prompt](docs/next-increment-2.1.0-alpha2-prompt.md). See [current status](QUICK_STATUS.md), [acceptance evidence](docs/editing-navigation-2.1.0-alpha1.md) and [remaining issues](docs/issue-status-2026-11-06.md). The content below describes the historical Python/Qt release. Alpha2 is not implemented or released by this preparation.
+> The Python/Qt content below is historical.
 
 # MarkWrite
 

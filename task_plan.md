@@ -4,10 +4,10 @@ Authority: user attachment and docs/next-increment-2.1.0-alpha2-plan.md. Impleme
 
 - [complete] 0 Baseline, refs, preservation inventory and owning-source inspection
 - [complete] 1 DOT safety ADR, failing tests, killable bounded offline renderer and production worker policy
-- [in_progress] 2 Preview/WYSIWYG/codec/Insert/folds/search/correspondence/export integration and alpha2 versions
-- [in_progress] 3 Single Tauri package/publisher workflow, notices, provenance and installed-package native UI acceptance
-- [in_progress] 4 Local/browser/macOS and final-source three-platform CI/artifact acceptance; independent final review
-- [pending] 5 Issues/docs/PR integration, post-merge checks, draft bytes verification and qualified prerelease publication
+- [complete] 2 Preview/WYSIWYG/codec/Insert/folds/search/correspondence/export integration and alpha2 versions
+- [complete] 3 Single Tauri package/publisher workflow, notices, provenance and installed-package native UI acceptance
+- [complete] 4 Local/browser/macOS and final-source three-platform CI/artifact acceptance; independent final review
+- [complete] 5 Issues/docs/PR integration, post-merge checks, draft bytes verification and qualified prerelease publication
 
 Preserve all user work inventoried in /tmp/markwriter-alpha2-preserved.json. Explicit staging only; no reset/clean/stash. Current preparation tip f6ceda7 includes d49154b About credit. Keep exact Richie sentence. One primary implementer; no competing shared editor/store edits. Built-in browser preferred. Start renderer budgets 64KiB input / 2MiB SVG / 2s layout; prove actual CSP/asset offline behavior on each native target. Normal packages: macOS arm64 DMG, Windows x64 NSIS, Ubuntu26.04x64 DEB. No release until installed ordinary-dialog acceptance passes.
 

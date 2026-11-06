@@ -1,0 +1,85 @@
+{
+  "release": "https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2",
+  "id": 436130684,
+  "source": "9bfd2c1f4222e9fc7157a84097e7adc435a941c9",
+  "prerelease": true,
+  "draft": false,
+  "publicUnauthenticatedDownloads": [
+    {
+      "name": "INSTALL-UPGRADE-ROLLBACK.md",
+      "sha256": "c0a918d7ae2abd829866ca037d9800b60e5430dc9c14c127024cf22ad18dd9cb",
+      "bytes": 5058,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/INSTALL-UPGRADE-ROLLBACK.md"
+    },
+    {
+      "name": "macos-arm64.manifest.json",
+      "sha256": "d83006ba50f9e8a35beb88e92603c2d98aafccf15832203d782151ff0e5032e5",
+      "bytes": 16035,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/macos-arm64.manifest.json"
+    },
+    {
+      "name": "MarkWriter-2.1.0-alpha2-macos-arm64.dmg",
+      "sha256": "bcb3940a6ce655c9ec5061debfea3bbfa8843fdd5522780f2fc3fa13fd812978",
+      "bytes": 5822848,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/MarkWriter-2.1.0-alpha2-macos-arm64.dmg"
+    },
+    {
+      "name": "MarkWriter-2.1.0-alpha2-ubuntu-26.04-x64.deb",
+      "sha256": "4454f82fda72414f2e60b35fc0a8ffdcb93211aa438506b44610cb781380bd88",
+      "bytes": 6052158,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/MarkWriter-2.1.0-alpha2-ubuntu-26.04-x64.deb"
+    },
+    {
+      "name": "MarkWriter-2.1.0-alpha2-windows-x64.exe",
+      "sha256": "b816b84ce23010ca5709c3a6c63a8973eaed5c7a450d67d0c40a40f396d4d940",
+      "bytes": 4664696,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/MarkWriter-2.1.0-alpha2-windows-x64.exe"
+    },
+    {
+      "name": "QUALIFICATION-SHA256SUMS",
+      "sha256": "101558897f8e5d869436fc920185f4a1d4cfa195a8005dabff772e684bf43999",
+      "bytes": 1038,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/QUALIFICATION-SHA256SUMS"
+    },
+    {
+      "name": "QUALIFICATION.json",
+      "sha256": "2906ff7a437df4ab8bb5c44b6647b7b799ba353a67a85b989663903474e86cd3",
+      "bytes": 10249,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/QUALIFICATION.json"
+    },
+    {
+      "name": "release-manifest.json",
+      "sha256": "788f30fa7eb919cb8f8b3dcd4e16b73001cc42ba239950effc2334c07bae3fb4",
+      "bytes": 55668,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/release-manifest.json"
+    },
+    {
+      "name": "SHA256SUMS",
+      "sha256": "07f70a56634e9b075d654e55c5765dbc16bab49e4df528d648216c3b19c7c50b",
+      "bytes": 876,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/SHA256SUMS"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "sha256": "05abd671477ed5ce10cba1b52cd35882debafc7c0386f832588dc1cdf2479cb3",
+      "bytes": 5015149,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/THIRD_PARTY_NOTICES.txt"
+    },
+    {
+      "name": "ubuntu-26.04-x64.manifest.json",
+      "sha256": "a35cbd14ffb8a38e091cd8c1007a68d62f8ec182e9d3912bea327d112218f50a",
+      "bytes": 17249,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/ubuntu-26.04-x64.manifest.json"
+    },
+    {
+      "name": "windows-x64.manifest.json",
+      "sha256": "a5025754dc49e27101c5a46b416d45470f4b106be630cfac60359aa37e13296b",
+      "bytes": 16897,
+      "publicUrl": "https://github.com/rheiger/markWriter/releases/download/v2.1.0-alpha2/windows-x64.manifest.json"
+    }
+  ],
+  "allSameVerifiedDraftBytes": true,
+  "originalStableLatestReleaseIdUnchanged": 243493855,
+  "all8HistoricalReleaseMetadataAndAssetsUnchanged": true,
+  "allHistoricalTagRefsUnchanged": true
+}
