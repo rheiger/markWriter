@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-06",
+  "version": "2.1.0-alpha3",
+  "delivery": "qualified-unmerged-unreleased-candidate",
+  "applicationSource": "15f25d1b032dd9179eec9cb2c7f0db56db6822ad",
+  "prMergeSource": "458a667a4dc561b02feb6210afa9f25c5d7db14c",
+  "applicationTree": "a682a7584a1e217583869ec03ad2d8825fb10c5b",
+  "pullRequest": "https://github.com/rheiger/markWriter/pull/43",
+  "tests": {
+    "frontend": 235,
+    "actualEditorComponentTests": 61,
+    "node": 9,
+    "rustMacLinux": 20,
+    "rustWindows": 25,
+    "grammarRegressionsFailedBefore": 4,
+    "inputRegressionsFailedBefore": 10
+  },
+  "ci": {
+    "prQuality": 42244922262,
+    "prPackages": 42244922277,
+    "branchQuality": 42244912358,
+    "branchPackages": 42244912514,
+    "prAllTargetsPassed": true,
+    "branchMacPackage": "never acquired hosted arm64 runner; canceled with zero steps; identical-tree PR Mac supplies qualification"
+  },
+  "packages": [
+    {
+      "platform": "macos-arm64",
+      "architecture": "arm64",
+      "asset": {
+        "name": "MarkWriter-2.1.0-alpha3-macos-arm64.dmg",
+        "size": 5881962,
+        "sha256": "4fc9ac0809290bb705da9ddc5e39a1e8fcb5f35ecf64a2a330de131d79a8fb97"
+      },
+      "installedGroups": 6,
+      "codeCases": null,
+      "themes": null,
+      "signing": {
+        "status": "ad-hoc",
+        "sealed": true,
+        "strictVerified": true,
+        "trusted": false,
+        "notarized": false
+      }
+    },
+    {
+      "platform": "windows-x64",
+      "architecture": "x64",
+      "asset": {
+        "name": "MarkWriter-2.1.0-alpha3-windows-x64.exe",
+        "size": 4627747,
+        "sha256": "efc03f66025ca421abe9bdc6b9864db4234b98f40caad8d0db9e297a63055b58"
+      },
+      "installedGroups": 14,
+      "codeCases": 26,
+      "themes": 6,
+      "signing": {
+        "status": "unsigned",
+        "authenticode": "NotSigned",
+        "trusted": false
+      }
+    },
+    {
+      "platform": "ubuntu-26.04-x64",
+      "architecture": "x64",
+      "asset": {
+        "name": "MarkWriter-2.1.0-alpha3-ubuntu-26.04-x64.deb",
+        "size": 6052386,
+        "sha256": "940ac6b1c611a70525f15bcd8a165db1f7d110b024a089220bc86888a0a8a8cd"
+      },
+      "installedGroups": 14,
+      "codeCases": 26,
+      "themes": 6,
+      "signing": {
+        "status": "unsigned",
+        "trusted": false
+      }
+    }
+  ],
+  "nativeWindowsLinux": [
+    {
+      "path": "/tmp/markwriter-feedback-audit/ci-15f-pr-native-windows/result.json",
+      "platform": "win32",
+      "passed": true,
+      "groups": 40,
+      "fixtureCount": 26,
+      "sourceBoundByRun": 42244922262
+    },
+    {
+      "path": "/tmp/markwriter-feedback-audit/ci-15f-pr-native-linux/result.json",
+      "platform": "linux",
+      "passed": true,
+      "groups": 40,
+      "fixtureCount": 26,
+      "sourceBoundByRun": 42244922262
+    }
+  ],
+  "browser": {
+    "importantLabeledSampleBlocks": 17,
+    "allImportantHighlightWysiwygAndPreview": true,
+    "newGrammarTokenCounts": {
+      "css": 28,
+      "swift": 11,
+      "makefile": 11,
+      "objectivecM": 17
+    },
+    "consoleWarningsErrors": 0,
+    "literalInput": true,
+    "proseAttributesClear": true
+  },
+  "nativeMac": {
+    "os": "macOS 27.2",
+    "build": "26B123",
+    "systemWebKit": "22625.2.8.11.9",
+    "downloadedAppFiles": [
+      {
+        "path": "Contents/Info.plist",
+        "size": 1073,
+        "sha256": "af51191699189318183c0f550a02ef44c9a9b7fbfd160a84d8356e9f5a361130"
+      },
+      {
+        "path": "Contents/MacOS/markwriter",
+        "size": 12762240,
+        "sha256": "93c30c5065fddda75cf9b6c877608c44d390cb6f14094207adefc61b6d6d22d1"
+      },
+      {
+        "path": "Contents/Resources/icon.icns",
+        "size": 83532,
+        "sha256": "5f477e2bcbf3923cd04a4c7b29b2e19b8023e8acd739a6a07a4a634a28c68ec4"
+      },
+      {
+        "path": "Contents/_CodeSignature/CodeResources",
+        "size": 2440,
+        "sha256": "96e14a7798d4abcb9e6d29fac6f50af82555b5215b26f67674a3c1054fb4593c"
+      }
+    ],
+    "strictAdHocSealVerified": true,
+    "isolatedProfile": true,
+    "nativeKeyInputContexts": [
+      "fenced-code",
+      "inline-code",
+      "blockquote"
+    ],
+    "editors": [
+      "source",
+      "wysiwyg"
+    ],
+    "literalModelProbe": "teh \"q\" -- ...  end; Grüße “q” — … 😀",
+    "sourceSavedLiteralContexts": 3,
+    "proseSmartQuotesDashesEllipsisObserved": true,
+    "activeProseSpellingCorrectionTriggered": false,
+    "osPreferencesChanged": false,
+    "existingAutomaticPeriodSubstitution": true,
+    "keyboard": "USInternational-PC",
+    "deadkeySpaceTrace": "composition commit, no prevented events; separate diagnostic build excluded from qualified payload"
+  },
+  "preservation": {
+    "userFiles": 21,
+    "changed": [],
+    "sampleBytes": 6721,
+    "sampleSHA256": "d8767393dd9a8c8436e2ef09bddba6daeacb5398ef6d91e6dec0f9718e44826d",
+    "viewOnlyExact": true,
+    "sourceLiteralContextsExact": 3
+  },
+  "cleanup": {
+    "temporaryEntriesRemoved": true,
+    "ownAppsClosed": true,
+    "ownBrowserTabClosed": true,
+    "ownServerStopped": true,
+    "originalInstalledAppUntouched": true
+  },
+  "backlog": {
+    "44": "Java/Perl/AWK/sed/CMake and broader practical autodetection, explicitly deferred by Richard",
+    "46": "pre-existing repeated-space loss in inline-code WYSIWYG serialization"
+  },
+  "limits": [
+    "Mac whole-bundle ad-hoc signing only; no Developer ID, notarization or browser-quarantine trust acceptance",
+    "Windows unsigned; associated-executable icon extracted, no Start-menu/taskbar/cache/upgrade visual claim",
+    "Linux hicolor PNG bytes and desktop Icon wiring inspected, no launcher cache or upgrade visual claim",
+    "No active OS spelling-service correction or arbitrary expansion-dictionary qualification; other OS/WebView combinations unproven",
+    "Literal input model does not establish exact whitespace serialization for real WYSIWYG edits; #46 remains",
+    "Original f54b444 acceptance is dated historical evidence; no alpha3 merge/tag/release or issue closure"
+  ],
+  "localArtifacts": "/Users/rheiger/.codex/artifacts/markwriter-alpha3-15f25d1"
+}

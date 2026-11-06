@@ -1,4 +1,12 @@
-# Current task — implement MarkWriter 2.1.0-alpha3
+# Current follow-up — alpha3 user feedback
+
+Scope: audit DebugFeedback/SyntaxHighlightSample.md against original #40; address important CSS/Swift/Makefile coverage and prevent automatic corrections/substitutions in technical editing contexts. Put lower-priority language requests in a separate backlog issue; broader autodetection is explicitly deferred by Richard. Preserve the sample unchanged and retain prior alpha3 qualification as dated evidence for its exact source.
+
+- [complete] F Reproduce the user's explicit and unlabeled samples; compare original scope and prior language registry
+- [complete] G Scoped regressions/fixes for important languages and technical text input; verify browser/native behavior within tested bounds
+- [complete] H Create lower-priority backlog issue, reconcile #40/qualification and report remaining scope accurately
+
+# Completed increment — implement MarkWriter 2.1.0-alpha3
 
 Authority: active user goal to implement the proposed next increment in this session with subagents and built-in-browser tests; include direct Auto/Light/Dark menu controls.
 

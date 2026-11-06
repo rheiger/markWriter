@@ -1,5 +1,7 @@
 # MarkWriter 2.1.0-alpha3 implementation and acceptance
 
+**Current correction:** application source `15f25d1` restores CSS/Swift/Makefile, adds Objective-C `m` and prevents automatic replacements in technical editing contexts. Read [feedback acceptance](alpha3-feedback-acceptance.md) and [its machine qualification](alpha3-feedback-qualification.json) for the 235-test/26-code-case native/package evidence and remaining limits. Richard explicitly deferred broader autodetection and lower-priority languages to #44; the earlier practical-detection claim below must be read with that correction. The remaining report is dated evidence for f54b444, not a qualification of newer bytes.
+
 Core scope is toolbar theme consistency (#38), ordinary code highlighting (#40), recognizable packaged icon and valid macOS ad-hoc sealing (#39). View provides explicit Auto/Light/Dark choices synchronized with Settings. Alpha2 remains a completed immutable prerelease. Full PDF (#41), DBML (#33), SQL DDL (#42), PlantUML and other backlog are deferred. A PDF feasibility note is optional after core acceptance.
 
 Markdown remains canonical. Highlighting uses decorations in CodeMirror and ProseMirror; toggles never alter language attributes, content, dirty state, history, selection, folds or independent font preferences. One persisted default-on preference controls toolbar, View, both editors, Preview and HTML export. Export captures the preference before asynchronous diagram work, uses a fixed readable light palette, and embeds all token CSS without scripts or network dependencies.

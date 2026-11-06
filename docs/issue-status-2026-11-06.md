@@ -1,14 +1,16 @@
 # GitHub issue status — 6 November 2026
 
-**18 open / 21 closed.** Alpha2 remains released from9bfd2c1 via PR#36; [acceptance](offline-dot-alpha2-acceptance.md) retains its dated release evidence. Follow-up review closes #18 against its original inline UML request, already met by shipped Mermaid sequence/state diagrams and export. PlantUML#31 remains a separate open format. New#38–42 retain expanded scope and original requests. Alpha3 core #38/#40/#39 is now implemented in [PR #43](https://github.com/rheiger/markWriter/pull/43); [Final candidate acceptance](highlighting-theme-alpha3.md) is complete for application source f54b444. #38/#40 remain open for integration; #39 also retains broader OS icon-cache/upgrade visual observations. Original issue requests/history are retained on GitHub.
+**21 open / 21 closed.** Alpha2 remains released from9bfd2c1 via PR#36; [acceptance](offline-dot-alpha2-acceptance.md) retains its dated release evidence. Follow-up review closes #18 against its original inline UML request, already met by shipped Mermaid sequence/state diagrams and export. PlantUML#31 remains a separate open format. New#38–42 retain expanded scope and original requests. Alpha3 core #38/#40/#39 is now implemented in [PR #43](https://github.com/rheiger/markWriter/pull/43); #40/#45 feedback corrections are qualified at application source `15f25d1`; [current acceptance](alpha3-feedback-acceptance.md) supersedes the dated f54b444 record for corrected bytes. #38/#40 remain open for integration; #39 also retains broader OS icon-cache/upgrade visual observations. Original issue requests/history are retained on GitHub.
 
 ## Current candidate — 2.1.0-alpha3
 
-**Qualified implemented candidate, unmerged/unreleased.** Application metadata is2.1.0-alpha3. [Acceptance and limits](highlighting-theme-alpha3.md) records completed tests, native/installed-package checks and explicit limits. Focus is technical-document readability and consistent native presentation:
+**Qualified corrected candidate, unmerged/unreleased.** Application metadata is2.1.0-alpha3. [Acceptance and limits](alpha3-feedback-acceptance.md) records completed tests, native/installed-package checks and explicit limits. Focus is technical-document readability and consistent native presentation:
 
 1. **#38 theme consistency:** fix the reported dark toolbar and qualify Light/Dark/System controls without changing document state.
 2. **#40 code-block highlighting:** deliver the full requested language set in both editors, explicit aliases, bounded unlabeled-code detection, a synchronized persisted View/toolbar toggle, and readable Preview/export colors.
 3. **#39 native icon/package polish:** review/reuse a suitable master, produce the actual native icon assets and verify installed launchers. Carry valid macOS ad-hoc bundle sealing/strict integrity verification as release hygiene; this remains separate from Developer ID/notarization.
+
+**Feedback:** CSS/Swift/Makefile and Objective-C `m` now highlight; #45 protects technical-context literal input. Richard explicitly deferred Java/Perl/AWK/sed/CMake and broader practical autodetection to #44. Existing inline-code repeated-space serialization loss is tracked in #46; prioritize that fidelity defect before adding more import/export scope.
 
 **Later:** #41 requires actual paginated PDF-file feasibility across the supported native targets. A bounded spike is optional after the core qualifies; full PDF is not a promised trivial stretch. **Modeling follows separately:** qualify DBML#33, then SQL DDL import#42. Choose the first SQL dialect with a representative fixture before implementation.
 
@@ -36,6 +38,9 @@ Keep canonical Markdown, dirty state/history, captured-document I/O, recovery/di
 | [#40](https://github.com/rheiger/markWriter/issues/40) | Alpha3 candidate in PR#43: both-editor code highlighting, explicit languages/detection, synchronized toggle |
 | [#41](https://github.com/rheiger/markWriter/issues/41) | PDF-file/backend and pagination spike first; full native PDF export recommended after alpha3 core |
 | [#42](https://github.com/rheiger/markWriter/issues/42) | SQL DDL→editable DBML import; blocked by#33, declared dialect/representative fixture still needed |
+| [#44](https://github.com/rheiger/markWriter/issues/44) | Additional language coverage and practical autodetection, explicitly deferred |
+| [#45](https://github.com/rheiger/markWriter/issues/45) | Qualified technical-context literal-input correction in PR#43; integration pending, native limits documented |
+| [#46](https://github.com/rheiger/markWriter/issues/46) | Pre-existing inline-code whitespace serializer fidelity defect; recommended next maintenance priority |
 
 ## Closed
 

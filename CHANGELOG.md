@@ -1,5 +1,6 @@
 ## Unreleased 2.1.0-alpha3 candidate — 2026-11-06
 
+- Restore CSS, Swift and Makefile highlighting, add Objective-C `m`, and prevent automatic replacements in fenced/inline code and blockquotes while retaining intentional Unicode and composition. Corrected candidate acceptance: docs/alpha3-feedback-acceptance.md; broader detection/languages deferred to #44, existing inline-code whitespace serialization defect tracked in #46.
 - Add shared offline ordinary-code highlighting across source, WYSIWYG, Preview and self-contained HTML export, with the full requested language set, conservative unlabeled detection and a saved View/toolbar toggle.
 - Make toolbar controls follow theme tokens; add synchronized Auto/Light/Dark View choices and live system appearance updates.
 - Add a maintainable native icon master and packaged macOS/Windows/Linux assets; require a valid whole-bundle macOS ad-hoc seal. This does not establish trusted signing or notarization.
