@@ -234,7 +234,7 @@ try {
   const dotBefore = (await snapshot()).document.content
   await run(`const text=document.querySelector('[data-active=true] .markwriter-preview [data-mw-text]').firstChild,range=document.createRange();range.setStart(text,0);range.setEnd(text,3);getSelection().removeAllRanges();getSelection().addRange(range)`)
   await click('(//*[@data-active="true"]//*[@data-type="dot"]/*[local-name()="svg"])[1]')
-  await waitFor(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot].correspondence-block")'),'DOT source block after prior Preview text selection')
+  await waitFor(()=>run(`return document.querySelector('[data-active=true] .markwriter-preview [data-type=dot]')?.closest('[data-mw-block]')?.classList.contains('correspondence-block')`),'DOT source block after prior Preview text selection')
   await action('create'); await action('activate', dotOwnerId)
   await mode('WYSIWYG'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===2'), 'DOT rendered nodes after tab switch')
   assert.equal((await snapshot()).document.content,dotBefore);assert.equal((await snapshot()).document.isDirty,false)
