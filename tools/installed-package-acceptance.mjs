@@ -24,6 +24,11 @@ const run=(script,...args)=>request('POST',`/session/${session}/execute/sync`,{s
 async function wait(check,name,timeout=30000){const end=Date.now()+timeout;let error;while(Date.now()<end){if(launchError)throw launchError;try{const v=await check();if(v)return v}catch(e){error=e}await delay(100)}throw new Error('Timed out: '+name+(error?': '+error:''))}
 async function click(xpath){const e=await request('POST',`/session/${session}/element`,{using:'xpath',value:xpath});await request('POST',`/session/${session}/element/${e['element-6066-11e4-a52e-4f735466cecf']}/click`,{})}
 async function menu(name,option){await click(`//button[normalize-space(.)="${name}"]`);await click(`//button[normalize-space(.)="${option}" or .//span[normalize-space(.)="${option}"]]`)}
+async function newDocument(){
+ const previous=await run('return document.querySelector("[data-active=true]")?.getAttribute("data-document-id")')
+ await menu('File','New')
+ await wait(()=>run('const id=document.querySelector("[data-active=true]")?.getAttribute("data-document-id");return !!id&&id!==arguments[0]',previous),'new native document visible before editor interaction')
+}
 async function dialog(path){await new Promise((res,rej)=>{const p=spawn(process.platform==='win32'?'pwsh':'bash',process.platform==='win32'?['-NoProfile','-File',join(root,'tools/package-dialog-windows.ps1'),'-Path',path]:[join(root,'tools/package-dialog-linux.sh'),path],{stdio:['ignore','pipe','pipe']});let text='';p.stdout.on('data',c=>text+=c);p.stderr.on('data',c=>text+=c);p.on('error',rej);p.on('exit',code=>code===0?res():rej(new Error('OS dialog automation failed: '+text)))})}
 async function mode(markdown){const current=await run(`return document.querySelector('button[role=switch]').getAttribute('aria-checked')==='true'`);if(current!==markdown)await click('//button[@role="switch"]');await wait(()=>run(`const e=document.querySelector(arguments[0]);return !!e&&e.getBoundingClientRect().height>0`,markdown?'[data-active=true] .cm-content':'[data-active=true] .tiptap'),'editor mode')}
 async function diagrams(){await wait(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview svg").length===3'),'offline Mermaid and DOT Preview')}
@@ -54,7 +59,7 @@ try{
  await menu('File','Export as HTML...');await dialog(exported);await wait(async()=>!!(await readFile(exported,'utf8').catch(()=>null)),'ordinary Export dialog');const html=await readFile(exported,'utf8');assert.equal((html.match(/<svg\b/g)??[]).length,3);assert.ok(!/<script|data-mw-|data-chart|data-source-fence|javascript:/.test(html));cases.push('ordinary OS Export dialog and static sanitized SVG')
  await menu('File','Settings…');await run(`for(const [name,value] of [['Source text size','18'],['Rendered text size','24']]){const label=[...document.querySelectorAll('dialog label')].find(e=>e.textContent.startsWith(name));const select=label.querySelector('select');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}))}`);await click('//dialog//button[normalize-space(.)="Apply"]');await wait(async()=>JSON.parse(await readFile(join(profile,'preferences.json'),'utf8')).config.renderedFontSize===24,'native preferences file');cases.push('independent font Settings persistence')
  const draftSource='# Interrupted DOT draft\n\n```dot\ndigraph { recovered -> ready }\n```\n'
- await menu('File','New');await mode(true);await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();document.execCommand('insertText',false,arguments[0])`,draftSource)
+ await newDocument();await mode(true);await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();document.execCommand('insertText',false,arguments[0])`,draftSource)
  const recovery=await wait(async()=>{const data=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'));return data.documents.find(d=>d.content.includes('Interrupted DOT draft'))},'flushed draft recovery');assert.equal(recovery.content,draftSource,'Real multiline DOT draft persisted exactly')
  const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'installed.png'),Buffer.from(shot,'base64'))
  // Abruptly end only the installed test process after its real recovery snapshot exists.
@@ -65,7 +70,7 @@ try{
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
  for(const markdown of [true,false]){
-   await menu('File','New');await mode(markdown);await menu('Insert','DOT')
+   await newDocument();await mode(markdown);await menu('Insert','DOT')
    await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
    const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
    await mode(!markdown);await mode(markdown)
