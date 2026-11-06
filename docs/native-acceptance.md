@@ -1,3 +1,5 @@
+> **Alpha2 qualification in progress:** The harness now has28 actual Windows/Linux store/IPC/application cases including DOT aliases, worker response CSP, source fidelity, bounded failures and timeout/recovery. Ordinary installed production packages have a separate OS-dialog/restart suite and no acceptance bridge. See [current report](offline-dot-alpha2-acceptance.md); historical results below are not alpha2 acceptance.
+
 > **Current qualification — 2.1.0-alpha1:** Core implementation and final-source three-platform evidence are recorded below and in [editing/navigation acceptance](editing-navigation-2.1.0-alpha1.md). Historical runs remain separate.
 
 ## 2.1 editing/navigation qualification

@@ -1,3 +1,5 @@
+> **Alpha2 implementation in progress (6 November 2026):** `codex/offline-dot-alpha2` implements bounded offline DOT and production Tauri packaging. [Qualification](docs/offline-dot-alpha2-acceptance.md), [DOT subset](docs/supported-markdown.md), [installation](docs/install-alpha2.md). Required native/installed/final-byte gates remain open; no alpha2 merge/tag/release is claimed. Earlier entries below are historical.
+
 # MarkWriter status — 6 November 2026
 
 **Current:** unreleased `2.1.0-alpha1`, accepted and merged into `main` at `7e29c6f` through [PR #34](https://github.com/rheiger/markWriter/pull/34). Required core: Find/Replace in both editors, view-only wrap cues, adaptive 5×5 table picker, remaining editing fixes and content-aware bidirectional source/Preview navigation. No tag/release was created for that integration.
