@@ -30,7 +30,7 @@ Use Node.js 24 or newer, npm 9 or newer and Rust 1.90 or newer with the platform
 Install JavaScript dependencies from the repository root:
 
 ```sh
-npm ci
+npm install
 npm --prefix frontend ci
 ```
 

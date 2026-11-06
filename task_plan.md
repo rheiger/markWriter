@@ -17,8 +17,9 @@ Owned scratch removed after 573 file hashes, 3 profile tar members, public asset
 ## 2.5.1 regular release follow-up (authorized)
 
 - [complete] F Preserve current user/profile/history baselines; version/policy and actual long-code native regression
-- [in_progress] G Reviewed exact-source quality and three-platform packages; downloaded isolated Mac UI
-- [pending] H Push/merge; exact merged gates; immutable v2.5.1 tag, draft and final qualification
-- [pending] I Publish regular release latest=false; verify all public bytes/history; docs/next-round plan and measured cleanup
+- [complete] G Reviewed exact-source quality and three-platform packages; downloaded isolated Mac UI
+- [complete] H Push/merge; exact merged gates; immutable v2.5.1 tag, draft and final qualification
+- [complete] I Publish regular release latest=false; verify all public bytes/history; next-round plan and measured cleanup
+- [in_progress] J Review/integrate documentation closeout; refresh/recover final source bundle and final integrity inventory
 
 Scope: existing highlighting/README changes; v2.5.1 regular, not prerelease, latest=false. No signing/notarization or deferred-feature claims. Evidence /Users/rheiger/.codex/artifacts/markwriter-2.5.1. Baseline24protectedfiles/4profilefiles/11historicalreleases; preserve historical latest and all tags/assets. Never restart completed alpha1.

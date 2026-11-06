@@ -20,3 +20,7 @@
 - Release tooling is hardcoded toalpha1 prerelease; must align metadata/draft/manifest/published classification with authorized regular2.5.1 latest=false. Previous releases immutable.
 - New native regression must exercise long aggregate document, not only existing26shortcodecases.
 - Python pathological14Ki f-string observation201ms/plainfallback; inputbounds aren't hard latency guarantees. Cancellable highlighting worker is candidate next-round hardening.
+
+MacDMGmountunderexternalAI-CachescratchwasdeniedbyOS; ownedtemporarysystemmountsucceededdetachednormally. NativeUIcopylaunchPID68496usesisolatedprofile; installeduserPID86606leftunchanged. CUAAPIoptional launch_appisnotavailable; Docktimeout/Findercapturefailed. FullscreenreachedreadablePythonimage,butlaterJSONscreenshotsrepeatedoldframe andsourceviewpaintunreliable; requireproperforegroundbeforevisualqualification. Foreground-onlyAppleScriptpermissionpendingasCUAruntimerequiresit.
+
+2.5.1closeoutnotes: rootpackage-lockisignored/untracked, so READMErootnpmciwasnotfreshclone-safe; rootnpm installcorrectionreservedforrevieweddocscloseout(frontendnpmciandproductionpipelineunchanged). Localhelpermissingjson/Pathimportsfailedonlymetadataappendandwerecorrected; no app/testgateoruser-dataeffect. MacroreleaseworkflowhistoricalPythonmanual-only, so v2.5.1tagcannotstartlegacypublication.

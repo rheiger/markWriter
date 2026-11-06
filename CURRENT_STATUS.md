@@ -1,3 +1,16 @@
+# MarkWriter current status
+
+**7 November 2026:** [2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) is a regular public release, latest=false, from `074e4ea906430b8a051e98acbeef34e9f2c9e9da` via PR #53. Highlighting and README fixes are shipped.
+
+- 319 frontend/13 Node and all three native/package targets pass; Windows/Linux 51 native/25 installed groups each, downloaded Mac UI and 12 anonymous public assets verified.
+- 24 protected user-file hashes match; original profile documents/preferences and the live post-public tab selection are preserved. All 11 older releases/52 assets/16 tag refs/latest remain unchanged.
+- macOS is ad-hoc sealed, without Developer ID/notarization; Windows is unsigned. Broader OS/quarantine/upgrade qualification remains separate.
+
+[Acceptance](docs/2.5.1-release-acceptance.md) · [Install/rollback](docs/install-2.5.1.md) · [Next-round proposal](docs/next-round-after-2.5.1.md) · [Issue dispositions](docs/issue-status-2026-11-06.md)
+
+<details>
+<summary>Historical status snapshots — superseded, retained for reference</summary>
+
 > **2.5.0-alpha1 released, 6 November 2026:** Required #46/#47/#50 complete. Public prerelease/latest=false from `ee0b534c70ea53988a7e6263ae634e7f87d914cb`; all final gates and12 anonymous downloads verified. See [current acceptance](docs/technical-writing-2.5-release-acceptance.md) and [installation](docs/install-2.5-alpha1.md). Older entries below are historical.
 
 > **Historical alpha3 release (6 November 2026):** [2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) is published as an experimental prerelease/latest=false from `b40d45bd586c0c127bb696748101ded4276fce52` via [PR #43](https://github.com/rheiger/markWriter/pull/43). It adds shared offline code highlighting, literal technical input, synchronized theme controls, an illustrated paper/brass-nib icon and expanded About. macOS arm64 DMG, Windows x64 NSIS and Ubuntu 26.04x64 DEB passed final-source/native/installed checks; all 12 public asset bytes match the accepted draft. Read [acceptance and limits](docs/alpha3-release-acceptance.md), [installation](docs/install-alpha3.md), [editing conventions](docs/supported-markdown.md) and [issue disposition](docs/issue-status-2026-11-06.md). macOS has a valid strict ad-hoc bundle seal without Developer ID/notarization trust; Windows is unsigned. Historical releases/tags/latest remain unchanged.
@@ -208,3 +221,6 @@ The MarkWriter application has made **significant progress** from a completely b
 ---
 
 *This document should be updated after each debugging session to maintain continuity and prevent loss of context.*
+
+
+</details>
