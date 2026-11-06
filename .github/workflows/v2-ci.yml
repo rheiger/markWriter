@@ -21,7 +21,9 @@ permissions:
 
 concurrency:
   group: v2-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Retain expensive native acceptance when a later packaging/docs fix is pushed.
+  # GitHub keeps only the newest pending run; final-source green is still required.
+  cancel-in-progress: false
 
 jobs:
   frontend:
