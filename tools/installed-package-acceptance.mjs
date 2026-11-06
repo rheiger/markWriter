@@ -167,7 +167,12 @@ try{
    const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
    await mode(!markdown);await mode(markdown)
    const cyclePath=join(fixture,'starter-cycled-'+markdown+'.md');await menu('File','Save As...');await dialog(cyclePath);await wait(async()=>await readFile(cyclePath,'utf8').catch(()=>null)===inserted,'fresh Save As proves view-only starter byte preservation')
-   await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
+   // A file can appear before Save As finishes adopting its captured path.
+   // Establish completion before beginning the next independent user action.
+   await wait(()=>run(`const t=document.querySelector('[role=tab][aria-selected=true]');return t?.textContent.includes(arguments[0])&&!t.querySelector('[aria-label=Unsaved]')&&!document.querySelector('.status-item.loading')`,'starter-cycled-'+markdown+'.md'),'starter Save As completed in ordinary UI')
+   await menu('Edit','Undo')
+   await wait(()=>run(`return document.querySelector('.status-right')?.textContent.includes('Characters: 0')&&!!document.querySelector('[role=tab][aria-selected=true] [aria-label=Unsaved]')`),'single starter Undo completed in ordinary UI')
+   await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
  const technical=await verifyTechnicalWriting({root,artifacts,dir:fixture,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
