@@ -1,90 +1,80 @@
-> **Current Rust/Tauri release (6 November 2026):** [2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) is an experimental prerelease/latest=false from `ee0b534c70ea53988a7e6263ae634e7f87d914cb` via [PR #51](https://github.com/rheiger/markWriter/pull/51). It adds inline-code whitespace fidelity, explicit bounded offline math and bundled searchable Help. All three native/package gates, downloaded Mac UI and all 12 anonymous public assets pass. Read [acceptance and limits](docs/technical-writing-2.5-release-acceptance.md), [installation](docs/install-2.5-alpha1.md) and release QUALIFICATION.json. macOS is ad-hoc sealed without Developer ID/notarization; Windows is unsigned. Historical releases/tags/latest remain unchanged.
+# MarkWriter
 
-> The Python/Qt content below is historical.
+MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
 
-# MarkWrite
+## Current release
 
-[![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main&event=push)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/rheiger/markWriter?logo=github&label=latest%20release)](https://github.com/rheiger/markWriter/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/rheiger/markWriter/total?logo=github)](https://github.com/rheiger/markWriter/releases)
+[2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) is an experimental public prerelease. It adds inline-code whitespace fidelity, explicit offline math fences and bundled searchable Help. It is not marked as GitHub’s latest stable release; use the explicit version link to find its downloads.
 
-A minimal, cross-platform Markdown editor built with Python and Qt (PySide6) using Toast UI Editor in a Qt WebEngine view.
+Qualified packages are available for Apple Silicon macOS, Windows x64 and Ubuntu 26.04 x64. Read the [installation and rollback guide](docs/install-2.5-alpha1.md) and [acceptance report and limits](docs/technical-writing-2.5-release-acceptance.md) before installing. Each release includes platform manifests, checksums, third-party notices and `QUALIFICATION.json`.
 
-- Version: `0.2.4 (build 000033)`
-- Platforms: macOS ✅, Windows ✅, Linux planned
-- **Full offline functionality** - no internet connection required
+macOS packages have an ad-hoc integrity seal, without Developer ID signing or notarization. Windows packages are unsigned. Other OS baselines and browser-quarantine behavior require separate qualification.
 
-## Features ([About](./ABOUT.md))
-- WYSIWYG Markdown editor (Toast UI Editor)
-- Open/Save `.md` files
-- Export to HTML
-- Basic “dirty” tracking and prompts on exit
+## Features
 
-## Requirements
-- Python 3.11+
-- PyInstaller (for building) and PySide6
+- Markdown and WYSIWYG editing, live Preview, document tabs and per-tab Undo/Redo.
+- Native Open, Save, Save As and HTML export, plus local session recovery.
+- Find/Replace in both editors, contextual tables and embedded-source folding.
+- Auto/Light/Dark themes and independent source/rendered font preferences.
+- Bundled offline syntax highlighting, Mermaid diagrams, DOT/Graphviz diagrams and explicit `math` fences.
+- Searchable offline documentation through **Help → User Guide**.
 
-## Getting Started
+Markdown is the canonical document source. Navigation and view changes preserve its bytes. Actual WYSIWYG edits may normalize Markdown syntax; consult the acceptance report for fidelity boundaries. Syntax highlighting and diagram/math rendering are bounded and fall back to readable source when their limits are exceeded. Inline dollar math, arbitrary TeX packages and PDF export are not supported.
 
-See the How-To guide for end users: [How-To: Install and Use MarkWrite on macOS](./How-To.md)
+Independent windows, plugins, draw.io, DBML, SQL DDL and OS Quick Look/preview integrations remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
 
-Latest prebuilt app: [Releases](https://github.com/rheiger/markWriter/releases)
+## Build and develop
 
-Note: Use the latest release for the most up-to-date features and offline functionality.
+Use Node.js 24 or newer, npm 9 or newer and Rust 1.90 or newer with the platform’s Tauri build prerequisites. The supported dependencies and native build steps are recorded in [the CI workflow](.github/workflows/v2-ci.yml).
 
-### Run from source (macOS)
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install PySide6
-python markwrite.py
+Install JavaScript dependencies from the repository root:
+
+```sh
+npm ci
+npm --prefix frontend ci
 ```
 
-### Build a macOS `.app`
-```bash
-source .venv/bin/activate
-pip install -U pyinstaller PySide6
-pyinstaller -y MarkWrite.spec
-open dist/MarkWrite.app
+For native development, run these in separate terminals:
+
+```sh
+npm run frontend:dev
 ```
 
-Notes:
-- **Offline-first design** - All editor assets are bundled locally, no CDN dependencies
-- For distributing to other Macs, you’ll likely want to code sign and notarize the `.app`.
-- To appear in “Open With…” for `.md` files, the app’s Info.plist declares Markdown document types. Rebuild the app (`pyinstaller -y MarkWrite.spec`) and move `MarkWrite.app` into `/Applications`.
+```sh
+cd frontend
+npm exec tauri dev
+```
 
-### CI
-This repo uses GitHub Actions to build macOS, Windows, and Linux bundles on push/tag and uploads artifacts. Tagging a version `v*` publishes release assets automatically.
+For frontend checks:
 
-### Developer Handbook
-For contributor setup, code style, release process, and CI details, see [`docs/DeveloperHandbook.md`](./docs/DeveloperHandbook.md).
+```sh
+npm run frontend:test
+npm run frontend:lint
+npm run frontend:build
+```
 
-### Changelog
-For a detailed history of changes and new features, see [`CHANGELOG.md`](./CHANGELOG.md).
+For Rust tests and a native bundle:
 
-### Signing & Notarization
-For how to sign and notarize the macOS app locally or in CI (without exposing secrets in the repo), see: [`docs/Signing-Notarization.md`](./docs/Signing-Notarization.md)
+```sh
+npm run tauri:test
+cd frontend
+npm exec tauri build
+```
 
-## Roadmap
-- ✅ Windows support (completed in v0.2.1)
-- Complete rewrite using `rust` -> `Tauri` -> `react` for improved performance, optimized ressource usage, stability and mainly UX
-- Add regular menus: ✅ About, ✅ File, Edit, View, Window, ..., Help
-- Add support to render embedded `mermaid` diagrams
-- Add support to render embedded `draw.io` diagrams
-- Add support for plugins
-- Add support for quick-edit/show other formats like `json` and `xml`, with focus on userfriendly display 
-- Add support for Linux
-- Add support for multiple windows and tabs in windows to have more than one document open at the same time
-- Add Settings: default fonts/sizes for Markdown and WYSIWYG panes, theme (dark/light/system), ...
+The native bundle requires a built frontend; run `npm run frontend:build` first. A browser-only development server does not provide native file dialogs, storage or menus.
 
-## License & Dependencies
+## Documentation and history
 
-**MarkWrite**: MIT License — see [`LICENSE`](./LICENSE)
+This README is the maintained project entry point. [README-v2.md](README-v2.md) is a compatibility pointer; there is no separate active v2 development branch to switch to.
 
-**Bundled Libraries**:
-- **Toast UI Editor**: MIT License - [NHN Cloud FE Development Lab](https://github.com/nhn/tui.editor)
-- **Mermaid.js**: MIT License - [Mermaid Contributors](https://github.com/mermaid-js/mermaid)
-- **DOMPurify**: Apache 2.0 + Mozilla Public License 2.0 - [Cure53](https://github.com/cure53/DOMPurify)
+- [Current status](CURRENT_STATUS.md)
+- [2.5 implementation details](docs/technical-writing-2.5-alpha1.md)
+- [2.5 release acceptance](docs/technical-writing-2.5-release-acceptance.md)
+- [Release notes](docs/releases/2.5.0-alpha1.md)
+- [Historical changelog](CHANGELOG.md)
 
-All bundled libraries are compatible with MIT licensing and are properly attributed.
+The former Python/Qt instructions and early rewrite notes remain available in [Git history](https://github.com/rheiger/markWriter/tree/7887a2ba60bb265a9f18420840adc2aa0700cab8). They do not describe the current application.
+
+## License
+
+MarkWriter is licensed under the [MIT License](LICENSE). Bundled dependency licenses and attributions are supplied in the application and each release’s `THIRD_PARTY_NOTICES.txt`.
