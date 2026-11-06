@@ -2,3 +2,5 @@ export const mermaidErdTemplate = '```mermaid\nerDiagram\n    CUSTOMER ||--o{ OR
 
 // Blank lines keep the starter a separate block when inserted within prose.
 export const dotTemplate = '\n\n```dot\ndigraph {\n    rankdir=LR;\n    node [shape=box];\n    start [label="Start"];\n    finish [label="Finish"];\n    start -> finish;\n}\n```\n\n'
+
+export const mathTemplate = '\n\n```math\nE = mc^2\n```\n\n'

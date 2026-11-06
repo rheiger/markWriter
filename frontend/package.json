@@ -1,7 +1,7 @@
 {
   "name": "markwriter-frontend",
   "private": true,
-  "version": "2.1.0-alpha3",
+  "version": "2.5.0-alpha1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
@@ -61,6 +61,7 @@
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "highlight.js": "11.11.1",
+    "katex": "0.19.1",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.263.1",
     "markdown-it": "^15.0.3",

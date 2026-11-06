@@ -51,6 +51,58 @@ function deferredClipboard() {
 }
 
 describe('application view controls', () => {
+  it.each(['markdown','wysiwyg'])('inserts a real math starter and undoes it once in %s', async mode => {
+    const {mathRenderer}=await import('../lib/mathRenderer')
+    const spy=vi.spyOn(mathRenderer,'render').mockResolvedValue({html:'<span class="katex">ready</span>',release:()=>{}})
+    useAppStore.getState().setCurrentDocument({id:'controls',title:'Math',content:'',isDirty:false,lastModified:new Date()})
+    try {
+      const {container}=render(<App />)
+      if(mode==='markdown') fireEvent.click(screen.getByRole('switch'))
+      await waitFor(()=>expect(screen.getByRole('switch')).toHaveAttribute('aria-checked',String(mode==='markdown')))
+      await waitFor(()=>expect(container.querySelector(mode==='markdown'?'.cm-content':'.tiptap')).toBeVisible())
+      fireEvent.click(screen.getByRole('button',{name:'Insert',exact:true}))
+      fireEvent.click(screen.getByRole('button',{name:'Math block',exact:true}))
+      await waitFor(()=>expect(container.querySelector('[data-active=true] [data-type=math] .katex')).not.toBeNull())
+      expect(useAppStore.getState().currentDocument?.content).toContain('E = mc^2')
+      fireEvent.click(screen.getByRole('button',{name:'Edit',exact:true}))
+      fireEvent.click(screen.getByRole('button',{name:/^Undo /}))
+      await waitFor(()=>expect(useAppStore.getState().currentDocument?.content).toBe(''))
+    } finally {spy.mockRestore()}
+  })
+  it('saves live math source while its textarea owns focus', async () => {
+    const content='```math\nx^2\n```'
+    useAppStore.getState().setCurrentDocument({id:'controls',title:'Math',content,path:'/math.md',isDirty:false,lastModified:new Date()})
+    const originalSave=useAppStore.getState().saveDocument
+    const save=vi.spyOn(useAppStore.getState(),'saveDocument').mockResolvedValue(true)
+    const {container}=render(<App />)
+    await waitFor(()=>expect(container.querySelector('.math-node')).not.toBeNull())
+    fireEvent.click(screen.getByRole('button',{name:'Edit math source'}))
+    const field=screen.getByRole('textbox',{name:'Math source'})
+    fireEvent.change(field,{target:{value:'y^3'}})
+    try {
+      field.focus()
+      fireEvent.keyDown(field,{key:'s',ctrlKey:!navigator.userAgent.includes('Mac'),metaKey:navigator.userAgent.includes('Mac')})
+      await waitFor(()=>expect(save).toHaveBeenCalledWith('controls'))
+      expect(useAppStore.getState().currentDocument?.content).toContain('y^3')
+    } finally {save.mockRestore();useAppStore.setState({saveDocument:originalSave})}
+  })
+  it('opens and searches bundled Help without document or history mutations', async () => {
+    const {container}=render(<App />)
+    await waitFor(()=>expect((container.querySelector('.tiptap') as HTMLElement & {editor:Editor}).editor.isInitialized).toBe(true))
+    const editor=(container.querySelector('.tiptap') as HTMLElement & {editor:Editor}).editor
+    const model=editor.getJSON()
+    const before=useAppStore.getState().currentDocument
+    fireEvent.click(screen.getByRole('button',{name:'Help',exact:true}))
+    fireEvent.click(screen.getByRole('button',{name:'User Guide',exact:true}))
+    const dialog=screen.getByRole('dialog',{name:/MarkWriter.*Help|MarkWriter.*Guide|User Guide/i})
+    expect(dialog).toBeVisible()
+    fireEvent.change(screen.getByRole('searchbox'),{target:{value:'math'}})
+    expect(dialog.textContent).toContain('math')
+    fireEvent.click(screen.getByRole('button',{name:'Close',exact:true}))
+    expect(useAppStore.getState().currentDocument).toBe(before)
+    expect(editor.getJSON()).toEqual(model)
+    expect(screen.getByRole('button',{name:'Help',exact:true})).toHaveFocus()
+  })
   it('does not let a completed file operation dismiss a subsequently opened menu', async () => {
     const state = useAppStore.getState()
     state.setCurrentDocument({ ...state.currentDocument!, path: '/controls.md' })

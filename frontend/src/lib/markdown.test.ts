@@ -42,3 +42,96 @@ it('escapes literal plus and tilde prefixes exactly once, including existing bac
     expect(doc.querySelector('ul,ins,s')).toBeNull()
   }
 })
+
+describe('inline code whitespace fidelity', () => {
+  const codeText = (html: string) => new DOMParser().parseFromString(html, 'text/html').querySelector('code')?.textContent
+  const codeHtml = (text: string) => {
+    const code = document.createElement('code')
+    code.textContent = text
+    return `<p>before ${code.outerHTML} after</p>`
+  }
+
+  it('reproduces the repeated-space loss through the production codec', () => {
+    const source = 'Before `alpha  beta` after'
+    const saved = fromWysiwygHtml(toWysiwygHtml(source))
+    expect(codeText(toWysiwygHtml(saved))).toBe('alpha  beta')
+  })
+
+  it.each([
+    ['repeated spaces', 'a   b', 'a   b'],
+    ['leading spaces', '  a', '  a'],
+    ['trailing spaces', 'a  ', 'a  '],
+    ['spaces on both sides', '  a  ', '  a  '],
+    ['one space', ' ', ' '],
+    ['all spaces', '   ', '   '],
+    ['internal tabs', 'a\t\tb', 'a\t\tb'],
+    ['tab edges', '\ta\t', '\ta\t'],
+    ['all tabs', '\t\t', '\t\t'],
+    ['mixed blank whitespace', ' \t ', ' \t '],
+    ['line breaks', 'a\nb', 'a b'],
+    ['line breaks and spaces', 'a\n  b', 'a   b'],
+    ['a backtick', '`', '`'],
+    ['backtick at each edge', '`a`', '`a`'],
+    ['multiple backtick runs', 'a ` b `` c ``` d', 'a ` b `` c ``` d'],
+    ['backticks and edge spaces', ' `a` ', ' `a` '],
+  ])('serializes %s with CommonMark code-span semantics', (_label, text, expected) => {
+    const saved = fromWysiwygHtml(codeHtml(text))
+    expect(codeText(toWysiwygHtml(saved))).toBe(expected)
+  })
+
+  it.each([' ', '   ', '\t\t'])('retains a paragraph containing only whitespace code %j', text => {
+    const code = document.createElement('code')
+    code.textContent = text
+    const saved = fromWysiwygHtml(`<p>${code.outerHTML}</p>`)
+    expect(codeText(toWysiwygHtml(saved))).toBe(text)
+  })
+
+  it.each([
+    ['heading', '<h2><code>   </code></h2>', 'h2 code'],
+    ['blockquote', '<blockquote><p><code>   </code></p></blockquote>', 'blockquote code'],
+    ['list', '<ul><li><p><code>   </code></p></li></ul>', 'ul li code'],
+    ['table', '<table><tr><th>Heading</th></tr><tr><td><p><code>   </code></p></td></tr></table>', 'td code'],
+  ])('retains whitespace-only inline code within a %s', (_label, html, selector) => {
+    const saved = fromWysiwygHtml(html)
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(saved), 'text/html')
+    expect(doc.querySelector(selector)?.textContent).toBe('   ')
+  })
+
+  it('retains prose spacing on both sides of code that has edge spaces', () => {
+    const saved = fromWysiwygHtml('<p>before <code> a </code> after</p>')
+    const doc = new DOMParser().parseFromString(toWysiwygHtml(saved), 'text/html')
+    expect(doc.querySelector('p')?.textContent).toBe('before  a  after')
+    expect(doc.querySelector('code')?.textContent).toBe(' a ')
+  })
+
+  it('chooses an unused backtick run and pads edge backticks', () => {
+    expect(fromWysiwygHtml(codeHtml('`a`'))).toBe('before `` `a` `` after')
+    expect(fromWysiwygHtml(codeHtml('a ` b `` c ``` d'))).toBe('before ````a ` b `` c ``` d```` after')
+    expect(fromWysiwygHtml(codeHtml('a ` b ``` c'))).toBe('before ``a ` b ``` c`` after')
+  })
+
+  it('preserves semantic code content when CommonMark strips edge padding and normalizes newlines', () => {
+    for (const [source, expected] of [
+      ['`  a  `', ' a '],
+      ['`   `', '   '],
+      ['`` `x` ``', '`x`'],
+      ['`a\nb`', 'a b'],
+    ]) {
+      const html = toWysiwygHtml(source)
+      expect(codeText(html)).toBe(expected)
+      expect(codeText(toWysiwygHtml(fromWysiwygHtml(html)))).toBe(expected)
+    }
+  })
+
+  it('does not preserve repeated ordinary prose whitespace', () => {
+    expect(fromWysiwygHtml('<p>ordinary   prose <code>a  b</code> after   text</p>')).toBe('ordinary prose `a  b` after text')
+  })
+})
+
+it.each(['|', '\\|', '\\\\|'])('preserves literal backslashes and spaces before %s inside table inline code', pipe => {
+  const content='a  '+pipe+'b'
+  const html='<table><tbody><tr><th>Code</th></tr><tr><td><p><code>'+content+'</code></p></td></tr></tbody></table>'
+  const saved=fromWysiwygHtml(html)
+  const doc=new DOMParser().parseFromString(toWysiwygHtml(saved),'text/html')
+  expect(doc.querySelector('td code')?.textContent).toBe(content)
+})

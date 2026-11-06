@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 package_version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-package_dmg="src-tauri/target/release/bundle/dmg/MarkWriter_${package_version}_aarch64.dmg"
+package_target="${CARGO_TARGET_DIR:-src-tauri/target}"
+package_dmg="$package_target/release/bundle/dmg/MarkWriter_${package_version}_aarch64.dmg"
 test -f "$package_dmg"
-package_mount=$(mktemp -d /tmp/markwriter-dmg.XXXXXX)
-package_install=$(mktemp -d /tmp/markwriter-install.XXXXXX)
+package_mount=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-dmg.XXXXXX")
+package_install=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-install.XXXXXX")
 mkdir -p package-acceptance-results
 hdiutil attach "$package_dmg" -nobrowse -readonly -mountpoint "$package_mount"
 trap 'hdiutil detach "$package_mount" >/dev/null 2>&1 || true' EXIT
@@ -25,7 +26,7 @@ grep -q '^Sealed Resources version=2' package-acceptance-results/signature.txt
 package_icon=$(plutil -extract CFBundleIconFile raw "$package_install/MarkWriter.app/Contents/Info.plist")
 test "$package_icon" = icon.icns
 cmp src-tauri/icons/icon.icns "$package_install/MarkWriter.app/Contents/Resources/$package_icon"
-package_profile=$(mktemp -d /tmp/markwriter-profile.XXXXXX)
+package_profile=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-profile.XXXXXX")
 # New restriction for this test process: no outbound IP, including renderers.
 # Preserve local Unix/XPC desktop IPC needed by LaunchServices and WebKit.
 MARKWRITER_PROFILE_DIR="$package_profile" sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' "$package_binary" >package-acceptance-results/launch.log 2>&1 &

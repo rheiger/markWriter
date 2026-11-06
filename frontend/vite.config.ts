@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 
@@ -9,12 +9,14 @@ export default defineConfig(async () => ({
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (req.url?.startsWith('/src/lib/dotWorker.ts?')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
+        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
         if (/^\/assets\/dotWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
+        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },
@@ -34,6 +36,9 @@ export default defineConfig(async () => ({
   
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
+    // Dynamic raw license imports need explicit access outside the frontend root.
+    // https://vite.dev/config/server-options.html#server-fs-allow
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../notices', import.meta.url))] },
     port: 5173,
     strictPort: true,
     host: "127.0.0.1", // Keep development-only endpoints local
@@ -45,6 +50,9 @@ export default defineConfig(async () => ({
   
   // 4. Build configuration
   build: {
+    // Keep app fonts self-hosted under the existing font-src policy. Export's
+    // explicit ?inline imports remain embedded independently.
+    assetsInlineLimit: 0,
     // Tauri supports es2021
     target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
     // don't minify for debug builds
