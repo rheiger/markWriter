@@ -1,3 +1,5 @@
+> Historical candidate checkpoint, superseded by [final release acceptance](technical-writing-2.5-release-acceptance.md).
+
 # Technical-writing acceptance — 6 November 2026
 
 This is a dated candidate checkpoint for PR #51, not a release assertion. Final source, merged/tag runs, asset IDs and anonymous downloads belong to the eventual release QUALIFICATION.json.

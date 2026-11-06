@@ -1,5 +1,14 @@
 # GitHub issue status — 6 November 2026
 
+**18 open / 28 closed after 2.5.0-alpha1 publication.** [v2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) is public prerelease/latest=false from `ee0b534c70ea53988a7e6263ae634e7f87d914cb` via PR #51. #46 inline-code fidelity, #47 offline Help and #50 bounded explicit math are closed with qualified acceptance and preserved original requests. [Final acceptance](technical-writing-2.5-release-acceptance.md) and [public verification](technical-writing-2.5-release-verification.json) bind all 12 public IDs/bytes and preserved historical releases/tags/latest.
+
+#10 remains a partial menu umbrella. #44 extra grammars/broad detection and #48/#49 OS previews remain open; PDF#41, DBML#33/DDL#42 and other independent backlog retain their gates. No stable/latest or trusted-signing claim is made.
+
+<details>
+<summary>Historical alpha3 issue snapshot (superseded)</summary>
+
+# GitHub issue status — 6 November 2026
+
 **21 open / 25 closed after alpha3 publication.** [v2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) is public prerelease/latest=false from `b40d45bd586c0c127bb696748101ded4276fce52` through [PR #43](https://github.com/rheiger/markWriter/pull/43). #38/#39/#40/#45 are closed with final release evidence and preserved original requests/history. [Release acceptance](alpha3-release-acceptance.md), attached QUALIFICATION.json and [public verification](alpha3-release-verification.json) record the three-platform checks, all 12 public asset identities/bytes and unchanged prior releases/tags/latest.
 
 ## Completed alpha3 scope
@@ -78,3 +87,5 @@ PDF#41 still needs actual paginated-file/backend feasibility across native targe
 | [#45](https://github.com/rheiger/markWriter/issues/45) | Prevent autocorrect and smart substitutions in technical editing contexts |
 
 Alpha1/productivity/alpha2 plans are completed scope records. Future notation/import/export paths each need independent semantic/offline/native/safety/persistence/export qualification.
+
+</details>
