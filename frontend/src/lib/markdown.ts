@@ -5,6 +5,7 @@ import taskLists from 'markdown-it-task-lists'
 import TurndownService from 'turndown'
 // @ts-expect-error plugin has no bundled declarations
 import { gfm } from 'turndown-plugin-gfm'
+import { mapTokens, type MapOwner, type PreviewMap } from './sourceMap'
 
 const markdown = new MarkdownIt({ html: false, linkify: true })
 markdown.use(markdownItIns).use(taskLists)
@@ -26,6 +27,33 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
 
 export function renderMarkdownHtml(source: string): string {
   return markdown.render(source)
+}
+
+// Mapping is opt-in and never used by export or the editable document codec.
+const mappedRenderer = new MarkdownIt().renderer
+Object.assign(mappedRenderer.rules, markdown.renderer.rules)
+for (const type of ['text', 'code_inline']) {
+  const original = markdown.renderer.rules[type]
+  mappedRenderer.rules[type] = (tokens, index, options, env, renderer) => {
+    const token = tokens[index]
+    const text = markdown.utils.escapeHtml(token.content)
+    const body = token.meta?.navigationText === undefined ? text : `<span data-mw-text="${token.meta.navigationText}">${text}</span>`
+    return type === 'code_inline' ? `<code${renderer.renderAttrs(token)}>${body}</code>` : token.meta?.navigationText === undefined ? original(tokens, index, options, env, renderer) : body
+  }
+}
+for (const type of ['fence', 'code_block']) {
+  const original = markdown.renderer.rules[type]!
+  mappedRenderer.rules[type] = (tokens, index, options, env, renderer) => {
+    const body = original(tokens, index, options, env, renderer)
+    return `<div data-mw-block="${tokens[index].meta?.navigationBlock}">${body}</div>`
+  }
+}
+export function renderMappedMarkdown(source: string, owner: MapOwner): PreviewMap {
+  const env = {}
+  const tokens = markdown.parse(source, env)
+  const map = mapTokens(source, tokens, owner, text => markdown.utils.unescapeAll(text))
+  map.html = mappedRenderer.render(tokens, markdown.options, env)
+  return map
 }
 
 export function toWysiwygHtml(source: string): string {

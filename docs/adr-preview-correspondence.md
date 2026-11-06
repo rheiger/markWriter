@@ -1,0 +1,15 @@
+# Preview correspondence ownership
+
+6 November 2026 — 2.1.0-alpha1 implementation
+
+Canonical source and the editing engines remain authoritative. The parser sidecar belongs to a document ID, source revision and render generation. Rendering never serializes WYSIWYG to obtain locations. Only the interactive Preview gets mapping attributes; ordinary rendering and HTML export do not.
+
+All offsets are JavaScript UTF-16 units into the original source, including CRLF. Parser line maps establish block intervals. Inline raw Markdown is located monotonically inside its parser-owned line/cell interval, never by globally searching rendered text. Child token types consume delimiters, link destinations and atoms explicitly. Decoded entities and escapes retain source intervals per rendered code unit; nested-list prefixes and table pipe escapes retain original offsets. Unsupported transformations degrade to block correspondence rather than guessing a character position.
+
+A character offset inside an entity/escape maps to its first rendered unit; its right boundary maps after the token. Delimiters and syntax gaps use the closest mapped text boundary in the containing block (ties prefer the earlier boundary). Generated bullets, checkboxes, images and SVG labels map to their containing block; the Preview uses a dashed local block outline for such fallbacks. Soft/hard line breaks map to token/block boundaries. Preview stays read-only. Native selection is never replaced to draw mirrored source selection.
+
+The active mounted Markdown session owns its synchronization controller. It disposes listeners, observers and animation jobs on deactivate/mode change/close. Each callback checks owner plus source revision/render generation. Geometry is measured in animation frames and cached until content/layout invalidates it; scroll frames use that cache. Programmatic scrolling suppresses feedback through subsequent frames, while explicit wheel/pointer intent takes leadership immediately. Passive scrolling changes neither editor selection nor fold state. Explicit Preview selection may reveal its source range without focusing CodeMirror. Disabling synchronization clears correspondence and allows independent scrolling.
+
+Search is separate tab-local view state. Replacement validates editor identity and the exact engine document used to compute hits. Rendered searches operate within textblocks and stop at atoms/hard breaks; replacements are ProseMirror transactions preserving marks at the starting position. Source searches use canonical CodeMirror text and reveal folds only on explicit navigation. Replace All is one history event; query/highlight changes never enter history.
+
+API evidence: installed markdown-it 15 parser/token declarations and source; installed CodeMirror 6 state/view/language/search declarations; Tiptap 3 and ProseMirror transactions/decorations/history. Official references: https://markdown-it.github.io/markdown-it/ , https://codemirror.net/docs/ref/ , https://tiptap.dev/docs/editor/api/editor . CodeMirror web retrieval returned 403; installed public declarations are the implementation reference.
