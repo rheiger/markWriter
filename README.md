@@ -1,4 +1,4 @@
-> **Current Rust/Tauri application:** `2.1.0-alpha1` implements the qualified editing/navigation core and has been manually accepted for integration into `main`. See [current status](QUICK_STATUS.md), [acceptance evidence](docs/editing-navigation-2.1.0-alpha1.md) and [remaining issues](docs/issue-status-2026-11-06.md). The content below describes the historical Python/Qt release. This integration does not publish a release.
+> **Current Rust/Tauri application:** `2.1.0-alpha1` is accepted and merged into `main` through PR #34. [Next increment: `2.1.0-alpha2`](docs/next-increment-2.1.0-alpha2-plan.md) plans safe offline DOT and qualified Tauri prerelease packages; [implementation prompt](docs/next-increment-2.1.0-alpha2-prompt.md). See [current status](QUICK_STATUS.md), [acceptance evidence](docs/editing-navigation-2.1.0-alpha1.md) and [remaining issues](docs/issue-status-2026-11-06.md). The content below describes the historical Python/Qt release. Alpha2 is not implemented or released by this preparation.
 
 # MarkWrite
 

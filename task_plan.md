@@ -1,3 +1,19 @@
+# Current task — plan alpha2 and add About attribution
+
+User scope: plan the next product increment and prepare a complete next-session prompt/model/effort recommendation; authorize issue updates and commit/push/merge/release after implementation gates. Add the requested Richie/vibe-coding credit now. Product version remains2.1.0-alpha1 during preparation.
+
+- Inspect main, current issues, release workflow and model controls: complete
+- Add exact About credit and verify existing controls/native UI: complete (d49154b; 93 tests/static/build checks and rebuilt ordinary macOS About)
+- Write alpha2 scope/prompt with explicit publication gates and authority: complete
+- Update relevant issues and current status: complete (#3/#4/#10/#31/#32/#33 updated; #35 created/aligned;16 open/18 closed)
+- Verify docs/source, preserve user files, commit/push preparation and handoff: complete (20 hashes/local links/version/diff checks; explicit staging/push; source CI42150156541 remains pending at handoff)
+
+Preparation branch codex/alpha2-plan-about starts from merged main7e29c6f. Next implementation branch codex/offline-dot-alpha2. Recommended core: qualified offline DOT plus real Tauri prerelease packaging; DBML gated stretch; PlantUML/draw.io/logs and broad features deferred. No feature or release completion is claimed by planning.
+
+Handoff model: GPT-6.1 Sol, Extra High (xhigh). Full copyable prompt: docs/next-increment-2.1.0-alpha2-prompt.md. About source commit d49154b is pushed; existing93 frontend tests, lint/typecheck/production/acceptance build and bridge exclusion pass. Rebuilt ordinary macOS About visibly contains the exact Richie sentence; original7996-character document remains clean. Version remains2.1.0-alpha1. No tag/release/merge is performed by this preparation task; future qualified implementation has explicit publication authority.
+
+---
+
 # User-accepted integration — 6 November 2026
 
 Richard has tested the delivered state and requested commit, push and merge. Target: repository default `main`; preserve current local user files and defer remaining open issues. Application source `2895d1c` and its passed CI42145312950 remain unchanged. Integration uses a PR and its current checks; the PR/Git history is the authoritative merge record. This authorization supersedes the historical no-merge boundary below; no tag/release is requested.
