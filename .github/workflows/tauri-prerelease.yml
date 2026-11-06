@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
-    branches: [main, 'codex/2.5-technical-writing']
+    branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json']
     tags: ['v2.*']
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
           npm run lint --prefix frontend
           npm run typecheck --prefix frontend
           npm test --prefix frontend
-          node --test tools/release-integrity.test.mjs tools/icon-integrity.test.mjs tools/code-fixtures.test.mjs tools/owned-process.test.mjs tools/worker-response-acceptance.test.mjs
+          node --test tools/release-integrity.test.mjs tools/release-policy.test.mjs tools/icon-integrity.test.mjs tools/code-fixtures.test.mjs tools/owned-process.test.mjs tools/worker-response-acceptance.test.mjs
           npm audit --prefix frontend --audit-level=low
           cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Build ordinary production frontend
@@ -139,7 +139,7 @@ jobs:
             ~/.cargo/git
             src-tauri/target
           key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
-  draft-prerelease:
+  draft-release:
     if: github.ref_type == 'tag'
     needs: package
     runs-on: ubuntu-26.04
@@ -154,7 +154,7 @@ jobs:
           pattern: package-*
           merge-multiple: true
           path: release-assets
-      - name: Create immutable draft prerelease only
+      - name: Stage immutable draft with reviewed release classification
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -162,4 +162,4 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo 'Refusing to replace an existing release'; exit 1
           fi
-          gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --draft --prerelease --latest=false --title "MarkWriter $GITHUB_REF_NAME — experimental Tauri" --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md"
+          node tools/release-metadata.mjs --create-draft

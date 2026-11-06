@@ -4,9 +4,9 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Current release
 
-[2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) is an experimental public prerelease. It adds inline-code whitespace fidelity, explicit offline math fences and bundled searchable Help. It is not marked as GitHub’s latest stable release; use the explicit version link to find its downloads.
+[2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) is a regular release, published with `latest=false`. It fixes highlighting of longer Python/JSON blocks and consolidates the project documentation, building on the inline-code fidelity, offline math and searchable Help delivered in 2.5.0-alpha1. Use the explicit version link to find its downloads; the historical latest-release pointer is intentionally unchanged.
 
-Qualified packages are available for Apple Silicon macOS, Windows x64 and Ubuntu 26.04 x64. Read the [installation and rollback guide](docs/install-2.5-alpha1.md) and [acceptance report and limits](docs/technical-writing-2.5-release-acceptance.md) before installing. Each release includes platform manifests, checksums, third-party notices and `QUALIFICATION.json`.
+Qualified packages are available for Apple Silicon macOS, Windows x64 and Ubuntu 26.04 x64. Read the [installation and rollback guide](docs/install-2.5.1.md) and [acceptance report and limits](docs/2.5.1-release-acceptance.md) before installing. Each release includes platform manifests, checksums, third-party notices and `QUALIFICATION.json`.
 
 macOS packages have an ad-hoc integrity seal, without Developer ID signing or notarization. Windows packages are unsigned. Other OS baselines and browser-quarantine behavior require separate qualification.
 
@@ -69,8 +69,8 @@ This README is the maintained project entry point. [README-v2.md](README-v2.md) 
 
 - [Current status](CURRENT_STATUS.md)
 - [2.5 implementation details](docs/technical-writing-2.5-alpha1.md)
-- [2.5 release acceptance](docs/technical-writing-2.5-release-acceptance.md)
-- [Release notes](docs/releases/2.5.0-alpha1.md)
+- [2.5.1 release acceptance](docs/2.5.1-release-acceptance.md)
+- [Release notes](docs/releases/2.5.1.md)
 - [Historical changelog](CHANGELOG.md)
 
 The former Python/Qt instructions and early rewrite notes remain available in [Git history](https://github.com/rheiger/markWriter/tree/7887a2ba60bb265a9f18420840adc2aa0700cab8). They do not describe the current application.

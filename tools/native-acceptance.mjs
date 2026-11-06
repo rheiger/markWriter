@@ -2,6 +2,7 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
+import { verifyLongCode } from './long-code-acceptance.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { codeFixtureCases } from './code-fixtures.mjs'
@@ -542,6 +543,13 @@ try {
     saveAs: path => action('saveAs',path),save: () => action('save'),
     exportHtml: path => action('exportHtml',path),wait:waitFor,request,session,assets:join(root,'frontend/dist-acceptance/assets')})
   alpha3Cases.push(...technical.cases)
+  const longCode = await verifyLongCode({dir:fixtureDir,artifacts,run,click,menu,
+    mode: markdown => mode(markdown ? 'Markdown' : 'WYSIWYG'),open: path => action('open',path),
+    close: async () => { const id=(await snapshot()).document.id; await action('close',id) },
+    saveAs: path => action('saveAs',path),exportHtml: path => action('exportHtml',path),
+    wait:waitFor,syntax,request,session})
+  alpha3Cases.push(...longCode.cases)
+  await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
   await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
   await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery', ...alpha3Cases] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)

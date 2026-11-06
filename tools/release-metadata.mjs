@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 import { verifyReleaseAssets, peArchitecture } from './release-integrity.mjs'
 import { verifyDesktopIconSources } from './icon-integrity.mjs'
 import { verifyMathAssets } from './math-assets.mjs'
+import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
 const root=resolve(import.meta.dirname,'..'), assets=join(root,'release-assets'), args=process.argv.slice(2)
 const sha=data=>createHash('sha256').update(data).digest('hex')
 const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'))
@@ -16,7 +17,7 @@ async function files(path){const result=[];for(const entry of await readdir(path
 async function check(){
  assert.equal((await json('package.json')).version,version);assert.equal((await json('frontend/package-lock.json')).version,version);assert.equal((await json('frontend/package-lock.json')).packages[''].version,version);assert.equal((await json('src-tauri/tauri.conf.json')).version,version)
  for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
- assert.equal(version,'2.5.0-alpha1')
+ assert.equal(version,releasePolicy.version)
  await verifyDesktopIconSources(root)
  if(process.env.GITHUB_REF_TYPE==='tag')assert.equal(process.env.GITHUB_REF_NAME,'v'+version)
  console.log('All application version metadata:',version)
@@ -93,15 +94,20 @@ if(args.includes('--collect')){
  await copyFile(join(root,'frontend/public/THIRD_PARTY_NOTICES.txt'),join(assets,'THIRD_PARTY_NOTICES.txt'))
  // Checkout line endings vary by OS; this shared release asset must have one
  // deterministic byte representation when the platform artifacts are merged.
- const installationGuide=await readFile(join(root,'docs/install-2.5-alpha1.md'),'utf8')
+ const installationGuide=await readFile(join(root,releasePolicy.installationGuide),'utf8')
  await writeFile(join(assets,'INSTALL-UPGRADE-ROLLBACK.md'),installationGuide.replaceAll('\r\n','\n'))
  console.log('Collected',file,manifest.asset.sha256)
 }
 if(args.includes('--aggregate')){
  const manifests=await Promise.all((await readdir(assets)).filter(name=>name.endsWith('.manifest.json')).map(async name=>JSON.parse(await readFile(join(assets,name),'utf8'))))
  await verifyReleaseAssets(assets,manifests,{version,source:process.env.GITHUB_SHA})
- await writeFile(join(assets,'release-manifest.json'),JSON.stringify({schemaVersion:1,version,source:process.env.GITHUB_SHA,prerelease:true,makeLatest:false,platforms:manifests},null,2)+'\n')
+ await writeFile(join(assets,'release-manifest.json'),JSON.stringify({schemaVersion:1,version,source:process.env.GITHUB_SHA,prerelease:releasePolicy.prerelease,makeLatest:releasePolicy.makeLatest,platforms:manifests},null,2)+'\n')
  const sums=[];for(const name of (await readdir(assets)).filter(n=>n!=='SHA256SUMS').sort())sums.push(`${sha(await readFile(join(assets,name)))}  ${name}`)
  await writeFile(join(assets,'SHA256SUMS'),sums.join('\n')+'\n')
  console.log('Verified final assets and generated SHA256SUMS')
+}
+if(args.includes('--create-draft')){
+ await check()
+ assert.equal(process.env.GITHUB_REF_TYPE,'tag')
+ command('gh',draftReleaseArgs(version,(await readdir(assets)).sort()))
 }

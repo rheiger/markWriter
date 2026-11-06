@@ -15,3 +15,20 @@ test('code expectations are identical across LF, CRLF and bare-CR checkouts', as
   assert.equal(expected[0][1],'c')
   assert.ok(expected.some(([,info])=>info==='plaintext'))
 })
+
+test('long-code native fixture covers the reported six-block aggregate without private content', async () => {
+  const { longCodeFixture } = await import('./long-code-acceptance.mjs')
+  const {source,blocks}=longCodeFixture()
+  assert.deepEqual(blocks.map(block=>block.code.length),[4588,832,931,448,11246,8355])
+  const parsed=codeFixtureCases(source)
+  assert.equal(parsed.length,6)
+  assert.ok(source.length>16*1024 && source.length<32*1024,'Exercises the previous document limit within the new separate Python/JSON budget')
+  blocks.forEach((block,n)=>{
+    assert.equal(parsed[n][1],block.language)
+    assert.equal(parsed[n][2],block.code)
+    assert.equal(block.code.split(block.marker).length-1,1,'Find marker is unique within its block')
+    assert.equal(source.split(block.marker).length-1,1,'Find marker is unique in the whole document')
+    assert.ok(block.code.split('\n').every(line=>line.length<=2048),'Retains the production individual-line safety limit')
+    if(block.language==='json')assert.equal(JSON.parse(block.code)[block.marker],true)
+  })
+})
