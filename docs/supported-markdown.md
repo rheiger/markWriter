@@ -1,6 +1,6 @@
 # Markdown and editing conventions
 
-MarkWriter 2.1.0-alpha2 keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
+The 2.1.0-alpha3 candidate keeps Markdown canonical. Opening, searching, selecting, scrolling, folding, changing Settings or switching modes does not normalize or rewrite it. Genuine WYSIWYG edits serialize supported semantics and may normalize blank lines, list markers, indentation, fence choice and table layout. Use source mode when exact syntax beyond the supported subset matters.
 
 Supported: ATX headings, paragraphs, bold/italic/strike, inline/fenced code, quotes, nested bullet/ordered/task lists, links, embedded images, GFM tables/alignment, Mermaid fences and the DOT subset below. `++text++` is underline. Table cells can contain the narrowly allowed safe `<br>` line break. Arbitrary HTML is displayed literally, not executed; merged cells and arbitrary HTML styling are outside this subset.
 
@@ -13,6 +13,16 @@ The table picker begins at 5 × 5. Pointer movement grows/shrinks the visible ar
 Find searches the current tab only. Markdown scope includes all canonical source and folded payloads, including pasted multiline queries. WYSIWYG scope is editable text inside each text block; matches may cross inline marks but stop at atoms/hard breaks/block boundaries. Search source explicitly to access diagram internals. Literal queries, case/whole-word options, wrapping next/previous, current replacement and one-step Replace All are supported; regular expressions and project search are deferred.
 
 GFM permits multiple spaces after a list marker and four-space nesting. Those forms are not corruption. Practical markdownlint configuration may disable MD013 (line length, especially URLs/diagram/data payloads), MD024 (repeated headings), MD033 only for the documented table `<br>` extension, and MD046 when accepting both valid code forms. Set MD004/MD007/MD030 to the team's chosen list style or disable style-only checks for normalized WYSIWYG output. Do not rewrite user documents solely to satisfy lint. Source and rendered fonts are independent display settings, not document formatting.
+
+## Ordinary code highlighting (alpha3 candidate)
+
+The `{ }` toolbar button and **View → Syntax highlighting** control one saved preference, on by default. It applies to source code blocks, WYSIWYG, Preview and HTML export. **View → Theme → Auto / Light / Dark** follows the same choice as Settings; Auto responds to the system appearance. Source and rendered text sizes remain independent.
+
+Supported languages: C, C++, C#, Objective-C, SQL, Bash, Zsh (using the Bash grammar), Rust, Python, Go, YAML, JSON, XML, JavaScript, TypeScript and Dockerfile. Prefer an explicit fence such as `js`, `python`, `cpp`, `csharp`, `objective-c`, `bash`, `zsh`, `yaml`, `json`, `xml`, `ts` or `dockerfile`. Common registered aliases are accepted. The first fence-info word chooses the language; later metadata does not change it.
+
+Only unlabeled ordinary code is detected automatically, with a conservative confidence threshold. Ambiguous results stay plain. Explicit `text`, unsupported names and reserved diagram formats remain plain or use their existing diagram path; automatic detection never changes the fence language or source. Highlighting is presentation only, and code that resembles HTML or JavaScript is displayed literally.
+
+To keep presentation work bounded, explicit blocks over 4 Ki UTF-16 units, automatic blocks over 2 Ki, and any block with a line over 2 Ki stay plain. A rebuild also limits total work to 16 Ki units, 64 blocks and 4 automatic blocks. Source is never truncated. These limits do not guarantee a hard lexer time deadline. Self-contained HTML uses a fixed readable light palette with inline styles and no highlighting scripts or network requests. Turning highlighting off exports plain code.
 
 ## Offline DOT / Graphviz
 

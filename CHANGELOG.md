@@ -1,3 +1,11 @@
+## Unreleased 2.1.0-alpha3 candidate — 2026-11-06
+
+- Add shared offline ordinary-code highlighting across source, WYSIWYG, Preview and self-contained HTML export, with the full requested language set, conservative unlabeled detection and a saved View/toolbar toggle.
+- Make toolbar controls follow theme tokens; add synchronized Auto/Light/Dark View choices and live system appearance updates.
+- Add a maintainable native icon master and packaged macOS/Windows/Linux assets; require a valid whole-bundle macOS ad-hoc seal. This does not establish trusted signing or notarization.
+- Fix Preview correspondence through token spans, menu stacking/Escape and late completion dismissal, viewport-clamped table picker growth, source synchronization entering rendered Undo history, stale async Cut/Paste ownership, and bounded Windows atomic preference replacement recovery with visible terminal errors.
+- Candidate PR #43; acceptance and exact source/package evidence: docs/highlighting-theme-alpha3.md. No alpha3 merge, tag or release is claimed. PDF, DBML and SQL DDL import remain deferred.
+
 ## [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) — 2026-11-06
 
 - Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export.
