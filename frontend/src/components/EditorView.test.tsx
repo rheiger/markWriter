@@ -35,6 +35,38 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
 
+  it('formats selected source list lines without deleting text or inserting a marker below the line', async () => {
+    const { ref } = await mount('first\nsecond\nuntouched')
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    act(() => view.dispatch({ selection: { anchor: 12, head: 0 } }))
+    act(() => ref.current!.toggleBulletList())
+    expect(ref.current!.getMarkdown()).toBe('- first\n- second\nuntouched')
+    expect(view.state.selection.main.empty).toBe(true)
+    expect(view.state.selection.main.head).toBe(16)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('first\nsecond\nuntouched')
+    act(() => view.dispatch({ selection: { anchor: 0, head: 12 } }))
+    act(() => ref.current!.toggleOrderedList())
+    expect(ref.current!.getMarkdown()).toBe('1. first\n2. second\nuntouched')
+  })
+
+  it('sets Body inside safe fenced or indented source code with one undo', async () => {
+    const source = '````lang\nwith ``` inside\n````\n\ntail'
+    const { ref } = await mount(source)
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    act(() => view.dispatch({ selection: { anchor: 15 } }))
+    act(() => ref.current!.setHeadingLevel(0))
+    expect(ref.current!.getMarkdown()).toBe('with ``` inside\n\ntail')
+    expect(view.state.selection.main.head).toBe(15)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(source)
+    act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '    first\n    second\n\ntail' }, selection: { anchor: 7 } }))
+    act(() => ref.current!.setHeadingLevel(0))
+    expect(ref.current!.getMarkdown()).toBe('first\nsecond\n\ntail')
+  })
+
   it('searches folded canonical source without changing selection, replaces all once, and keeps queries tab-local', async () => {
     const { ref } = await mount('same same\n\n```mermaid\nflowchart TD\n A[same]\n```')
     await markdown(ref)

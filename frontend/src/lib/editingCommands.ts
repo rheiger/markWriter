@@ -50,11 +50,38 @@ export function toggleSourceCode(view: EditorView) {
   }
   if (content === undefined) {
     const selected = doc.sliceString(start, end)
-    const length = Math.max(3, ...Array.from(selected.matchAll(/`+/g), match => match[0].length + 1))
+    let length = 3
+    for (const match of selected.matchAll(/`+/g)) length = Math.max(length, match[0].length + 1)
     const fence = '`'.repeat(length)
     content = `${fence}\n${selected}\n${fence}`
   }
   view.dispatch({ changes: { from: start, to: end, insert: content }, selection: { anchor: start + content.length }, annotations: isolateHistory.of('full') })
+  view.focus()
+}
+
+export function clearSourceCode(view: EditorView): boolean {
+  for (let node = syntaxTree(view.state).resolveInner(view.state.selection.main.head, -1); node; node = node.parent!) {
+    if (node.name === 'FencedCode') { toggleSourceCode(view); return true }
+    if (node.name === 'CodeBlock') {
+      const from = view.state.doc.lineAt(node.from).from
+      const content = view.state.sliceDoc(from, node.to).replace(/^(?: {4}|\t)/gm, '')
+      view.dispatch({ changes: { from, to: node.to, insert: content }, selection: { anchor: from + content.length }, annotations: isolateHistory.of('full') })
+      view.focus(); return true
+    }
+  }
+  return false
+}
+
+export function toggleSourceList(view: EditorView, kind: 'bullet' | 'ordered') {
+  const doc = view.state.doc, selection = view.state.selection.main
+  const first = doc.lineAt(selection.from), last = doc.lineAt(selection.to > selection.from && doc.lineAt(selection.to).from === selection.to ? selection.to - 1 : selection.to)
+  const lines = Array.from({ length: last.number - first.number + 1 }, (_, i) => doc.line(first.number + i))
+  const marker = kind === 'bullet' ? /^(\s*)[-+*]\s+(?!\[[ xX]\])/ : /^(\s*)\d+[.)]\s+/
+  const remove = lines.every(line => marker.test(line.text))
+  const changes = lines.map((line, i) => ({ from: line.from, to: line.to, insert: remove ? line.text.replace(marker, '$1')
+    : line.text.replace(/^(\s*)(?:(?:[-+*]|\d+[.)])\s+)?/, `$1${kind === 'bullet' ? '- ' : `${i + 1}. `}`) }))
+  const transaction = view.state.update({ changes })
+  view.dispatch({ changes, selection: { anchor: transaction.changes.mapPos(selection.to, 1) }, annotations: isolateHistory.of('full') })
   view.focus()
 }
 

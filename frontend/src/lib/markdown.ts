@@ -86,7 +86,8 @@ export function toWysiwygHtml(source: string): string {
 function mermaidFence(node: HTMLElement): string {
   const chart = node.getAttribute('data-chart') ?? node.textContent ?? ''
   // Pick a fence longer than any run in the source.
-  const size = Math.max(3, ...Array.from(chart.matchAll(/`+/g), match => match[0].length + 1))
+  let size = 3
+  for (const match of chart.matchAll(/`+/g)) size = Math.max(size, match[0].length + 1)
   const fence = '`'.repeat(size)
   return `\n\n${fence}mermaid\n${chart.replace(/\n$/, '')}\n${fence}\n\n`
 }

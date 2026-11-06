@@ -44,7 +44,7 @@ import { synchronizePreview } from '../lib/previewSync'
 import type { PreviewMap } from '../lib/sourceMap'
 import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/sourceCoordinates'
 import { wrapContinuation } from '../lib/wrapContinuation'
-import { toggleSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
+import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
 
 const lowlight = createLowlight(common)
@@ -435,19 +435,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         const doc = view.state.doc
         const fromLine = doc.lineAt(sel.from)
         const toLine = doc.lineAt(sel.to)
-        // If switching to Body, also remove fenced code if the whole selection is fenced
-        if (level === 0) {
-          const selectedText = doc.sliceString(fromLine.from, toLine.to)
-          const fencedStart = selectedText.match(/^\s*```.*?\n/)
-          const fencedEnd = selectedText.match(/\n```\s*$/)
-          if (fencedStart && fencedEnd) {
-            const withoutFence = selectedText
-              .replace(/^\s*```.*?\n/, '')
-              .replace(/\n```\s*$/, '')
-            view.dispatch({ changes: { from: fromLine.from, to: toLine.to, insert: withoutFence } })
-            return
-          }
-        }
+        if (level === 0 && clearSourceCode(view)) return
         let changes: { from: number, to: number, insert: string }[] = []
         for (let n = fromLine.number; n <= toLine.number; n++) {
           const line = doc.line(n)
@@ -467,22 +455,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().toggleBulletList().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert: '\n- ' },
-          selection: { anchor: selection.from + 3 }
-        })
+        toggleSourceList(editorViewRef.current, 'bullet')
       }
     },
     toggleOrderedList: () => {
       if (editorMode === 'wysiwyg' && tiptap) {
         tiptap.chain().focus().toggleOrderedList().run(); finishRenderedFormat(tiptap)
       } else if (editorViewRef.current) {
-        const selection = editorViewRef.current.state.selection.main
-        editorViewRef.current.dispatch({
-          changes: { from: selection.from, to: selection.to, insert: '\n1. ' },
-          selection: { anchor: selection.from + 4 }
-        })
+        toggleSourceList(editorViewRef.current, 'ordered')
       }
     },
     insertHorizontalRule: () => {
@@ -560,11 +540,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         const lines = Array.from({ length: end.number - start.number + 1 }, (_, index) => view.state.doc.line(start.number + index))
         const task = /^(\s*)[-*+]\s+\[[ xX]\]\s?/
         const remove = lines.every(line => task.test(line.text))
-        view.dispatch({ changes: lines.map(line => ({
+        const changes = lines.map(line => ({
           from: line.from, to: line.to,
           insert: remove ? line.text.replace(task, '$1') : task.test(line.text) ? line.text
             : line.text.replace(/^(\s*)(?:[-*+]\s+)?(.*)$/, '$1- [ ] $2'),
-        })) })
+        }))
+        const transaction = view.state.update({ changes })
+        view.dispatch({ changes, selection: { anchor: transaction.changes.mapPos(to, 1) } })
+        view.focus()
       }
     },
     insertTable: (rows: number, cols: number) => {
