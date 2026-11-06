@@ -2,6 +2,7 @@
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
 import assert from 'node:assert/strict'
+import { codeFixtureCases } from './code-fixtures.mjs'
 import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
@@ -309,7 +310,7 @@ try {
   // Alpha3: small per-block documents keep every token visible in CodeMirror's
   // virtualized DOM. Both real engines and native I/O run without lexer mocks.
   const syntaxFixture = await readFile(join(root, 'tools', 'fixtures', 'code-highlighting-alpha3.md'), 'utf8')
-  const codeCases = [...syntaxFixture.matchAll(/^```([^\n]*)\n([\s\S]*?)\n```$/gm)]
+  const codeCases = codeFixtureCases(syntaxFixture)
   assert.equal(codeCases.length, 22)
   await syntax(true)
   for (const [index, match] of codeCases.entries()) {
@@ -385,16 +386,19 @@ try {
   alpha3Cases.push('toolbar and View syntax controls synchronized across both engines without selection/fold/revision/history changes')
 
   const fontSettings = (await snapshot()).config
+  // Measure chrome against a settled window before resizing. Sampling innerWidth
+  // immediately after setWindowRect can observe the previous WebView draw.
+  const originalBounds = await request('GET', `/session/${session}/window/rect`)
+  const chromeWidth = originalBounds.width - await run('return window.innerWidth')
   for (const width of [800, 1024, 1440]) {
-    await request('POST', `/session/${session}/window/rect`, { width, height: 900 })
-    const firstWidth = await run('return window.innerWidth')
-    if (firstWidth !== width) await request('POST', `/session/${session}/window/rect`, { width: width + width - firstWidth, height: 900 })
+    const windowBounds = await request('POST', `/session/${session}/window/rect`, { width: width + chromeWidth, height: 900 })
     await waitFor(() => run('return window.innerWidth===arguments[0]', width), `actual native ${width}px viewport`)
     for (const name of ['Light', 'Dark', 'Auto']) {
       await theme(name)
       for (const editorMode of ['Markdown', 'WYSIWYG']) {
         await mode(editorMode)
         const style = await run(`const t=document.querySelector('.toolbar'),s=getComputedStyle(t),dark=arguments[0]==='Dark'||arguments[0]==='Auto'&&matchMedia('(prefers-color-scheme: dark)').matches,primary=dark?'rgb(26, 26, 26)':'rgb(255, 255, 255)',secondary=dark?'rgb(45, 45, 45)':'rgb(248, 249, 250)',text=dark?'rgb(255, 255, 255)':'rgb(33, 37, 41)',buttons=[...t.querySelectorAll('button,select')].filter(e=>e.getBoundingClientRect().width>0);return {width:innerWidth,mode:arguments[1],theme:arguments[0],dark,background:s.backgroundColor,expectedBackground:secondary,text:s.color,expectedText:text,primary,withinViewport:buttons.every(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),fontBackground:getComputedStyle(t.querySelector('select')).backgroundColor,colorScheme:s.colorScheme}`, name, editorMode)
+        style.windowBounds = windowBounds
         assert.equal(style.background, style.expectedBackground)
         assert.equal(style.text, style.expectedText)
         assert.equal(style.fontBackground, style.primary)

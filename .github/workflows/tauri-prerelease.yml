@@ -64,7 +64,7 @@ jobs:
           npm run lint --prefix frontend
           npm run typecheck --prefix frontend
           npm test --prefix frontend
-          node --test tools/release-integrity.test.mjs tools/icon-integrity.test.mjs tools/owned-process.test.mjs tools/worker-response-acceptance.test.mjs
+          node --test tools/release-integrity.test.mjs tools/icon-integrity.test.mjs tools/code-fixtures.test.mjs tools/owned-process.test.mjs tools/worker-response-acceptance.test.mjs
           npm audit --prefix frontend --audit-level=low
           cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Build ordinary production frontend

@@ -1,5 +1,6 @@
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
 import assert from 'node:assert/strict'
+import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
 import { stopOwnedApplication, processInventory, ownedDescendants } from './owned-process.mjs'
 import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
@@ -102,11 +103,11 @@ try{
  // Real OS Open on each small block avoids CodeMirror viewport virtualization
  // hiding later languages. No test bridge, editor commands or store calls.
  const syntaxSource=await readFile(join(root,'tools/fixtures/code-highlighting-alpha3.md'),'utf8')
- const syntaxBlocks=[...syntaxSource.matchAll(/```([^\n]*)\n([\s\S]*?)```/g)]
+ const syntaxBlocks=codeFixtureCases(syntaxSource)
  assert.equal(syntaxBlocks.length,22,'All requested language/alias/plain/detection fixture cases')
  await syntaxHighlighting(true,'toolbar')
  for(const [index,block] of syntaxBlocks.entries()){
-  const info=block[1],code=block[2].replace(/\n$/,''),highlighted=!['plaintext','unknown'].includes(info)&&!(info===''&&code==='x = 1')
+  const info=block[1],code=block[2],highlighted=!['plaintext','unknown'].includes(info)&&!(info===''&&code==='x = 1')
   const title=`code-case-${String(index+1).padStart(2,'0')}.md`,path=join(fixture,title)
   await writeFile(path,block[0]+'\n');await openDocument(path,title)
   await codePresentation(code,highlighted,true,'installed source/Preview '+(info||'automatic')+' case '+(index+1))
