@@ -3,7 +3,7 @@ import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemir
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { EditorView, type EditorViewRef } from './EditorView'
 import { toWysiwygHtml } from '../lib/markdown'
@@ -34,6 +34,44 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('searches folded canonical source without changing selection, replaces all once, and keeps queries tab-local', async () => {
+    const { ref } = await mount('same same\n\n```mermaid\nflowchart TD\n A[same]\n```')
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    const source = ref.current!.getMarkdown()
+    const initial = view.state.selection.main.anchor
+    act(() => ref.current!.openFind(true))
+    fireEvent.change(screen.getByLabelText('Find'), { target: { value: 'same' } })
+    expect(screen.getByText('3 matches · wraps')).toBeVisible()
+    expect(view.state.selection.main.anchor).toBe(initial)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    expect(foldedRanges(view.state).size).toBe(0)
+    fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: 'other' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Replace All', exact: true }))
+    expect(ref.current!.getMarkdown()).toBe(source.replaceAll('same', 'other'))
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(source)
+    act(() => useAppStore.getState().setCurrentDocument({ id: 'B', title: 'B', content: 'other', isDirty: false, lastModified: new Date() }))
+    expect(screen.queryByRole('search')).not.toBeInTheDocument()
+    act(() => useAppStore.getState().activateDocument('doc-1'))
+    expect(screen.getByLabelText('Find')).toHaveValue('same')
+  })
+
+  it('replaces rendered marked and table text without searching diagram internals', async () => {
+    const { ref, editor } = await mount('sa**me**\n\n| same | H |\n|---|---|\n| same | other |\n\n```mermaid\nflowchart TD\n A[same]\n```')
+    act(() => ref.current!.openFind(true))
+    fireEvent.change(screen.getByLabelText('Find'), { target: { value: 'same' } })
+    expect(screen.getByText('3 matches · wraps')).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: 'new' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Replace All', exact: true }))
+    expect(editor.getText()).toContain('new')
+    expect(editor.getHTML()).toContain('<table')
+    expect(ref.current!.getMarkdown()).toContain('A[same]')
+    act(() => ref.current!.undo())
+    expect(editor.getHTML()).toContain('<strong>me</strong>')
+  })
 
   it('shows the welcome state without a document', () => {
     render(<EditorView />)

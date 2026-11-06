@@ -206,3 +206,13 @@
 .source-fold-actions { float: right; display: inline-flex; gap: 6px; }
 .source-fold-actions button { font-size: 12px; background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 3px; padding: 2px 5px; }
 .embedded-source { background: var(--bg-secondary); overflow-wrap: anywhere; }
+
+.document-editor-session { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.find-replace { flex: none; padding: 8px 16px; background: var(--bg-secondary); color: var(--text-primary); border-bottom: 1px solid var(--border-color); font-size: 12px; }
+.find-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.find-row label { display: inline-flex; align-items: center; gap: 4px; }
+.find-row textarea { width: 180px; max-width: 40vw; min-height: 28px; resize: vertical; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 3px 6px; }
+.find-replace button { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; padding: 4px 8px; }
+.find-replace button:disabled { opacity: .5; }
+.find-scope { color: var(--text-secondary); }
+.search-match { background: color-mix(in srgb, #e8b82e 40%, transparent); outline: 1px solid color-mix(in srgb, #e8b82e 65%, transparent); }

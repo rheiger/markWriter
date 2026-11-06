@@ -38,6 +38,8 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import { TableTools } from './TableTools'
 import { MermaidNode } from '../extensions/MermaidNode'
+import { FindReplace } from './FindReplace'
+import { renderedSearchDecorations, sourceSearchDecorations } from '../lib/editorSearch'
 
 
 const lowlight = createLowlight(common)
@@ -48,6 +50,7 @@ interface DocumentEditorProps extends EditorViewProps { documentId?: string, act
 
 export interface EditorViewRef {
   setMode: (mode: EditorMode) => void
+  openFind: (replace?: boolean) => void
   getMarkdown: () => string
   setMarkdown: (content: string) => void
   // CodeMirror 6 specific methods for menu integration
@@ -108,6 +111,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<CodeMirrorView | null>(null)
+  const [sourceView, setSourceView] = useState<CodeMirrorView | null>(null)
+  const [find, setFind] = useState({ open: false, replace: false, request: 0 })
   const [mermaidBlocks, setMermaidBlocks] = useState<MermaidBlock[]>([])
   const [editorMode, setEditorMode] = useState<EditorMode>(useAppStore.getState().documents.find(doc => doc.id === documentId)?.mode ?? 'wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
@@ -149,6 +154,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         underline: false,
         link: false,
       }),
+      renderedSearchDecorations,
       CodeBlockLowlight.configure({ lowlight }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       BulletList,
@@ -289,6 +295,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   // Expose editor methods to parent components (MenuBar integration)
   React.useImperativeHandle(ref, () => ({
     setMode: changeMode,
+    openFind: (replace = false) => setFind(current => ({ open: true, replace, request: current.request + 1 })),
     getMarkdown: () => source(),
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
@@ -652,6 +659,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       extensions: [
         markdown(),
         embeddedSourceFolds(),
+        sourceSearchDecorations,
         history(), // Enable undo/redo functionality
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         preferences.current.of([
@@ -701,6 +709,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     })
 
     editorViewRef.current = view
+    setSourceView(view)
     console.log('[EDITOR] CodeMirror editor created successfully')
 
     // Restore previous caret position if available; otherwise place at end
@@ -845,6 +854,11 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const isEmpty = (currentDocument?.content || '').trim().length === 0
 
     return (
+    <div className="document-editor-session">
+    <FindReplace documentId={documentId} source={currentDocument.content} view={sourceView} editor={tiptap}
+      mode={editorMode} active={active} open={find.open} replace={find.replace} request={find.request}
+      onClose={() => { setFind(current => ({ ...current, open: false })); if (editorMode === 'markdown') sourceView?.focus(); else tiptap?.commands.focus() }}
+      onSource={() => changeMode('markdown')} />
     <div
       className="editor-container"
       style={{
@@ -1042,7 +1056,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         </div>
 
 
-    </div>
+    </div></div>
   )
 })
 

@@ -246,33 +246,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     setActiveMenu(null)
   }
 
-  const handleFind = () => {
-    if (editorViewRef?.current) {
-      try {
-        // Focus the editor first
-        editorViewRef.current.focus()
-
-        // Use keyboard shortcut to trigger CodeMirror's built-in search
-        const isMac = navigator.userAgent.includes('Mac')
-        const event = new KeyboardEvent('keydown', {
-          key: 'f',
-          [isMac ? 'metaKey' : 'ctrlKey']: true,
-          bubbles: true
-        })
-
-        // Get the editor view and dispatch the event to it
-        const editorView = editorViewRef.current.getEditorView()
-        if (editorView?.dom) {
-          editorView.dom.dispatchEvent(event)
-        }
-
-        console.log('[MENU] Triggered find dialog')
-      } catch (error) {
-        console.error('[MENU] Find failed:', error)
-      }
-    }
+  const handleFind = (replace = false) => {
+    editorViewRef?.current?.openFind(replace)
     setActiveMenu(null)
   }
+  useEffect(() => {
+    const search = (event: KeyboardEvent) => {
+      const mac = navigator.userAgent.includes('Mac')
+      const mod = mac ? event.metaKey : event.ctrlKey
+      if (!currentDocument || !mod) return
+      const key = event.key.toLowerCase()
+      if (key === 'f' || (mac ? key === 'h' && event.shiftKey : key === 'h')) {
+        event.preventDefault(); event.stopPropagation()
+        editorViewRef?.current?.openFind(key === 'h')
+      }
+    }
+    document.addEventListener('keydown', search, true)
+    return () => document.removeEventListener('keydown', search, true)
+  }, [currentDocument, editorViewRef])
 
   // View menu handlers
   const handleThemeToggle = () => {
@@ -307,6 +298,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         state.activateDocument(docs[(index + (e.shiftKey ? -1 : 1) + docs.length) % docs.length].id)
         return
       }
+      if ((e.target as HTMLElement)?.closest('input, textarea, select, .markwriter-preview')) return
       if (modKey) {
         let shouldPrevent = false
         let actionToExecute: (() => void) | null = null
@@ -356,18 +348,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
               shouldPrevent = true
               actionToExecute = handleUndo
             }
-            break
-          case 'x':
-            shouldPrevent = true
-            actionToExecute = handleCut
-            break
-          case 'c':
-            shouldPrevent = true
-            actionToExecute = handleCopy
-            break
-          case 'v':
-            shouldPrevent = true
-            actionToExecute = handlePaste
             break
           case 'a':
             shouldPrevent = true
@@ -525,11 +505,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
             <div className="menu-separator" />
             <button
               className="menu-option"
-              onClick={handleFind}
+              onClick={() => handleFind()}
               disabled={!currentDocument}
             >
               <span>Find...</span>
-              <span className="shortcut">⌘F</span>
+              <span className="shortcut">⌘F / Ctrl+F</span>
+            </button>
+            <button className="menu-option" disabled={!currentDocument} onClick={() => handleFind(true)}>
+              <span>Replace...</span><span className="shortcut">⌘⇧H / Ctrl+H</span>
             </button>
           </div>
         )}
