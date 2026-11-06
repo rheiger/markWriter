@@ -47,7 +47,8 @@ $inputCondition=[System.Windows.Automation.OrCondition]::new(
 for($attempt=0;$attempt -lt 300;$attempt++){
  $edits=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,$inputCondition)
  foreach($edit in $edits){
-  if(($edit.Current.Name -match '^File name' -or $edit.Current.AutomationId -eq '1148') -and -not $edit.Current.IsOffscreen){
+  $filenameControl=$edit.Current.Name -match '^File name' -or $edit.Current.AutomationId -eq '1148' -or ($edit.Current.ClassName -eq 'Edit' -and $edit.Current.AutomationId -eq '1001')
+  if($filenameControl -and -not $edit.Current.IsOffscreen){
    $pattern=$null
    if($edit.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){$field=$edit;$value=$pattern;break}
    if($edit.Current.ClassName -eq 'Edit' -and $edit.Current.NativeWindowHandle -ne 0){$field=$edit;break}
