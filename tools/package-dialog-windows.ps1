@@ -25,8 +25,9 @@ $value.SetValue($Path)
 $buttons=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button))
 foreach($button in $buttons) {
   if($button.Current.Name -match '^(Open|Save|Export)$') {
+    $dialogTitle=$dialog.Current.Name
     $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Write-Output ('Completed OS dialog: '+$dialog.Current.Name)
+    Write-Output ('Completed OS dialog: '+$dialogTitle)
     exit 0
   }
 }

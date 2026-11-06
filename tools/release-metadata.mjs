@@ -12,7 +12,7 @@ function command(file,args){return execFileSync(file,args,{encoding:'utf8',cwd:r
 async function files(path){const result=[];for(const entry of await readdir(path,{withFileTypes:true})){const name=join(path,entry.name);if(entry.isDirectory())result.push(...await files(name));else result.push(name)}return result}
 async function check(){
  assert.equal((await json('package.json')).version,version);assert.equal((await json('frontend/package-lock.json')).version,version);assert.equal((await json('frontend/package-lock.json')).packages[''].version,version);assert.equal((await json('src-tauri/tauri.conf.json')).version,version)
- for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
+ for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
  assert.equal(version,'2.1.0-alpha2')
  if(process.env.GITHUB_REF_TYPE==='tag')assert.equal(process.env.GITHUB_REF_NAME,'v'+version)
  console.log('All application version metadata:',version)

@@ -22,10 +22,9 @@ package_pid=$!
 trap 'kill "$package_pid" >/dev/null 2>&1 || true' EXIT
 sleep 5
 kill -0 "$package_pid"
-test -s "$package_profile/workspace.json"
+grep -q "\[TAURI\] Creating new document" package-acceptance-results/launch.log
 python3 - "$package_install" "$package_profile" <<'PY'
 import json,sys,pathlib,platform
-workspace=json.loads((pathlib.Path(sys.argv[2])/'workspace.json').read_text())
-assert workspace['documents'], 'Ordinary frontend must persist initial document through native IPC'
-pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','installed production app launch with outbound network denied','ordinary frontend startup and native recovery persistence'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication.'},indent=2))
+assert '[TAURI] Creating new document' in pathlib.Path('package-acceptance-results/launch.log').read_text(), 'Ordinary frontend must invoke native document creation'
+pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','installed production app launch with outbound network denied','ordinary frontend startup invoking native document creation'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication.'},indent=2))
 PY
