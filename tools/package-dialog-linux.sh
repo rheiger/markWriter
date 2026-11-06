@@ -4,7 +4,7 @@ set -euo pipefail
 package_dialog_path=$1
 package_dialog_window=''
 for package_dialog_attempt in {1..100}; do
-  package_dialog_window=$(xdotool search --onlyvisible --name '^(Open|Save|Save As|Export.*)$' 2>/dev/null | tail -1 || true)
+  package_dialog_window=$(xdotool search --onlyvisible --name '^(Open( File)?|Save( File| As)?|Export.*)$' 2>/dev/null | tail -1 || true)
   if [[ -n "$package_dialog_window" ]]; then break; fi
   sleep 0.1
 done
