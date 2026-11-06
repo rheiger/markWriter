@@ -31,6 +31,7 @@ dist/
 node_modules/
 package-lock.json
 !frontend/package-lock.json
+!docs/spikes/notation-2.1/package-lock.json
 .hintrc
 
 # Rust / Tauri
