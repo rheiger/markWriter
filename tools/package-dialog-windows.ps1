@@ -4,11 +4,13 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')
+$applicationIds=@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $env:MARKWRITER_BINARY } | ForEach-Object ProcessId)
+if(-not $applicationIds.Count){throw 'Installed test application process not found for OS dialog ownership'}
 $dialog = $null
 for ($attempt=0; $attempt -lt 300; $attempt++) {
   $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
   foreach ($window in $windows) {
-    if ($window.Current.Name -match 'Open|Save|Export') { $dialog=$window; break }
+    if (($window.Current.Name -match 'Open|Save|Export') -and ($applicationIds -contains $window.Current.ProcessId)) { $dialog=$window; break }
   }
   if ($dialog) { break }
   Start-Sleep -Milliseconds 100
