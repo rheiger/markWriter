@@ -7,7 +7,7 @@ test('code expectations are identical across LF, CRLF and bare-CR checkouts', as
   const source = await readFile(new URL('./fixtures/code-highlighting-alpha3.md', import.meta.url), 'utf8')
   const lf = source.replace(/\r\n?/g, '\n')
   const expected = codeFixtureCases(lf).map(match => match.slice(0,3))
-  assert.equal(expected.length,22)
+  assert.equal(expected.length,26)
   for (const ending of ['\r\n', '\r']) {
     const actual = codeFixtureCases(lf.replace(/\n/g,ending)).map(match => match.slice(0,3))
     assert.deepEqual(actual,expected)

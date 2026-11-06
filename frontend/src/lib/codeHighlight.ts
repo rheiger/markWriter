@@ -15,14 +15,17 @@ import xml from 'highlight.js/lib/languages/xml'
 import javascript from 'highlight.js/lib/languages/javascript'
 import typescript from 'highlight.js/lib/languages/typescript'
 import dockerfile from 'highlight.js/lib/languages/dockerfile'
+import css from 'highlight.js/lib/languages/css'
+import swift from 'highlight.js/lib/languages/swift'
+import makefile from 'highlight.js/lib/languages/makefile'
 
 // Local, pinned grammars only. lowlight's public AST API preserves UTF-16 text offsets:
 // https://github.com/wooorm/lowlight#lowlightHighlightlanguage-value-options
-const grammars = { c, cpp, csharp, objectivec, sql, bash, rust, python, go, yaml, json, xml, javascript, typescript, dockerfile }
+const grammars = { c, cpp, csharp, objectivec, sql, bash, rust, python, go, yaml, json, xml, javascript, typescript, dockerfile, css, swift, makefile }
 const lowlight = createLowlight(grammars)
 const aliases: Record<string, string> = {
   'c++': 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', 'c#': 'csharp', cs: 'csharp',
-  'objective-c': 'objectivec', objc: 'objectivec', 'obj-c': 'objectivec', mm: 'objectivec',
+  'objective-c': 'objectivec', objc: 'objectivec', 'obj-c': 'objectivec', m: 'objectivec', mm: 'objectivec',
   sh: 'bash', zsh: 'bash', shell: 'bash', rs: 'rust', py: 'python', golang: 'go', yml: 'yaml',
   js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', html: 'xml', htm: 'xml', svg: 'xml', docker: 'dockerfile',
 }

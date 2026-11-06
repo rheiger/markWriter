@@ -27,6 +27,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
 import { HighlightedCodeBlock, codeHighlightKey, sourceCodeHighlighting } from '../lib/editorCodeHighlight'
 import { useResolvedDark } from '../lib/theme'
+import { cancelAutomaticReplacement, literalInputAttributes, technicalInput } from '../lib/technicalInput'
 import '../lib/codeHighlight.css'
 import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
@@ -170,16 +171,17 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         link: false,
       }),
       renderedSearchDecorations,
-      HighlightedCodeBlock.configure({ highlighting: config.syntaxHighlighting }),
+      technicalInput,
+      HighlightedCodeBlock.configure({ highlighting: config.syntaxHighlighting, HTMLAttributes: literalInputAttributes }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       BulletList,
       OrderedList,
       ListItem,
       Heading.configure({ levels: [1,2,3,4,5,6] }),
-      Blockquote,
+      Blockquote.configure({ HTMLAttributes: literalInputAttributes }),
       HardBreak,
       HorizontalRule,
-      Code,
+      Code.configure({ HTMLAttributes: literalInputAttributes }),
       Strike,
       Underline,
       Link.configure({ autolink: false, linkOnPaste: false }),
@@ -663,6 +665,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       doc: defaultContent,
       extensions: [
         markdown({ base: markdownLanguage }),
+        CodeMirrorView.domEventHandlers({ beforeinput: event => cancelAutomaticReplacement(event) }),
         embeddedSourceFolds(),
         sourceSearchDecorations,
         highlighting.current.of(config.syntaxHighlighting ? [sourceCodeHighlighting] : []),

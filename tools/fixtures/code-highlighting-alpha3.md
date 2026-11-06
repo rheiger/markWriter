@@ -154,3 +154,34 @@ x = 1
 ```js
 const html = "😀<script>window.__codeExecuted = true</script>&";
 ```
+
+## CSS
+
+```css
+body { font-family: sans-serif; background: #f5f5f5; }
+.user span { color: #666; }
+```
+
+## Swift
+
+```swift
+let sum = (1...10).reduce(0, +)
+print("Hello, World! Sum = \(sum)")
+```
+
+## Makefile
+
+```Makefile
+CC = gcc
+CFLAGS = -Wall -O2
+app: main.o util.o
+	$(CC) $(CFLAGS) -o app main.o util.o
+.PHONY: clean
+```
+
+## Objective-C filename alias
+
+```m
+#import <Foundation/Foundation.h>
+int main(void) { @autoreleasepool { NSLog(@"hello"); } return 0; }
+```

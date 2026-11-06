@@ -18,6 +18,9 @@ const examples: [string, string][] = [
   ['javascript', 'const greet = (name) => console.log("hello", name);'],
   ['typescript', 'interface Example { value: number }\nconst value: Example = { value: 42 };'],
   ['dockerfile', 'FROM alpine:3.22\nRUN echo "hello"\nCMD ["sh"]'],
+  ['css', 'body { font-family: sans-serif; background: #f5f5f5; }\n.user span { color: #666; }'],
+  ['swift', 'let sum = (1...10).reduce(0, +)\nprint("Hello, World! Sum = \\(sum)")'],
+  ['makefile', 'CC = gcc\nCFLAGS = -Wall -O2\napp: main.o util.o\n\t$(CC) $(CFLAGS) -o app main.o util.o\n.PHONY: clean'],
 ]
 describe('ordinary code highlighting', () => {
   it.each(examples)('highlights explicit %s without changing its text', (language, code) => {
@@ -28,7 +31,7 @@ describe('ordinary code highlighting', () => {
     expect(element.textContent).toBe(code)
     expect(element.querySelector('span')).not.toBeNull()
   })
-  it.each(['py', 'js', 'ts', 'objc', 'golang', 'yml', 'docker', 'C++', 'cs', 'sh', 'mjs', 'cjs', 'mts', 'cts', 'h', 'hh', 'hxx', 'jsonc'])('accepts the %s alias and trailing fence metadata', alias => {
+  it.each(['py', 'js', 'ts', 'objc', 'm', 'golang', 'yml', 'docker', 'C++', 'cs', 'sh', 'mjs', 'cjs', 'mts', 'cts', 'h', 'hh', 'hxx', 'jsonc'])('accepts the %s alias and trailing fence metadata', alias => {
     expect(highlightCode('return "value"; # value\n42', alias + ' title="example"').language).toBeTruthy()
   })
   it.each(['text', 'plain', 'plaintext', 'txt', 'nohighlight', 'no-highlight', 'unknown', 'mermaid', 'dot', 'graphviz', 'dbml', 'plantuml'])('never auto-detects explicit %s', info => {

@@ -111,7 +111,7 @@ try{
  // hiding later languages. No test bridge, editor commands or store calls.
  const syntaxSource=await readFile(join(root,'tools/fixtures/code-highlighting-alpha3.md'),'utf8')
  const syntaxBlocks=codeFixtureCases(syntaxSource)
- assert.equal(syntaxBlocks.length,22,'All requested language/alias/plain/detection fixture cases')
+ assert.equal(syntaxBlocks.length,26,'All requested language/alias/plain/detection fixture cases')
  await syntaxHighlighting(true,'toolbar')
  for(const [index,block] of syntaxBlocks.entries()){
   const info=block[1],code=block[2],highlighted=!['plaintext','unknown'].includes(info)&&!(info===''&&code==='x = 1')
@@ -122,7 +122,7 @@ try{
   alpha3CodeCases.push({index:index+1,info,highlighted,source:true,preview:true,rendered:true})
   await closeCurrentDocument()
  }
- cases.push('ordinary OS Open of22 code fixtures,16 language variants, aliases/plain/unknown/detection, both editors and Preview')
+ cases.push('ordinary OS Open of26 code fixtures,19 language variants, aliases/plain/unknown/detection, both editors and Preview')
  const syntaxOriginal=join(fixture,'syntax-original.md'),syntaxCycled=join(fixture,'syntax-view-cycles.md')
  await writeFile(syntaxOriginal,syntaxSource);await openDocument(syntaxOriginal,'syntax-original.md');await mode(true)
  await wait(()=>run('return !!document.querySelector("[data-active=true] .cm-content [class*=hljs-]")'),'highlighted installed source')
