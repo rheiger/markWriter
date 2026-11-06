@@ -1,4 +1,4 @@
-> **Current direction (6 November 2026):** Version metadata is `2.1.0-alpha1`; the next editing/navigation increment is planned, not implemented. See [QUICK_STATUS.md](QUICK_STATUS.md), the [next-session plan](docs/next-increment-2.1.0-alpha1-plan.md), [prompt](docs/next-increment-2.1.0-alpha1-prompt.md) and [issue index](docs/issue-status-2026-11-06.md). The historical content below is reference only; last feature-qualified source is `6c6eb56` / `2.0.0-alpha.2`.
+> **Current implementation (6 November 2026):** Unreleased `2.1.0-alpha1` on `codex/editing-navigation-2.1` adds Find/Replace, wrap cues, adaptive tables, editing fixes and content-aware source/Preview navigation. See [status](QUICK_STATUS.md), [acceptance](docs/editing-navigation-2.1.0-alpha1.md), [Markdown guide](docs/supported-markdown.md) and [issue index](docs/issue-status-2026-11-06.md). Older architecture/status prose below is historical; no merge/release is implied.
 
 # MarkWriter v2.0 Development Branch
 

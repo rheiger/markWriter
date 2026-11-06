@@ -1,4 +1,9 @@
-> **2.1.0-alpha1 preparation:** Version metadata has changed; the new editing/navigation/notation work is planned in [the next-session plan](next-increment-2.1.0-alpha1-plan.md). Feature acceptance recorded below applies to `2.0.0-alpha.2` at `6c6eb56`, not those planned features. Extend this harness and record new evidence during implementation.
+> **Current qualification — 2.1.0-alpha1:** Core implementation and final-source three-platform evidence are recorded below and in [editing/navigation acceptance](editing-navigation-2.1.0-alpha1.md). Historical runs remain separate.
+
+## 2.1 editing/navigation qualification
+
+Source `2895d1c`, version `2.1.0-alpha1`; final [CI 42145312950](https://github.com/rheiger/markWriter/actions/runs/42145312950) passed all jobs; both downloaded Windows/Linux artifacts confirm 22 passing application cases. Harness now has 22 actual application cases per Windows/Linux, including new source caret, unequal-font content anchors, sync-off independence, rendered/source search scopes, ReplaceAll/Undo/native Save fidelity and mapping-free export. Builds remain isolated; production Rust commands/dependencies are unchanged. See [full acceptance](editing-navigation-2.1.0-alpha1.md) for exact results, ordinary macOS dialog/restart/Settings/search/picker/export checks, and remaining OS-dialog/IME/release limits. Older results below are chronological history.
+
 
 # Native application acceptance
 

@@ -1,4 +1,13 @@
-## Unreleased 2.1.0-alpha1 — 2026-11-06 preparation
+## Unreleased 2.1.0-alpha1 — 2026-11-06 editing/navigation
+
+- Add document-owned Find/Replace in both editors with scoped matches, keyboard/menu UI and one-step Replace All.
+- Add persisted view-only wrap cues and adaptive 5×5 table picker with pointer/keyboard/numeric sizing to 40×40.
+- Add parser-owned UTF-16 text/block maps and content-aware bidirectional scroll/caret/selection correspondence, with native Preview text copy and explicit atom fallbacks.
+- Fix multiline Code/safe fences/Body, source lists and active formatting state; explicit format caret placement, literal WYSIWYG typing/paste escaping, fresh-vs-restored navigation and Settings focus scrolling.
+- Preserve canonical bytes, per-tab histories, captured I/O, recovery and independent fonts; remove inert CB and decorative percentage marker. Add Markdown conventions and complete historical editing disposition.
+- See docs/editing-navigation-2.1.0-alpha1.md for exact source/CI/native evidence and limits. Actual offline DOT/DBML/PlantUML spikes were independently deferred at safety/runtime/packaging gates; see docs/notation-offline-spike-2026-11-06.md. #5/#29 remain backlog. No merge/tag/release.
+
+### Historical metadata preparation
 
 - Synchronize root/frontend, Cargo and Tauri version metadata to the exact requested `2.1.0-alpha1`; no new editing/navigation/notation feature is claimed by this bump.
 - Add a next-session implementation plan/prompt and reconciled issue index. Core scope: Find/Replace #10, wrapping #21, adaptive picker #26, remaining editing #28, synchronized scroll/caret/selection #30.

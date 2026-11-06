@@ -1,3 +1,5 @@
+> **Current implementation qualification:** Source `2895d1c` / `2.1.0-alpha1` passed [CI42145312950](https://github.com/rheiger/markWriter/actions/runs/42145312950),93 frontend tests and both22-case native artifacts. Required core is complete; issue reconciliation/closure is in progress. Actual notation spikes are independently deferred; see [acceptance](editing-navigation-2.1.0-alpha1.md) and [spike report](notation-offline-spike-2026-11-06.md). The snapshot below preceded this implementation.
+
 # MarkWriter issue status — 6 November 2026
 
 GitHub reconciliation snapshot: **19 open / 14 closed**. Statuses were read back after creating #30–#33. GitHub is authoritative for subsequent changes; this file is the planning decision surface, not a live tracker.

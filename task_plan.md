@@ -1,3 +1,22 @@
+# Current task — implement MarkWriter 2.1.0-alpha1
+
+Authority/scope: user attachment and docs/next-increment-2.1.0-alpha1-plan.md. One implementer; no competing edits. Start ed40277 on codex/editing-navigation-plan. Preserve user files inventoried in /tmp/markwriter-2.1-preserved.json.
+
+- 0 Baseline/branch/inventory: complete
+- 1 Mapping ADR and tested renderer sidecar: complete
+- 2 Find/Replace in both editors: complete
+- 3 Wrap continuation and adaptive picker: complete
+- 4 Remaining editing and Markdown guide: complete
+- 5 Content-aware scroll/caret/selection synchronization: complete
+- 6 Browser/native integration and final-source CI: complete (2895d1c / CI42145312950; both22-case artifacts inspected)
+- 7 Independently gated notation spikes after core: complete (all three actual runtimes attempted; independently deferred at documented gates)
+- 8 Review, issue reconciliation, review app and handoff: in_progress (review app/evidence complete; qualified issue closure and final handoff pending)
+
+Version remains exactly 2.1.0-alpha1. Commit verified slices; push feature branch only. No merge/tag/release. Keep #10 umbrella open; #5/#29 backlog. Do not claim old evidence as new-feature acceptance.
+
+---
+## Completed handoff preparation (historical)
+
 # Current task — prepare the 2.1.0-alpha1 implementation handoff
 
 Scope: write the next-session plan/prompt, update GitHub core/stretch/backlog scope, and increment version metadata. Feature implementation belongs to the next session.

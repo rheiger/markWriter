@@ -1,3 +1,5 @@
+> **6 November 2026 — 2.1.0-alpha1:** Current source/search/selection ownership and native acceptance are documented in [editing/navigation acceptance](docs/editing-navigation-2.1.0-alpha1.md) and [mapping ADR](docs/adr-preview-correspondence.md). Source coordinates preserve original UTF-16/CRLF; Preview-only metadata stays outside canonical source and export. Search/formatting adapters use actual CodeMirror/Tiptap APIs. Older implementation notes below are historical.
+
 > **6 November 2026 direction:** `2.1.0-alpha1` metadata and next-session planning are prepared. Follow [the implementation plan](docs/next-increment-2.1.0-alpha1-plan.md) and [QUICK_STATUS](QUICK_STATUS.md); historical architecture descriptions below do not establish current behavior or new-feature completion.
 
 > **Current status (5 November 2026):** This document contains historical descriptions. See [QUICK_STATUS.md](QUICK_STATUS.md) and the [stabilization report](docs/stabilization-2026-11-05.md) for current implementation and verification limits.

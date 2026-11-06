@@ -1,17 +1,16 @@
 # MarkWriter status — 6 November 2026
 
-Version metadata: **2.1.0-alpha1**, unreleased, Node 24+. Preparation branch: `codex/editing-navigation-plan`, based on productivity tip `3c100db`. This session prepares the plan/prompt/issues and bumps metadata; it does not implement new features or rebuild the ordinary review app.
+**2.1.0-alpha1**, unreleased, implemented on `codex/editing-navigation-2.1`, source `2895d1c`. Required core: Find/Replace in both editors, view-only wrap cues, adaptive 5×5 table picker, remaining editing fixes and content-aware bidirectional source/Preview navigation. No merge/tag/release.
 
-## Next session
+Read the [acceptance report](docs/editing-navigation-2.1.0-alpha1.md), [#28 disposition](docs/editing-28-disposition-2026-11-06.md), [mapping ADR](docs/adr-preview-correspondence.md) and [supported Markdown guide](docs/supported-markdown.md). The next-increment plan/prompt are now the completed implementation's scope record, not an instruction to restart it.
 
-Use the [2.1.0-alpha1 implementation plan](docs/next-increment-2.1.0-alpha1-plan.md) and [launch prompt](docs/next-increment-2.1.0-alpha1-prompt.md). Recommended model: GPT-6.1 Sol, Extra High (`xhigh`).
+93 frontend tests, 17 locked Rust tests, lint/typecheck, production/acceptance builds, bridge exclusion and zero-advisory audit pass locally. Final-source [CI 42145312950](https://github.com/rheiger/markWriter/actions/runs/42145312950) passed all three native platforms; downloaded Windows/Linux artifacts each confirm 22 passing application cases. Ordinary macOS native dialogs/search/picker/Settings persistence/recovery/export were exercised; final review bundle is rebuilt at the source tip and About shows exactly 2.1.0-alpha1. See acceptance for fixture evidence and limits.
 
-- Core: Find/Replace #10; wrap continuation #21; adaptive table picker #26; remaining editing #28; content-aware source/Preview scroll/caret/selection synchronization #30.
-- Stretch after core acceptance: PlantUML #31, Graphviz/DOT #32, DBML #33; qualify each offline/native/source-persistence/export path independently.
-- Backlog: #29 developer console-log tool and #5 draw.io, including stretch. Independent windows/plugins/broader preferences and graphical designers also remain separate.
-- [Issue index](docs/issue-status-2026-11-06.md): 19 open / 14 closed after reconciliation. Core/stretch above are planned, not delivered.
+DOT/DBML/PlantUML were attempted after core qualification and deferred independently at runtime/safety/packaging gates; see the [notation spike](docs/notation-offline-spike-2026-11-06.md). #10 retains deferred menu scope; #5 draw.io and #29 developer logs remain backlog. Windows/Linux OS dialogs, native IME candidate interaction, signing/distribution and independent windows/plugins/broad preferences remain separate gates. User Samples/Testresults and older untracked plans remain unchanged.
 
-Preparation checks at metadata commit `53598fa`: 68 frontend tests, 17 locked Rust tests, lint, production/acceptance builds, bridge isolation, audit (zero advisories), all nine version fields, Markdown rendering/local links and 20 preserved user-file hashes pass. Existing large-bundle and unused Rust test-import warnings remain. No new native UI acceptance or ordinary app rebuild is claimed for this preparation.
+## Historical preparation
+
+The planning branch `codex/editing-navigation-plan` ended at `ed40277`; version metadata was prepared at `53598fa`. Those preparation checks did not implement or qualify these features. All older priorities/counts below are historical.
 
 ## Inherited implementation baseline — 2.0.0-alpha.2
 

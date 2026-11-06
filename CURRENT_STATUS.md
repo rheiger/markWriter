@@ -1,4 +1,4 @@
-> **Current direction (6 November 2026):** Version metadata is `2.1.0-alpha1`; the next editing/navigation increment is planned, not implemented. See [QUICK_STATUS.md](QUICK_STATUS.md), the [next-session plan](docs/next-increment-2.1.0-alpha1-plan.md), [prompt](docs/next-increment-2.1.0-alpha1-prompt.md) and [issue index](docs/issue-status-2026-11-06.md). The historical content below is reference only; last feature-qualified source is `6c6eb56` / `2.0.0-alpha.2`.
+> **Current implementation (6 November 2026):** Unreleased `2.1.0-alpha1` on `codex/editing-navigation-2.1` implements editing/navigation core. See [status](QUICK_STATUS.md), [acceptance](docs/editing-navigation-2.1.0-alpha1.md), [editing disposition](docs/editing-28-disposition-2026-11-06.md) and [issue index](docs/issue-status-2026-11-06.md). The content below is historical. No merge/tag/release.
 
 # MarkWriter v2.0.0-alpha.1 - Current Status & Issues
 

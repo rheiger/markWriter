@@ -1,0 +1,167 @@
+{
+  "version": "2.1.0-alpha1",
+  "source": "2895d1cf29881e62ed9225cc639f6e1e19b93c30",
+  "browser": "Chromium via isolated Playwright CLI session",
+  "results": {
+    "selection": {
+      "mirrored": 1,
+      "reverse": {
+        "selection": {
+          "anchor": 29,
+          "head": 25
+        },
+        "native": "same",
+        "focus": "markwriter-preview"
+      },
+      "copied": "same",
+      "errors": []
+    },
+    "geometry": {
+      "evidence": [
+        {
+          "width": 800,
+          "error": 1.6328125,
+          "source": {
+            "anchor": 0,
+            "head": 0
+          },
+          "pageOverflow": false,
+          "footer": 800,
+          "scroll": 1856,
+          "preview": 8802
+        },
+        {
+          "width": 1024,
+          "error": 2.8046875,
+          "source": {
+            "anchor": 0,
+            "head": 0
+          },
+          "pageOverflow": false,
+          "footer": 800,
+          "scroll": 1755.5,
+          "preview": 8131.5
+        },
+        {
+          "width": 1440,
+          "error": 2.2734375,
+          "source": {
+            "anchor": 0,
+            "head": 0
+          },
+          "pageOverflow": false,
+          "footer": 800,
+          "scroll": 1705,
+          "preview": 6115
+        }
+      ],
+      "reverse": {
+        "error": 0.453125,
+        "source": 2410,
+        "preview": 8726.5,
+        "selection": {
+          "anchor": 0,
+          "head": 0
+        }
+      },
+      "stable": [
+        2410,
+        8726.5
+      ],
+      "independent": 8726.5,
+      "clean": true,
+      "errors": []
+    },
+    "input": {
+      "result": {
+        "text": "# literal> quote- list1. item```**bold** ++under++ ~~strike~~ [link](url)漢字",
+        "structure": 0
+      },
+      "source": "\\# literal\n\n\\> quote\n\n\\- list\n\n1\\. item\n\n\\`\\`\\`\n\n\\*\\*bold\\*\\* \\+\\+under\\+\\+ \\~\\~strike\\~\\~ \\[link\\](url)漢字",
+      "errors": []
+    },
+    "bulk": {
+      "length": 1066804,
+      "replacedLength": 2133468,
+      "elapsed": 713.3000000119209,
+      "folded": 1,
+      "restored": true,
+      "errors": []
+    },
+    "lifecycle": {
+      "exact": [
+        {
+          "needle": "last",
+          "native": "last",
+          "selected": "last",
+          "focus": "markwriter-preview"
+        },
+        {
+          "needle": "label",
+          "native": "label",
+          "selected": "label",
+          "focus": "markwriter-preview"
+        },
+        {
+          "needle": "&",
+          "native": "&",
+          "selected": "&amp;",
+          "focus": "markwriter-preview"
+        },
+        {
+          "needle": "😀é",
+          "native": "😀é",
+          "selected": "😀é",
+          "focus": "markwriter-preview"
+        }
+      ],
+      "atom": {
+        "source": "```mermaid\nflowchart TD\n A[same] --> B[end]\n```\n",
+        "folds": 0,
+        "focus": "markwriter-preview"
+      },
+      "isolated": {
+        "id": "life-B",
+        "content": "B unchanged",
+        "dirty": false,
+        "count": 1
+      },
+      "expanded": {
+        "length": 1050020,
+        "markers": 22,
+        "folds": 0,
+        "selection": {
+          "anchor": 0,
+          "head": 0
+        },
+        "horizontal": false
+      },
+      "expandedMs": 742,
+      "clean": true,
+      "errors": []
+    },
+    "lists": {
+      "result": {
+        "text": "- first\n- second\nuntouched",
+        "selection": {
+          "anchor": 16,
+          "head": 16
+        }
+      },
+      "undo": "first\nsecond\nuntouched",
+      "errors": []
+    },
+    "presentation": {
+      "zoomCues": 25,
+      "wrapOffCues": 0,
+      "dirty": false,
+      "selection": {
+        "anchor": 33,
+        "head": 40
+      },
+      "folds": 1,
+      "cues": 25,
+      "errors": []
+    }
+  }
+}
