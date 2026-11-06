@@ -91,7 +91,10 @@ if(args.includes('--collect')){
  const manifest={schemaVersion:1,product:'MarkWriter',technology:'Tauri 2',version,source:process.env.GITHUB_SHA??command('git',['rev-parse','HEAD']),buildRun:process.env.GITHUB_RUN_ID??null,buildUrl:process.env.GITHUB_RUN_ID?`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`:null,platform,architecture:process.arch,asset:{name:file,size:data.length,sha256:sha(data)},signing,iconInspection,baseline,binaryInspection,runner:{image:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},toolchain:{node:process.version,rust:command('rustc',['--version']),tauriCli:JSON.parse(await readFile(join(root,'frontend/node_modules/@tauri-apps/cli/package.json'),'utf8')).version},frontend,acceptance}
  await writeFile(join(assets,`${platform}.manifest.json`),JSON.stringify(manifest,null,2)+'\n')
  await copyFile(join(root,'frontend/public/THIRD_PARTY_NOTICES.txt'),join(assets,'THIRD_PARTY_NOTICES.txt'))
- await copyFile(join(root,'docs/install-2.5-alpha1.md'),join(assets,'INSTALL-UPGRADE-ROLLBACK.md'))
+ // Checkout line endings vary by OS; this shared release asset must have one
+ // deterministic byte representation when the platform artifacts are merged.
+ const installationGuide=await readFile(join(root,'docs/install-2.5-alpha1.md'),'utf8')
+ await writeFile(join(assets,'INSTALL-UPGRADE-ROLLBACK.md'),installationGuide.replaceAll('\r\n','\n'))
  console.log('Collected',file,manifest.asset.sha256)
 }
 if(args.includes('--aggregate')){
