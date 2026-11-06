@@ -49,6 +49,25 @@ describe('document fidelity with real editors', () => {
     } finally { spy.mockRestore() }
   })
 
+  it('selects the DOT source block when its SVG is clicked after selecting Preview text', async () => {
+    const { dotRenderer }=await import('../lib/dotRenderer')
+    const spy=vi.spyOn(dotRenderer,'render').mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>ready</text></svg>')
+    try {
+      const source='Select this paragraph.\n\n```dot\ndigraph {a -> b}\n```\n'
+      const {ref,container}=await mount(source)
+      await markdown(ref)
+      await waitFor(()=>expect(container.querySelector('.markwriter-preview [data-type=dot] svg')).not.toBeNull())
+      const paragraph=container.querySelector('.markwriter-preview [data-mw-text]')!.firstChild!
+      const range=document.createRange();range.setStart(paragraph,0);range.setEnd(paragraph,6)
+      window.getSelection()!.removeAllRanges();window.getSelection()!.addRange(range)
+      const svg=container.querySelector('.markwriter-preview [data-type=dot] svg')!
+      fireEvent.pointerDown(svg);fireEvent.pointerUp(svg)
+      expect(ref.current!.getEditorView()!.state.selection.main.from).toBe(source.indexOf('```dot'))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    } finally { window.getSelection()?.removeAllRanges();spy.mockRestore() }
+  })
+
   it('formats selected source list lines without deleting text or inserting a marker below the line', async () => {
     const { ref } = await mount('first\nsecond\nuntouched')
     await markdown(ref)

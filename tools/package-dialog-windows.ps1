@@ -2,6 +2,22 @@ param([Parameter(Mandatory=$true)][string]$Path)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+# The runner exposes some standard Win32 controls as generic UIA panes. Operate
+# their observed native Edit/Button handles when UIA patterns are unavailable.
+# https://learn.microsoft.com/windows/win32/winmsg/wm-settext
+# https://learn.microsoft.com/windows/win32/controls/bm-click
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class PackageDialogControl {
+ [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="SendMessageTimeoutW",SetLastError=true)]
+ public static extern IntPtr SetText(IntPtr hwnd,uint message,UIntPtr wParam,string text,uint flags,uint timeout,out UIntPtr result);
+ [DllImport("user32.dll",EntryPoint="SendMessageTimeoutW",SetLastError=true)]
+ public static extern IntPtr Click(IntPtr hwnd,uint message,UIntPtr wParam,IntPtr lParam,uint flags,uint timeout,out UIntPtr result);
+ [DllImport("user32.dll")]
+ public static extern bool SetForegroundWindow(IntPtr hwnd);
+}
+'@
 try {
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')
@@ -27,25 +43,38 @@ $field=$null
 $value=$null
 $inputCondition=[System.Windows.Automation.OrCondition]::new(
  [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Edit),
- [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ComboBox))
+ [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'Edit'))
 for($attempt=0;$attempt -lt 300;$attempt++){
  $edits=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,$inputCondition)
  foreach($edit in $edits){
   if(($edit.Current.Name -match '^File name' -or $edit.Current.AutomationId -eq '1148') -and -not $edit.Current.IsOffscreen){
    $pattern=$null
    if($edit.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){$field=$edit;$value=$pattern;break}
+   if($edit.Current.ClassName -eq 'Edit' -and $edit.Current.NativeWindowHandle -ne 0){$field=$edit;break}
   }
  }
  if($field){break}
  Start-Sleep -Milliseconds 100
 }
 if(-not $field){throw ('No File name input. Visible inputs: '+(($edits | ForEach-Object { $_.Current.Name+' / '+$_.Current.AutomationId+' / '+$_.Current.ControlType.ProgrammaticName }) -join ', '))}
-$value.SetValue($Path)
-$buttons=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button))
+if($value){$value.SetValue($Path)}else{
+ $messageResult=[UIntPtr]::Zero
+ if([PackageDialogControl]::SetText([IntPtr]$field.Current.NativeWindowHandle,0x000C,[UIntPtr]::Zero,$Path,2,5000,[ref]$messageResult) -eq [IntPtr]::Zero -or $messageResult -eq [UIntPtr]::Zero){throw 'Native filename Edit rejected WM_SETTEXT'}
+}
+$buttonCondition=[System.Windows.Automation.OrCondition]::new(
+ [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button),
+ [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'Button'))
+$buttons=$dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,$buttonCondition)
 foreach($button in $buttons) {
   if($button.Current.Name -match '^(Open|Save|Export)$') {
     $dialogTitle=$dialog.Current.Name
-    $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $pattern=$null
+    if($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pattern)){$pattern.Invoke()}else{
+     if($button.Current.ClassName -ne 'Button' -or $button.Current.NativeWindowHandle -eq 0){throw 'Confirmation has no supported native button'}
+     [PackageDialogControl]::SetForegroundWindow([IntPtr]$dialog.Current.NativeWindowHandle) | Out-Null
+     $messageResult=[UIntPtr]::Zero
+     if([PackageDialogControl]::Click([IntPtr]$button.Current.NativeWindowHandle,0x00F5,[UIntPtr]::Zero,[IntPtr]::Zero,2,5000,[ref]$messageResult) -eq [IntPtr]::Zero){throw 'Native confirmation button timed out'}
+    }
     Write-Output ('Completed OS dialog: '+$dialogTitle)
     exit 0
   }
