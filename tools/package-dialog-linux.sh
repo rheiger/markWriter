@@ -2,6 +2,11 @@
 set -euo pipefail
 # Exercise GTK's real path entry, never an app-side explicit-path command.
 package_dialog_path=$1
+package_dialog_capture() {
+  scrot --overwrite "package-acceptance-results/os-dialog-$1.png" || true
+  xdotool getwindowfocus getwindowname || true
+}
+trap 'package_dialog_capture failure' ERR
 package_dialog_window=''
 for package_dialog_attempt in {1..100}; do
   package_dialog_window=$(xdotool search --onlyvisible --name '^(Open( File)?|Save( File| As)?|Export.*)$' 2>/dev/null | tail -1 || true)
@@ -13,8 +18,10 @@ if [[ -z "$package_dialog_window" ]]; then
   exit 1
 fi
 xdotool windowfocus --sync "$package_dialog_window"
+package_dialog_capture before
 xdotool key --clearmodifiers ctrl+l
 xdotool type --clearmodifiers --delay 1 -- "$package_dialog_path"
+package_dialog_capture entered
 xdotool key --clearmodifiers Return
 # GTK may first commit the location entry, then accept the selected file. Never
 # return while the observed native dialog still blocks the WebView interaction.
@@ -25,4 +32,5 @@ for package_close_attempt in {1..100}; do
 done
 xdotool getwindowname "$package_dialog_window" || true
 echo 'Native file dialog did not complete' >&2
+package_dialog_capture failure
 exit 1

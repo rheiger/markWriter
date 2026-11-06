@@ -22,5 +22,5 @@ sudo apt-get "${package_apt_options[@]}" update
 package_driver=webkitgtk-webdriver
 if ! apt-cache show "$package_driver" >/dev/null 2>&1; then package_driver=webkit2gtk-driver; fi
 package_dependencies=(libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf "$package_driver" xvfb fonts-dejavu-core)
-if [[ "${1:-native}" == package ]]; then package_dependencies+=(xdotool openbox dbus-x11); fi
+if [[ "${1:-native}" == package ]]; then package_dependencies+=(xdotool openbox dbus-x11 scrot); fi
 sudo apt-get "${package_apt_options[@]}" install -y --no-install-recommends "${package_dependencies[@]}"
