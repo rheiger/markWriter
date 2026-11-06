@@ -35,8 +35,7 @@ export function installNativeBridge() {
         const view = sourceView(); if (!view) return
         const position = view.state.doc.toString().indexOf(text)
         if (position < 0) throw new Error('Missing acceptance anchor')
-        const origin = view.documentTop - view.scrollDOM.getBoundingClientRect().top + view.scrollDOM.scrollTop
-        view.scrollDOM.scrollTop = origin + view.lineBlockAt(position).top - 16
+        view.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'start', yMargin: 16 }) })
       },
       configure: (patch: Parameters<ReturnType<typeof useAppStore.getState>['updateConfig']>[0]) => useAppStore.getState().updateConfig(patch),
       flush: () => flushWorkspace(),
