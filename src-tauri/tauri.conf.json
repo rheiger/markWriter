@@ -1,6 +1,6 @@
 {
   "productName": "MarkWriter",
-  "version": "2.1.0-alpha1",
+  "version": "2.1.0-alpha2",
   "identifier": "com.markwriter.app",
   "build": {
     "devUrl": "http://127.0.0.1:5173",
@@ -26,7 +26,8 @@
         "visible": true,
         "closable": true,
         "minimizable": true,
-        "maximizable": true
+        "maximizable": true,
+        "create": false
       }
     ],
     "security": {

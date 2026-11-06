@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 mod persistence;
+mod dot_policy;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -237,7 +238,19 @@ fn main() {
             show_about_dialog,
             get_document_stats
         ])
-        .setup(|_app| {
+        .setup(|app| {
+            // Build configured windows here so their production asset responses
+            // receive the worker's own CSP (document meta CSP is insufficient).
+            for config in &app.config().app.windows {
+                tauri::WebviewWindowBuilder::from_config(app, config)?
+                    .on_web_resource_request(|request, response| {
+                        if dot_policy::is_dot_worker(request.uri().path()) {
+                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
+                            response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
+                        }
+                    })
+                    .build()?;
+            }
             println!("[TAURI] Application setup completed");
             Ok(())
         })
