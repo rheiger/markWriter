@@ -1,3 +1,5 @@
+> **6 November 2026 direction:** `2.1.0-alpha1` metadata and next-session planning are prepared. Follow [the implementation plan](docs/next-increment-2.1.0-alpha1-plan.md) and [QUICK_STATUS](QUICK_STATUS.md); historical architecture descriptions below do not establish current behavior or new-feature completion.
+
 > **Current status (5 November 2026):** This document contains historical descriptions. See [QUICK_STATUS.md](QUICK_STATUS.md) and the [stabilization report](docs/stabilization-2026-11-05.md) for current implementation and verification limits.
 
 # 🔄 React Frontend Implementation - IN PROGRESS

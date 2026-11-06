@@ -98,3 +98,14 @@
 - Draw.io isolated spike: official32.6.10 local offline iframe boots under unchanged CSP and echoes safe dummy entity XML; no remote requests/errors.49.7MB archive/120.2MB runtime with separate asset license notices. Native packaging, attribution inventory and safe editable-XML/SVG codec/ApplyCancel/offline save/export remain unqualified; defer product integration without controls/assets. Details in dedicated spike report.
 
 - FINAL: CI42132949169 succeeded at6c6eb56.68 frontend tests, lint/build/audit/isolation, native tests/builds on all3 platforms,16 actual application cases each Windows/Linux. Both final artifacts downloaded and independently checked. Version metadata/lockfiles all2.0.0-alpha.2. Current ordinary macOS app rebuilt and native active source18/rendered22 size synchronization verified with clean7996-character original. Four-core acceptance complete; draw.io spike documented and product integration deferred. Documentation closeout only, no merge/release/issue actions.
+
+
+## Next-session handoff preparation — 6 November 2026
+
+- Prepared the agreed 2.1.0-alpha1 plan and launch prompt; core versus notation stretch versus backlog explicit. No new feature implementation in this preparation task.
+- Created GitHub #30 scroll/caret/selection sync, #31 PlantUML, #32 Graphviz/DOT, #33 DBML; updated nine existing issue scopes. Snapshot 19 open / 14 closed.
+- Isolated metadata/docs changes on codex/editing-navigation-plan from 3c100db. Root/frontend manifests and lock fields, Cargo manifest/lock, Tauri version all agree on 2.1.0-alpha1. Root package-lock remains ignored but synchronized locally.
+- Current status/README/AGENTS/changelog/native evidence pointers updated; historical feature reports retain their original version/source evidence. Local checks and preservation/commit/push verification in progress.
+
+- Preparation verification complete at metadata53598fa:68 frontend tests,17 locked Rust tests,lint,production/acceptance builds,bridge isolation,audit zero,9 version fields,Markdown render/local links/fences and20 user-file hashes pass. Corrected the standalone docs-render check to use the installed package resolver rather than a nonexistent old markdown-it/index.mjs path; no application change. Existing chunk-size and unused test-import warnings retained.
+- Final handoff deliverables are docs/next-increment-2.1.0-alpha1-plan.md, docs/next-increment-2.1.0-alpha1-prompt.md and docs/issue-status-2026-11-06.md. No new feature implementation, merge/tag/release or ordinary native review-app rebuild. Final branch publication is verified through Git remote refs.

@@ -1,3 +1,5 @@
+> **Rust/Tauri development:** Current development version metadata is `2.1.0-alpha1` (unreleased preparation, no new feature acceptance yet). See [QUICK_STATUS.md](QUICK_STATUS.md), the [next-session plan](docs/next-increment-2.1.0-alpha1-plan.md) and [launch prompt](docs/next-increment-2.1.0-alpha1-prompt.md). This README below describes the legacy Python/Qt release.
+
 # MarkWrite
 
 [![Build Desktop Apps](https://github.com/rheiger/markWriter/actions/workflows/build.yml/badge.svg?branch=main&event=push)](https://github.com/rheiger/markWriter/actions/workflows/build.yml)

@@ -1,3 +1,10 @@
+## Unreleased 2.1.0-alpha1 — 2026-11-06 preparation
+
+- Synchronize root/frontend, Cargo and Tauri version metadata to the exact requested `2.1.0-alpha1`; no new editing/navigation/notation feature is claimed by this bump.
+- Add a next-session implementation plan/prompt and reconciled issue index. Core scope: Find/Replace #10, wrapping #21, adaptive picker #26, remaining editing #28, synchronized scroll/caret/selection #30.
+- Create notation stretch issues #31 PlantUML, #32 Graphviz/DOT, #33 DBML; keep #29 developer logs and #5 draw.io on backlog.
+- Reconcile GitHub implementation status while preserving original requirements. The last feature-qualified source remains `6c6eb56` / `2.0.0-alpha.2`; see the productivity acceptance report. No merge/tag/release.
+
 ## Unreleased 2.0.0-alpha.2 — 2026-11-06 productivity increment
 
 - Add single-window document tabs with retained editor histories, safe captured-document saves, Save All, reorder/navigation and all-tab Close/Quit protection.

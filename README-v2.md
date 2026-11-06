@@ -1,4 +1,4 @@
-> **Current status (5 November 2026):** This document contains historical descriptions. See [QUICK_STATUS.md](QUICK_STATUS.md) and the [stabilization report](docs/stabilization-2026-11-05.md) for current implementation and verification limits.
+> **Current direction (6 November 2026):** Version metadata is `2.1.0-alpha1`; the next editing/navigation increment is planned, not implemented. See [QUICK_STATUS.md](QUICK_STATUS.md), the [next-session plan](docs/next-increment-2.1.0-alpha1-plan.md), [prompt](docs/next-increment-2.1.0-alpha1-prompt.md) and [issue index](docs/issue-status-2026-11-06.md). The historical content below is reference only; last feature-qualified source is `6c6eb56` / `2.0.0-alpha.2`.
 
 # MarkWriter v2.0 Development Branch
 

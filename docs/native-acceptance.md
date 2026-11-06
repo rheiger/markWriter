@@ -1,3 +1,5 @@
+> **2.1.0-alpha1 preparation:** Version metadata has changed; the new editing/navigation/notation work is planned in [the next-session plan](next-increment-2.1.0-alpha1-plan.md). Feature acceptance recorded below applies to `2.0.0-alpha.2` at `6c6eb56`, not those planned features. Extend this harness and record new evidence during implementation.
+
 # Native application acceptance
 
 The current productivity harness extends the historical eight-case baseline below. It targets the active document owner before interacting with retained editors, exercises duplicate-path tabs, contextual table boundaries, Save All, actual preferences IPC, fold byte preservation, Mermaid ERD preview/export, a process restart after flushing an unnamed draft, and dirty Close Cancel/Discard. The restart uses an explicit exit only in the isolated acceptance bridge after confirmed persistence; ordinary Close/Quit protection remains tested separately. Native writes are real. OS path dialogs are bypassed with explicit generated paths on Windows/Linux; macOS dialogs/recovery are exercised directly.

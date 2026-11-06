@@ -88,3 +88,13 @@
 - Browser test IPC fixtures explicitly emulate native event deregistration and use fresh Vite graph to avoid importing a second HMR store instance. Fresh isolated browser runtime passes with no errors.
 
 - Final source acceptance: 6c6eb56 / CI42132949169 green;68 frontend and17 Rust tests,16 application cases per Windows/Linux artifact. macOS ordinary app/disk-conflict recovery/OS dialogs verified separately. Draw.io32.6.10 local offline boot/load works under current CSP, but native packaging, asset attribution and safe XML/SVG persistence gates remain unqualified; no product assets/control introduced.
+
+
+## 2.1.0-alpha1 preparation — 6 November 2026
+
+- Current renderer has no location sidecar. EditorView contains percentage scroll handlers in a mode-only effect; delayed editor creation, tab ownership and async geometry require deliberate lifecycle handling. Exact inline selection mapping needs more than parser block line ranges.
+- User scope: #10 Find/Replace, #21 wrap continuation, #26 adaptive table picker, #28 remaining editing, new #30 source/Preview scroll/caret/selection correspondence. #29 and #5 are explicitly backlog, including stretch.
+- New notation stretch issues: #31 PlantUML, #32 Graphviz/DOT, #33 DBML. Recommend DOT then DBML then PlantUML after core acceptance; actual offline/native/runtime/codec/security qualification is still outstanding.
+- Official sources consulted: Viz.js WASM API, DOT grammar, DBML core/syntax (old dbml parser mode deprecated; check dbmlv2), PlantUML local prerequisites/security (Java/some Graphviz and explicit resource profile). Parser availability does not prove a renderer or safe native packaging. Links and exact gates are in the new plan.
+- Model recommendation: GPT-6.1 Sol / Extra High (xhigh), supported by local model catalog and official model/effort guidance; this is a task recommendation, not a switch to the current running model.
+- New named plan/prompt preserve the user's older untracked docs/next-increment-plan-2026-11-06.md and prompt. App metadata is exactly 2.1.0-alpha1; last feature-qualified source remains 6c6eb56 / 2.0.0-alpha.2.
