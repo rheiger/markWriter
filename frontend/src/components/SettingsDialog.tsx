@@ -15,7 +15,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   return <Modal title="Settings" onClose={() => { if (!busy) onClose() }}>
     <div className="settings-fields">
       <label>Theme<select value={draft.theme} onChange={e => field('theme', e.target.value as AppConfig['theme'])}>
-        <option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option>
+        <option value="system">Auto (System)</option><option value="light">Light</option><option value="dark">Dark</option>
       </select></label>
       <label>Source font<input value={draft.fontFamily} maxLength={200} onChange={e => field('fontFamily', e.target.value)} /></label>
       {size('fontSize', 'Source text size')}

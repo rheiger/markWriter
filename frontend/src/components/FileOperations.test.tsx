@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Toolbar } from './Toolbar'
 import { useAppStore } from '../store/useAppStore'
+import { defaultConfig } from '../lib/preferences'
 
 // Mock the Tauri API
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -18,6 +19,8 @@ describe('File Operations', () => {
   const mockEditorRef = { current: null }
   
   const mockStore = {
+    config: { ...defaultConfig },
+    updateConfig: vi.fn(),
     currentDocument: {
       id: 'test-id',
       title: 'Test Document',

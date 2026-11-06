@@ -6,6 +6,7 @@ import TurndownService from 'turndown'
 // @ts-expect-error plugin has no bundled declarations
 import { gfm } from 'turndown-plugin-gfm'
 import { mapTokens, type MapOwner, type PreviewMap } from './sourceMap'
+import { createCodeHighlighter, highlightedHtml } from './codeHighlight'
 
 const markdown = new MarkdownIt({ html: false, linkify: true })
 markdown.use(markdownItIns).use(taskLists)
@@ -27,13 +28,19 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
     const escape = markdown.utils.escapeHtml
     return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
   }
-  if (notation !== 'mermaid') return fence(tokens, index, options, env, renderer)
+  const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
+  if (notation !== 'mermaid') return fence(tokens, index, { ...options, highlight: highlight ? (code, language) => highlightedHtml(code, highlight(code, language)) : null }, env, renderer)
   const source = markdown.utils.escapeHtml(token.content)
   return `<div data-type="mermaid" data-chart="${source}">${source}</div>\n`
 }
 
-export function renderMarkdownHtml(source: string): string {
-  return markdown.render(source, { source })
+markdown.renderer.rules.code_block = (tokens, index, _options, env) => {
+  const code = tokens[index].content
+  const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
+  return `<pre><code>${highlight ? highlightedHtml(code, highlight(code)) : markdown.utils.escapeHtml(code)}</code></pre>\n`
+}
+export function renderMarkdownHtml(source: string, highlighting = true): string {
+  return markdown.render(source, { source, highlightCode: createCodeHighlighter(highlighting) })
 }
 
 // Mapping is opt-in and never used by export or the editable document codec.
@@ -65,8 +72,8 @@ for (const type of ['fence', 'code_block']) {
     return `<div data-mw-block="${tokens[index].meta?.navigationBlock}">${body}</div>`
   }
 }
-export function renderMappedMarkdown(source: string, owner: MapOwner): PreviewMap {
-  const env = { source }
+export function renderMappedMarkdown(source: string, owner: MapOwner, highlighting = true): PreviewMap {
+  const env = { source, highlightCode: createCodeHighlighter(highlighting) }
   const tokens = markdown.parse(source, env)
   const map = mapTokens(source, tokens, owner, text => markdown.utils.unescapeAll(text))
   map.html = mappedRenderer.render(tokens, markdown.options, env)

@@ -1,4 +1,5 @@
 import { foldedRanges } from '@codemirror/language'
+import { EditorView as CMView } from '@codemirror/view'
 import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
 import { readFileSync } from 'node:fs'
@@ -34,6 +35,67 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('updates Auto editor themes when the OS appearance changes without document writes', async () => {
+    const prior = useAppStore.getState().config
+    const listeners = new Set<() => void>()
+    const media = { matches: false, addEventListener: (_event: string, fn: () => void) => listeners.add(fn), removeEventListener: (_event: string, fn: () => void) => listeners.delete(fn) }
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = query => query === '(prefers-color-scheme: dark)' ? media as unknown as MediaQueryList : originalMatchMedia(query)
+    useAppStore.getState().updateConfig({ theme: 'system' })
+    const { ref, unmount } = await mount('```js\nconst value = 42;\n```')
+    try {
+      await markdown(ref)
+      const cm = ref.current!.getEditorView()!
+      expect(cm.state.facet(CMView.darkTheme)).toBe(false)
+      act(() => { media.matches = true; listeners.forEach(fn => fn()) })
+      await waitFor(() => expect(cm.state.facet(CMView.darkTheme)).toBe(true))
+      act(() => useAppStore.getState().updateConfig({ theme: 'light' }))
+      expect(cm.state.facet(CMView.darkTheme)).toBe(false)
+      expect(ref.current!.getMarkdown()).toBe('```js\nconst value = 42;\n```')
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    } finally { unmount(); window.matchMedia = originalMatchMedia; useAppStore.setState({ config: prior }) }
+  })
+
+  it('projects fenced syntax tokens across quote/list chunks without coloring prefixes', async () => {
+    useAppStore.getState().updateConfig({ syntaxHighlighting: true })
+    const source = '> - ```js\n>   const first = 1;\n>   const second = 2;\n>   ```'
+    const { ref, container } = await mount(source)
+    await markdown(ref)
+    await waitFor(() => expect(Array.from(container.querySelectorAll('.cm-content .hljs-keyword'), span => span.textContent)).toEqual(['const','const']))
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it('toggles both real code engines and Preview without source, history, selection or fold mutations', async () => {
+    useAppStore.getState().updateConfig({ syntaxHighlighting: true, collapseSource: true })
+    const source = '```js\r\nconst value = "😀<tag>";\r\n```\r\n\r\n```mermaid\r\nflowchart TD\r\n A --> B\r\n```\r\n'
+    const { ref, editor, container } = await mount(source)
+    expect(container.querySelector('.tiptap .hljs-keyword')).not.toBeNull()
+    const json = editor.getJSON()
+    act(() => useAppStore.getState().updateConfig({ syntaxHighlighting: false }))
+    await waitFor(() => expect(container.querySelector('.tiptap [class*=hljs-]')).toBeNull())
+    expect(editor.getJSON()).toEqual(json)
+    await markdown(ref)
+    const cm = ref.current!.getEditorView()!
+    act(() => cm.dispatch({ selection: { anchor: 12, head: 17 } }))
+    const selection = cm.state.selection, folds = foldedRanges(cm.state).size
+    act(() => useAppStore.getState().updateConfig({ syntaxHighlighting: true }))
+    await waitFor(() => expect(container.querySelector('.cm-content .hljs-keyword')).not.toBeNull())
+    await waitFor(() => expect(container.querySelector('.markwriter-preview .hljs-keyword')).not.toBeNull())
+    expect(cm.state.selection.eq(selection)).toBe(true)
+    expect(foldedRanges(cm.state).size).toBe(folds)
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    act(() => { ref.current!.insertText('edited'); ref.current!.undo() })
+    expect(ref.current!.getMarkdown()).toBe(source)
+    await wysiwyg(ref)
+    expect(editor.getJSON()).toEqual(json)
+    act(() => { editor.commands.insertContentAt(editor.state.doc.content.size, '<p>Edited</p>'); editor.commands.undo() })
+    // Real rendered edits use the existing serializer; Undo must restore the document model.
+    // Exact original CRLF bytes above are required for all view-only operations.
+    expect(editor.getJSON()).toEqual(json)
+  })
 
   it('completes DOT Preview for a clean opened document whose initial revision is implicit zero', async () => {
     const { dotRenderer } = await import('../lib/dotRenderer')

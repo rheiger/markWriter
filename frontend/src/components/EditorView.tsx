@@ -24,8 +24,9 @@ import Blockquote from '@tiptap/extension-blockquote'
 import HardBreak from '@tiptap/extension-hard-break'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import Code from '@tiptap/extension-code'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { common, createLowlight } from 'lowlight'
+import { HighlightedCodeBlock, codeHighlightKey, sourceCodeHighlighting } from '../lib/editorCodeHighlight'
+import { useResolvedDark } from '../lib/theme'
+import '../lib/codeHighlight.css'
 import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
@@ -48,8 +49,6 @@ import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/source
 import { wrapContinuation } from '../lib/wrapContinuation'
 import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
-
-const lowlight = createLowlight(common)
 
 export type EditorMode = 'markdown' | 'wysiwyg'
 interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
@@ -109,6 +108,7 @@ export interface EditorViewRef {
 
 const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
   const preferences = useRef(new Compartment())
+  const highlighting = useRef(new Compartment())
   const editorRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -133,6 +133,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   const currentDocument = useAppStore(state => state.documents.find(doc => doc.id === documentId) ?? null)
   const config = useAppStore(state => state.config)
+  const isDark = useResolvedDark(config.theme)
   const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId), [documentId])
   const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
@@ -159,7 +160,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         link: false,
       }),
       renderedSearchDecorations,
-      CodeBlockLowlight.configure({ lowlight }),
+      HighlightedCodeBlock.configure({ highlighting: config.syntaxHighlighting }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       BulletList,
       OrderedList,
@@ -583,7 +584,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const abort = dotPreviewAbort.current = new AbortController()
     const generation = ++previewGeneration.current
     const doc = useAppStore.getState().documents.find(item => item.id === documentId)
-    const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation })
+    const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation }, config.syntaxHighlighting)
     previewMap.current = map
     container.innerHTML = map.html
     syncRef.current?.invalidate()
@@ -606,7 +607,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected) { element.textContent = `DOT error: ${error.message}`; syncRef.current?.invalidate() }
       })
     }
-    const isDark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: isDark ? 'dark' : 'default' })
     requestAnimationFrame(async () => {
       for (const [index, element] of elements.entries()) {
@@ -619,7 +619,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
     })
-  }, [config.theme, active, documentId])
+  }, [isDark, config.syntaxHighlighting, active, documentId])
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview
@@ -635,9 +635,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const timer = setTimeout(() => {
       if (!editorRef.current) return
 
-    const isDark = config.theme === 'dark' ||
-      (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
     console.log('[EDITOR] Theme is dark:', isDark)
     console.log('[EDITOR] Config theme:', config.theme)
 
@@ -652,6 +649,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         markdown({ base: markdownLanguage }),
         embeddedSourceFolds(),
         sourceSearchDecorations,
+        highlighting.current.of(config.syntaxHighlighting ? [sourceCodeHighlighting] : []),
         CodeMirrorView.clipboardOutputFilter.of(() => {
           const view = editorViewRef.current
           if (!view) return ''
@@ -746,15 +744,19 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, documentId, currentDocument?.id, config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, documentId, currentDocument?.id, isDark, config.theme, config.syntaxHighlighting, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
 
   useEffect(() => {
-    const dark = config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     editorViewRef.current?.dispatch({ effects: preferences.current.reconfigure([
-      ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(dark ? [oneDark] : []),
+      ...(config.wordWrap ? [CodeMirrorView.lineWrapping] : []), EditorState.tabSize.of(config.tabWidth), ...(isDark ? [oneDark] : []),
       ...(config.wrapContinuation ? [wrapContinuation()] : []),
     ]) })
-  }, [config.theme, config.wordWrap, config.wrapContinuation, config.tabWidth])
+  }, [isDark, config.wordWrap, config.wrapContinuation, config.tabWidth])
+
+  useEffect(() => {
+    editorViewRef.current?.dispatch({ effects: highlighting.current.reconfigure(config.syntaxHighlighting ? [sourceCodeHighlighting] : []) })
+    if (tiptap && !tiptap.isDestroyed) tiptap.view.dispatch(tiptap.state.tr.setMeta(codeHighlightKey, config.syntaxHighlighting).setMeta('addToHistory', false))
+  }, [config.syntaxHighlighting, tiptap])
 
   useEffect(() => {
     const view = editorViewRef.current

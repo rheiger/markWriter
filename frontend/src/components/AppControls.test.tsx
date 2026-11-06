@@ -24,6 +24,27 @@ describe('application view controls', () => {
     useAppStore.getState().setCurrentDocument({ id: 'controls', title: 'Controls', content: source, isDirty: false, lastModified: new Date() })
   })
 
+  it('synchronizes explicit Auto/Light/Dark choices and the persisted highlighting controls', async () => {
+    render(<App />)
+    const syntax = screen.getByRole('button', { name: 'Syntax highlighting', exact: true })
+    expect(syntax).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(syntax)
+    expect(useAppStore.getState().config.syntaxHighlighting).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'View', exact: true }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Syntax highlighting', exact: true })
+    expect(item).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(item)
+    expect(syntax).toHaveAttribute('aria-pressed', 'true')
+    for (const [label, value] of [['Dark','dark'], ['Light','light'], ['Auto','system']]) {
+      fireEvent.click(screen.getByRole('button', { name: 'View', exact: true }))
+      fireEvent.click(screen.getByRole('menuitemradio', { name: label, exact: true }))
+      expect(useAppStore.getState().config.theme).toBe(value)
+      expect(document.documentElement.getAttribute('data-theme')).toBe(value === 'system' ? null : value)
+    }
+    expect(useAppStore.getState().currentDocument?.content).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
   it('switches from toolbar and View menu without obscuring or changing the document', async () => {
     const { container } = render(<App />)
     const toggle = screen.getByRole('switch', { name: 'Markdown mode' })

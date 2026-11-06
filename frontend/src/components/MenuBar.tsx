@@ -267,12 +267,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }, [currentDocument, editorViewRef])
 
   // View menu handlers
-  const handleThemeToggle = () => {
-    const nextTheme = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'
-    setTheme(nextTheme)
-    setActiveMenu(null)
-  }
-
   const handleZoomIn = () => { updateConfig({ [fontSizeKey]: Math.min(config[fontSizeKey] + 2, 32) }); setActiveMenu(null) }
   const handleZoomOut = () => { updateConfig({ [fontSizeKey]: Math.max(config[fontSizeKey] - 2, 10) }); setActiveMenu(null) }
   const handleActualSize = () => { updateConfig({ [fontSizeKey]: defaultTextSize }); setActiveMenu(null) }
@@ -546,9 +540,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
               <span>WYSIWYG</span><span aria-hidden="true">{editorMode === 'wysiwyg' ? '✓' : ''}</span>
             </button>
             <div className="menu-separator" />
-            <button className="menu-option" onClick={handleThemeToggle}>
-              <span>Theme: {theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}</span>
+            <button className="menu-option" role="menuitemcheckbox" aria-checked={config.syntaxHighlighting}
+              onClick={() => { updateConfig({ syntaxHighlighting: !config.syntaxHighlighting }); setActiveMenu(null) }}>
+              <span>Syntax highlighting</span><span aria-hidden="true">{config.syntaxHighlighting ? '✓' : ''}</span>
             </button>
+            <div className="menu-separator" />
+            <div className="menu-label">Theme</div>
+            {(['system', 'light', 'dark'] as const).map(value => <button key={value} className="menu-option"
+              role="menuitemradio" aria-checked={theme === value}
+              onClick={() => { setTheme(value); setActiveMenu(null) }}>
+              <span>{value === 'system' ? 'Auto' : value === 'light' ? 'Light' : 'Dark'}</span>
+              <span aria-hidden="true">{theme === value ? '✓' : ''}</span>
+            </button>)}
             <div className="menu-separator" />
             <button className="menu-option" onClick={handleZoomIn}>
               <span>Zoom In</span>

@@ -1,5 +1,6 @@
 export interface AppConfig {
   theme: 'light' | 'dark' | 'system'
+  syntaxHighlighting: boolean
   fontSize: number
   fontFamily: string
   renderedFontSize: number
@@ -13,7 +14,7 @@ export interface AppConfig {
   restoreSession: boolean
 }
 export const defaultConfig: AppConfig = {
-  theme: 'system', fontSize: 14, fontFamily: 'Monaco, Menlo, Consolas, monospace',
+  theme: 'system', syntaxHighlighting: true, fontSize: 14, fontFamily: 'Monaco, Menlo, Consolas, monospace',
   renderedFontSize: 16, renderedFontFamily: 'system-ui, sans-serif', renderedLineHeight: 1.6,
   tabWidth: 4, wordWrap: true, wrapContinuation: true, syncPreview: true, collapseSource: true, restoreSession: true,
 }

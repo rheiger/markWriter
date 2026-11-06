@@ -322,6 +322,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
       <div className="toolbar-separator" />
 
       <div className="toolbar-section">
+        <button className="toolbar-btn" type="button" aria-label="Syntax highlighting" aria-pressed={config.syntaxHighlighting}
+          title={`Syntax highlighting ${config.syntaxHighlighting ? 'on' : 'off'}`}
+          onClick={() => updateConfig({ syntaxHighlighting: !config.syntaxHighlighting })}>
+          <span aria-hidden="true">{'{ }'}</span>
+        </button>
         <button className="toolbar-btn mode-switch" role="switch" aria-label="Markdown mode"
           aria-checked={editorMode === 'markdown'} disabled={!currentDocument}
           title={editorMode === 'markdown' ? 'Switch to WYSIWYG editing' : 'Switch to Markdown with preview'}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import mermaid from 'mermaid'
 import { useAppStore } from '../store/useAppStore'
+import { useResolvedDark } from '../lib/theme'
 
 interface MermaidRendererProps {
   chart: string
@@ -10,15 +11,13 @@ interface MermaidRendererProps {
 export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const { config } = useAppStore()
+  const isDark = useResolvedDark(config.theme)
   
   useEffect(() => {
     if (!containerRef.current) return
 
     let cancelled = false
     const container = containerRef.current
-
-    const isDark = config.theme === 'dark' || 
-      (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
     // Initialize mermaid with theme configuration
     mermaid.initialize({
@@ -74,7 +73,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, id }) =
 
     renderDiagram()
     return () => { cancelled = true }
-  }, [chart, id, config.theme])
+  }, [chart, id, isDark])
 
   return (
     <div 
