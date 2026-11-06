@@ -1,3 +1,12 @@
+## Unreleased 2.0.0-alpha.2 — 2026-11-06 productivity increment
+
+- Add single-window document tabs with retained editor histories, safe captured-document saves, Save All, reorder/navigation and all-tab Close/Quit protection.
+- Add validated persistent Settings and atomic local session/draft recovery with detached copies for disk conflicts.
+- Add accessible WYSIWYG table row/column management, boundary rules, selection and undo.
+- Fold Mermaid and long embedded-image source without replacing Markdown; preserve full copy/search and per-tab choices.
+- Add a Mermaid ERD starter and self-contained ERD HTML export; preserve embedded images and clean table view changes.
+- See docs/productivity-increment-2026-11-06.md for evidence, final qualification and deferred scope. No release/merge/tag.
+
 ## Unreleased — 2026-11-05 stabilization
 
 - Move editor mode switching from floating document buttons into a toolbar switch and View-menu choices.

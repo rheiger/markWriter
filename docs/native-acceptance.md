@@ -1,5 +1,11 @@
 # Native application acceptance
 
+The current productivity harness extends the historical eight-case baseline below. It targets the active document owner before interacting with retained editors, exercises duplicate-path tabs, contextual table boundaries, Save All, actual preferences IPC, fold byte preservation, Mermaid ERD preview/export, a process restart after flushing an unnamed draft, and dirty Close Cancel/Discard. The restart uses an explicit exit only in the isolated acceptance bridge after confirmed persistence; ordinary Close/Quit protection remains tested separately. Native writes are real. OS path dialogs are bypassed with explicit generated paths on Windows/Linux; macOS dialogs/recovery are exercised directly.
+
+Final alpha.2 evidence: [CI 42132949169](https://github.com/rheiger/markWriter/actions/runs/42132949169) passed at source `6c6eb56`, including 68 frontend tests and all three native jobs. The Windows and Linux artifacts each report all 16 application cases passed and were independently inspected. See [productivity report](productivity-increment-2026-11-06.md).
+
+## Historical stabilization harness
+
 The v2 CI runs `tools/native-acceptance.mjs` on Windows and Linux using real WebView2/WebKitGTK, real editor engines, real store actions and real Tauri file commands. No backend commands are mocked. OS path dialogs are bypassed using explicit temporary fixture paths; this does not establish OS dialog acceptance. macOS file/dialog/quit workflows were exercised separately through the native app.
 
 The test checks the About dialog version, toolbar mode-switch operation, five unchanged mode cycles, byte-identical Save As, a WYSIWYG edit, three edited cycles, Save/reopen, export with three Mermaid SVGs/table/tasks, and Markdown table insertion becoming an editable WYSIWYG table. Failures retain page HTML, a screenshot when available, and driver logs as CI artifacts for seven days. Only generated fixture data is captured.

@@ -11,9 +11,9 @@ Agreed scope: docs/next-increment-plan-2026-11-06.md. Starting HEAD 1fe311c; bra
 - Accessible table management and boundaries: complete
 - Non-destructive embedded-source folds: complete
 - Mermaid ERD template / acceptance: complete
-- Integration, optional read-only review, native/CI qualification and closeout: in_progress
-- Separate draw.io offline feasibility spike after core gates: pending
+- Integration, optional read-only review, native/CI qualification and closeout: complete
+- Separate draw.io offline feasibility spike after core gates: complete (product integration deferred; see docs/drawio-offline-spike-2026-11-06.md)
 
 Preserve pre-existing Samples/, Testresults/ and untracked planning documents. No merge/release/issue messages. Commit verified slices and push feature branch.
 
-Implementation slices are complete. Final gate remains open until current-source three-platform CI and review bundle acceptance pass. No claim of final completion from phase implementation checks alone.
+Final gate passed at source6c6eb56 in CI42132949169: 68 frontend tests, all three native jobs and16 Windows/Linux application cases each; both artifacts inspected. Ordinary macOS alpha.2 review app rebuilt and checked, original clean document restored. Draw.io product integration remains explicitly deferred after its isolated spike. Closeout is documentation only.

@@ -1,3 +1,5 @@
+> The subsequent unreleased alpha.2 productivity increment is documented in [the 6 November report](productivity-increment-2026-11-06.md). Evidence below describes the stabilization baseline.
+
 # Editor stabilization — 5 November 2026
 
 Core stabilization and acceptance for the supported fixture workflows are complete on `codex/editor-stabilization`. It is pushed for qualification CI, with no merge or release. Existing code/docs were checkpointed separately; pre-existing sample changes and historical test evidence remain untouched.
