@@ -61,9 +61,9 @@ export async function verifyTechnicalWriting({root,dir,artifacts,run,click,menu,
   await click('(//*[@data-active="true"]//*[@data-type="math"]//button[normalize-space(.)="Edit math source"])[1]')
   const changed='\\frac{3}{4}'
   await run(`const e=document.querySelector('[data-active=true] textarea[aria-label="Math source"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}))`,changed)
-  await wait(()=>run(`return document.querySelector('[data-active=true] [data-type=math]').getAttribute('data-chart')===arguments[0]`,changed),'live math source owns document transaction')
+  await wait(()=>run(`return document.querySelector('[data-active=true] .tiptap [data-type=math]').getAttribute('data-chart')===arguments[0]`,changed),'live math source owns document transaction')
   await mode(true);await mode(false)
-  assert.equal(await run(`return document.querySelector('[data-active=true] [data-type=math]').getAttribute('data-chart').trim()`),changed)
+  assert.equal(await run(`return document.querySelector('[data-active=true] .tiptap [data-type=math]').getAttribute('data-chart').trim()`),changed)
   await menu('Edit','Undo');await save()
   await wait(async()=>!(await readFile(saved,'utf8')).includes(changed),'single math source Undo saved original expression')
   cases.push('live math source survives mode changes and one native Undo restores its original expression')
