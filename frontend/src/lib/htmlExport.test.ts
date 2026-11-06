@@ -25,3 +25,14 @@ describe('standalone HTML export', () => {
     expect(doc.body.textContent).toContain('<script>alert(1)</script>')
   })
 })
+
+it('exports qualified static DOT with no source or navigation metadata', async () => {
+  const { dotRenderer } = await import('./dotRenderer')
+  const spy = vi.spyOn(dotRenderer, 'render').mockResolvedValueOnce('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>safe</text></svg>')
+  try {
+    const html = await createHtmlExport('```graphviz\ndigraph {a -> b}\n```')
+    expect(html).toContain('<svg')
+    expect(html).not.toMatch(/data-(?:chart|source-fence|notation|mw-)/)
+    expect(html).not.toMatch(/<script|href=/)
+  } finally { spy.mockRestore() }
+})

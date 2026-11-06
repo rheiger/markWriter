@@ -20,13 +20,20 @@ markdown.inline.ruler.before('escape', 'table_break', (state, silent) => {
 const fence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]
-  if (token.info.trim() !== 'mermaid') return fence(tokens, index, options, env, renderer)
+  const notation = token.info.trim()
+  if (notation === 'dot' || notation === 'graphviz') {
+    const lines = (env?.source as string | undefined)?.match(/[^\n]*\n|[^\n]+$/g) ?? []
+    const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/\r?\n$/, '') : ''
+    const escape = markdown.utils.escapeHtml
+    return `<div data-type="dot" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw))}">${escape(token.content)}</div>\n`
+  }
+  if (notation !== 'mermaid') return fence(tokens, index, options, env, renderer)
   const source = markdown.utils.escapeHtml(token.content)
   return `<div data-type="mermaid" data-chart="${source}">${source}</div>\n`
 }
 
 export function renderMarkdownHtml(source: string): string {
-  return markdown.render(source)
+  return markdown.render(source, { source })
 }
 
 // Mapping is opt-in and never used by export or the editable document codec.
@@ -59,7 +66,7 @@ for (const type of ['fence', 'code_block']) {
   }
 }
 export function renderMappedMarkdown(source: string, owner: MapOwner): PreviewMap {
-  const env = {}
+  const env = { source }
   const tokens = markdown.parse(source, env)
   const map = mapTokens(source, tokens, owner, text => markdown.utils.unescapeAll(text))
   map.html = mappedRenderer.render(tokens, markdown.options, env)
@@ -67,7 +74,7 @@ export function renderMappedMarkdown(source: string, owner: MapOwner): PreviewMa
 }
 
 export function toWysiwygHtml(source: string): string {
-  const doc = new DOMParser().parseFromString(markdown.render(source), 'text/html')
+  const doc = new DOMParser().parseFromString(markdown.render(source, { source }), 'text/html')
   doc.querySelectorAll('ins').forEach(node => {
     const underline = doc.createElement('u')
     underline.append(...Array.from(node.childNodes))
@@ -83,6 +90,16 @@ export function toWysiwygHtml(source: string): string {
   return doc.body.innerHTML
 }
 
+function dotFence(node: HTMLElement): string {
+  const raw = node.getAttribute('data-source-fence')
+  if (raw) {
+    try { const fence = JSON.parse(raw); if (typeof fence === 'string' && fence) return `\n\n${fence}\n\n` } catch { /* Pasted invalid metadata falls back to the source attribute. */ }
+  }
+  const chart = node.getAttribute('data-chart') ?? ''
+  const fence = '`'.repeat(Math.max(3, ...Array.from(chart.matchAll(/`+/g), match => match[0].length + 1)))
+  const notation = node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
+  return `\n\n${fence}${notation}\n${chart.replace(/\n$/, '')}\n${fence}\n\n`
+}
 function mermaidFence(node: HTMLElement): string {
   const chart = node.getAttribute('data-chart') ?? node.textContent ?? ''
   // Pick a fence longer than any run in the source.
@@ -97,6 +114,7 @@ const turndown = new TurndownService({
   // Atom nodes serialize as empty elements; Turndown checks blankness before custom rules.
   blankReplacement: (_content, node) => {
     const element = node as HTMLElement
+    if (element.getAttribute?.('data-type') === 'dot') return dotFence(element)
     if (element.getAttribute?.('data-type') === 'mermaid') return mermaidFence(element)
     return (node as HTMLElement & { isBlock: boolean }).isBlock ? '\n\n' : ''
   },
@@ -105,6 +123,7 @@ const turndown = new TurndownService({
 const escapeText = turndown.escape.bind(turndown)
 turndown.escape = text => escapeText(text).replace(/(\\*)([+~])/g, (_match, slashes: string, char: string) => slashes + (slashes.length % 2 ? '' : '\\') + char)
 turndown.use(gfm)
+turndown.addRule('dot', { filter: node => node.getAttribute('data-type') === 'dot', replacement: (_content, node) => dotFence(node as HTMLElement) })
 turndown.addRule('mermaid', {
   filter: node => node.getAttribute('data-type') === 'mermaid',
   replacement: (_content, node) => mermaidFence(node as HTMLElement),

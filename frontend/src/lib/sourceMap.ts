@@ -92,7 +92,7 @@ export function mapTokens(source: string, tokens: Token[], owner: MapOwner, deco
       if (!token.hidden) token.attrSet('data-mw-block', String(block.id))
       token.meta = { ...token.meta, navigationBlock: block.id }
       if (token.type === 'tr_open') { rowCells = cells(norm.text, from, to); cell = 0 }
-      if ((token.type === 'fence' && token.info.trim() !== 'mermaid' || token.type === 'code_block') && token.content) {
+      if ((token.type === 'fence' && !['mermaid', 'dot', 'graphviz'].includes(token.info.trim()) || token.type === 'code_block') && token.content) {
         const origins = inlineOrigins(norm.text, token.content.replace(/\n$/, ''), norm.lines[token.map[0] + (token.type === 'fence' ? 1 : 0)], to)
         if (origins) {
           const text = token.content.replace(/\n$/, '')

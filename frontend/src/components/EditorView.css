@@ -224,3 +224,8 @@
 .correspondence-caret { background: var(--accent-primary); opacity: .8; }
 .correspondence-range { background: color-mix(in srgb, var(--accent-primary) 22%, transparent); }
 .correspondence-block { outline: 2px dashed var(--accent-primary); outline-offset: -2px; }
+
+.dot-diagram, [data-type="dot"] { overflow: auto; max-width: 100%; padding: 8px; background: #fff; color: #111; border-radius: 4px; }
+.dot-diagram svg, [data-type="dot"] svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.dot-source-hint { font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); padding: 4px 8px; }
+.dot-node.ProseMirror-selectednode { outline: 2px solid var(--accent-color); }

@@ -30,7 +30,8 @@ const fixtureDir = await mkdtemp(join(tmpdir(), 'markwriter-native-'))
 const sourcePath = join(fixtureDir, 'source.md')
 const savedPath = join(fixtureDir, 'saved.md')
 const htmlPath = join(fixtureDir, 'export.html')
-const source = '# Native acceptance\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```\n\n```mermaid\nstateDiagram-v2\n [*] --> Ready\n```\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| **Bold** | a \\| b | 3 |\n\n- [x] Done\n- [ ] Pending\n'
+const baselineSource = '# Native acceptance\n\nA paragraph.\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```\n\n```mermaid\nstateDiagram-v2\n [*] --> Ready\n```\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| **Bold** | a \\| b | 3 |\n\n- [x] Done\n- [ ] Pending\n'
+const source = baselineSource + '\n' + '```dot\ndigraph { rankdir=LR; a [label=" a   b ", shape=box]; a -> b }\n```\n\n~~~~graphviz\ndigraph { cluster_1 [label="Grüße 漢"]; cluster_1 -> end }\n~~~~\n'
 await writeFile(sourcePath, source)
 
 const extension = process.platform === 'win32' ? '.exe' : ''
@@ -91,6 +92,7 @@ async function mode(name) {
 }
 async function preview() {
   await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=mermaid] svg").length === 3'), 'three rendered preview diagrams')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length === 2'), 'two offline DOT preview diagrams')
 }
 
 try {
@@ -132,7 +134,7 @@ try {
   assert.equal((await action('open', savedPath)).document.content, edited)
   await action('exportHtml', htmlPath)
   const html = await readFile(htmlPath, 'utf8')
-  assert.equal((html.match(/<svg\b/g) ?? []).length, 3)
+  assert.equal((html.match(/<svg\b/g) ?? []).length, 5)
   assert.equal((html.match(/<table\b/g) ?? []).length, 1)
   assert.equal((html.match(/type="checkbox"/g) ?? []).length, 2)
   assert.ok(!/<script\b/i.test(html))
@@ -167,7 +169,7 @@ try {
   await action('open', savedPath)
   const beforeFold = (await snapshot()).document.content
   await mode('Markdown')
-  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .source-fold").length===3'), 'default Mermaid folds')
+  await waitFor(() => run('return document.querySelectorAll("[data-active=true] .source-fold").length===5'), 'default diagram folds')
   await click('(//*[@data-active="true"]//button[contains(@class,"source-fold")])[1]')
   assert.equal((await snapshot()).document.content, beforeFold)
   assert.equal((await snapshot()).document.isDirty, false)
@@ -223,6 +225,24 @@ try {
   const previewExport = join(fixtureDir,'navigation.html')
   await action('exportHtml',previewExport)
   assert.ok(!(await readFile(previewExport,'utf8')).includes('data-mw-'), 'view-only mappings excluded from export')
+  // DOT jobs use production bundled worker responses, not the test bridge policy.
+  const workerName = (await readdir(join(root,'frontend','dist-acceptance','assets'))).find(name=>name.startsWith('dotWorker-') && name.endsWith('.js'))
+  assert.ok(workerName)
+  const workerPolicy = await request('POST', `/session/${session}/execute/async`, {
+    script: `const path=arguments[0],done=arguments[arguments.length-1]; fetch(path).then(r=>done({url:r.url,status:r.status,policy:r.headers.get('content-security-policy')})).catch(e=>done({error:String(e)}));`, args: ['/assets/'+workerName],
+  })
+  assert.ok(workerPolicy.policy?.includes("'wasm-unsafe-eval'"), JSON.stringify(workerPolicy))
+  assert.ok(workerPolicy.policy?.includes("connect-src 'none'"), JSON.stringify(workerPolicy))
+  const dotPath = join(fixtureDir, 'dot-draft.md')
+  await writeFile(dotPath, '# DOT recovery\n\n' + source.slice(source.indexOf('```dot')))
+  await action('open', dotPath); await mode('Markdown'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'), 'DOT aliases after open')
+  const dotBefore = (await snapshot()).document.content
+  await action('create'); await action('activate', (await snapshot()).documents.find(d=>d.path===dotPath).id)
+  await mode('WYSIWYG'); await waitFor(() => run('return document.querySelectorAll("[data-active=true] .tiptap [data-type=dot] svg").length===2'), 'DOT rendered nodes after tab switch')
+  assert.equal((await snapshot()).document.content,dotBefore);assert.equal((await snapshot()).document.isDirty,false)
+  const dotExport = join(fixtureDir,'dot-export.html'); await action('exportHtml',dotExport)
+  const dotHtml = await readFile(dotExport,'utf8');assert.equal((dotHtml.match(/<svg\b/g)??[]).length,2);assert.ok(!/data-(?:mw-|chart|source-fence)|<script|javascript:/.test(dotHtml))
+  await writeFile(join(artifacts,'dot-worker-policy.json'),JSON.stringify(workerPolicy,null,2))
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   const recoveryText = (await snapshot()).document.content
@@ -254,7 +274,7 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response policy'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {
