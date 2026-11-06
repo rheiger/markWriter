@@ -1,3 +1,10 @@
+## Unreleased 2.5.0-alpha1 — 2026-11-06
+
+- Preserve meaningful inline-code spaces, tabs, whitespace-only spans and backticks through rendered parsing/serialization, ordinary editing, clipboard parsing and HTML export. View-only canonical Markdown remains byte-identical; real rendered edits may normalize surrounding Markdown syntax.
+- Add explicit `math` fences with bounded offline KaTeX rendering, literal WYSIWYG source editing, document Undo/Redo, source folds/correspondence, recovery and static HTML export with embedded fonts and licenses. Inline dollars, numbering/references and arbitrary TeX packages remain deferred.
+- Add bundled searchable Help with editing conventions, actual shortcuts, recovery/font guidance and keyboard-accessible Light/Dark navigation.
+- Extend native and ordinary installed-package acceptance with technical-writing fixtures and strict worker/font/export checks. Release remains gated on final exact-source qualification.
+
 ## [2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) — 2026-11-06
 
 - Restore CSS, Swift and Makefile highlighting, add Objective-C `m`, and prevent automatic replacements in fenced/inline code and blockquotes while retaining intentional Unicode and composition. Corrected candidate acceptance: docs/alpha3-feedback-acceptance.md; broader detection/languages deferred to #44, existing inline-code whitespace serialization defect tracked in #46.
@@ -191,10 +198,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v0.0.8**: Initial stable release with core features
 
 For detailed information about each release, see the [GitHub releases page](https://github.com/rheiger/markWriter/releases).
-## Unreleased 2.5.0-alpha1 — 2026-11-06
-
-- Preserve meaningful inline-code spaces, tabs, whitespace-only spans and backticks through rendered parsing/serialization, ordinary editing, clipboard parsing and HTML export. View-only canonical Markdown remains byte-identical; real rendered edits may normalize surrounding Markdown syntax.
-- Add explicit `math` fences with bounded offline KaTeX rendering, literal WYSIWYG source editing, document Undo/Redo, source folds/correspondence, recovery and static HTML export with embedded fonts and licenses. Inline dollars, numbering/references and arbitrary TeX packages remain deferred.
-- Add bundled searchable Help with editing conventions, actual shortcuts, recovery/font guidance and keyboard-accessible Light/Dark navigation.
-- Extend native and ordinary installed-package acceptance with technical-writing fixtures and strict worker/font/export checks. Release remains gated on final exact-source qualification.
-
