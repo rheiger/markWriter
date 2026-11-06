@@ -185,6 +185,16 @@ try {
   await action('exportHtml', erdPath)
   const erd = await readFile(erdPath,'utf8')
   assert.ok(erd.includes('<svg') && erd.includes('CUSTOMER') && !/<script\b/i.test(erd))
+  for(const editorMode of ['Markdown','WYSIWYG']){
+    await action('create');await mode(editorMode)
+    await click('//button[normalize-space(.)="Insert"]');await click('//button[normalize-space(.)="DOT"]')
+    await waitFor(()=>run('return document.querySelectorAll(arguments[0]).length===1',editorMode==='Markdown'?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'DOT starter in '+editorMode)
+    const inserted=(await snapshot()).document.content;assert.ok(inserted.includes('start -> finish;'))
+    const path=join(fixtureDir,'dot-starter-'+editorMode+'.md');await action('saveAs',path);assert.equal(await readFile(path,'utf8'),inserted)
+    await mode(editorMode==='Markdown'?'WYSIWYG':'Markdown');await mode(editorMode)
+    await click('//button[normalize-space(.)="Edit"]');await click('//button[.//span[normalize-space(.)="Undo"]]')
+    await action('save');assert.equal(await readFile(path,'utf8'),'','One DOT starter Undo restores the empty native file')
+  }
   // 2.1 editing/search/navigation operate on real engines with native file writes.
   const navigationPath = join(fixtureDir, 'navigation.md')
   const navigation = '# Navigation\n\n' + Array.from({length: 35}, (_, i) => `## Anchor ${i}\n\nParagraph ${i} with **same** &amp; 😀 repeated prose.\n\n`).join('') + '```mermaid\nflowchart TD\n A[same] --> B[end]\n```\n'
@@ -281,7 +291,7 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery'] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery'] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {

@@ -4,6 +4,7 @@ import App from '../App'
 import { useAppStore } from '../store/useAppStore'
 import { defaultConfig } from '../lib/preferences'
 import { version } from '../../package.json'
+import type { Editor } from '@tiptap/core'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: vi.fn() }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn() }))
@@ -74,5 +75,23 @@ describe('application view controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(help).toHaveFocus()
+  })
+
+  it.each(['markdown', 'wysiwyg'])('inserts an editable DOT starter through the menu in %s with one Undo', async mode => {
+    const { container }=render(<App />)
+    await waitFor(()=>expect((container.querySelector('.tiptap') as HTMLElement & {editor:Editor}).editor.isInitialized).toBe(true))
+    if(mode==='markdown'){
+      fireEvent.click(screen.getByRole('switch',{name:'Markdown mode'}))
+      await waitFor(()=>expect(container.querySelector('.cm-content')).toBeVisible())
+    }
+    fireEvent.click(screen.getByRole('button',{name:'Insert',exact:true}))
+    fireEvent.click(screen.getByRole('button',{name:'DOT',exact:true}))
+    await waitFor(()=>expect(useAppStore.getState().currentDocument?.content).toContain('```dot\ndigraph'))
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(true)
+    expect(container.querySelector('.menu-dropdown')).toBeNull()
+    if(mode==='wysiwyg')expect(container.querySelector('.tiptap [data-type=dot]')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button',{name:'Edit',exact:true}))
+    fireEvent.click(screen.getByRole('button',{name:/^Undo/}))
+    await waitFor(()=>expect(useAppStore.getState().currentDocument?.content).toBe(source))
   })
 })

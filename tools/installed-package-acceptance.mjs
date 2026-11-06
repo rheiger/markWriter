@@ -64,6 +64,14 @@ try{
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
+ for(const markdown of [true,false]){
+   await menu('File','New');await mode(markdown);await menu('Insert','DOT')
+   await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
+   const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
+   await mode(!markdown);await mode(markdown);await menu('File','Save');await wait(async()=>await readFile(starterPath,'utf8')===inserted,'view-only starter byte preservation')
+   await menu('Edit','Undo');await menu('File','Save');await wait(async()=>await readFile(starterPath,'utf8')==='','one starter Undo saves empty original')
+ }
+ cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
 }catch(error){if(session){const alert=await request('GET',`/session/${session}/alert/text`).catch(()=>null);if(alert)await writeFile(join(artifacts,'native-alert.json'),JSON.stringify({alert},null,2));const html=await request('GET',`/session/${session}/source`).catch(()=>null);if(html)await writeFile(join(artifacts,'failure.html'),html);const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'failure.png'),Buffer.from(shot,'base64'))}throw error}

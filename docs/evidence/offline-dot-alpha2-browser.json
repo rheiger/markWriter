@@ -96,5 +96,18 @@
     "unexpectedConsoleErrors": 0,
     "lightTheme": true
   },
-  "previousProbeSource": "61e2262a96063e8816cd63063b40e57ba9492b11"
+  "previousProbeSource": "61e2262a96063e8816cd63063b40e57ba9492b11",
+  "navigationFollowUp": {
+    "source": "9b44017e940bbe8a71a2a79d9f4fb3ac439eb6e5",
+    "build": "Vite development UI; production worker previously qualified separately",
+    "case": "double-click Preview paragraph then click DOT SVG",
+    "sourceUnfolded": true,
+    "parserOwnedOuterBlockHighlight": true,
+    "exactDiagramTextSegments": 0,
+    "dirty": false,
+    "revision": 0,
+    "sourceSha256": "2c6943474c701ac9f94c4ebd9e86fd2fd2d2504dd5deccf76033ef2ff00da0e5",
+    "chars": 287,
+    "consoleWarningsErrors": []
+  }
 }

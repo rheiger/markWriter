@@ -18,6 +18,18 @@ GFM permits multiple spaces after a list marker and four-space nesting. Those fo
 
 Use a fenced `dot` block (`graphviz` is an alias). The source stays editable in Markdown; WYSIWYG treats the diagram as an opaque atom. Preview clicks and source selection use an explicit dashed block fallback, with no invented text positions inside SVG. Source Find includes folded notation; rendered Find excludes atom internals. View-only changes preserve the original fence/alias/line endings. A genuine rendered edit preserves the graph source but can normalize enclosing Markdown, as with other supported blocks.
 
+**Insert → Diagram → DOT** inserts a small directed graph. Switch to Markdown to edit its source; Undo removes the insertion in one operation. In source mode the starter replaces the current selection; insert outside an existing code fence. In WYSIWYG it inserts after the current block, including after a table.
+
+```dot
+digraph {
+    rankdir=LR;
+    node [shape=box];
+    start [label="Start"];
+    finish [label="Finish"];
+    start -> finish;
+}
+```
+
 The bundled Viz3.31.0 / Graphviz16.1.0 runtime uses the `dot` layout engine locally, with no hosted renderer, upload, Graphviz installation or runtime download. Limits:64KiB UTF-8 source,2MiB SVG,2s layout after up to5s startup,32 waiting jobs. A worker is terminated on timeout/cancellation; JavaScript/WASM does not provide a hard memory bound. Malformed, empty, unsupported or oversized notation remains intact with an inline recoverable error. Simplify the graph or edit its source.
 
 Supported attributes are deliberately restricted: labels/tooltips, rank/direction/spacing, shape/style, colors/fonts, line/arrow properties, dimensions/margins and ordinary cluster/edge layout options listed in the [DOT safety ADR](adr-offline-dot.md). External images/files, links/URLs, include/resource settings, HTML labels, concatenated strings, gradient/multicolor paints, radial styles and unknown attributes are rejected. Unsupported Graphviz features/warnings also fail closed. Unicode labels retain their text; the embedded runtime's approximate non-ASCII metrics can affect glyph fit and do not guarantee identical typography across installed fonts.

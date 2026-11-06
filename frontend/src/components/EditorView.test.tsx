@@ -325,6 +325,21 @@ describe('document fidelity with real editors', () => {
     expect(ref.current!.getMarkdown()).toContain('int customer_id FK')
   })
 
+  it('inserts a valid DOT block within source prose without absorbing surrounding text and undoes once', async () => {
+    const {dotTemplate}=await import('../lib/templates')
+    const {ref}=await mount('Before after')
+    await markdown(ref)
+    act(()=>ref.current!.getEditorView()!.dispatch({selection:{anchor:7}}))
+    act(()=>ref.current!.insertMarkdown(dotTemplate))
+    const html=new DOMParser().parseFromString(toWysiwygHtml(ref.current!.getMarkdown()),'text/html')
+    expect(html.querySelectorAll('[data-type=dot]')).toHaveLength(1)
+    expect(html.querySelector('[data-type=dot]')!.getAttribute('data-chart')).not.toContain('after')
+    expect(html.body.textContent).toContain('Before')
+    expect(html.body.textContent).toContain('after')
+    act(()=>ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Before after')
+  })
+
   it('retains embedded image payloads after a WYSIWYG edit and mode cycles', async () => {
     const data = 'data:image/png;base64,' + 'ABCD'.repeat(100)
     const { ref, editor } = await mount(`Before\n\n![Embedded](${data})\n\nAfter`)

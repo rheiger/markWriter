@@ -4,7 +4,7 @@
 
 ## Product boundary
 
-DOT Preview, opaque WYSIWYG atoms, `dot`/`graphviz` codecs, source folds/search, block fallback correspondence, job ownership and sanitized static export are implemented. The Insert starter is withheld until native safety/runtime gates pass. Limits and supported attributes/resources/paint/Unicode behavior are in the [ADR](adr-offline-dot.md) and [Markdown guide](supported-markdown.md). The exact Richie sentence is preserved.
+DOT Preview, opaque WYSIWYG atoms, `dot`/`graphviz` codecs, source folds/search, block fallback correspondence, job ownership and sanitized static export are implemented. The Insert starter is now implemented after the runtime gate: actual native worker bytes/MIME/policy and hostile-input recovery pass on Windows/Linux quality builds; ordinary Windows/Linux packages reach real Open, offline SVG and the byte-bound worker check, and the local macOS installed app passes the safety fixtures. Complete final-source package acceptance remains pending. Limits and supported attributes/resources/paint/Unicode behavior are in the [ADR](adr-offline-dot.md) and [Markdown guide](supported-markdown.md). The exact Richie sentence is preserved.
 
 The pinned offline worker has64KiB input,2MiB SVG,2s layout plus5s startup and32 waiting jobs. It has no hard memory bound. Strict worker response CSP permits WASM while denying connections and resource surfaces; the document does not gain general eval/WASM permission. Sanitization reconstructs bounded geometry/text. No network/files/images/HTML labels/links/CSS/gradient resources are supported.
 
@@ -37,3 +37,5 @@ At application source `4c491277c91b5a2da3f0548067d9bf880d64f37f`:124 frontend te
 Canceled/failed/interim CI runs are retained as diagnostic history, never release evidence. Existing20 user-file hashes are preserved. DBML#33 is deferred at its independent schema/layout/export gate; PlantUML#31/draw.io#5/logs#29/independent windows/plugins remain out of scope.
 
 Assets are unsigned/ad-hoc experimental builds: no Developer ID/notarization/Authenticode or trusted distribution claim. Exact tested OS/WebView baselines come from platform manifests, not runner-label inference. Windows Server evidence does not establish Windows10/11, and Ubuntu26.04x64 does not establish other distributions/architectures. See [installation/profile/rollback guide](install-alpha2.md).
+
+Local starter/navigation follow-up:128 frontend tests, lint/typecheck, production/acceptance builds and bridge/notices checks pass. The actual pinned Graphviz16.1.0 renders the starter with zero warnings/errors (1361 raw SVG bytes). Two menu insertion/Undo tests and the prior-selection DOT regression were observed failing before their fixes. Final native gates now include the starter in both editors, mode cycles and one native saved Undo, plus post-restart exact recovered SaveAs and active18/24 controls.
