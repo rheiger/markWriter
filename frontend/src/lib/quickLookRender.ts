@@ -69,6 +69,8 @@ async function rasterize(svg: string): Promise<string> {
     canvas.width = clean.width; canvas.height = clean.height
     const context = canvas.getContext('2d')
     if (!context) throw new Error('Canvas unavailable')
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, clean.width, clean.height)
     context.drawImage(image, 0, 0, clean.width, clean.height)
     const png = canvas.toDataURL('image/png')
     if (!png.startsWith('data:image/png;base64,') || png.length > MAX_PNG_BYTES) throw new Error('PNG exceeds limit')

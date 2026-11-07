@@ -2,9 +2,9 @@
 
 MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
 
-## Unreleased 2.6 candidate
+## 2.6.2 preliminary
 
-The native-integration candidate adds macOS screen menus, bounded regex Find/Replace with capture colors/references, Markdown OS-open routing on macOS, and manual stable-release discovery. Quick Look/structured shell previews and secure update installation remain unqualified. Candidate packages have no explicit OS signing; 2.5.1 remains the released version. See [candidate acceptance and blockers](docs/2.6-candidate-acceptance.md).
+The 2.6 line adds macOS screen menus, bounded regex Find/Replace with capture colors and references, Markdown OS-open routing on macOS, and manual stable-release discovery. The Apple silicon 2.6.2 preliminary package includes Finder Quick Look for Markdown, JSON, NDJSON, YAML and XML. Markdown previews include syntax highlighting and supported Mermaid and DOT diagrams. Secure update installation remains deferred. See the [installation and manual registration guide](docs/install-2.6.2.md).
 
 ## Current release
 
@@ -27,7 +27,7 @@ See the [platform signing and unsigned-app guides](docs/distribution-signing/REA
 
 Markdown is the canonical document source. Navigation and view changes preserve its bytes. Actual WYSIWYG edits may normalize Markdown syntax; consult the acceptance report for fidelity boundaries. Syntax highlighting and diagram/math rendering are bounded and fall back to readable source when their limits are exceeded. Inline dollar math, arbitrary TeX packages and PDF export are not supported.
 
-Independent windows, plugins, draw.io, DBML, SQL DDL and OS Quick Look/preview integrations remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
+Independent windows, plugins, draw.io, DBML and SQL DDL remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
 
 ## Build and develop
 

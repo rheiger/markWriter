@@ -41,3 +41,22 @@ describe('Quick Look static enrichment', () => {
   })
 
 })
+
+describe('diagram raster contrast', () => {
+  it('paints an opaque light background before drawing the diagram', async () => {
+    const fillRect = vi.fn(), drawImage = vi.fn()
+    const context = { fillStyle: '', fillRect, drawImage }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAAA')
+    vi.stubGlobal('Image', class { onload?: () => void; onerror?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    vi.mocked(mermaid.render).mockResolvedValueOnce({ svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0L10 10"/></svg>', diagramType: 'flowchart' })
+    try {
+      const output = await quickLookRender(doc('<pre><code data-language="mermaid">flowchart TD\nA--&gt;B</code></pre>'))
+      expect(output).toContain('data:image/png;base64,AAAA')
+      expect(context.fillStyle).toBe('#ffffff')
+      expect(fillRect).toHaveBeenCalledWith(0, 0, 10, 10)
+      expect(fillRect.mock.invocationCallOrder[0]).toBeLessThan(drawImage.mock.invocationCallOrder[0])
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+})

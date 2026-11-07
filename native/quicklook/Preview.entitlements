@@ -6,5 +6,9 @@
   <true/>
   <key>com.apple.security.files.user-selected.read-only</key>
   <true/>
+  <!-- WebKit needs this to start inside the Finder extension sandbox.
+       The preview view installs its offline policy before loading content. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
 </dict>
 </plist>

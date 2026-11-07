@@ -18,7 +18,9 @@ codesign --verify --deep --strict "$app" &&
   pluginkit -m -ADv -i com.markwriter.app.quicklook
 ```
 
-Reopen Quick Look on a fresh file. macOS can choose another installed provider. Legacy MarkWrite may still appear in Finder's **Open with** button, which concerns the editor association. Keep it installed if you use it.
+Reopen Quick Look on a fresh file. Finder selection was tested on Apple silicon macOS 27.2 with `.md`, `.markdown`, `.json`, `.ndjson`, `.yaml`, `.yml` and `.xml`. Finder showed file info for `.jsonl`. macOS can choose another installed provider. Legacy MarkWrite may still appear in Finder's **Open with** button, which controls the editor association.
+
+Markdown previews render supported code fences with syntax colors and supported Mermaid and DOT diagrams. Unsupported diagram source remains readable. YAML formatting covers a subset of block maps and lists. The extension uses a disposable WebKit view and blocks remote document resources. Its App Sandbox client entitlement allows WebKit to start and grants outgoing capability at the process level. [Apple App Sandbox entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.client) · [WebKit content blocking](https://webkit.org/blog/3476/content-blockers-first-look/)
 
 To remove the manual registration before moving this copy to Trash or restoring a previous app, use the same `app`, `extension`, and `lsregister` values:
 

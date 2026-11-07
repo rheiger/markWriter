@@ -55,7 +55,7 @@ case "$1" in
     actual_entitlements=$(codesign -d --entitlements :- "$extension" 2>/dev/null | plutil -p -)
     expected_entitlements=$(plutil -p "$root/native/quicklook/Preview.entitlements")
     test "$actual_entitlements" = "$expected_entitlements" || {
-      echo "Quick Look extension must have the reviewed sandbox and read-only entitlements" >&2
+      echo "Quick Look extension entitlements must match the reviewed preview policy" >&2
       exit 1
     }
     hdiutil create -fs HFS+ -volname MarkWriter -srcfolder "$stage" -format UDZO "$3"
