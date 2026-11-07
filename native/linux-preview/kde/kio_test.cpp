@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QEventLoop>
 #include <QFile>
+#include <QPixmap>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <KFileItem>
