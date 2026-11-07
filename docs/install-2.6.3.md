@@ -1,0 +1,38 @@
+# Install MarkWriter 2.6.3 preliminary
+
+Download the package for your system and verify its SHA-256 against `SHA256SUMS`. Keep the previous installer and a backup of your MarkWriter profile if you are upgrading.
+
+## macOS on Apple silicon
+
+Mount `MarkWriter-2.6.3-macos-arm64.dmg`, copy `MarkWriter.app` to Applications, eject the image, and open the copied app once. The app and Quick Look extension have ad hoc integrity signatures. The preliminary package has no Developer ID or Apple notarization. macOS may restrict launch of a downloaded copy. Review Apple's app safety guidance and your organization's policy before making a per-app exception. [Apple app safety guidance](https://support.apple.com/en-us/102445)
+
+Select a supported file in Finder and press Space. To inspect or enable the extension, open **System Settings → General → Login Items & Extensions → Quick Look**. If Finder still falls back, close the preview and run the commands below with the path to your actual copied app. The commands target only that app and its extension. [Apple extension settings](https://support.apple.com/guide/mac-help/mtusr003/mac)
+
+```sh
+app="/Applications/MarkWriter.app"
+extension="$app/Contents/PlugIns/MarkWriterQuickLook.appex"
+lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+codesign --verify --deep --strict "$app" &&
+  "$lsregister" -f "$app" &&
+  pluginkit -a "$extension" &&
+  pluginkit -m -ADv -i com.markwriter.app.quicklook
+```
+
+Reopen Quick Look on a fresh file. Finder selection was tested on Apple silicon macOS 27.2 with `.md`, `.markdown`, `.json`, `.ndjson`, `.yaml`, `.yml` and `.xml`. Finder showed file info for `.jsonl`. macOS can choose another installed provider. Legacy MarkWrite may still appear in Finder's **Open with** button, which controls the editor association.
+
+Markdown previews render supported code fences with syntax colors and supported Mermaid and DOT diagrams. Unsupported diagram source remains readable. YAML formatting covers a subset of block maps and lists. The extension uses a disposable WebKit view and blocks remote document resources. Its App Sandbox client entitlement allows WebKit to start and grants outgoing capability at the process level. [Apple App Sandbox entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.client) · [WebKit content blocking](https://webkit.org/blog/3476/content-blockers-first-look/)
+
+To remove the manual registration before moving this copy to Trash or restoring a previous app, use the same `app`, `extension`, and `lsregister` values:
+
+```sh
+pluginkit -r "$extension"
+"$lsregister" -u "$app"
+```
+
+## Windows and Linux
+
+On Windows x64, run the current-user NSIS installer. It is unsigned. Use the artifact from this release and check the SHA-256 before running it. On Ubuntu 26.04 x64, install the DEB with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64.deb`. Shell preview components are enabled separately from the editor.
+
+To roll back, close MarkWriter, remove the preliminary app through the same platform's install mechanism, and reinstall the prior installer. Restore the backed-up profile if needed. Update discovery is manual and does not install packages.
+
+The [2.6.3 plan](next-increment-2.6.3-plan.md) tracks the Explorer, Sushi and Dolphin qualification gates.
