@@ -20,6 +20,17 @@ Owned scratch removed after 573 file hashes, 3 profile tar members, public asset
 - [complete] G Reviewed exact-source quality and three-platform packages; downloaded isolated Mac UI
 - [complete] H Push/merge; exact merged gates; immutable v2.5.1 tag, draft and final qualification
 - [complete] I Publish regular release latest=false; verify all public bytes/history; next-round plan and measured cleanup
-- [in_progress] J Review/integrate documentation closeout; refresh/recover final source bundle and final integrity inventory
+- [complete] J Review/integrate documentation closeout; refresh/recover final source bundle and final integrity inventory
 
 Scope: existing highlighting/README changes; v2.5.1 regular, not prerelease, latest=false. No signing/notarization or deferred-feature claims. Evidence /Users/rheiger/.codex/artifacts/markwriter-2.5.1. Baseline24protectedfiles/4profilefiles/11historicalreleases; preserve historical latest and all tags/assets. Never restart completed alpha1.
+
+
+## Next increment planning — 7 November 2026
+
+Authority: research, parallel AI subagent planning, platform signing documentation and README reference, implementation plans and prompts. No new feature implementation, signing, infrastructure migration or release publication in this planning task. Prior release work is complete (final evidence closeout-integration.json).
+
+- [complete] K Read updated issues/owning source; investigate native/provider/update/DDL/performance scope and execution locations
+- [complete] L Write prioritized delivery plan, acceptance gates, cloud/external/rimair5 runbooks and orchestrator prompts
+- [complete] M Integrate independent signing guides and README reference; record I18n backlog proposal; review documents and preservation
+
+Requested future orchestration: one gpt-6.1-sol medium root and gpt-6.1-terra high workers, normal speed where the client supports it. Current root cannot self-switch; workers explicitly configured.

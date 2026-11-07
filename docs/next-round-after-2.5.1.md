@@ -1,5 +1,7 @@
 # Proposed next round after 2.5.1
 
+Historical proposal: Richard's updated 7 November priorities and the [2.6 plan](next-increment-2.6-plan.md) supersede this ordering. Retained for context.
+
 Planning proposal only; not new implementation authority or a promise that every open feature is nearly complete.
 
 ## Recommended focus: desktop completion and release confidence

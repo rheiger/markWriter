@@ -10,6 +10,8 @@ Qualified packages are available for Apple Silicon macOS, Windows x64 and Ubuntu
 
 macOS packages have an ad-hoc integrity seal, without Developer ID signing or notarization. Windows packages are unsigned. Other OS baselines and browser-quarantine behavior require separate qualification.
 
+See the [platform signing and unsigned-app guides](docs/distribution-signing/README.md) for separate macOS, Windows and Linux instructions, current limitations and the proposed path to trusted distribution.
+
 ## Features
 
 - Markdown and WYSIWYG editing, live Preview, document tabs and per-tab Undo/Redo.
@@ -68,6 +70,7 @@ The native bundle requires a built frontend; run `npm run frontend:build` first.
 This README is the maintained project entry point. [README-v2.md](README-v2.md) is a compatibility pointer; there is no separate active v2 development branch to switch to.
 
 - [Current status](CURRENT_STATUS.md)
+- [Proposed next increment and session prompts](docs/next-increment-2.6-plan.md)
 - [2.5 implementation details](docs/technical-writing-2.5-alpha1.md)
 - [2.5.1 release acceptance](docs/2.5.1-release-acceptance.md)
 - [Release notes](docs/releases/2.5.1.md)
