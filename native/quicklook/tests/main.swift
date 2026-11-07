@@ -6,7 +6,7 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) {
 let markdown = PreviewRenderer.render(data: Data("# Title\n\n<script>alert(1)</script>\n\n```js\nx < y\n```".utf8), extension: "md")
 check(markdown.contains("<h1>Title</h1>"), "Markdown heading")
 check(markdown.contains("&lt;script&gt;"), "HTML escaped")
-check(markdown.contains("<pre><code>x &lt; y"), "fenced code")
+check(markdown.contains("<pre><code data-language=\"js\">x &lt; y"), "fenced code")
 check(!markdown.contains("<script>"), "no active script")
 let json = PreviewRenderer.render(data: Data("{\"b\":2,\"a\":1}".utf8), extension: "json")
 check(json.contains("&quot;a&quot; : 1"), "formatted JSON")
