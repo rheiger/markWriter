@@ -15,6 +15,8 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class PreviewProcessIntegrity {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr info, int length, out int needed);
   [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
@@ -67,8 +69,10 @@ try {
     foreach ($candidate in $shell.Windows()) { try { if ($candidate.Document.Folder.Self.Path -eq $root) { $window=$candidate; break } } catch {} }
   }
   if (!$window) { throw 'Explorer window did not open' }
-  $app = New-Object -ComObject WScript.Shell
-  if (!$app.AppActivate([int]$window.HWND)) { throw 'Explorer did not activate' }
+  $explorerHwnd = [IntPtr]$window.HWND
+  [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
+  Start-Sleep -Milliseconds 200
+  if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Fixture Explorer window did not become foreground' }
   # Runner profile is disposable. Alt+P toggles Preview pane; if already enabled,
   # retry once after a failed content observation rather than accepting no result.
   [System.Windows.Forms.SendKeys]::SendWait('%p')
