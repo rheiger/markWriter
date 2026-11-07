@@ -77,18 +77,6 @@ jobs:
           # Candidate packages deliberately perform no OS signing.
           CI: true
         run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles ${{ matrix.bundles }}
-      - name: Verify Quick Look renderers and unsigned package staging
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p package-acceptance-results/quicklook-staging
-          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
-            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
-            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-staging/renderer-tests.log
-          tools/package-quicklook-macos.sh stage \
-            "$PWD/src-tauri/target/release/bundle/macos/MarkWriter.app" \
-            "$RUNNER_TEMP/markwriter-quicklook-stage" | tee package-acceptance-results/quicklook-staging/build.log
-          extension="$RUNNER_TEMP/markwriter-quicklook-stage/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex"
-          plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
       - name: Install external native test driver
         if: runner.os != 'macOS'
         run: cargo install tauri-driver --version 2.1.0 --locked
@@ -126,6 +114,19 @@ jobs:
       - name: Verify DMG contents and installation
         if: runner.os == 'macOS'
         run: bash tools/install-package-macos.sh
+      - name: Verify Quick Look renderers and unsigned package staging
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p package-acceptance-results/quicklook-staging
+          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
+            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
+            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-staging/renderer-tests.log
+          installed_dir=$(node -p "require('./package-acceptance-results/result.json').installed")
+          tools/package-quicklook-macos.sh stage \
+            "$installed_dir/MarkWriter.app" \
+            "$RUNNER_TEMP/markwriter-quicklook-stage" | tee package-acceptance-results/quicklook-staging/build.log
+          extension="$RUNNER_TEMP/markwriter-quicklook-stage/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex"
+          plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
       - name: Record package provenance, hashes and tested baseline
         run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
       - name: Retain production packages and provenance
