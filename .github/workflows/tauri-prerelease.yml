@@ -1,11 +1,11 @@
 name: Tauri production packages
 on:
   pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
     branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json', 'codex/2.6-native-integration']
     tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -96,6 +96,10 @@ jobs:
         run: |
           & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
           exit $LASTEXITCODE
+      - name: Exercise the packaged Explorer preview at ordinary user privilege
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/test-windows-preview-package.ps1
       - name: Install Ubuntu package
         if: runner.os == 'Linux'
         run: |
