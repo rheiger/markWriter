@@ -1,0 +1,4 @@
+LIBRARY MarkWriterPreview
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

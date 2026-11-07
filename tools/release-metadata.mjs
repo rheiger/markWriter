@@ -7,6 +7,7 @@ import { verifyReleaseAssets, peArchitecture } from './release-integrity.mjs'
 import { verifyDesktopIconSources } from './icon-integrity.mjs'
 import { verifyMathAssets } from './math-assets.mjs'
 import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
+import { verifyShellPreviewAssets } from './shell-preview-assets.mjs'
 const root=resolve(import.meta.dirname,'..'), assets=join(root,'release-assets'), args=process.argv.slice(2)
 const sha=data=>createHash('sha256').update(data).digest('hex')
 const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'))
@@ -105,7 +106,8 @@ if(args.includes('--collect')){
 if(args.includes('--aggregate')){
  const manifests=await Promise.all((await readdir(assets)).filter(name=>name.endsWith('.manifest.json')).map(async name=>JSON.parse(await readFile(join(assets,name),'utf8'))))
  await verifyReleaseAssets(assets,manifests,{version,source:process.env.GITHUB_SHA})
- await writeFile(join(assets,'release-manifest.json'),JSON.stringify({schemaVersion:1,version,source:process.env.GITHUB_SHA,prerelease:releasePolicy.prerelease,makeLatest:releasePolicy.makeLatest,platforms:manifests},null,2)+'\n')
+ const shellPreviews=await verifyShellPreviewAssets(assets,{version,source:process.env.GITHUB_SHA})
+ await writeFile(join(assets,'release-manifest.json'),JSON.stringify({schemaVersion:1,version,source:process.env.GITHUB_SHA,prerelease:releasePolicy.prerelease,makeLatest:releasePolicy.makeLatest,platforms:manifests,shellPreviews},null,2)+'\n')
  const sums=[];for(const name of (await readdir(assets)).filter(n=>n!=='SHA256SUMS').sort())sums.push(`${sha(await readFile(join(assets,name)))}  ${name}`)
  await writeFile(join(assets,'SHA256SUMS'),sums.join('\n')+'\n')
  console.log('Verified final assets and generated SHA256SUMS')

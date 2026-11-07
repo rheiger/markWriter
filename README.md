@@ -2,6 +2,10 @@
 
 MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
 
+## 2.6.3 preliminary
+
+The desktop preview add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac package retains Finder Quick Look. See the [installation and enablement guide](docs/install-2.6.3.md) and the [desktop qualification plan](docs/next-increment-2.6.3-plan.md).
+
 ## 2.6.2 preliminary
 
 The 2.6 line adds macOS screen menus, bounded regex Find/Replace with capture colors and references, Markdown OS-open routing on macOS, and manual stable-release discovery. The Apple silicon 2.6.2 preliminary package includes Finder Quick Look for Markdown, JSON, NDJSON, YAML and XML. Markdown previews include syntax highlighting and supported Mermaid and DOT diagrams. Secure update installation remains deferred. See the [installation and manual registration guide](docs/install-2.6.2.md).

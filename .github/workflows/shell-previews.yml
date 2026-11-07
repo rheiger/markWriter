@@ -1,0 +1,120 @@
+name: Native shell previews
+
+on:
+  pull_request:
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', 'tools/test-sushi-preview-package.sh', 'tools/test-dolphin-preview-package.sh', '.github/workflows/shell-previews.yml']
+  push:
+    branches: [main, 'codex/2.6.3-shell-previews']
+    tags: ['v2.*']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', 'tools/test-sushi-preview-package.sh', 'tools/test-dolphin-preview-package.sh', '.github/workflows/shell-previews.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  explorer:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test the x64 preview handler
+        run: |
+          $build = Join-Path $env:RUNNER_TEMP 'markwriter-explorer'
+          cmake -S native/windows-preview -B $build -A x64
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build $build --config Release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ctest --test-dir $build -C Release --output-on-failure
+      - name: Prepare a medium-integrity test process
+        run: ./tools/setup-windows-acceptance.ps1
+      - name: Exercise scoped registration and competing-provider preservation
+        run: |
+          $dll = Join-Path $env:RUNNER_TEMP 'markwriter-explorer/Release/MarkWriterPreview.dll'
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File native/windows-preview/registration-test.ps1 -DllPath $dll
+          exit $LASTEXITCODE
+      - name: Diagnose Explorer preview selection and low-integrity hosting
+        run: |
+          $dll = Join-Path $env:RUNNER_TEMP 'markwriter-explorer/Release/MarkWriterPreview.dll'
+          $expected = (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash
+          $evidence = New-Item -ItemType Directory -Force shell-preview-evidence
+          $result = Join-Path $evidence.FullName 'explorer-diagnostic.json'
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File native/windows-preview/explorer-acceptance.ps1 `
+            -Diagnostic -DllPath $dll -ExpectedSha256 $expected -ResultPath $result
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (Test-Path -LiteralPath $result) { throw 'Diagnostic produced a release receipt' }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
+        if: always() && hashFiles('shell-preview-evidence/**') != ''
+        with:
+          name: explorer-desktop-evidence
+          path: shell-preview-evidence/
+
+  dolphin:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install distribution KF6 build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
+            cmake g++ dpkg-dev extra-cmake-modules qt6-base-dev libkf6coreaddons-dev libkf6kio-dev \
+            dolphin kio-extras xdotool imagemagick python3-opencv xvfb xauth dbus-x11
+      - name: Build and test the Dolphin thumbnail provider
+        run: |
+          cmake -S native/linux-preview/kde -B "$RUNNER_TEMP/markwriter-dolphin" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DKDE_INSTALL_USE_QT_SYS_PATHS=ON -DBUILD_TESTING=ON
+          cmake --build "$RUNNER_TEMP/markwriter-dolphin" --parallel 2
+          ctest --test-dir "$RUNNER_TEMP/markwriter-dolphin" --output-on-failure
+      - name: Exercise the installed Dolphin provider
+        run: tools/test-dolphin-preview-package.sh "$RUNNER_TEMP/markwriter-dolphin"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
+        with:
+          name: shell-preview-dolphin
+          path: release-assets/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
+        if: always() && hashFiles('shell-preview-evidence/**') != ''
+        with:
+          name: dolphin-desktop-evidence
+          path: shell-preview-evidence/
+
+  sushi:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Ubuntu Sushi baseline
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-sushi nautilus xvfb xauth xdotool dbus-x11 at-spi2-core python3-pyatspi zip unzip imagemagick
+          dpkg-query -W gnome-sushi
+      - name: Test the distro Sushi renderer dispatch
+        run: |
+          export XDG_DATA_HOME="$RUNNER_TEMP/sushi-data"
+          mkdir -p "$XDG_DATA_HOME/sushi/viewers"
+          cp native/linux-preview/sushi-46/markwriterMarkdown.js "$XDG_DATA_HOME/sushi/viewers/"
+          typelib=$(dpkg-query -L gnome-sushi | grep '/Sushi-1.0.typelib$')
+          export GI_TYPELIB_PATH="$(dirname "$typelib")"
+          export LD_LIBRARY_PATH="$(dirname "$GI_TYPELIB_PATH")"
+          xvfb-run -a gjs native/linux-preview/sushi-46/runtime-test.js
+      - name: Exercise the extracted Sushi component in Nautilus
+        run: tools/test-sushi-preview-package.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shell-preview-sushi
+          path: release-assets/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
+        if: always() && hashFiles('shell-preview-evidence/**') != ''
+        with:
+          name: sushi-desktop-evidence
+          path: shell-preview-evidence/
