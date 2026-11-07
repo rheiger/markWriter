@@ -3,7 +3,8 @@ param(
   [Parameter(Mandatory=$true)][string]$DllPath,
   [Parameter(Mandatory=$true)][string]$ResultPath,
   [Parameter(Mandatory=$true)][string]$AppPath,
-  [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256
+  [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
+  [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
@@ -31,7 +32,7 @@ public static class PreviewProcessIntegrity {
 $dll = (Resolve-Path -LiteralPath $DllPath).Path
 if (Test-Path -LiteralPath $ResultPath) { throw 'Result path already exists; refusing stale evidence.' }
 if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL digest does not match the expected packaged asset.' }
-$installer = Join-Path $PSScriptRoot 'install.ps1'
+$installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $clsid='{A448B833-8E1A-4EA4-BCC4-272134A64E97}'
 $iid='{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 if (Test-Path "HKCU:\Software\Classes\CLSID\$clsid") { throw 'Profile already contains the MarkWriter preview class.' }
