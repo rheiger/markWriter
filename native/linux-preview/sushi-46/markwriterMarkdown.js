@@ -73,16 +73,20 @@ var Klass = GObject.registerClass({
         if (text.includes('\0')) throw new Error('File is not valid UTF-8 text.');
         if (cancellable.is_cancelled()) return;
         const buffer = this._buffer;
-        const heading = buffer.create_tag('heading', {weight: 700, scale: 1.4, pixels_above_lines: 10});
-        const code = buffer.create_tag('code', {family: 'monospace'});
+        const heading = new Gtk.TextTag({name: 'heading', weight: 700, scale: 1.4, pixels_above_lines: 10});
+        const code = new Gtk.TextTag({name: 'code', family: 'monospace'});
+        buffer.get_tag_table().add(heading);
+        buffer.get_tag_table().add(code);
         let fenced = false;
         for (const line of text.split('\n').slice(0, 4000)) {
             if (/^\s*```/.test(line)) { fenced = !fenced; continue; }
+            const start = buffer.get_char_count();
             let iter = buffer.get_end_iter();
             const match = !fenced && /^(#{1,6})\s+(.+)$/.exec(line);
             const shown = match ? match[2] : line;
-            if (match || fenced) buffer.insert_with_tags(iter, shown + '\n', match ? heading : code);
-            else buffer.insert(iter, shown + '\n', -1);
+            buffer.insert(iter, shown + '\n', -1);
+            if (match || fenced) buffer.apply_tag(match ? heading : code,
+                buffer.get_iter_at_offset(start), buffer.get_end_iter());
         }
     }
 });
