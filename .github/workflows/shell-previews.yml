@@ -2,11 +2,11 @@ name: Native shell previews
 
 on:
   pull_request:
-    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', '.github/workflows/shell-previews.yml']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', '.github/workflows/shell-previews.yml']
   push:
     branches: [main, 'codex/2.6.3-shell-previews']
     tags: ['v2.*']
-    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', '.github/workflows/shell-previews.yml']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', '.github/workflows/shell-previews.yml']
   workflow_dispatch:
 
 permissions:
@@ -78,4 +78,7 @@ jobs:
           export XDG_DATA_HOME="$RUNNER_TEMP/sushi-data"
           mkdir -p "$XDG_DATA_HOME/sushi/viewers"
           cp native/linux-preview/sushi-46/markwriterMarkdown.js "$XDG_DATA_HOME/sushi/viewers/"
+          typelib=$(dpkg-query -L gnome-sushi | grep '/Sushi-1.0.typelib$')
+          export GI_TYPELIB_PATH="$(dirname "$typelib")"
+          export LD_LIBRARY_PATH="$(dirname "$GI_TYPELIB_PATH")"
           xvfb-run -a gjs native/linux-preview/sushi-46/runtime-test.js

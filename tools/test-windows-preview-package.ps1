@@ -35,7 +35,7 @@ if ((Get-FileHash -LiteralPath $installer).Hash -ne (Get-FileHash -LiteralPath "
 }
 $dll = Join-Path $installed 'MarkWriterPreview.dll'
 & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$source/explorer-acceptance.ps1" `
-    -DllPath $dll -AppPath $env:MARKWRITER_BINARY -ExpectedSha256 $expected -ResultPath $result
+    -DllPath $dll -InstallerPath $installer -AppPath $env:MARKWRITER_BINARY -ExpectedSha256 $expected -ResultPath $result
 if ($LASTEXITCODE) { throw 'Installed Explorer acceptance failed.' }
 node "$root/tools/shell-preview-assets.mjs" explorer $assets $result
 if ($LASTEXITCODE) { throw 'Could not record tested Explorer asset provenance.' }
