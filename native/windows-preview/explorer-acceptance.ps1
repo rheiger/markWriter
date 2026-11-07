@@ -41,8 +41,10 @@ $list='HKCU:\Software\Microsoft\Windows\CurrentVersion\PreviewHandlers'
 if ((Test-Path $list) -and $null -ne (Get-Item $list).GetValue($clsid)) { throw 'Profile already contains a preview list entry.' }
 $root = Join-Path $env:TEMP ('markwriter-preview-' + [guid]::NewGuid())
 $resolvedApp = (Resolve-Path -LiteralPath $AppPath).Path
-foreach ($p in Get-Process -ErrorAction SilentlyContinue) {
-  try { if ($p.Path -and $p.Path -ieq $resolvedApp) { throw 'MarkWriter is already running; use a clean disposable profile.' } } catch [System.ComponentModel.Win32Exception] {}
+foreach ($p in Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($resolvedApp)) -ErrorAction SilentlyContinue) {
+  $processPath = $null
+  try { $processPath = $p.Path } catch { throw 'Could not establish whether MarkWriter is already running.' }
+  if (!$processPath -or $processPath -ieq $resolvedApp) { throw 'MarkWriter is already running or its path is unavailable; use a clean disposable profile.' }
 }
 New-Item -ItemType Directory $root | Out-Null
 $shell = New-Object -ComObject Shell.Application
