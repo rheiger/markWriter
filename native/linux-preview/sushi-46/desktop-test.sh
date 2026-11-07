@@ -14,7 +14,7 @@ printf '# MarkWriterSushiAcceptanceHeading\n\nMarkWriterSushiAcceptanceBody\n' >
 fixture="$testdir/preview.md"
 before_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
 before_stat=$(stat -c '%s %y' "$fixture")
-nautilus --new-window "$testdir" >/tmp/markwriter-nautilus-test.log 2>&1 &
+nautilus --new-window --select "$fixture" >/tmp/markwriter-nautilus-test.log 2>&1 &
 nautilus_pid=$!
 window=''
 for unused in 1 2 3 4 5 6 7 8 9 10; do
