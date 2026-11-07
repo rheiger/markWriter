@@ -51,6 +51,17 @@ foreach ($p in @(if ($resolvedApp) { Get-Process -Name ([IO.Path]::GetFileNameWi
   if (!$processPath -or $processPath -ieq $resolvedApp) { throw 'MarkWriter is already running or its path is unavailable; use a clean disposable profile.' }
 }
 New-Item -ItemType Directory $root | Out-Null
+function Save-FixtureUIA {
+  # Fixture-window-only, bounded UIA evidence; never capture the full desktop.
+  try {
+    $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$window.HWND)
+    $nodes = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+    $snapshot = @($nodes | Select-Object -First 200 | ForEach-Object {
+      try { @{name=([string]$_.Current.Name).Substring(0, [Math]::Min(160, ([string]$_.Current.Name).Length)); controlType=[string]$_.Current.ControlType.ProgrammaticName} } catch {}
+    })
+    @{fixtureWindow=$true; nodeCount=$nodes.Count; nodes=$snapshot} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath ($ResultPath + '.uia.json') -Encoding UTF8
+  } catch { Write-Warning "Could not capture fixture-window UIA diagnostics: $_" }
+}
 $shell = New-Object -ComObject Shell.Application
 $window = $null
 $appProcess = $null
@@ -125,6 +136,7 @@ try {
   if (!$hosts.Count) { throw 'Cannot identify Prevhost with the tested DLL loaded' }
   foreach ($hostProcess in $hosts) { if ([PreviewProcessIntegrity]::Rid($hostProcess) -ne 4096) { throw 'Preview DLL is not hosted at low integrity' } }
   $cases.Add('x64 Prevhost loaded tested DLL at low integrity')
+  Save-FixtureUIA
   $window.Quit(); $window=$null
   & $installer -Action Disable -DllPath $dll
   $iid='{8895b1c6-b41f-4c1c-a562-0d564250836f}'
@@ -137,15 +149,7 @@ try {
   $cases.Add('installed DLL matches packaged SHA-256')
 } finally {
   if ($window) {
-    # Fixture-window-only, bounded UIA evidence; never capture the full desktop.
-    try {
-      $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$window.HWND)
-      $nodes = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
-      $snapshot = @($nodes | Select-Object -First 200 | ForEach-Object {
-        try { @{name=([string]$_.Current.Name).Substring(0, [Math]::Min(160, ([string]$_.Current.Name).Length)); controlType=[string]$_.Current.ControlType.ProgrammaticName} } catch {}
-      })
-      @{fixtureWindow=$true; nodeCount=$nodes.Count; nodes=$snapshot} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath ($ResultPath + '.uia.json') -Encoding UTF8
-    } catch { Write-Warning "Could not capture fixture-window UIA diagnostics: $_" }
+    Save-FixtureUIA
     $window.Quit()
   }
   if ($appProcess -and !$appProcess.HasExited) { $appProcess.CloseMainWindow() | Out-Null; if (!$appProcess.WaitForExit(5000)) { $appProcess.Kill(); $appProcess.WaitForExit() } }
