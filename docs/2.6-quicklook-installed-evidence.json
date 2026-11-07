@@ -1,0 +1,56 @@
+{
+  "source": "52c2dafbd2355cc435509126aba34ba47959d0ea",
+  "platform": "macOS 27.2 (26B123), arm64",
+  "diskImage": {
+    "name": "MarkWriter-2.6.0-QuickLook-arm64.dmg",
+    "sha256": "35f0b38ce4e4025f0c1a4b7644cd67a380b76ab016daac0d4d1e59509ec74ac6",
+    "bytes": 9197668
+  },
+  "installedFiles": [
+    {
+      "path": "Contents/Info.plist",
+      "sha256": "8cd2e460baa31cd4579c90e92a099adaddc4954e73e860df9933edb1fc52f140"
+    },
+    {
+      "path": "Contents/MacOS/markwriter",
+      "sha256": "32157f75d53dcd0f3506948ee95efc00078a6cf230782f5c3949e34f846c7b6d"
+    },
+    {
+      "path": "Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Info.plist",
+      "sha256": "b96fd4b4c928b0d9a4cacc61a6dd408a28a5d6faecc20ba33335be0bd9492381"
+    },
+    {
+      "path": "Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype",
+      "sha256": "4261d964ee747ecaa96ced7fd56f1b166fc4cf962f16526193509786b8d26dee"
+    },
+    {
+      "path": "Contents/PlugIns/MarkWriterQuickLook.appex/Contents/_CodeSignature/CodeResources",
+      "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+    },
+    {
+      "path": "Contents/Resources/icon.icns",
+      "sha256": "cc12f3c7e385a4960154fc0e6db593b00e1a87383b59b3519c320eb08b30b6c4"
+    },
+    {
+      "path": "Contents/_CodeSignature/CodeResources",
+      "sha256": "85b89ec4658d701dd42daf8293004306a99646eab6b3d412c2f47dddfbe138b2"
+    }
+  ],
+  "supportedWithEditorClosedAndOpen": [
+    ".md",
+    ".markdown",
+    ".json",
+    ".ndjson",
+    ".yaml",
+    ".yml",
+    ".xml"
+  ],
+  "fileInfo": [
+    ".jsonl"
+  ],
+  "extraCase": "YAML alias fallback preserved literal syntax",
+  "cleanup": "PlugInKit and Launch Services entries removed; fresh fallback previews verified for all nine fixtures",
+  "originalProtectedFilesMatched": 34,
+  "fixtureCopiesWithMatchingBytesAndMtime": 27,
+  "isolatedWorkspace": "one clean empty untitled document"
+}

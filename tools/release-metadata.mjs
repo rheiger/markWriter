@@ -18,8 +18,8 @@ async function check(){
  assert.equal((await json('package.json')).version,version);assert.equal((await json('frontend/package-lock.json')).version,version);assert.equal((await json('frontend/package-lock.json')).packages[''].version,version);assert.equal((await json('src-tauri/tauri.conf.json')).version,version)
  for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
  assert.equal(version,releasePolicy.version)
- if (!releasePolicy.publicationAuthorized) {
-  assert.equal((await json('src-tauri/tauri.conf.json')).bundle.macOS.signingIdentity,null,'Candidate must not request signing')
+ {
+  assert.equal((await json('src-tauri/tauri.conf.json')).bundle.macOS.signingIdentity,null,'CI package builds must leave explicit signing to local qualification')
   for(const name of ['APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_SIGNING_IDENTITY','APPLE_ID','APPLE_PASSWORD','APPLE_API_KEY','APPLE_API_ISSUER','TAURI_SIGNING_PRIVATE_KEY']) assert.ok(!process.env[name],'Signing environment forbidden for candidate: '+name)
  }
  await verifyDesktopIconSources(root)

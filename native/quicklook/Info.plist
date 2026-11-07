@@ -5,6 +5,7 @@
 <key>CFBundleName</key><string>MarkWriter Quick Look Prototype</string>
 <key>CFBundleExecutable</key><string>QuickLookPrototype</string>
 <key>CFBundlePackageType</key><string>XPC!</string>
+<key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>NSExtension</key><dict>
@@ -12,6 +13,6 @@
 <key>NSExtensionPrincipalClass</key><string>PreviewProvider</string>
 <key>NSExtensionAttributes</key><dict>
 <key>QLIsDataBasedPreview</key><true/>
-<key>QLSupportedContentTypes</key><array><string>net.daringfireball.markdown</string></array>
+<key>QLSupportedContentTypes</key><array><string>net.daringfireball.markdown</string><string>public.json</string><string>public.ndjson</string><string>public.yaml</string><string>public.xml</string></array>
 <key>QLSupportsSearchableItems</key><false/>
 </dict></dict></dict></plist>

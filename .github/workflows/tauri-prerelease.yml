@@ -1,11 +1,11 @@
 name: Tauri production packages
 on:
   pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
     branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json', 'codex/2.6-native-integration']
     tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -114,6 +114,19 @@ jobs:
       - name: Verify DMG contents and installation
         if: runner.os == 'macOS'
         run: bash tools/install-package-macos.sh
+      - name: Verify Quick Look renderers and unsigned package staging
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p package-acceptance-results/quicklook-staging
+          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
+            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
+            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-staging/renderer-tests.log
+          installed_dir=$(node -p "require('./package-acceptance-results/result.json').installed")
+          tools/package-quicklook-macos.sh stage \
+            "$installed_dir/MarkWriter.app" \
+            "$RUNNER_TEMP/markwriter-quicklook-stage" | tee package-acceptance-results/quicklook-staging/build.log
+          extension="$RUNNER_TEMP/markwriter-quicklook-stage/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex"
+          plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
       - name: Record package provenance, hashes and tested baseline
         run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
       - name: Retain production packages and provenance
