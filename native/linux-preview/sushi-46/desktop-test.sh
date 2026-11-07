@@ -8,7 +8,17 @@ export MARKWRITER_PREVIEW_EXPECT="$mode"
 : "${DISPLAY:?run under Xvfb}"
 : "${DBUS_SESSION_BUS_ADDRESS:?run under dbus-run-session}"
 testdir=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-nautilus-XXXXXX")
-cleanup() { [ -z "${nautilus_pid:-}" ] || kill "$nautilus_pid" 2>/dev/null || :; rm -rf "$testdir"; }
+cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    evidence=${MARKWRITER_EVIDENCE_DIR:-${RUNNER_TEMP:-/tmp}/shell-preview-evidence}
+    mkdir -p "$evidence"
+    xdotool search --onlyvisible --name '.*' getwindowname %@ > "$evidence/sushi-$mode-windows.txt" 2>&1 || :
+    import -window root "$evidence/sushi-$mode-failure.png" || :
+  fi
+  [ -z "${nautilus_pid:-}" ] || kill "$nautilus_pid" 2>/dev/null || :
+  rm -rf "$testdir"
+}
 trap cleanup EXIT HUP INT TERM
 printf '# MarkWriterSushiAcceptanceHeading\n\nMarkWriterSushiAcceptanceBody\n' > "$testdir/preview.md"
 fixture="$testdir/preview.md"
