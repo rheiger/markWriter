@@ -33,6 +33,8 @@ pluginkit -r "$extension"
 
 Install the Windows x64 editor with the current-user NSIS installer. For previews, verify the SHA-256 of the separate Explorer ZIP and extract it to a permanent local folder under your user profile. The installer and preview DLL are unsigned. Windows or organization policy may restrict them. Use the downloaded files only if you trust their source and your policy permits them.
 
+If PowerShell uses `RemoteSigned` and blocks the downloaded script, verify the ZIP, review `install.ps1`, and check your policy before using `Unblock-File -LiteralPath .\install.ps1` on that one script. An organization can require a signed component. [Microsoft PowerShell guidance](https://learn.microsoft.com/powershell/module/microsoft.powershell.utility/unblock-file)
+
 From an ordinary PowerShell window in that folder, enable the handler.
 
 ```powershell
@@ -42,7 +44,7 @@ $dll = Join-Path $PWD 'MarkWriterPreview.dll'
 
 Open File Explorer, enable the **Preview pane** from **View → Show**, and select a local Markdown file. For a fresh test, create a `.md` file locally. Windows may block previewing files marked as originating from the Internet. [Microsoft Preview pane security](https://support.microsoft.com/en-us/servicing/os/windows/docs/2025/10/file-explorer-automatically-disables-the-preview-feature-for-files-downloaded-from-the-internet)
 
-The handler supports basic headings, bold and inline code. Keep the DLL in the folder while enabled. To remove it or replace it with another version, close the Preview pane and run `.\install.ps1 -Action Disable -DllPath $dll` from the original folder first.
+The handler previews `.md` and `.markdown` with basic headings, bold and inline code. The tested Explorer baseline is Windows Server 2025 x64. Keep the DLL in the folder while enabled. To remove it or replace it with another version, close the Preview pane and run `.\install.ps1 -Action Disable -DllPath $dll` from the original folder first.
 
 ## Ubuntu 26.04 x64
 
@@ -50,11 +52,13 @@ Install the editor with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64.de
 
 ### GNOME Files with Ubuntu Sushi
 
-Install Ubuntu's `gnome-sushi` package. Verify and extract the Sushi ZIP to a local folder. In the extracted folder, run `sh ./install.sh enable` as your own user. The installer uses your Sushi data directory and refuses to replace existing user viewers. Start a fresh login session to pick up the viewer, select a Markdown file in Files, and press **Space**. To disable it, use the same extracted folder and run `sh ./install.sh disable`, then start a fresh login session.
+Install Ubuntu's `gnome-sushi` package. The add-on is qualified with `50.0-0ubuntu0.1` and checks that version at enablement. Use `dpkg-query -W gnome-sushi` to check yours. Verify and extract the Sushi ZIP to a local folder. In the extracted folder, run `sh ./install.sh enable` as your own user. The installer uses your Sushi data directory and refuses to replace existing user viewers. Start a fresh login session to pick up the viewer, select a Markdown file in Files, and press **Space**. To disable it, use the same extracted folder and run `sh ./install.sh disable`, then start a fresh login session. The viewer formats a bounded subset of Markdown and displays document content as text.
 
 ### KDE Dolphin with KDE Frameworks 6
 
-Install the separate verified DEB with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64-dolphin-preview.deb`. In Dolphin, enable **MarkWriter Markdown** in the preview settings and turn on **Show Previews**. Dolphin displays a rendered thumbnail. To remove the add-on, run `sudo apt remove markwriter-dolphin-preview` and reopen Dolphin.
+Install the separate verified DEB with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64-dolphin-preview.deb`. In Dolphin, enable **MarkWriter Markdown** in the preview settings and turn on **Show Previews**. Dolphin displays a rendered thumbnail. The tested baseline is Dolphin 25.12.3 with KF6 KIO 6.24 on Ubuntu 26.04.1 x64. Installation makes the provider available to other KF6 KIO applications, which may use different defaults. To remove the add-on, run `sudo apt remove markwriter-dolphin-preview` and reopen Dolphin.
+
+The Windows and Linux add-ons cover Markdown. On Linux, the installed desktop checks used `.md` fixtures and isolated X11 sessions. The Mac package carries forward its broader Quick Look formats and rich Markdown rendering.
 
 ## Rollback
 
