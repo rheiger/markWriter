@@ -25,8 +25,10 @@ if ($Action -eq 'Enable') {
     if ($null -ne $existing -and $existing -ne $clsid) { throw "A per-user preview handler already exists at $target; no changes made." }
     if ((Test-Path -LiteralPath $target) -and $null -eq $existing) { throw "A per-user preview key exists at $target; no changes made." }
   }
+  if ((Test-Path -LiteralPath $list) -and $null -ne (Get-Item -LiteralPath $list).GetValue($clsid) -and !(Test-Path -LiteralPath $class)) { throw 'Preview list entry already exists; no changes made.' }
   $server = DefaultValue "$class\InprocServer32"
   if ((Test-Path -LiteralPath $class) -and (!$server -or $server -ne $dll)) { throw 'The preview CLSID is already registered elsewhere; no changes made.' }
+  try {
   New-Item -Path "$class\InprocServer32" -Force | Out-Null
   Set-Item -LiteralPath $class -Value 'MarkWriter Markdown Preview'
   New-ItemProperty -LiteralPath $class -Name AppID -Value '{6D2B5079-2F0B-48DD-AB7F-97CEC514D30B}' -PropertyType String -Force | Out-Null
@@ -35,7 +37,15 @@ if ($Action -eq 'Enable') {
   New-Item -Path $list -Force | Out-Null
   New-ItemProperty -LiteralPath $list -Name $clsid -Value 'MarkWriter Markdown Preview' -PropertyType String -Force | Out-Null
   foreach ($target in $targets) { New-Item -Path $target -Force | Out-Null; Set-Item -LiteralPath $target -Value $clsid }
+  } catch {
+    $failure = $_
+    & $PSCommandPath -Action Disable -DllPath $dll
+    throw $failure
+  }
 } else {
+  if (!$DllPath -or ![IO.Path]::IsPathRooted($DllPath)) { throw 'Disable requires the same absolute DllPath used to enable.' }
+  $server = DefaultValue "$class\InprocServer32"
+  if ($server -and $server -ne [IO.Path]::GetFullPath($DllPath)) { throw 'Preview class points to another DLL; no changes made.' }
   foreach ($target in $targets) {
     if ((DefaultValue $target) -eq $clsid) {
       # Remove only our default value; retain any other values or subkeys.

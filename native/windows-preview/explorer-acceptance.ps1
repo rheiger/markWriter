@@ -1,7 +1,9 @@
 # Disposable interactive Windows x64 profile only; run at medium integrity.
 param(
   [Parameter(Mandatory=$true)][string]$DllPath,
-  [Parameter(Mandatory=$true)][string]$ResultPath
+  [Parameter(Mandatory=$true)][string]$ResultPath,
+  [Parameter(Mandatory=$true)][string]$AppPath,
+  [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
@@ -27,11 +29,24 @@ public static class PreviewProcessIntegrity {
 }
 '@
 $dll = (Resolve-Path -LiteralPath $DllPath).Path
+if (Test-Path -LiteralPath $ResultPath) { throw 'Result path already exists; refusing stale evidence.' }
+if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL digest does not match the expected packaged asset.' }
 $installer = Join-Path $PSScriptRoot 'install.ps1'
+$clsid='{A448B833-8E1A-4EA4-BCC4-272134A64E97}'
+$iid='{8895b1c6-b41f-4c1c-a562-0d564250836f}'
+if (Test-Path "HKCU:\Software\Classes\CLSID\$clsid") { throw 'Profile already contains the MarkWriter preview class.' }
+foreach ($ext in @('.md','.markdown')) { if (Test-Path "HKCU:\Software\Classes\$ext\shellex\$iid") { throw 'Profile already contains a per-user preview key.' } }
+$list='HKCU:\Software\Microsoft\Windows\CurrentVersion\PreviewHandlers'
+if ((Test-Path $list) -and $null -ne (Get-Item $list).GetValue($clsid)) { throw 'Profile already contains a preview list entry.' }
 $root = Join-Path $env:TEMP ('markwriter-preview-' + [guid]::NewGuid())
+$resolvedApp = (Resolve-Path -LiteralPath $AppPath).Path
+foreach ($p in Get-Process -ErrorAction SilentlyContinue) {
+  try { if ($p.Path -and $p.Path -ieq $resolvedApp) { throw 'MarkWriter is already running; use a clean disposable profile.' } } catch [System.ComponentModel.Win32Exception] {}
+}
 New-Item -ItemType Directory $root | Out-Null
 $shell = New-Object -ComObject Shell.Application
 $window = $null
+$appProcess = $null
 $cases = [Collections.Generic.List[string]]::new()
 try {
   & $installer -Action Enable -DllPath $dll
@@ -79,6 +94,12 @@ try {
   try { Select-And-Observe $fixtures[0] } catch { [System.Windows.Forms.SendKeys]::SendWait('%p'); Select-And-Observe $fixtures[0] }
   $cases.Add('Explorer Markdown Unicode content and source preservation')
   Select-And-Observe $fixtures[1]; $cases.Add('Explorer markdown extension and selection change')
+  $window.Width = $window.Width - 100; $window.Height = $window.Height - 100
+  Select-And-Observe $fixtures[0]; $cases.Add('preview survives Explorer resize')
+  $appProcess = Start-Process -FilePath $resolvedApp -PassThru
+  Start-Sleep -Seconds 3
+  if ($appProcess.HasExited) { throw 'MarkWriter did not remain open' }
+  Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
   Select-And-Observe $fixtures[2]; $cases.Add('Explorer oversized preview bounded and source preserved')
   $hosts = @(Get-Process prevhost -ErrorAction SilentlyContinue | Where-Object {
     try { @($_.Modules | Where-Object { $_.FileName -ieq $dll }).Count -gt 0 } catch { $false }
@@ -94,12 +115,15 @@ try {
     if ((Test-Path $key) -and (Get-Item $key).GetValue('') -eq '{A448B833-8E1A-4EA4-BCC4-272134A64E97}') { throw 'Registration cleanup failed' }
   }
   $cases.Add('opt-in registration removed')
+  if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL changed during acceptance.' }
+  $cases.Add('installed DLL matches packaged SHA-256')
 } finally {
   if ($window) { $window.Quit() }
+  if ($appProcess -and !$appProcess.HasExited) { $appProcess.CloseMainWindow() | Out-Null; if (!$appProcess.WaitForExit(5000)) { $appProcess.Kill(); $appProcess.WaitForExit() } }
   & $installer -Action Disable -DllPath $dll
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 if (Test-Path -LiteralPath $root) { throw 'Fixture cleanup failed' }
 $os = Get-CimInstance Win32_OperatingSystem
-@{passed=$true; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases)} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8
+@{passed=$true; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray())} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8

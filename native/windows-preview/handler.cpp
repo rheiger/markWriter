@@ -55,6 +55,7 @@ public:
     return S_OK;
   }
   HRESULT STDMETHODCALLTYPE DoPreview() override {
+    try {
     if(!stream || !parent || view) return E_UNEXPECTED;
     constexpr size_t limit=1024*1024; std::string bytes; bytes.reserve(limit+1);
     char buffer[8192];
@@ -65,7 +66,7 @@ public:
     }
     bool truncated=bytes.size()>limit; if(truncated) bytes.resize(limit);
     std::string rtf=render_markdown(bytes,truncated);
-    richEdit=LoadLibraryW(L"Msftedit.dll");
+    richEdit=LoadLibraryExW(L"Msftedit.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if(!richEdit) return HRESULT_FROM_WIN32(GetLastError());
     view=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_READONLY|ES_AUTOVSCROLL,
       rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,parent,nullptr,module,nullptr);
@@ -76,6 +77,7 @@ public:
     SendMessageW(view,EM_STREAMIN,SF_RTF,reinterpret_cast<LPARAM>(&es));
     if(es.dwError) { DestroyWindow(view); view=nullptr; FreeLibrary(richEdit); richEdit=nullptr; return E_FAIL; }
     return S_OK;
+    } catch(const std::bad_alloc&) { return E_OUTOFMEMORY; } catch(...) { return E_FAIL; }
   }
   HRESULT STDMETHODCALLTYPE Unload() override { if(view) { DestroyWindow(view); view=nullptr; } if(richEdit) { FreeLibrary(richEdit); richEdit=nullptr; } if(stream) { stream->Release(); stream=nullptr; } return S_OK; }
   HRESULT STDMETHODCALLTYPE SetFocus() override { if(!view) return E_FAIL; ::SetFocus(view); return S_OK; }

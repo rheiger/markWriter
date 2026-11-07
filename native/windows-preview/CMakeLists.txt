@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(MarkWriterPreview LANGUAGES CXX)
+# Avoid a separate MSVC redistributable for the standalone companion.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(render_test render_test.cpp)
