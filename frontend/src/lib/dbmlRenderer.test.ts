@@ -38,3 +38,19 @@ describe('DBML worker ownership', () => {
     expect(mocks.workers[0].terminate).toHaveBeenCalledOnce()
   })
 })
+
+it('queues excess renders, preserves each owner and removes cancelled waiters', async () => {
+  mocks.render.mockImplementation(async (_dot: string, owner: string) => owner)
+  const controllers = Array.from({ length: 7 }, () => new AbortController())
+  const jobs = controllers.map((c, i) => dbmlRenderer.render('Table a {}', `doc:${i}`, c.signal))
+  const rejected = expect(jobs[4]).rejects.toMatchObject({ name: 'AbortError' })
+  expect(mocks.workers).toHaveLength(4)
+  controllers[4].abort(); await rejected
+  mocks.workers[0].onmessage?.({ data: { dot: 'digraph {}' } })
+  expect(mocks.workers).toHaveLength(5)
+  mocks.workers[1].onmessage?.({ data: { dot: 'digraph {}' } })
+  expect(mocks.workers).toHaveLength(6)
+  for (const worker of mocks.workers.slice(2)) worker.onmessage?.({ data: { dot: 'digraph {}' } })
+  await expect(Promise.all(jobs.filter((_, i) => i !== 4))).resolves.toEqual(['doc:0', 'doc:1', 'doc:2', 'doc:3', 'doc:5', 'doc:6'])
+  expect(mocks.render).toHaveBeenCalledTimes(6)
+})

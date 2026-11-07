@@ -19,3 +19,25 @@ it('retains the escaped DBML fence through the rendered codec and uses block cor
   const state = EditorState.create({ doc: source })
   expect(findEmbeddedSource(state)).toMatchObject([{ kind: 'DBML' }])
 })
+
+it.each([
+  '  ~~~~dbml\r\n  Table t { id int }\r\n  ~~~~',
+  '> ~~~~dbml\r\n> Table t { id int }\r\n> ~~~~',
+  '1. Schema\r\n\r\n   ~~~~dbml\r\n   Table t { id int }\r\n   ~~~~',
+])('preserves a DBML fence in its Markdown container after unrelated edits', block => {
+  const original = 'Before\r\n\r\n' + block + '\r\n\r\nAfter'
+  const edit = toWysiwygHtml(original).replace('<p>Before</p>', '<p>Edited</p>')
+  const output = fromWysiwygHtml(edit)
+  expect(output).toContain(block.startsWith('1.') ? block.split('\r\n\r\n')[1] : block)
+  expect(output).toContain('Edited')
+  expect(output).toContain('After')
+})
+
+it('validates raw DBML metadata in context before restoring it', () => {
+  const raw = JSON.stringify({ raw: '~~~~dbml\nTable t { id int }\n~~~~\n\nInjected paragraph' })
+  const doc = new DOMParser().parseFromString(toWysiwygHtml('~~~~dbml\nTable t { id int }\n~~~~'), 'text/html')
+  doc.querySelector('[data-type="dbml"]')?.setAttribute('data-source-fence', raw)
+  const output = fromWysiwygHtml(doc.body.innerHTML)
+  expect(output).not.toContain('Injected paragraph')
+  expect(output).toContain('Table t { id int }')
+})

@@ -49,3 +49,11 @@ it('renders escaped schema labels through the real offline DOT engine and saniti
   expect(new DOMParser().parseFromString(clean, 'image/svg+xml').documentElement.textContent).toContain('unsafe <script>')
   expect(clean).toContain('many to one')
 })
+
+it('treats quoted punctuation as identifiers and never as grammar delimiters', () => {
+  const result = dbmlToDot('Table t {\n ")" int\n "}" int\n "(" int\n indexes {\n (")", "}") [unique]\n }\n}\nTable u {\n "[" int\n}\nRef: t."(" > u."["')
+  expect(result).toContain('t0 -> t1')
+  expect(result).toContain('many to one')
+  expect(result).toContain('UK')
+  expect(() => dbmlToDot('Table t {\n x int ["pk"]\n}')).toThrow(/keyword/)
+})

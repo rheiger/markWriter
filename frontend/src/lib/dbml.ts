@@ -34,31 +34,35 @@ function tokenize(source: string): Token[] {
 export function dbmlToDot(source: string): string {
   const tokens = tokenize(source); let pos = 0; let count = 0
   const fail = (message: string): never => { throw new Error(`${message} at line ${tokens[pos]?.line ?? tokens.at(-1)?.line ?? 1}`) }
-  const peek = () => tokens[pos]?.value
+  // Quoted identifiers can spell punctuation; never interpret them as syntax.
+  const peek = () => tokens[pos]?.quoted ? '\0' : tokens[pos]?.value
   const take = (value: string) => { if (peek() !== value) fail(`Expected ${value}`); pos++ }
   const skip = () => { while (peek() === '\n') pos++ }
   const name = () => { const t = tokens[pos]; if (!t || (!t.quoted && !/^[\p{L}\p{N}_$]+$/u.test(t.value))) return fail('Expected identifier'); pos++; return t.value }
+  const keywordName = () => { if (tokens[pos]?.quoted) fail('Expected keyword'); return name().toLowerCase() }
   const names = () => { const a: string[] = []; if (peek() === '(') { take('('); a.push(name()); while (peek() === ',') { take(','); a.push(name()) } take(')') } else a.push(name()); return a }
   const tables: Table[] = []; const refs: Ref[] = []
   const endpoint = (): Endpoint => { const parts = [name()]; take('.'); if (peek() === '(') return {schema:'public', table:parts[0], columns:names()}; parts.push(name()); if (peek() === '.') { take('.'); return {schema:parts[0], table:parts[1], columns:names()} } return {schema:'public', table:parts[0], columns:[parts[1]]} }
   const op = () => { const v = peek(); if (v !== '<' && v !== '>' && v !== '-' && v !== '<>') return fail('Expected relationship operator'); pos++; return v }
   while (pos < tokens.length) {
     skip(); if (pos === tokens.length) break
-    const keyword = name().toLowerCase()
+    if (tokens[pos]?.quoted) fail('Expected DBML construct')
+    const keyword = keywordName()
     if (keyword === 'table') {
       let schema = 'public', tableName = name(); if (peek() === '.') { take('.'); schema = tableName; tableName = name() }
       if (tables.length >= DBML_LIMITS.tables) fail('DBML table limit exceeded')
       const table: Table = {schema, name:tableName, columns:[], keys:[]}; tables.push(table); take('{'); skip()
       while (peek() !== '}') {
         if (!peek()) fail('Unclosed table')
+        const quotedFirst = tokens[pos]?.quoted
         const first = name()
-        if (first.toLowerCase() === 'indexes' && peek() === '{') {
-          take('{'); skip(); while (peek() !== '}') { const columns = names(); take('['); const setting = name().toLowerCase(); if (setting !== 'pk' && setting !== 'unique') fail('Unsupported index setting'); take(']'); table.keys.push({names:columns,kind:setting === 'pk' ? 'PK' : 'UK'}); if (peek() !== '\n' && peek() !== '}') fail('Unsupported index syntax'); skip() } take('}'); if (peek() !== '\n' && peek() !== '}') fail('Unsupported syntax after indexes'); skip(); continue
+        if (!quotedFirst && first.toLowerCase() === 'indexes' && peek() === '{') {
+          take('{'); skip(); while (peek() !== '}') { const columns = names(); take('['); const setting = keywordName(); if (setting !== 'pk' && setting !== 'unique') fail('Unsupported index setting'); take(']'); table.keys.push({names:columns,kind:setting === 'pk' ? 'PK' : 'UK'}); if (peek() !== '\n' && peek() !== '}') fail('Unsupported index syntax'); skip() } take('}'); if (peek() !== '\n' && peek() !== '}') fail('Unsupported syntax after indexes'); skip(); continue
         }
         const type = name(); let fullType = type
         if (peek() === '(') { take('('); const args = [name()]; while (peek() === ',') {take(','); args.push(name())} take(')'); fullType += `(${args.join(',')})` }
         const column: Column = {name:first,type:fullType,flags:[]}; if (++count > DBML_LIMITS.columns) fail('DBML column limit exceeded'); table.columns.push(column)
-        if (peek() === '[') { take('['); do { if (peek() === ',') take(','); const setting = name().toLowerCase(); if (setting === 'pk' || setting === 'unique' || setting === 'null') column.flags.push(setting === 'pk' ? 'PK' : setting === 'unique' ? 'UK' : 'NULL'); else if (setting === 'primary') { if (name().toLowerCase() !== 'key') fail('Expected key'); column.flags.push('PK') } else if (setting === 'not') { if (name().toLowerCase() !== 'null') fail('Expected null'); column.flags.push('NOT NULL') } else if (setting === 'ref') { take(':'); const relation = op(); refs.push({left:{schema,table:tableName,columns:[first]},right:endpoint(),op:relation,inline:true}) } else fail('Unsupported column setting'); } while (peek() === ','); take(']') }
+        if (peek() === '[') { take('['); do { if (peek() === ',') take(','); const setting = keywordName(); if (setting === 'pk' || setting === 'unique' || setting === 'null') column.flags.push(setting === 'pk' ? 'PK' : setting === 'unique' ? 'UK' : 'NULL'); else if (setting === 'primary') { if (keywordName() !== 'key') fail('Expected key'); column.flags.push('PK') } else if (setting === 'not') { if (keywordName() !== 'null') fail('Expected null'); column.flags.push('NOT NULL') } else if (setting === 'ref') { take(':'); const relation = op(); refs.push({left:{schema,table:tableName,columns:[first]},right:endpoint(),op:relation,inline:true}) } else fail('Unsupported column setting'); } while (peek() === ','); take(']') }
         if (peek() !== '\n' && peek() !== '}') fail('Unsupported column syntax'); skip()
       } take('}'); if (peek() !== '\n' && pos < tokens.length) fail('Unsupported table syntax'); skip()
     } else if (keyword === 'ref') { take(':'); const left = endpoint(); const relation = op(); const right = endpoint(); refs.push({left,right,op:relation,inline:false}); if (peek() !== '\n' && pos < tokens.length) fail('Unsupported relationship syntax'); skip() }

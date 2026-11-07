@@ -19,16 +19,42 @@ markdown.inline.ruler.before('escape', 'table_break', (state, silent) => {
   return true
 })
 const opaqueFences = new Set(['dot', 'dbml', 'math'])
+const sourceLines = (source: string) => source.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
+const withoutLastNewline = (text: string) => text.replace(/(?:\r\n|\r|\n)$/, '')
+type MarkdownToken = ReturnType<typeof markdown.parse>[number]
+
+function enclosingContainer(tokens: MarkdownToken[], index: number) {
+  const map = tokens[index].map
+  if (!map || !tokens[index].level) return undefined
+  for (let previous = index - 1; previous >= 0; previous--) {
+    const token = tokens[previous]
+    if (token.level || token.nesting !== 1 || !token.map) continue
+    return token.map[1] >= map[1] ? token.map : undefined
+  }
+}
+
 const fence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]
   const notation = token.info.trim()
   const type = notation === 'graphviz' ? 'dot' : notation
   if (opaqueFences.has(type)) {
-    const lines = (env?.source as string | undefined)?.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
-    const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/(?:\r\n|\r|\n)$/, '') : ''
+    const lines = env?.source ? (env.sourceLines ??= sourceLines(env.source)) as string[] : []
+    const raw = token.map ? withoutLastNewline(lines.slice(...token.map).join('')) : ''
+    let metadata: string | { raw: string; container?: string } = raw.startsWith(token.markup) ? raw : ''
+    if (type === 'dbml' && env?.retainDbmlSource) {
+      metadata = { raw }
+      const container = enclosingContainer(tokens, index)
+      if (container) {
+        const retained = (env.dbmlContainers ??= new Set<number>()) as Set<number>
+        if (!retained.has(container[0])) {
+          retained.add(container[0])
+          metadata.container = withoutLastNewline(lines.slice(...container).join(''))
+        }
+      }
+    }
     const escape = markdown.utils.escapeHtml
-    return `<div data-type="${type}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
+    return `<div data-type="${type}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(metadata))}">${escape(token.content)}</div>\n`
   }
   const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
   if (notation !== 'mermaid') return fence(tokens, index, { ...options, highlight: highlight ? (code, language) => highlightedHtml(code, highlight(code, language)) : null }, env, renderer)
@@ -83,7 +109,7 @@ export function renderMappedMarkdown(source: string, owner: MapOwner, highlighti
 }
 
 export function toWysiwygHtml(source: string): string {
-  const doc = new DOMParser().parseFromString(markdown.render(source, { source }), 'text/html')
+  const doc = new DOMParser().parseFromString(markdown.render(source, { source, retainDbmlSource: true }), 'text/html')
   doc.querySelectorAll('ins').forEach(node => {
     const underline = doc.createElement('u')
     underline.append(...Array.from(node.childNodes))
@@ -200,6 +226,61 @@ turndown.addRule('listParagraph', {
   replacement: content => content + '\n',
 })
 
+function restoreDbmlFences(root: HTMLElement, rendered: string): string {
+  const atoms = Array.from(root.querySelectorAll('[data-type="dbml"][data-source-fence]'))
+  if (!atoms.length) return rendered
+
+  const tokens = markdown.parse(rendered, {})
+  const fences = tokens.flatMap((token, index) => token.type === 'fence' && token.info.trim() === 'dbml' ? [{ token, index }] : [])
+  if (fences.length !== atoms.length) return rendered
+
+  const lines = sourceLines(rendered)
+  const signature = (source: string) => {
+    const env: { references?: unknown } = {}
+    const html = markdown.render(source, env)
+    return JSON.stringify([html, env.references])
+  }
+  const semantic = signature(rendered)
+  const raw = new Map<number, { end: number; text: string }>()
+  const containers = new Map<number, { end: number; text: string }>()
+  for (const [position, { token, index }] of fences.entries()) {
+    const atom = atoms[position]
+    if (!token.map || token.content !== atom.getAttribute('data-chart')) continue
+    let metadata: { raw?: unknown; container?: unknown } | null
+    try { metadata = JSON.parse(atom.getAttribute('data-source-fence') ?? '') } catch { continue }
+    if (!metadata || typeof metadata.raw !== 'string' || !metadata.raw) continue
+    raw.set(token.map[0], { end: token.map[1], text: metadata.raw })
+    const container = enclosingContainer(tokens, index)
+    if (container && typeof metadata.container === 'string' && metadata.container &&
+        signature(lines.slice(...container).join('')) === signature(metadata.container)) {
+      containers.set(container[0], { end: container[1], text: metadata.container })
+    }
+  }
+  if (!raw.size) return rendered
+
+  // Preserve verbatim fence bytes when their container still means the same
+  // thing. An unchanged surrounding list may require restoring its indentation
+  // too. Parse the whole result before accepting metadata from clipboard HTML.
+  const splice = (useContainers: boolean) => {
+    const output: string[] = []
+    for (let line = 0; line < lines.length;) {
+      const range = (useContainers ? containers.get(line) : undefined) ?? raw.get(line)
+      if (!range) { output.push(lines[line++]); continue }
+      const ending = /(?:\r\n|\r|\n)$/.exec(lines[range.end - 1])?.[0] ?? ''
+      output.push(range.text, ending)
+      line = range.end
+    }
+    return output.join('')
+  }
+  const exact = splice(false)
+  if (signature(exact) === semantic) return exact
+  if (containers.size) {
+    const nested = splice(true)
+    if (signature(nested) === semantic) return nested
+  }
+  return rendered
+}
+
 export function fromWysiwygHtml(html: string, tableCell = false): string {
   const root = document.createElement('x-turndown')
   root.innerHTML = html
@@ -213,5 +294,5 @@ export function fromWysiwygHtml(html: string, tableCell = false): string {
       code.appendChild(document.createElement('wbr'))
     }
   })
-  return turndown.turndown(root)
+  return restoreDbmlFences(root, turndown.turndown(root))
 }
