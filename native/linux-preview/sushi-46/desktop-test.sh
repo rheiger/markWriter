@@ -34,35 +34,8 @@ for unused in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ -n "$window" ] || { echo 'Nautilus window did not appear' >&2; exit 1; }
 xdotool windowfocus --sync "$window"
-# Wait for the actual file item, then click its accessible screen bounds.
-coords=$(/usr/bin/python3 - <<'PY'
-import time
-import pyatspi
-def find(node, depth=0):
-    if depth > 40: return None
-    try:
-        if node.name == 'preview.md':
-            rect = node.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
-            if rect.width > 0 and rect.height > 0:
-                return (rect.x + rect.width // 2, rect.y + rect.height // 2)
-        for child in node:
-            result = find(child, depth + 1)
-            if result: return result
-    except Exception: pass
-    return None
-for _ in range(40):
-    result = find(pyatspi.Registry.getDesktop(0))
-    if result:
-        print(*result)
-        break
-    time.sleep(.25)
-else:
-    raise SystemExit('Nautilus file item did not appear')
-PY
-)
-set -- $coords
-xdotool mousemove --sync "$1" "$2" click 1
-sleep 1
+# --select requests the fixture selection; the content assertion below verifies it.
+sleep 4
 xdotool key space
 if /usr/bin/python3 - <<'PY' 
 import time
