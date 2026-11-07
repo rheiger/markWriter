@@ -12,7 +12,7 @@ case "$mode" in enabled|disabled) ;; *) exit 2 ;; esac
 [ "${MARKWRITER_DISPOSABLE:-}" = 1 ] || { echo 'Requires an explicitly disposable profile' >&2; exit 1; }
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 if [ "$mode" = enabled ]; then plugin=markwriterthumbnail; else plugin=imagethumbnail; fi
-printf '[PreviewSettings]\nPlugins=%s\n' "$plugin" > "$XDG_CONFIG_HOME/kioslaverc"
+printf '[PreviewSettings]\nPlugins=%s\n' "$plugin" > "$XDG_CONFIG_HOME/dolphinrc"
 testdir=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-dolphin-XXXXXX")
 cleanup() { [ -z "${dolphin_pid:-}" ] || kill "$dolphin_pid" 2>/dev/null || :; rm -rf "$testdir"; }
 trap cleanup EXIT HUP INT TERM
