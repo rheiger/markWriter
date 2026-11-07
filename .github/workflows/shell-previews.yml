@@ -2,11 +2,11 @@ name: Native shell previews
 
 on:
   pull_request:
-    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', '.github/workflows/shell-previews.yml']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', 'tools/test-sushi-preview-package.sh', '.github/workflows/shell-previews.yml']
   push:
     branches: [main, 'codex/2.6.3-shell-previews']
     tags: ['v2.*']
-    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', '.github/workflows/shell-previews.yml']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', 'tools/build-dolphin-preview-deb.sh', 'tools/test-sushi-preview-package.sh', '.github/workflows/shell-previews.yml']
   workflow_dispatch:
 
 permissions:
@@ -71,7 +71,7 @@ jobs:
       - name: Install the Ubuntu Sushi baseline
         run: |
           sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-sushi xvfb xauth
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-sushi nautilus xvfb xauth xdotool dbus-x11 at-spi2-core python3-pyatspi zip unzip
           dpkg-query -W gnome-sushi
       - name: Test the distro Sushi renderer dispatch
         run: |
@@ -82,3 +82,10 @@ jobs:
           export GI_TYPELIB_PATH="$(dirname "$typelib")"
           export LD_LIBRARY_PATH="$(dirname "$GI_TYPELIB_PATH")"
           xvfb-run -a gjs native/linux-preview/sushi-46/runtime-test.js
+      - name: Exercise the extracted Sushi component in Nautilus
+        run: tools/test-sushi-preview-package.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f3646cd9 # v7.0.2
+        with:
+          name: shell-preview-sushi
+          path: release-assets/
+          if-no-files-found: error

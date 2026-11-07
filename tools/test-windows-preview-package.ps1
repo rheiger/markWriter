@@ -28,6 +28,7 @@ if ((Get-AuthenticodeSignature -LiteralPath "$staging/MarkWriterPreview.dll").St
     throw 'Expected an unsigned preview DLL from the current CI build.'
 }
 Compress-Archive -LiteralPath "$staging/MarkWriterPreview.dll", "$staging/install.ps1", "$staging/LICENSE" -DestinationPath $archive
+$archiveDigest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 Expand-Archive -LiteralPath $archive -DestinationPath $installed
 $installer = Join-Path $installed 'install.ps1'
 if ((Get-FileHash -LiteralPath $installer).Hash -ne (Get-FileHash -LiteralPath "$source/install.ps1").Hash) {
@@ -37,5 +38,9 @@ $dll = Join-Path $installed 'MarkWriterPreview.dll'
 & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$source/explorer-acceptance.ps1" `
     -DllPath $dll -InstallerPath $installer -AppPath $env:MARKWRITER_BINARY -ExpectedSha256 $expected -ResultPath $result
 if ($LASTEXITCODE) { throw 'Installed Explorer acceptance failed.' }
+$report = Get-Content -Raw -LiteralPath $result | ConvertFrom-Json -AsHashtable
+$report.assetSha256 = $archiveDigest
+$report.installedSha256 = (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant()
+$report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $result -Encoding utf8
 node "$root/tools/shell-preview-assets.mjs" explorer $assets $result
 if ($LASTEXITCODE) { throw 'Could not record tested Explorer asset provenance.' }

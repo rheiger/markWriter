@@ -24,6 +24,11 @@ function checkAcceptance(acceptance) {
     typeof item === 'string' && item.trim()), 'Shell acceptance cases required')
 }
 
+function checkTestedBytes(acceptance, asset) {
+  assert.equal(acceptance.assetSha256, asset.sha256, 'Tested shell preview asset differs from staged bytes')
+  assert.match(acceptance.installedSha256, /^[0-9a-f]{64}$/, 'Installed component SHA-256 required')
+}
+
 async function inspectAsset(directory, name) {
   const data = await readFile(join(directory, name))
   assert.ok(data.length, 'Shell preview asset must not be empty')
@@ -34,6 +39,7 @@ export async function recordShellPreviewAsset(directory, { version, source, comp
   assert.match(source, /^[0-9a-f]{40}$/, 'Full source SHA required')
   checkAcceptance(acceptance)
   const asset = await inspectAsset(directory, assetName(version, component))
+  checkTestedBytes(acceptance, asset)
   const record = { schemaVersion: 1, version, source, component, asset, acceptance }
   await writeFile(join(directory, `${component}.preview.json`), JSON.stringify(record, null, 2) + '\n', { flag: 'wx' })
 }
@@ -50,6 +56,7 @@ export async function verifyShellPreviewAssets(directory, { version, source }) {
     checkAcceptance(record.acceptance)
     const asset = await inspectAsset(directory, assetName(version, component))
     assert.deepEqual(record.asset, asset, 'Shell preview checksum or size mismatch')
+    checkTestedBytes(record.acceptance, asset)
     records.push(record)
   }
   return records
