@@ -38,6 +38,15 @@ jobs:
           $dll = Join-Path $env:RUNNER_TEMP 'markwriter-explorer/Release/MarkWriterPreview.dll'
           & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File native/windows-preview/registration-test.ps1 -DllPath $dll
           exit $LASTEXITCODE
+      - name: Diagnose Explorer preview selection and low-integrity hosting
+        run: |
+          $dll = Join-Path $env:RUNNER_TEMP 'markwriter-explorer/Release/MarkWriterPreview.dll'
+          $expected = (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash
+          $result = Join-Path $env:RUNNER_TEMP 'explorer-diagnostic.json'
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File native/windows-preview/explorer-acceptance.ps1 `
+            -Diagnostic -DllPath $dll -ExpectedSha256 $expected -ResultPath $result
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (Test-Path -LiteralPath $result) { throw 'Diagnostic produced a release receipt' }
 
   dolphin:
     runs-on: ubuntu-26.04
