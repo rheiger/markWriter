@@ -34,7 +34,8 @@ import sys
 import cv2
 mode, refpath, screenshot = sys.argv[1:]
 ref = cv2.imread(refpath, cv2.IMREAD_GRAYSCALE)
-screen = cv2.imread(screenshot, cv2.IMREAD_GRAYSCALE)
+colour = cv2.imread(screenshot, cv2.IMREAD_COLOR)
+screen = cv2.cvtColor(colour, cv2.COLOR_BGR2GRAY) if colour is not None else None
 if ref is None or screen is None or ref.std() < 5:
     raise SystemExit('Missing or featureless reference/screenshot')
 best = 0.0
@@ -44,7 +45,9 @@ for side in range(32, 257):
     if scaled.std() < 5: continue
     score = float(cv2.minMaxLoc(cv2.matchTemplate(screen, scaled, cv2.TM_CCOEFF_NORMED))[1])
     best = max(best, score)
-print(f'Dolphin {mode}: best scaled thumbnail correlation {best:.3f}')
-if (mode == 'enabled' and best < .92) or (mode == 'disabled' and best >= .92):
+paper_pixels = int(((colour[:, :, 0] == 227) & (colour[:, :, 1] == 241) & (colour[:, :, 2] == 248)).sum())
+print(f'Dolphin {mode}: thumbnail correlation {best:.3f}, paper-coloured pixels {paper_pixels}')
+found = best >= .92 and paper_pixels >= 30
+if (mode == 'enabled' and not found) or (mode == 'disabled' and found):
     raise SystemExit('Dolphin thumbnail did not match expected enabled/disabled state')
 PY

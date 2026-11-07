@@ -46,7 +46,7 @@ QImage renderMarkdownThumbnail(const QString &path, const QSize &size)
     const QSize canvas(size.width(), size.height());
     QImage image(canvas, QImage::Format_ARGB32_Premultiplied);
     if (image.isNull()) return {};
-    image.fill(Qt::white);
+    image.fill(QColor(248, 241, 227));
     QPainter painter(&image);
     painter.setClipRect(image.rect());
     painter.scale(canvas.width() / 620.0, canvas.width() / 620.0);
