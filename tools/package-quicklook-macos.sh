@@ -52,7 +52,7 @@ case "$1" in
     test "$(plutil -extract CFBundleIdentifier raw "$extension/Contents/Info.plist")" = com.markwriter.app.quicklook
     codesign --verify --strict "$extension"
     codesign --verify --deep --strict "$app"
-    actual_entitlements=$(codesign -d --entitlements - "$extension" 2>/dev/null | plutil -p -)
+    actual_entitlements=$(codesign -d --entitlements :- "$extension" 2>/dev/null | plutil -p -)
     expected_entitlements=$(plutil -p "$root/native/quicklook/Preview.entitlements")
     test "$actual_entitlements" = "$expected_entitlements" || {
       echo "Quick Look extension must have the reviewed sandbox and read-only entitlements" >&2
