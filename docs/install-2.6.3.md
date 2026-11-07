@@ -48,7 +48,7 @@ The handler supports basic headings, bold and inline code. Keep the DLL in the f
 
 Install the editor with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64.deb`. Verify the GitHub download against `SHA256SUMS`. The separate preview components use the same checksums. They have no distribution repository signature.
 
-### GNOME Files with Sushi 46
+### GNOME Files with Ubuntu Sushi
 
 Install Ubuntu's `gnome-sushi` package. Verify and extract the Sushi ZIP to a local folder. In the extracted folder, run `sh ./install.sh enable` as your own user. The installer uses your Sushi data directory and refuses to replace existing user viewers. Start a fresh login session to pick up the viewer, select a Markdown file in Files, and press **Space**. To disable it, use the same extracted folder and run `sh ./install.sh disable`, then start a fresh login session.
 

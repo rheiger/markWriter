@@ -22,7 +22,7 @@ export XDG_CONFIG_HOME="$test_root/config" XDG_DATA_HOME="$test_root/data" XDG_C
 export MARKWRITER_DISPOSABLE=1 QT_QPA_PLATFORM=xcb XDG_CURRENT_DESKTOP=KDE
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 desktop_test() {
-  dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' "$@" || {
+  xvfb-run -a -s '-screen 0 1280x800x24' dbus-run-session -- "$@" || {
     if [[ -f /tmp/markwriter-dolphin-test.log ]]; then cat /tmp/markwriter-dolphin-test.log; fi
     return 1
   }

@@ -22,7 +22,7 @@ mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 viewer_dir="$XDG_DATA_HOME/sushi/viewers"
 target="$viewer_dir/markwriterMarkdown.js"
 desktop_test() {
-  dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' "$source_dir/desktop-test.sh" "$1" || {
+  xvfb-run -a -s '-screen 0 1280x800x24' dbus-run-session -- "$source_dir/desktop-test.sh" "$1" || {
     if [[ -f /tmp/markwriter-nautilus-test.log ]]; then cat /tmp/markwriter-nautilus-test.log; fi
     return 1
   }
