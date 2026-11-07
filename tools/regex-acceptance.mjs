@@ -7,6 +7,9 @@ import { setTimeout as delay } from 'node:timers/promises'
 export async function verifyRegex({dir,run,click,menu,mode,open,saveAs,save,wait,request,session}) {
   const cases=[]
   const source='# Regex acceptance\n\n😀 same same\n'
+  // A genuine rendered edit may normalize a final line ending; its Undo
+  // restores the ProseMirror model and meaningful Markdown, not lexical bytes.
+  const renderedUndoSource='# Regex acceptance\n\n😀 same same'
   const original=join(dir,'regex-original.md'),saved=join(dir,'regex-saved.md')
   await writeFile(original,source);await open(original,'regex-original.md')
   const setText=async (index,value)=>run(`const e=document.querySelectorAll('[role=search] textarea')[arguments[0]];Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,arguments[1]);e.dispatchEvent(new Event('input',{bubbles:true}))`,index,value)
@@ -21,9 +24,13 @@ export async function verifyRegex({dir,run,click,menu,mode,open,saveAs,save,wait
     await wait(async()=>/2 matches/.test(await output()),'regex nested named capture results in '+(markdown?'source':'rendered'))
     await wait(()=>run(`const a=document.querySelector('[data-active=true]'),l=document.querySelector('[aria-label="Capture group legend"]');const editor=a.querySelector(arguments[0]);return !!editor?.querySelector('.search-group-0')&&!!editor.querySelector('.search-group-1')&&l?.textContent.includes('Group 1 (outer)')&&l.textContent.includes('Group 2 (inner)')`,markdown?'.cm-content':'.tiptap'),'visible group classes and named legend')
     if(markdown){await saveAs(saved);await wait(async()=>await readFile(saved,'utf8').catch(()=>null)===source,'regex search and highlighting do not change saved source');await wait(()=>run(`return document.querySelector('[role=tab][aria-selected=true]')?.textContent.includes('regex-saved.md')`),'Save As ownership settled')}
+    const originalModel=markdown?null:await run(`return document.querySelector('[data-active=true] .tiptap').editor.getJSON()` )
     await click('//button[normalize-space(.)="Replace All"]')
-    await save();await wait(async()=>{const value=await readFile(saved,'utf8').catch(()=>null);return value?.includes('😀 a-sa a-sa')},'capture references saved in '+(markdown?'source':'rendered'))
-    await menu('Edit','Undo');await save();await wait(async()=>await readFile(saved,'utf8')===source,'one undo restores exact native source in '+(markdown?'source':'rendered'))
+    const changed=(markdown?source:renderedUndoSource).replaceAll('same','a-sa')
+    await save();await wait(async()=>await readFile(saved,'utf8').catch(()=>null)===changed,'capture references and full content saved in '+(markdown?'source':'rendered'))
+    await menu('Edit','Undo')
+    if(!markdown)await wait(async()=>JSON.stringify(await run(`return document.querySelector('[data-active=true] .tiptap').editor.getJSON()`))===JSON.stringify(originalModel),'one rendered Undo restores the entire document model')
+    await save();await wait(async()=>await readFile(saved,'utf8')===(markdown?source:renderedUndoSource),'one Undo saves '+(markdown?'exact source bytes':'expected rendered Markdown including Unicode and content'))
     await click('//button[normalize-space(.)="Close Find"]')
     cases.push((markdown?'source':'rendered')+' regex nested named captures, legend, replacement and one-step native Undo')
   }
@@ -48,7 +55,7 @@ export async function verifyRegex({dir,run,click,menu,mode,open,saveAs,save,wait
   await wait(()=>run('return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes("regex-saved.md")'),'switch document during regex search')
   await delay(700)
   assert.ok(await run('return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes("regex-saved.md")'))
-  await save();await wait(async()=>await readFile(saved,'utf8')===source,'old-tab worker cannot mutate active document')
+  await save();await wait(async()=>await readFile(saved,'utf8')===renderedUndoSource,'old-tab worker cannot mutate active document')
   cases.push('actual source revision and tab changes reject stale regex jobs')
   return {cases}
 }

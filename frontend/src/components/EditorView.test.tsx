@@ -359,6 +359,26 @@ describe('document fidelity with real editors', () => {
     } finally { vi.unstubAllGlobals() }
   })
 
+  it('restores the rendered regex edit model with normalized final LF after one Undo', async () => {
+    const search = await import('../lib/regexSearch')
+    const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
+    try {
+      const source = '# Regex acceptance\n\n😀 same same\n'
+      const { ref, editor } = await mount(source)
+      const model = editor.getJSON()
+      act(() => ref.current!.openFind(true))
+      fireEvent.click(screen.getByLabelText('Regex'))
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(?<outer>s(?<inner>a))me' } })
+      await waitFor(() => expect(screen.getByText('2 matches · wraps')).toBeVisible())
+      fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: '$<inner>-$1' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(editor.getText()).toContain('😀 a-sa a-sa')
+      act(() => ref.current!.undo())
+      expect(editor.getJSON()).toEqual(model)
+      expect(ref.current!.getMarkdown()).toBe('# Regex acceptance\n\n😀 same same')
+    } finally { spy.mockRestore() }
+  })
+
   it('rejects oversized replacement output without modifying either editor', async () => {
     const search = await import('../lib/regexSearch')
     const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
