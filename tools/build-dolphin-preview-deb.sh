@@ -11,7 +11,7 @@ test "$(dpkg --print-architecture)" = amd64
 stage=$(mktemp -d "${RUNNER_TEMP:-/tmp}/markwriter-dolphin-package.XXXXXX")
 DESTDIR="$stage" cmake --install "$build" --prefix /usr
 qt_plugins=$(qtpaths6 --query QT_INSTALL_PLUGINS)
-plugin="$stage$qt_plugins/kf6/thumbcreator/libmarkwriterthumbnail.so"
+plugin="$stage$qt_plugins/kf6/thumbcreator/markwriterthumbnail.so"
 test -f "$plugin"
 test "$(find "$stage" -type f | wc -l)" -eq 1
 

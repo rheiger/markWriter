@@ -29,10 +29,35 @@ pluginkit -r "$extension"
 "$lsregister" -u "$app"
 ```
 
-## Windows and Linux
+## Windows File Explorer
 
-On Windows x64, run the current-user NSIS installer. It is unsigned. Use the artifact from this release and check the SHA-256 before running it. On Ubuntu 26.04 x64, install the DEB with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64.deb`. Shell preview components are enabled separately from the editor.
+Install the Windows x64 editor with the current-user NSIS installer. For previews, verify the SHA-256 of the separate Explorer ZIP and extract it to a permanent local folder under your user profile. The installer and preview DLL are unsigned. Windows or organization policy may restrict them. Use the downloaded files only if you trust their source and your policy permits them.
 
-To roll back, close MarkWriter, remove the preliminary app through the same platform's install mechanism, and reinstall the prior installer. Restore the backed-up profile if needed. Update discovery is manual and does not install packages.
+From an ordinary PowerShell window in that folder, enable the handler.
+
+```powershell
+$dll = Join-Path $PWD 'MarkWriterPreview.dll'
+.\install.ps1 -Action Enable -DllPath $dll
+```
+
+Open File Explorer, enable the **Preview pane** from **View → Show**, and select a local Markdown file. For a fresh test, create a `.md` file locally. Windows may block previewing files marked as originating from the Internet. [Microsoft Preview pane security](https://support.microsoft.com/en-us/servicing/os/windows/docs/2025/10/file-explorer-automatically-disables-the-preview-feature-for-files-downloaded-from-the-internet)
+
+The handler supports basic headings, bold and inline code. Keep the DLL in the folder while enabled. To remove it or replace it with another version, close the Preview pane and run `.\install.ps1 -Action Disable -DllPath $dll` from the original folder first.
+
+## Ubuntu 26.04 x64
+
+Install the editor with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64.deb`. Verify the GitHub download against `SHA256SUMS`. The separate preview components use the same checksums. They have no distribution repository signature.
+
+### GNOME Files with Sushi 46
+
+Install Ubuntu's `gnome-sushi` package. Verify and extract the Sushi ZIP to a local folder. In the extracted folder, run `sh ./install.sh enable` as your own user. The installer uses your Sushi data directory and refuses to replace existing user viewers. Start a fresh login session to pick up the viewer, select a Markdown file in Files, and press **Space**. To disable it, use the same extracted folder and run `sh ./install.sh disable`, then start a fresh login session.
+
+### KDE Dolphin with KDE Frameworks 6
+
+Install the separate verified DEB with `sudo apt install ./MarkWriter-2.6.3-ubuntu-26.04-x64-dolphin-preview.deb`. In Dolphin, enable **MarkWriter Markdown** in the preview settings and turn on **Show Previews**. Dolphin displays a rendered thumbnail. To remove the add-on, run `sudo apt remove markwriter-dolphin-preview` and reopen Dolphin.
+
+## Rollback
+
+Disable a preview component before moving its files or reinstalling an older version. Close MarkWriter, remove the preliminary editor through the same platform's install mechanism and reinstall the prior installer. Restore the backed-up profile if needed. Update discovery remains manual.
 
 The [2.6.3 plan](next-increment-2.6.3-plan.md) tracks the Explorer, Sushi and Dolphin qualification gates.
