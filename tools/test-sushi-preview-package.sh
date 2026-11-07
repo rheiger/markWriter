@@ -17,7 +17,7 @@ cmp "$source_dir/install.sh" "$installer"
 cmp "$source_dir/markwriterMarkdown.js" "$plugin"
 
 export XDG_DATA_HOME="$test_root/data" XDG_CONFIG_HOME="$test_root/config" XDG_CACHE_HOME="$test_root/cache"
-export GDK_BACKEND=x11 NO_AT_BRIDGE=0
+export GDK_BACKEND=x11 NO_AT_BRIDGE=0 MARKWRITER_EVIDENCE_DIR="$root/shell-preview-evidence"
 mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 viewer_dir="$XDG_DATA_HOME/sushi/viewers"
 target="$viewer_dir/markwriterMarkdown.js"
