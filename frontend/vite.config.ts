@@ -9,14 +9,14 @@ export default defineConfig(async () => ({
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (req.url?.startsWith('/src/lib/dotWorker.ts?')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
-        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
+        if (req.url?.startsWith('/src/lib/regexSearch.worker.ts?') || /^\/assets\/regexSearch\.worker-[^/]+\.js$/.test(req.url ?? '') || req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
         if (/^\/assets\/dotWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; worker-src 'none'")
-        if (req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
+        if (req.url?.startsWith('/src/lib/regexSearch.worker.ts?') || /^\/assets\/regexSearch\.worker-[^/]+\.js$/.test(req.url ?? '') || req.url?.startsWith('/src/lib/mathWorker.ts?') || /^\/assets\/mathWorker-[^/]+\.js$/.test(req.url ?? '')) res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'")
         next()
       })
     },

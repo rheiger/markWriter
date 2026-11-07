@@ -23,3 +23,20 @@ describe('literal search adapters', () => {
     editor.destroy()
   })
 })
+
+describe('regex editor transactions', () => {
+  it('replaces captures across marks atomically and rejects stale rendered snapshots', async () => {
+    const { executeRegex, expandReplacement } = await import('./regexSearch')
+    const { renderedSegments } = await import('./editorSearch')
+    const editor = new Editor({ extensions: [StarterKit], content: '<p><strong>a</strong>b ab</p><p>ab</p>' })
+    const doc = editor.state.doc
+    const result = executeRegex({ pattern: '(a)(b)', caseSensitive: true, wholeWord: false, segments: renderedSegments(doc) })
+    expect(result.hits).toHaveLength(3)
+    expect(replaceRendered(editor, { doc, hits: result.hits }, result.hits, hit => expandReplacement('$2$1', hit as typeof result.hits[number]))).toBe(true)
+    expect(editor.getText()).toBe('ba ba\n\nba')
+    expect(replaceRendered(editor, { doc, hits: result.hits }, result.hits, 'stale')).toBe(false)
+    editor.commands.undo()
+    expect(editor.getText()).toBe('ab ab\n\nab')
+    editor.destroy()
+  })
+})

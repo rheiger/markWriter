@@ -1,25 +1,14 @@
-# MarkWriter 2.5.0-alpha1
+# MarkWriter 2.6 native-integration candidate
 
-Authority: complete prompt/plan read, implementation/delegation/qualified issues/merge/public prerelease authorized after all gates.
+Authority: implementation/delegation/branches/draft PRs/progress comments. Later explicit user clause permits merge only after required CI/review agreement. No release, historical mutations, feed activation or signing operations.
 
-- [complete] A Baseline preservation and bounded parallel leaf assignments
-- [complete] B Leaf implementation, shared integration and regression/browser/security verification
-- [complete] C Independent review, exact source three-platform quality/packages, downloaded native UI
-- [complete] D Reviewed merge and exact merged gates, immutable tag/draft/public asset verification
-- [complete] E Qualified issue/docs closeout, preserved hashes and measured cleanup
+- [complete] A Inventory/preserve baseline, read contracts, Quick Look feasibility first
+- [complete] B Native-menu and safe-regex regression-first independent implementation
+- [complete] C OS opening/update discovery; conditional preview/install gates recorded
+- [complete] D Integration, browser/native checks and independent review
+- [in_progress] E Exact-source three-platform quality/packages, PR/review and gated integration decision
+- [pending] F Acceptance report, preservation, source recovery and owned cleanup
 
-Required #46/#50/#47. Optional grammars and OS previews remain deferred. Preserve user data, canonical source/ownership/history/recovery/fonts/input/artwork. No failed-gate publication; latest=false; historical releases immutable.
+Root owns App/MenuBar/store/main.rs/workflows/bookkeeping. Fresh-context terra/high workers, no recursion, max three and reserve review slot. User confirmed selecting root sol/medium/default in UI. External run: /Volumes/AI-Cache/temp/MarkWriter/2.6-20261107-015115
 
-Final evidence: /Users/rheiger/.codex/artifacts/markwriter-2.5.0-alpha1
-
-Owned scratch removed after 573 file hashes, 3 profile tar members, public assets and fresh bare source-bundle recovery passed. Public release437063381/tagv2.5.0-alpha1/sourceee0b534 verified; all 23 protected hashes match.
-
-## 2.5.1 regular release follow-up (authorized)
-
-- [complete] F Preserve current user/profile/history baselines; version/policy and actual long-code native regression
-- [complete] G Reviewed exact-source quality and three-platform packages; downloaded isolated Mac UI
-- [complete] H Push/merge; exact merged gates; immutable v2.5.1 tag, draft and final qualification
-- [complete] I Publish regular release latest=false; verify all public bytes/history; next-round plan and measured cleanup
-- [in_progress] J Review/integrate documentation closeout; refresh/recover final source bundle and final integrity inventory
-
-Scope: existing highlighting/README changes; v2.5.1 regular, not prerelease, latest=false. No signing/notarization or deferred-feature claims. Evidence /Users/rheiger/.codex/artifacts/markwriter-2.5.1. Baseline24protectedfiles/4profilefiles/11historicalreleases; preserve historical latest and all tags/assets. Never restart completed alpha1.
+Checkpoint: fresh independent review approves bounded merge at d0e294c subject to final documentation review/checks. Exact-push quality42324323388 and packages42324323362 all pass.339frontend,27Mac/LinuxRust32WindowsRust;56native31installedWin/Linux each,6MacCI. FinalMac whole3-filepayload equals downloaded nativeUI-tested00 app.34protectedfiles and12releases/64assets/17tags/latest unchanged. Quick Look/structured preview and secure installed updater remain deferred. Final documentation reconciliation and exact-head dispatch precede conditional merge.

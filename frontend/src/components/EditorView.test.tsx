@@ -308,6 +308,101 @@ describe('document fidelity with real editors', () => {
     expect(editor.getHTML()).toContain('<strong>me</strong>')
   })
 
+  it('uses regex captures in both real editors with atomic undo and ignores stale workers', async () => {
+    const { executeRegex } = await import('../lib/regexSearch')
+    const jobs: { request: Parameters<typeof executeRegex>[0]; send: () => void; terminated: boolean }[] = []
+    class WorkerStub {
+      onmessage: ((event: { data: ReturnType<typeof executeRegex> }) => void) | null = null
+      onerror = null
+      postMessage(request: Parameters<typeof executeRegex>[0]) {
+        const job = { request, terminated: false, send: () => this.onmessage?.({ data: executeRegex(request) }) }
+        jobs.push(job)
+      }
+      terminate() { const job = jobs.find(j => j.send && !j.terminated); if (job) job.terminated = true }
+    }
+    vi.stubGlobal('Worker', WorkerStub)
+    try {
+      const source = 'ab ab'
+      const { ref, editor } = await mount(source)
+      await markdown(ref)
+      act(() => ref.current!.openFind(true))
+      fireEvent.click(screen.getByLabelText('Regex'))
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(a)(b)' } })
+      const old = jobs[jobs.length - 1]
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(b)' } })
+      act(() => old.send())
+      expect(screen.getByText('Searching…')).toBeVisible()
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(a)(b)' } })
+      act(() => jobs[jobs.length - 1].send())
+      expect(screen.getByText('2 matches · wraps')).toBeVisible()
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+      fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: '$2$1' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(ref.current!.getMarkdown()).toBe('ba ba')
+      act(() => ref.current!.undo())
+      expect(ref.current!.getMarkdown()).toBe(source)
+      await wysiwyg(ref)
+      act(() => jobs[jobs.length - 1].send())
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(editor.getText()).toBe('ba ba')
+      act(() => ref.current!.undo())
+      expect(editor.getText()).toBe(source)
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(ab)' } })
+      const staleRevision = jobs[jobs.length - 1]
+      act(() => editor.commands.insertContentAt(1, 'x'))
+      act(() => staleRevision.send())
+      expect(screen.getByText('Searching…')).toBeVisible()
+      const staleTab = jobs[jobs.length - 1]
+      act(() => useAppStore.getState().setCurrentDocument({ id: 'B', title: 'B', content: 'untouched', isDirty: false, lastModified: new Date() }))
+      act(() => staleTab.send())
+      expect(useAppStore.getState().currentDocument?.content).toBe('untouched')
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('restores the rendered regex edit model with normalized final LF after one Undo', async () => {
+    const search = await import('../lib/regexSearch')
+    const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
+    try {
+      const source = '# Regex acceptance\n\n😀 same same\n'
+      const { ref, editor } = await mount(source)
+      const model = editor.getJSON()
+      act(() => ref.current!.openFind(true))
+      fireEvent.click(screen.getByLabelText('Regex'))
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(?<outer>s(?<inner>a))me' } })
+      await waitFor(() => expect(screen.getByText('2 matches · wraps')).toBeVisible())
+      fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: '$<inner>-$1' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(editor.getText()).toContain('😀 a-sa a-sa')
+      act(() => ref.current!.undo())
+      expect(editor.getJSON()).toEqual(model)
+      expect(ref.current!.getMarkdown()).toBe('# Regex acceptance\n\n😀 same same')
+    } finally { spy.mockRestore() }
+  })
+
+  it('rejects oversized replacement output without modifying either editor', async () => {
+    const search = await import('../lib/regexSearch')
+    const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
+    try {
+      const source = 'x '.repeat(300)
+      const { ref, editor } = await mount(source)
+      const originalModel = editor.getJSON()
+      for (const isMarkdown of [true, false]) {
+        if (isMarkdown) await markdown(ref); else await wysiwyg(ref)
+        act(() => ref.current!.openFind(true))
+        if (!(screen.getByLabelText('Regex') as HTMLInputElement).checked) fireEvent.click(screen.getByLabelText('Regex'))
+        fireEvent.change(screen.getByLabelText('Find'), { target: { value: '(x)' } })
+        await waitFor(() => expect(screen.getByText('300 matches · wraps')).toBeVisible())
+        fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: 'z'.repeat(64_000) } })
+        fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+        expect(screen.getByRole('alert')).toHaveTextContent(/output exceeds/)
+        expect(ref.current!.getMarkdown()).toBe(source)
+        expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+        if (!isMarkdown) expect(editor.getJSON()).toEqual(originalModel)
+        fireEvent.click(screen.getByRole('button', { name: 'Close Find' }))
+      }
+    } finally { spy.mockRestore() }
+  })
+
   it('starts fresh source at zero and toggles multiline code with safe fences and one undo', async () => {
     const { ref } = await mount('first\nwith ``` inside\nlast\nnext')
     await markdown(ref)

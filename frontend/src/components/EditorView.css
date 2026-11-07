@@ -238,3 +238,11 @@
 
 .markwriter-preview .math-block { max-width: 100%; overflow-x: auto; }
 .markwriter-preview .math-block[role="status"] { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Underlines and patterns distinguish captures even when colors are difficult to see. */
+.search-group { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.search-group-0 { text-decoration-color: #0064c8; text-decoration-style: solid; }
+.search-group-1 { text-decoration-color: #b02b00; text-decoration-style: dashed; }
+.search-group-2 { text-decoration-color: #007346; text-decoration-style: dotted; }
+.search-group-3 { text-decoration-color: #a0009b; text-decoration-style: double; }
+.search-group-4 { text-decoration-color: #8a5900; text-decoration-style: wavy; }
+.search-group-5 { text-decoration-color: #006f76; text-decoration-style: dashed; }

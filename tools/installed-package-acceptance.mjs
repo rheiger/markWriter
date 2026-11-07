@@ -1,3 +1,5 @@
+import { verifyUpdateCheck } from './update-check-acceptance.mjs'
+import { verifyRegex } from './regex-acceptance.mjs'
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
@@ -176,6 +178,11 @@ try{
    await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
+ const regex=await verifyRegex({dir:fixture,run,click,menu,mode,open:openDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
+ cases.push(...regex.cases)
+ const regexWorkerPolicy=await verifyNativeWorkerResponse(request,session,join(root,'frontend/dist/assets'),'regex');cases.push('regex worker exact installed bytes, MIME and network-denying CSP')
+ await writeFile(join(artifacts,'regex-worker-evidence.json'),JSON.stringify(regexWorkerPolicy,null,2))
  const technical=await verifyTechnicalWriting({root,artifacts,dir:fixture,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,request,session,assets:join(root,'frontend/dist/assets')})
@@ -184,6 +191,9 @@ try{
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session})
  cases.push(...longCode.cases)
+ const updateCheck=await verifyUpdateCheck({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
+ cases.push(...updateCheck.cases)
  await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
  await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))

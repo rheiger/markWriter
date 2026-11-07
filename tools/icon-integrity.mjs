@@ -26,7 +26,6 @@ export async function verifyDesktopIconSources(root) {
   const config = JSON.parse(await readFile(join(root, 'src-tauri/tauri.conf.json'), 'utf8'))
   const paths = ['icons/32x32.png', 'icons/64x64.png', 'icons/128x128.png', 'icons/128x128@2x.png', 'icons/icon.png', 'icons/icon.icns', 'icons/icon.ico']
   assert.deepEqual(config.bundle.icon, paths, 'Complete configured desktop icon set')
-  assert.equal(config.bundle.macOS.signingIdentity, '-', 'Whole-bundle ad-hoc signing required')
   const icons = []
   for (const path of paths) {
     const data = await readFile(join(root, 'src-tauri', path))

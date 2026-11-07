@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>com.markwriter.app.quicklook-prototype</string>
+<key>CFBundleName</key><string>MarkWriter Quick Look Prototype</string>
+<key>CFBundleExecutable</key><string>QuickLookPrototype</string>
+<key>CFBundlePackageType</key><string>XPC!</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>NSExtension</key><dict>
+<key>NSExtensionPointIdentifier</key><string>com.apple.quicklook.preview</string>
+<key>NSExtensionPrincipalClass</key><string>PreviewProvider</string>
+<key>NSExtensionAttributes</key><dict>
+<key>QLIsDataBasedPreview</key><true/>
+<key>QLSupportedContentTypes</key><array><string>net.daringfireball.markdown</string></array>
+<key>QLSupportsSearchableItems</key><false/>
+</dict></dict></dict></plist>

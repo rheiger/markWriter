@@ -1,3 +1,4 @@
+import { verifyRegex } from './regex-acceptance.mjs'
 // Real desktop WebView + production store/IPC acceptance. Node 24; no npm packages.
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
@@ -536,6 +537,13 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => !(await snapshot()).documents.some(doc=>doc.id===recoveryId), 'draft discarded')
   assert.ok(!(await snapshot()).documents.some(doc=>doc.id===recoveryId))
+  const regex = await verifyRegex({dir:fixtureDir,run,click,menu,
+    mode: markdown => mode(markdown ? 'Markdown' : 'WYSIWYG'),open: path => action('open',path),
+    saveAs: path => action('saveAs',path),save: () => action('save'),wait:waitFor,request,session})
+  alpha3Cases.push(...regex.cases)
+  const regexWorkerPolicy=await verifyNativeWorkerResponse(request,session,join(root,'frontend/dist-acceptance/assets'),'regex')
+  alpha3Cases.push('regex worker exact native bytes, MIME and network-denying CSP')
+  await writeFile(join(artifacts,'regex-worker-evidence.json'),JSON.stringify(regexWorkerPolicy,null,2))
   const technical = await verifyTechnicalWriting({root,artifacts,dir:fixtureDir,run,click,menu,
     mode: markdown => mode(markdown ? 'Markdown' : 'WYSIWYG'),
     open: path => action('open',path),

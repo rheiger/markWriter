@@ -8,6 +8,8 @@ import { ErrorToast } from './components/ErrorToast'
 import { LoadingSpinner } from './components/LoadingSpinner'
 import { isTauri, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
+import { openOsBatch, type OsOpenBatch } from './lib/osOpen'
 import './App.css'
 import { loadPreferences, watchPreferences, loadWorkspace, watchWorkspace } from './lib/persistence'
 import { DocumentTabs, UnsavedDialog, RecoveryNotice } from './components/DocumentTabs'
@@ -66,6 +68,34 @@ const App: React.FC = () => {
       useAppStore.getState().setError(String(error))
     })
     return () => { disposed = true; unlisten?.() }
+  }, [ready])
+
+  useEffect(() => {
+    if (!ready || !isTauri()) return
+    let disposed = false
+    let draining = false
+    let again = false
+    const stops: (() => void)[] = []
+    const drain = async () => {
+      if (draining) { again = true; return }
+      draining = true
+      try {
+        do {
+          again = false
+          const batch = await invoke<OsOpenBatch>('take_os_open')
+          await openOsBatch(batch, () => disposed)
+        } while (again && !disposed)
+      } catch (error) { useAppStore.getState().setError(String(error)) }
+      finally { draining = false }
+    }
+    void Promise.all([
+      listen('os-open-pending', () => { void drain() }),
+    ]).then(unlisten => {
+      if (disposed) { unlisten.forEach(stop => stop()); return }
+      stops.push(...unlisten)
+      void drain()
+    }).catch(error => useAppStore.getState().setError(String(error)))
+    return () => { disposed = true; stops.forEach(stop => stop()) }
   }, [ready])
 
   if (!ready) return <div className="app" role="status">Restoring workspace…</div>

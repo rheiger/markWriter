@@ -2,10 +2,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 mod persistence;
 mod dot_policy;
 mod storage_profile;
+mod native_menu;
+mod os_open;
+mod update_policy;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -229,13 +232,24 @@ async fn get_document_stats(content: String) -> Result<HashMap<String, usize>, S
 
 // Menu system temporarily disabled for Tauri 2 compatibility
 
+#[tauri::command]
+fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::Value, String> {
+    let batch = queue.drain()?;
+    Ok(serde_json::json!({ "paths": batch.paths, "errors": batch.errors }))
+}
+
 fn main() {
     println!("[TAURI] Starting MarkWriter application");
 
     tauri::Builder::default()
+        .manage(native_menu::NativeState::default())
+        .manage(os_open::OpenQueue::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            native_menu::sync_native_menu,
+            update_policy::check_updates,
+            take_os_open,
             retain_rejected_storage,
             load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
@@ -249,12 +263,14 @@ fn main() {
             get_document_stats
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            native_menu::install(app.handle())?;
             // Build configured windows here so their production asset responses
             // receive the worker's own CSP (document meta CSP is insufficient).
             for config in &app.config().app.windows {
                 tauri::WebviewWindowBuilder::from_config(app, config)?
                     .on_web_resource_request(|request, response| {
-                        if dot_policy::is_math_worker(request.uri().path()) {
+                        if dot_policy::is_math_worker(request.uri().path()) || dot_policy::is_regex_worker(request.uri().path()) {
                             response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::MATH_WORKER_CSP));
                             response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
                         }
@@ -269,8 +285,29 @@ fn main() {
             println!("[TAURI] Application setup completed");
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app,event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { ref urls } = event {
+                let queue = app.state::<os_open::OpenQueue>();
+                let paths: Result<Vec<_>,_> = urls.iter().map(|url| url.to_file_path()).collect();
+                match paths {
+                    Ok(paths) => { let _ = queue.enqueue(paths); },
+                    Err(_) => { let _ = queue.reject_batch("No files from this batch were opened: unsupported URL. Only local Markdown files can be opened."); },
+                }
+                let _ = app.emit("os-open-pending", ());
+                if let Some(window)=app.get_webview_window("main") { let _=window.set_focus(); }
+            }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                let ready = app.state::<native_menu::NativeState>().0.lock().map(|state|state.ready).unwrap_or(false);
+                if ready && app.get_webview_window("main").is_some() {
+                    api.prevent_exit();
+                    native_menu::emit(app,"quit");
+                }
+            }
+        });
 }
 
 #[cfg(test)]
