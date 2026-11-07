@@ -24,9 +24,10 @@ for unused in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ -n "$window" ] || { echo 'Nautilus window did not appear' >&2; exit 1; }
 xdotool windowfocus --sync "$window"
-xdotool key --window "$window" ctrl+a
-xdotool key --window "$window" space
-/usr/bin/python3 - <<'PY'
+xdotool key ctrl+a
+sleep 1
+xdotool key space
+if /usr/bin/python3 - <<'PY' 
 import time
 import os
 import pyatspi
@@ -66,6 +67,15 @@ else:
     dump(pyatspi.Registry.getDesktop(0))
     raise SystemExit('No accessible ' + expect + ' Sushi document after Nautilus Space')
 PY
+then
+  :
+else
+  evidence=${MARKWRITER_EVIDENCE_DIR:-${RUNNER_TEMP:-/tmp}/shell-preview-evidence}
+  mkdir -p "$evidence"
+  xdotool search --onlyvisible --name '.*' getwindowname %@ > "$evidence/sushi-$mode-windows.txt" 2>&1 || :
+  import -window root "$evidence/sushi-$mode-failure.png" || :
+  exit 1
+fi
 
 after_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
 after_stat=$(stat -c '%s %y' "$fixture")
