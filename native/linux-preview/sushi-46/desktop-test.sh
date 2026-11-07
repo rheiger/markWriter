@@ -74,6 +74,8 @@ else
   mkdir -p "$evidence"
   xdotool search --onlyvisible --name '.*' getwindowname %@ > "$evidence/sushi-$mode-windows.txt" 2>&1 || :
   import -window root "$evidence/sushi-$mode-failure.png" || :
+  printf 'before sha256=%s size/mtime=%s\n' "$before_hash" "$before_stat" > "$evidence/sushi-$mode-fixture.txt"
+  printf 'after sha256=%s size/mtime=%s\n' "$(sha256sum "$fixture" | cut -d' ' -f1)" "$(stat -c '%s %y' "$fixture")" >> "$evidence/sushi-$mode-fixture.txt"
   exit 1
 fi
 
