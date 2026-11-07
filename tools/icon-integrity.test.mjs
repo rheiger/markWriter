@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { verifyDesktopIconSources, icoImages, pngDimensions } from './icon-integrity.mjs'
 
-test('configured desktop icon set has complete native sizes and ad-hoc bundle signing', async () => {
+test('configured desktop icon set has complete native sizes', async () => {
   const icons = await verifyDesktopIconSources(resolve(import.meta.dirname, '..'))
   assert.equal(icons.length, 7)
   assert.ok(icons.every(icon => /^[a-f0-9]{64}$/.test(icon.sha256)))

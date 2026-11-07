@@ -18,6 +18,10 @@ async function check(){
  assert.equal((await json('package.json')).version,version);assert.equal((await json('frontend/package-lock.json')).version,version);assert.equal((await json('frontend/package-lock.json')).packages[''].version,version);assert.equal((await json('src-tauri/tauri.conf.json')).version,version)
  for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
  assert.equal(version,releasePolicy.version)
+ if (!releasePolicy.publicationAuthorized) {
+  assert.equal((await json('src-tauri/tauri.conf.json')).bundle.macOS.signingIdentity,null,'Candidate must not request signing')
+  for(const name of ['APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_SIGNING_IDENTITY','APPLE_ID','APPLE_PASSWORD','APPLE_API_KEY','APPLE_API_ISSUER','TAURI_SIGNING_PRIVATE_KEY']) assert.ok(!process.env[name],'Signing environment forbidden for candidate: '+name)
+ }
  await verifyDesktopIconSources(root)
  if(process.env.GITHUB_REF_TYPE==='tag')assert.equal(process.env.GITHUB_REF_NAME,'v'+version)
  console.log('All application version metadata:',version)
@@ -52,11 +56,11 @@ if(args.includes('--collect')){
   binaryInspection={format:'Mach-O',architecture:'arm64',sha256:sha(await readFile(binary)),details:command('file',['-b',binary])}
   baseline={os:command('sw_vers',[]),webview:command('/usr/bin/defaults',['read','/System/Library/Frameworks/WebKit.framework/Resources/Info','CFBundleVersion'])}
   const app=join(acceptance.installed,'MarkWriter.app')
-  // Recheck actual installed bytes during collection, rather than trusting logs.
-  command('codesign',['--verify','--deep','--strict',app])
+  // Candidate has no OS-signing authority. Inspect, never repair/sign, the
+  // linker signature and explicitly retain the unsealed bundle limitation.
   const details=await readFile(join(root,'package-acceptance-results/signature.txt'),'utf8')
-  assert.ok(details.includes('Signature=adhoc') && details.includes('Sealed Resources version=2'),'Sealed ad-hoc bundle required')
-  signing={status:'ad-hoc',sealed:true,strictVerified:true,trusted:false,notarized:false,details}
+  assert.ok(!details.includes('Sealed Resources version=2'),'Unsigned candidate bundle expected')
+  signing={status:'linker-ad-hoc-only',sealed:false,strictVerified:false,trusted:false,notarized:false,details}
   const iconName=command('plutil',['-extract','CFBundleIconFile','raw',join(app,'Contents/Info.plist')]);assert.equal(iconName,'icon.icns')
   const installedIcon=join(app,'Contents/Resources',iconName),iconHash=sha(await readFile(installedIcon))
   assert.equal(iconHash,iconSources.find(icon=>icon.path.endsWith('.icns')).sha256,'Installed macOS icon bytes')

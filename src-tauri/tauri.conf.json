@@ -1,6 +1,6 @@
 {
   "productName": "MarkWriter",
-  "version": "2.5.1",
+  "version": "2.6.0",
   "identifier": "com.markwriter.app",
   "build": {
     "devUrl": "http://127.0.0.1:5173",
@@ -25,7 +25,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": null
     },
     "windows": {
       "nsis": {

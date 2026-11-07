@@ -1,36 +1,14 @@
-# MarkWriter 2.5.0-alpha1
+# MarkWriter 2.6 native-integration candidate
 
-Authority: complete prompt/plan read, implementation/delegation/qualified issues/merge/public prerelease authorized after all gates.
+Authority: implementation/delegation/branches/draft PRs/progress comments. Later explicit user clause permits merge only after required CI/review agreement. No release, historical mutations, feed activation or signing operations.
 
-- [complete] A Baseline preservation and bounded parallel leaf assignments
-- [complete] B Leaf implementation, shared integration and regression/browser/security verification
-- [complete] C Independent review, exact source three-platform quality/packages, downloaded native UI
-- [complete] D Reviewed merge and exact merged gates, immutable tag/draft/public asset verification
-- [complete] E Qualified issue/docs closeout, preserved hashes and measured cleanup
+- [complete] A Inventory/preserve baseline, read contracts, Quick Look feasibility first
+- [complete] B Native-menu and safe-regex regression-first independent implementation
+- [complete] C OS opening, secure isolated update prototype and conditional structured preview
+- [in_progress] D Integration, browser/native checks and independent review
+- [pending] E Exact-source three-platform quality/packages, PR/review and gated integration decision
+- [pending] F Acceptance report, preservation, source recovery and owned cleanup
 
-Required #46/#50/#47. Optional grammars and OS previews remain deferred. Preserve user data, canonical source/ownership/history/recovery/fonts/input/artwork. No failed-gate publication; latest=false; historical releases immutable.
+Root owns App/MenuBar/store/main.rs/workflows/bookkeeping. Fresh-context terra/high workers, no recursion, max three and reserve review slot. User confirmed selecting root sol/medium/default in UI. External run: /Volumes/AI-Cache/temp/MarkWriter/2.6-20261107-015115
 
-Final evidence: /Users/rheiger/.codex/artifacts/markwriter-2.5.0-alpha1
-
-Owned scratch removed after 573 file hashes, 3 profile tar members, public assets and fresh bare source-bundle recovery passed. Public release437063381/tagv2.5.0-alpha1/sourceee0b534 verified; all 23 protected hashes match.
-
-## 2.5.1 regular release follow-up (authorized)
-
-- [complete] F Preserve current user/profile/history baselines; version/policy and actual long-code native regression
-- [complete] G Reviewed exact-source quality and three-platform packages; downloaded isolated Mac UI
-- [complete] H Push/merge; exact merged gates; immutable v2.5.1 tag, draft and final qualification
-- [complete] I Publish regular release latest=false; verify all public bytes/history; next-round plan and measured cleanup
-- [complete] J Review/integrate documentation closeout; refresh/recover final source bundle and final integrity inventory
-
-Scope: existing highlighting/README changes; v2.5.1 regular, not prerelease, latest=false. No signing/notarization or deferred-feature claims. Evidence /Users/rheiger/.codex/artifacts/markwriter-2.5.1. Baseline24protectedfiles/4profilefiles/11historicalreleases; preserve historical latest and all tags/assets. Never restart completed alpha1.
-
-
-## Next increment planning — 7 November 2026
-
-Authority: research, parallel AI subagent planning, platform signing documentation and README reference, implementation plans and prompts. No new feature implementation, signing, infrastructure migration or release publication in this planning task. Prior release work is complete (final evidence closeout-integration.json).
-
-- [complete] K Read updated issues/owning source; investigate native/provider/update/DDL/performance scope and execution locations
-- [complete] L Write prioritized delivery plan, acceptance gates, cloud/external/rimair5 runbooks and orchestrator prompts
-- [complete] M Integrate independent signing guides and README reference; record I18n backlog proposal; review documents and preservation
-
-Requested future orchestration: one gpt-6.1-sol medium root and gpt-6.1-terra high workers, normal speed where the client supports it. Current root cannot self-switch; workers explicitly configured.
+Checkpoint: independent code review cleared commit/push/draft PR only. Quick Look/structured preview and installed updates remain blocked/deferred, not delivered. Candidate version2.6.0; publication helper/workflow disabled; explicit OS signing disabled. Native provisional UI passed menus/About/Richie/search/group replacement+Undo/Settings field Undo/dirty QuitCancel/live discovery/SaveAs; final-source/package checks pending.

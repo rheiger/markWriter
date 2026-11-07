@@ -2,6 +2,10 @@
 
 MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
 
+## Unreleased 2.6 candidate
+
+The native-integration candidate adds macOS screen menus, bounded regex Find/Replace with capture colors/references, Markdown OS-open routing on macOS, and manual stable-release discovery. Quick Look/structured shell previews and secure update installation remain unqualified. Candidate packages have no explicit OS signing; 2.5.1 remains the released version. See [candidate acceptance and blockers](docs/2.6-candidate-acceptance.md).
+
 ## Current release
 
 [2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) is a regular release, published with `latest=false`. It fixes highlighting of longer Python/JSON blocks and consolidates the project documentation, building on the inline-code fidelity, offline math and searchable Help delivered in 2.5.0-alpha1. Use the explicit version link to find its downloads; the historical latest-release pointer is intentionally unchanged.

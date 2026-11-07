@@ -44,7 +44,7 @@ export const helpTopics: HelpTopic[] = [
   },
   {
     id: 'find', title: 'Find and navigate', blocks: [
-      { kind: 'paragraph', text: 'Choose Edit → Find or Replace. Search is literal, with optional case-sensitive and whole-word matching. Enter moves to the next match; Shift+Enter moves to the previous match. Navigation wraps at the end.' },
+      { kind: 'paragraph', text: 'Choose Edit → Find or Replace. Search is literal by default, with optional case-sensitive and whole-word matching. Regex enables JavaScript Unicode patterns, patterned capture-group colors and numbered or named replacement references such as $1 and $<name>. Regex runs in an isolated worker with a 500 ms deadline; input, result and replacement limits are shown on errors. Enter moves to the next match; Shift+Enter moves to the previous match. Navigation wraps at the end.' },
       { kind: 'paragraph', text: 'Markdown search covers the source, including folded content, and supports multiline queries. WYSIWYG search covers editable rendered text within each text block; diagram and image internals are excluded. Use Search source in the find panel to search the Markdown instead.' },
       { kind: 'paragraph', text: 'In Markdown with preview, diagram and embedded-image source can be folded. Settings controls whether these blocks start collapsed and whether Preview synchronization is enabled.' },
     ],
@@ -58,6 +58,7 @@ export const helpTopics: HelpTopic[] = [
   },
   {
     id: 'settings', title: 'Appearance and settings', blocks: [
+      { kind: 'paragraph', text: 'On macOS, menus appear in the screen menu bar; About, Settings and Check for Updates are in the application menu. On Windows and Linux, Check for Updates is in Help. Checks discover stable GitHub releases on demand; in-app installation and automatic checks are not available.' },
       { kind: 'paragraph', text: 'Choose Auto, Light or Dark in the View menu or Settings. Auto follows the system appearance.' },
       { kind: 'paragraph', text: 'Settings has independent source and rendered font families and text sizes. The source font is used in the Markdown editor; the rendered font is used for the rendered view and Preview. View → Zoom adjusts the active editor’s text size.' },
       { kind: 'paragraph', text: 'Settings also controls source tab width, wrapping, continuation markers, Preview synchronization and default folding. Changing a view or preference does not itself edit the document.' },

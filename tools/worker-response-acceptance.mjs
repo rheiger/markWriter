@@ -9,8 +9,8 @@ export const WORKER_POLICY="default-src 'none'; script-src 'self' 'wasm-unsafe-e
 // the exact emitted JavaScript bytes, rather than trusting its requested URL.
 export const MATH_WORKER_POLICY=WORKER_POLICY.replace(" 'wasm-unsafe-eval'", "")
 export async function verifyNativeWorkerResponse(request,session,assets,kind='dot'){
-  const names=(await readdir(assets)).filter(name=>new RegExp('^'+kind+'Worker-.*\\.js$').test(name))
-  assert.equal(names.length,1,'Exactly one emitted DOT worker required')
+  const names=(await readdir(assets)).filter(name=>new RegExp(kind==='regex'?'^regexSearch\\.worker-.*\\.js$':'^'+kind+'Worker-.*\\.js$').test(name))
+  assert.equal(names.length,1,'Exactly one emitted worker required')
   const expected=createHash('sha256').update(await readFile(join(assets,names[0]))).digest('hex')
   const response=await request('POST',`/session/${session}/execute/async`,{
     script:`const done=arguments[arguments.length-1];fetch(arguments[0]).then(async r=>{
@@ -21,6 +21,6 @@ export async function verifyNativeWorkerResponse(request,session,assets,kind='do
   assert.equal(response.status,200,JSON.stringify(response))
   assert.match(response.type??'',/^(?:text|application)\/(?:java|ecma)script(?:;|$)/i)
   assert.equal(response.sha256,expected,'Native worker response must match packaged build bytes')
-  assert.equal(response.policy,kind==='math'?MATH_WORKER_POLICY:WORKER_POLICY,'Exact narrowly scoped worker response policy required')
+  assert.equal(response.policy,kind==='math'||kind==='regex'?MATH_WORKER_POLICY:WORKER_POLICY,'Exact narrowly scoped worker response policy required')
   return response
 }

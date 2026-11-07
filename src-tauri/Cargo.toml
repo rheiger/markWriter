@@ -1,6 +1,6 @@
 [package]
 name = "markwriter"
-version = "2.5.1"
+version = "2.6.0"
 description = "A modern Markdown editor built with Tauri"
 authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
@@ -40,6 +40,7 @@ toml = "0.8"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 dirs = "5.0"
 html-escape = "0.2"
 tempfile = "3"

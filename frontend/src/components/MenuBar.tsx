@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAppStore, useTheme, confirmDiscardChanges } from '../store/useAppStore'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { acceptsNativeCommand } from '../lib/nativeCommands'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
 import { mermaidErdTemplate, dotTemplate, mathTemplate } from '../lib/templates'
 import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 import { HelpDialog } from './HelpDialog'
+import { UpdateDialog, type UpdateCheckResult } from './UpdateDialog'
+const checkUpdates = () => invoke<UpdateCheckResult>('check_updates')
 
 interface MenuBarProps {
   editorMode?: EditorMode
@@ -43,9 +47,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }, [activeMenu])
 
   const [helpOpen, setHelpOpen] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
+  const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
+  const menuIdentity = useRef({ key: '', generation: 0 })
+  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!useAppStore.getState().pendingClose
+  const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
+  if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
+  const generation = menuIdentity.current.generation
+  const renderedOwner = useRef(currentDocument)
+  renderedOwner.current = currentDocument
+  useEffect(() => useAppStore.subscribe((state, previous) => {
+    if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose) {
+      menuIdentity.current = { key: '', generation: menuIdentity.current.generation + 1 }
+    }
+  }), [])
+
 
   // File menu handlers
   const handleNew = async () => {
@@ -285,7 +304,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }
   useEffect(() => {
     const search = (event: KeyboardEvent) => {
-      if (document.querySelector('dialog[open]')) return
+      if (nativeMac || document.querySelector('dialog[open]')) return
       const mac = navigator.userAgent.includes('Mac')
       const mod = mac ? event.metaKey : event.ctrlKey
       if (!currentDocument || !mod) return
@@ -297,7 +316,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     }
     document.addEventListener('keydown', search, true)
     return () => document.removeEventListener('keydown', search, true)
-  }, [currentDocument, editorViewRef])
+  }, [currentDocument, editorViewRef, nativeMac])
 
   // View menu handlers
   const handleZoomIn = () => { updateConfig({ [fontSizeKey]: Math.min(config[fontSizeKey] + 2, 32) }); setActiveMenu(null) }
@@ -315,6 +334,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.querySelector('dialog[open]') || e.defaultPrevented) return
+      if (nativeMac) return
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
@@ -422,9 +442,54 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     return () => document.removeEventListener('keydown', handleKeyDown)
   })
 
+  // The backend captures this generation at the actual screen-menu click.
+  // Delayed events are discarded after tab/revision/mode/modal transitions.
+  const nativeActions = useRef<(action: string) => void>(() => {})
+  nativeActions.current = action => {
+    const field = document.activeElement?.closest('input, textarea, select')
+    if (field && ['undo','redo'].includes(action)) { document.execCommand(action); return }
+    const actions: Record<string, () => void> = {
+      new: () => { void handleNew() }, open: () => { void handleOpen() },
+      save: () => { void handleSave() }, 'save-as': () => { void handleSaveAs() },
+      'save-all': () => { void useAppStore.getState().saveAll() },
+      'close-tab': () => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id) },
+      export: () => { void handleExportHTML() }, quit: () => { void handleQuit() },
+      undo: handleUndo, redo: handleRedo, find: () => handleFind(), replace: () => handleFind(true),
+      updates: () => setUpdatesOpen(true), settings: () => setSettingsOpen(true), about: handleAbout, help: () => setHelpOpen(true),
+      markdown: () => editorViewRef?.current?.setMode('markdown'), wysiwyg: () => editorViewRef?.current?.setMode('wysiwyg'),
+      erd: () => editorViewRef?.current?.insertMarkdown(mermaidErdTemplate),
+      dot: () => editorViewRef?.current?.insertMarkdown(dotTemplate), math: () => editorViewRef?.current?.insertMarkdown(mathTemplate),
+      highlighting: () => updateConfig({ syntaxHighlighting: !config.syntaxHighlighting }),
+      'theme-system': () => setTheme('system'), 'theme-light': () => setTheme('light'), 'theme-dark': () => setTheme('dark'),
+      'zoom-in': handleZoomIn, 'zoom-out': handleZoomOut, 'actual-size': handleActualSize,
+    }
+    actions[action]?.()
+  }
+  useEffect(() => {
+    if (!isTauri()) return
+    let disposed = false
+    let stop: (() => void) | undefined
+    void listen<{action: string; generation: number}>('native-command', event => {
+      const fieldEdit = ['undo','redo'].includes(event.payload.action) && !!document.activeElement?.closest('input,textarea')
+      const current = useAppStore.getState().currentDocument
+      const owner = renderedOwner.current
+      if (current?.id !== owner?.id || current?.revision !== owner?.revision) return
+      if (!acceptsNativeCommand(event.payload, menuIdentity.current.generation, !fieldEdit && !!document.querySelector('dialog[open]'))) return
+      nativeActions.current(event.payload.action)
+    }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => useAppStore.getState().setError(String(error)))
+    return () => { disposed = true; stop?.() }
+  }, [])
+  useEffect(() => {
+    if (!isTauri()) return
+    void invoke('sync_native_menu', { state: { generation, ready: true, hasDocument: !!currentDocument, modal,
+      markdown: editorMode === 'markdown', highlighting: config.syntaxHighlighting, theme } })
+      .catch(error => useAppStore.getState().setError(String(error)))
+  }, [generation, currentDocument, modal, editorMode, config.syntaxHighlighting, theme])
+
   return (
-    <div className="menu-bar">
+    <div className={nativeMac ? 'native-menu-host' : 'menu-bar'}>
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {!nativeMac && <>
       {/* File Menu */}
       <div className="menu-item">
         <button
@@ -625,6 +690,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         {activeMenu === 'help' && (
           <div className="menu-dropdown">
             <button className="menu-option" onClick={() => { closeMenus(); setHelpOpen(true) }}>User Guide</button>
+            <button className="menu-option" onClick={() => { closeMenus(); setUpdatesOpen(true) }}>Check for Updates…</button>
             <button className="menu-option" onClick={handleAbout}>
               <span>About MarkWriter</span>
             </button>
@@ -632,9 +698,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
         )}
       </div>
 
+      </>}
+      {updatesOpen && <UpdateDialog check={checkUpdates} onClose={() => setUpdatesOpen(false)} />}
       {helpOpen && <HelpDialog returnFocusRef={helpRef} onClose={() => { setHelpOpen(false); helpRef.current?.focus() }} />}
       {aboutOpen && <AboutDialog onClose={() => { setAboutOpen(false); helpRef.current?.focus() }} />}
 
+      {!nativeMac && <>
       {/* Document Title Display */}
       <div className="document-title">
         {currentDocument ? (
@@ -651,6 +720,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       {activeMenu && (
         <div className="menu-overlay" onClick={closeMenus} />
       )}
+      </>}
     </div>
   )
 }

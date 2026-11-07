@@ -31,3 +31,8 @@ mod tests {
         assert!(WORKER_CSP.contains("connect-src 'none'"));
     }
 }
+
+// Regex executes only local pure JavaScript, with no subworkers or resources.
+pub fn is_regex_worker(path: &str) -> bool {
+    path.starts_with("/assets/regexSearch.worker-") && path.ends_with(".js") && !path[8..].contains('/')
+}

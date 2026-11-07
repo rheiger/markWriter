@@ -17,12 +17,11 @@ test -x "$package_binary"
 file "$package_binary" | tee package-acceptance-results/binary.txt
 lipo -archs "$package_binary" | grep -qx arm64
 plutil -extract CFBundleShortVersionString raw "$package_install/MarkWriter.app/Contents/Info.plist" | tee package-acceptance-results/version.txt
-# Verify final DMG bytes after ordinary copy installation. A linker-only Mach-O
-# signature cannot satisfy this whole-bundle gate. No protection is disabled.
-codesign -dvv "$package_install/MarkWriter.app" >package-acceptance-results/signature.txt 2>&1
-codesign --verify --deep --strict --verbose=4 "$package_install/MarkWriter.app" >package-acceptance-results/signature-verification.txt 2>&1
-grep -q '^Signature=adhoc' package-acceptance-results/signature.txt
-grep -q '^Sealed Resources version=2' package-acceptance-results/signature.txt
+# No signing operation is authorized for this candidate. The executable may
+# carry the arm64 linker's own signature; the whole bundle is deliberately unsealed.
+codesign -dvv "$package_binary" >package-acceptance-results/signature.txt 2>&1
+test ! -e "$package_install/MarkWriter.app/Contents/_CodeSignature/CodeResources"
+! grep -q '^Sealed Resources version=2' package-acceptance-results/signature.txt
 package_icon=$(plutil -extract CFBundleIconFile raw "$package_install/MarkWriter.app/Contents/Info.plist")
 test "$package_icon" = icon.icns
 cmp src-tauri/icons/icon.icns "$package_install/MarkWriter.app/Contents/Resources/$package_icon"
@@ -42,5 +41,5 @@ if [[ "$package_started" != true ]]; then cat package-acceptance-results/launch.
 python3 - "$package_install" "$package_profile" <<'PY'
 import json,sys,pathlib,platform
 assert '[TAURI] Creating new document' in pathlib.Path('package-acceptance-results/launch.log').read_text(), 'Ordinary frontend must invoke native document creation'
-pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','whole-bundle ad-hoc seal and strict codesign verification','installed bundle icon identity and source-byte equality','installed production app launch with outbound IP denied','ordinary frontend startup invoking native document creation'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication. Ad-hoc sealing is not Developer ID signing or notarization.'},indent=2))
+pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps({'passed':True,'platform':'darwin','arch':platform.machine(),'installed':sys.argv[1],'cases':['DMG mount and ordinary app copy installation','arm64 binary and bundle version inspection','unsigned bundle and linker-signature inspection (no whole-app seal)','installed bundle icon identity and source-byte equality','installed production app launch with outbound IP denied','ordinary frontend startup invoking native document creation'],'qualification':'Full macOS OS-dialog/editor acceptance is separately required on downloaded final bytes before publication. This candidate has no whole-bundle seal, Developer ID signing or notarization; it is not release-qualified.'},indent=2))
 PY

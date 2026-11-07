@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
-    branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json']
+    branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json', 'codex/2.6-native-integration']
     tags: ['v2.*']
     paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
           npm run lint --prefix frontend
           npm run typecheck --prefix frontend
           npm test --prefix frontend
-          node --test tools/release-integrity.test.mjs tools/release-policy.test.mjs tools/icon-integrity.test.mjs tools/code-fixtures.test.mjs tools/owned-process.test.mjs tools/worker-response-acceptance.test.mjs
+          node --test tools/*.test.mjs
           npm audit --prefix frontend --audit-level=low
           cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Build ordinary production frontend
@@ -74,8 +74,7 @@ jobs:
       - name: Build production installation package
         working-directory: src-tauri
         env:
-          # The configured '-' identity seals the whole macOS bundle ad-hoc.
-          # This provides integrity, not Developer ID trust or notarization.
+          # Candidate packages deliberately perform no OS signing.
           CI: true
         run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles ${{ matrix.bundles }}
       - name: Install external native test driver
@@ -140,7 +139,8 @@ jobs:
             src-tauri/target
           key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
   draft-release:
-    if: github.ref_type == 'tag'
+    # Candidate: publication remains disabled until a separately reviewed release instruction.
+    if: false
     needs: package
     runs-on: ubuntu-26.04
     permissions:
