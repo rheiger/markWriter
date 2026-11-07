@@ -1,6 +1,7 @@
 import mermaid from 'mermaid'
 import { renderMarkdownHtml } from './markdown'
 import { dotRenderer } from './dotRenderer'
+import { dbmlRenderer } from './dbmlRenderer'
 import { mathRenderer, createMathBudget } from './mathRenderer'
 import tokenCss from './codeHighlight.css?inline'
 
@@ -16,6 +17,24 @@ export async function createHtmlExport(source: string, owner = `export:${crypto.
     element.innerHTML = await dotRenderer.render(element.getAttribute('data-chart') ?? '', owner)
     element.className = 'dot-diagram'
     for (const name of ['data-chart', 'data-source-fence', 'data-notation']) element.removeAttribute(name)
+  }
+  const dbml = Array.from(doc.querySelectorAll<HTMLElement>('[data-type="dbml"]'))
+  if (dbml.length) {
+    const abort = new AbortController()
+    const deadline = setTimeout(() => abort.abort(), 10_000)
+    try {
+      for (const element of dbml) {
+        const source = element.getAttribute('data-chart') ?? ''
+        element.innerHTML = await dbmlRenderer.render(source, owner, abort.signal)
+        element.className = 'dbml-diagram'
+        for (const name of ['data-chart', 'data-source-fence', 'data-notation']) element.removeAttribute(name)
+      }
+    } catch (error) {
+      const reason = abort.signal.aborted ? 'export time limit exceeded' : error instanceof Error ? error.message : String(error)
+      throw new Error(`DBML export failed: ${reason}`)
+    } finally {
+      clearTimeout(deadline)
+    }
   }
   let mathCss = ''
   const math = Array.from(doc.querySelectorAll<HTMLElement>('[data-type="math"]'))

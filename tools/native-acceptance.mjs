@@ -326,6 +326,33 @@ try {
     await action('saveAs',join(fixtureDir,`dot-${name}-copy.md`));assert.equal(await readFile(join(fixtureDir,`dot-${name}-copy.md`),'utf8'),text)
   }
   await action('open',dotPath);await mode('Markdown');await waitFor(()=>run('return document.querySelectorAll("[data-active=true] .markwriter-preview [data-type=dot] svg").length===2'),'native DOT recovery after timeout')
+  const dbmlText = await readFile(join(root, 'tools/fixtures/dbml-2.7.md'), 'utf8')
+  const dbmlPath = join(fixtureDir, 'schema.md')
+  await writeFile(dbmlPath, dbmlText)
+  const dbmlId = (await action('open', dbmlPath)).document.id
+  const dbmlPolicy = await verifyNativeWorkerResponse(request, session, join(root, 'frontend/dist-acceptance/assets'), 'dbml')
+  await writeFile(join(artifacts, 'dbml-worker-policy.json'), JSON.stringify(dbmlPolicy, null, 2))
+  await mode('Markdown')
+  await waitFor(() => run('return document.querySelector("[data-active=true] .markwriter-preview [data-type=dbml] svg")?.textContent.includes("Länderkennung")'), 'DBML Preview composite endpoint')
+  await action('create'); await action('activate', dbmlId)
+  await mode('WYSIWYG')
+  await waitFor(() => run('return !!document.querySelector("[data-active=true] .tiptap [data-type=dbml] svg")'), 'opaque rendered DBML after tab switch')
+  assert.equal((await snapshot()).document.content, dbmlText)
+  await editRenderedProbe()
+  const dbmlFence = dbmlText.slice(dbmlText.indexOf('~~~~dbml'), dbmlText.lastIndexOf('~~~~') + 4)
+  await waitFor(async () => (await snapshot()).document.content.includes('Edited Before paragraph.'), 'unrelated rendered DBML edit')
+  assert.ok((await snapshot()).document.content.includes(dbmlFence), 'Exact DBML fence after unrelated rendered edit')
+  await menu('Edit', 'Undo')
+  await waitFor(async () => (await snapshot()).document.content === dbmlText, 'DBML edit Undo restores original bytes')
+  const dbmlSaved = join(fixtureDir, 'schema-saved.md'), dbmlExport = join(fixtureDir, 'schema-export.html')
+  await action('saveAs', dbmlSaved)
+  assert.equal(await readFile(dbmlSaved, 'utf8'), dbmlText)
+  await action('close', dbmlId)
+  await action('open', dbmlSaved)
+  await action('exportHtml', dbmlExport)
+  const dbmlHtml = await readFile(dbmlExport, 'utf8')
+  assert.match(dbmlHtml, /<svg\b[\s\S]*Länderkennung/)
+  assert.doesNotMatch(dbmlHtml, /<script|data-(?:mw-|chart|source-fence)|javascript:/)
   // Alpha3: small per-block documents keep every token visible in CodeMirror's
   // virtualized DOM. Both real engines and native I/O run without lexer mocks.
   const syntaxFixture = await readFile(join(root, 'tools', 'fixtures', 'code-highlighting-alpha3.md'), 'utf8')
@@ -559,7 +586,7 @@ try {
   alpha3Cases.push(...longCode.cases)
   await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
   await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
-  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery', ...alpha3Cases] }, null, 2))
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ platform: process.platform, passed: true, cases: ['About version', 'unchanged mode cycles', 'byte-identical Save As', 'WYSIWYG edit', 'edited mode cycles', 'Save and reopen', 'three-diagram HTML export', 'Markdown table insertion', 'tab duplicate activation', 'contextual table commands', 'Save All', 'persistent Settings', 'fold byte preservation', 'Mermaid ERD preview/export', 'process restart draft recovery', 'dirty Close Cancel/Discard', 'fresh caret at start', 'content-aware navigation', 'sync-off independence', 'source/rendered search scope', 'Replace All undo and exact native Save', 'mapping-free HTML export', 'DOT unmatched fence rendered edit native save/reopen', 'DOT CR-only fence rendered edit native save/reopen', 'DOT oversized unmatched source recovers without codec stack failure', 'DOT starter in both editors, native Save As and single Undo', 'DOT prior-selection block correspondence', 'DOT aliases offline Preview/rendered nodes', 'DOT source-preserving tab/mode cycles', 'DOT static export', 'DOT actual worker response bytes, MIME and exact policy','DOT malformed/empty/resource/oversize/output-limit source-preserving failures','DOT actual worker timeout and recovery', 'DBML worker policy, offline composite schema, modes/tabs, rendered edit and Undo, exact native save/reopen, static HTML', ...alpha3Cases] }, null, 2))
   console.log(`Native application acceptance passed on ${process.platform}`)
 } catch (error) {
   if (session) {

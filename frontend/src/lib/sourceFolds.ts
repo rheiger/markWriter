@@ -3,6 +3,9 @@ import { Annotation, EditorState, StateField, type Extension } from '@codemirror
 import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldEffect, foldEffect } from '@codemirror/language'
 import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 
+const embeddedKinds = new Map([
+  ['mermaid', 'Mermaid'], ['dot', 'DOT'], ['graphviz', 'DOT'], ['dbml', 'DBML'], ['math', 'Math'],
+])
 const cache = new WeakMap<EditorState, { from: number, to: number, kind: string }[]>()
 export const preserveEmbeddedFolds = Annotation.define<boolean>()
 export function findEmbeddedSource(state: EditorState) {
@@ -16,8 +19,9 @@ export function findEmbeddedSource(state: EditorState) {
       const marker = fence[1][0], length = fence[1].length
       let end = n + 1
       while (end <= state.doc.lines && !new RegExp(`^ {0,3}${marker === '`' ? '`' : '~'}{${length},}\\s*$`).test(state.doc.line(end).text)) end++
-      if (end <= state.doc.lines && ['mermaid', 'dot', 'graphviz', 'math'].includes(fence[2].trim()) && end > n + 1) {
-        result.push({ from: line.to, to: state.doc.line(end).from - 1, kind: fence[2].trim() === 'mermaid' ? 'Mermaid' : fence[2].trim() === 'math' ? 'Math' : 'DOT' })
+      const kind = embeddedKinds.get(fence[2].trim())
+      if (kind && end <= state.doc.lines && end > n + 1) {
+        result.push({ from: line.to, to: state.doc.line(end).from - 1, kind })
       }
       n = end
       continue

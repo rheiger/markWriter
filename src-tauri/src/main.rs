@@ -270,11 +270,12 @@ fn main() {
             for config in &app.config().app.windows {
                 tauri::WebviewWindowBuilder::from_config(app, config)?
                     .on_web_resource_request(|request, response| {
-                        if dot_policy::is_math_worker(request.uri().path()) || dot_policy::is_regex_worker(request.uri().path()) {
-                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::MATH_WORKER_CSP));
+                        let path = request.uri().path();
+                        if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) {
+                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::LOCAL_WORKER_CSP));
                             response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
                         }
-                        if dot_policy::is_dot_worker(request.uri().path()) {
+                        if dot_policy::is_dot_worker(path) {
                             response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
                             response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
                             eprintln!("[DOT] worker response CSP: {}", dot_policy::WORKER_CSP);

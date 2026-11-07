@@ -31,6 +31,8 @@ export const helpTopics: HelpTopic[] = [
       { kind: 'paragraph', text: 'Use a mermaid fence for Mermaid diagrams, or a dot or graphviz fence for Graphviz DOT. Insert → Mermaid ERD and Insert → DOT provide starting examples. Diagram rendering is bundled for offline use.' },
       { kind: 'example', label: 'Mermaid fence', code: '```mermaid\nflowchart LR\n    Draft --> Review\n```' },
       { kind: 'example', label: 'DOT fence', code: '```dot\ndigraph { Draft -> Review }\n```' },
+      { kind: 'paragraph', text: 'A dbml fence draws an offline database schema. Edit the schema in Markdown. The supported subset includes tables, column keys, nullability and short-form relationships. Unsupported syntax shows an error with a line number.' },
+      { kind: 'example', label: 'DBML fence', code: '```dbml\nTable customers {\n  id int [pk]\n}\nTable orders {\n  customer_id int [not null, ref: > customers.id]\n}\n```' },
       { kind: 'paragraph', text: 'Edit diagram source in the Markdown view. If a diagram cannot be rendered, check its source and syntax. Diagram support does not imply support for other notation formats.' },
     ],
   },
