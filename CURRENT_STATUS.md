@@ -1,5 +1,7 @@
 # MarkWriter current status
 
+**2.6 unreleased candidate:** [PR #61](https://github.com/rheiger/markWriter/pull/61) delivers native macOS commands, bounded regex capture search/replacement, safe macOS OS opens and manual release discovery. Exact-source three-platform native/package gates pass; [acceptance and concrete limits](docs/2.6-candidate-acceptance.md) distinguish delivered core from blocked Finder Quick Look and secure installed updates. No new release/feed/signing operation. 2.5.1 below remains the current public release.
+
 **7 November 2026:** [2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) is a regular public release, latest=false, from `074e4ea906430b8a051e98acbeef34e9f2c9e9da` via PR #53. Highlighting and README fixes are shipped.
 
 - 319 frontend/13 Node and all three native/package targets pass; Windows/Linux 51 native/25 installed groups each, downloaded Mac UI and 12 anonymous public assets verified.
