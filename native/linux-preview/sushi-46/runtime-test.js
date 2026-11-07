@@ -32,6 +32,8 @@ const buffer = widget.get_child().get_buffer();
 const text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), false);
 if (!text.includes('Heading') || !text.includes('code') || text.includes('unavailable'))
     throw new Error('Markdown was not displayed: ' + text);
+if (!buffer.get_start_iter().get_tags().some(tag => tag.name === 'heading' && tag.weight === 700))
+    throw new Error('Heading text is missing its bold formatting tag');
 widget.destroy();
 file.delete(null);
 Gio.File.new_for_path(dir).delete(null);
