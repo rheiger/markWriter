@@ -156,7 +156,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
   const lastTiptapSemantic = useRef<string | null>(null)
-  if (lastTiptapSemantic.current === null) lastTiptapSemantic.current = fromWysiwygHtml(initialHtml)
+  const dbmlBaseline = useRef<{ semantic: string; source: string } | null>(null)
+  function rememberRenderedSource(html: string, canonical: string) {
+    const semantic = fromWysiwygHtml(html)
+    lastTiptapSemantic.current = semantic
+    // The rendered codec may normalize prose separators. Keep the exact
+    // source checkpoint when history returns to the initial DBML model.
+    dbmlBaseline.current = html.includes('data-type="dbml"') ? { semantic, source: canonical } : null
+  }
+  if (lastTiptapSemantic.current === null) rememberRenderedSource(initialHtml, lastTiptapSource.current)
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
     extensions: [
@@ -211,7 +219,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         editorProps: { ...editor.options.editorProps, clipboardParser: createInlineCodeClipboardParser(editor.schema) } })
     },
     onCreate: ({ editor }) => {
-      lastTiptapSemantic.current = fromWysiwygHtml(editor.getHTML())
+      rememberRenderedSource(editor.getHTML(), lastTiptapSource.current)
       const remembered = initialViewState.current
       if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
       requestAnimationFrame(() => { if (wysiwygContainerRef.current && remembered?.renderedScroll !== undefined) wysiwygContainerRef.current.scrollTop = remembered.renderedScroll })
@@ -222,8 +230,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const markdownFromHtml = fromWysiwygHtml(html)
       if (markdownFromHtml === lastTiptapSemantic.current) return
       lastTiptapSemantic.current = markdownFromHtml
-      lastTiptapSource.current = markdownFromHtml
-      updateDocumentContent(markdownFromHtml)
+      const baseline = dbmlBaseline.current
+      const canonical = baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml
+      lastTiptapSource.current = canonical
+      updateDocumentContent(canonical)
     },
     editable: true,
     autofocus: false,
@@ -302,7 +312,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           const text = source()
           if (lastTiptapSource.current !== text) {
             synchronizeRendered(tiptap, text)
-            lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
+            rememberRenderedSource(tiptap.getHTML(), text)
           }
           lastTiptapSource.current = text
           isUpdatingFromMarkdown.current = false
@@ -342,7 +352,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
       if (tiptap) synchronizeRendered(tiptap, content)
-      if (tiptap) lastTiptapSemantic.current = fromWysiwygHtml(tiptap.getHTML())
+      if (tiptap) rememberRenderedSource(tiptap.getHTML(), content)
       lastTiptapSource.current = content
       if (editorViewRef.current) {
         isSwitchingModeRef.current = true

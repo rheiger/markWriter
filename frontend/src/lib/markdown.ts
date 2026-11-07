@@ -39,7 +39,7 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const notation = token.info.trim()
   const type = notation === 'graphviz' ? 'dot' : notation
   if (opaqueFences.has(type)) {
-    const lines = env?.source ? (env.sourceLines ??= sourceLines(env.source)) as string[] : []
+    const lines = typeof env?.source === 'string' ? (env.sourceLines ??= sourceLines(env.source)) as string[] : []
     const raw = token.map ? withoutLastNewline(lines.slice(...token.map).join('')) : ''
     let metadata: string | { raw: string; container?: string } = raw.startsWith(token.markup) ? raw : ''
     if (type === 'dbml' && env?.retainDbmlSource) {
@@ -236,7 +236,7 @@ function restoreDbmlFences(root: HTMLElement, rendered: string): string {
 
   const lines = sourceLines(rendered)
   const signature = (source: string) => {
-    const env: { references?: unknown } = {}
+    const env: NonNullable<Parameters<typeof markdown.render>[1]> = {}
     const html = markdown.render(source, env)
     return JSON.stringify([html, env.references])
   }

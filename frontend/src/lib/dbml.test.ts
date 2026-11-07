@@ -57,3 +57,8 @@ it('treats quoted punctuation as identifiers and never as grammar delimiters', (
   expect(result).toContain('UK')
   expect(() => dbmlToDot('Table t {\n x int ["pk"]\n}')).toThrow(/keyword/)
 })
+
+it('rejects competing primary key declarations', () => {
+  expect(() => dbmlToDot('Table t {\n a int [pk]\n b int [pk]\n}')).toThrow(/primary key/)
+  expect(() => dbmlToDot('Table t {\n a int [pk]\n b int\n indexes {\n (a, b) [pk]\n }\n}')).toThrow(/primary key/)
+})

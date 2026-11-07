@@ -70,7 +70,31 @@ export function dbmlToDot(source: string): string {
   }
   if (!tables.length) fail('DBML has no tables')
   if (refs.length > DBML_LIMITS.refs) fail('DBML relationship limit exceeded')
-  const map = new Map<string, number>(); tables.forEach((t,i) => { const key = identity(t.schema,t.name); if (map.has(key)) fail('Duplicate table'); map.set(key,i); if (!t.columns.length) fail('Empty table'); const seen = new Set<string>(); for (const c of t.columns) { if (seen.has(c.name)) fail('Duplicate column'); seen.add(c.name); if (new Set(c.flags).size !== c.flags.length || (c.flags.includes('NULL') && c.flags.includes('NOT NULL'))) fail('Conflicting column settings') } for (const k of t.keys) if (new Set(k.names).size !== k.names.length || k.names.some(n => !seen.has(n))) fail('Unknown or duplicate key column') })
+  const map = new Map<string, number>()
+  tables.forEach((table, index) => {
+    const key = identity(table.schema, table.name)
+    if (map.has(key)) fail('Duplicate table')
+    map.set(key, index)
+    if (!table.columns.length) fail('Empty table')
+    const seen = new Set<string>()
+    let primaryKeys = 0
+    for (const column of table.columns) {
+      if (seen.has(column.name)) fail('Duplicate column')
+      seen.add(column.name)
+      const { flags } = column
+      if (new Set(flags).size !== flags.length || (flags.includes('NULL') && flags.includes('NOT NULL'))) {
+        fail('Conflicting column settings')
+      }
+      if (flags.includes('PK')) primaryKeys++
+    }
+    for (const key of table.keys) {
+      if (new Set(key.names).size !== key.names.length || key.names.some(name => !seen.has(name))) {
+        fail('Unknown or duplicate key column')
+      }
+      if (key.kind === 'PK') primaryKeys++
+    }
+    if (primaryKeys > 1) fail('Multiple primary key declarations; use a composite index')
+  })
   const lookup = (e: Endpoint) => { const index = map.get(identity(e.schema,e.table)); if (index === undefined) return fail('Unknown table in relationship'); if (new Set(e.columns).size !== e.columns.length || e.columns.some(n => !tables[index].columns.some(c => c.name === n))) fail('Unknown or duplicate relationship column'); return index }
   const endpointText = (e: Endpoint) => `${e.schema === 'public' ? '' : display(e.schema) + '.'}${display(e.table)} (${e.columns.map(display).join(', ')})`
   const lines = ['digraph schema {', 'rankdir=LR;']
