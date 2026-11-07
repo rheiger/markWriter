@@ -1,0 +1,58 @@
+name: Native shell previews
+
+on:
+  pull_request:
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', '.github/workflows/shell-previews.yml']
+  push:
+    branches: [main, 'codex/2.6.3-shell-previews']
+    tags: ['v2.*']
+    paths: ['native/windows-preview/**', 'native/linux-preview/**', 'tools/shell-preview-assets*', '.github/workflows/shell-previews.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  explorer:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test the x64 preview handler
+        run: |
+          $build = Join-Path $env:RUNNER_TEMP 'markwriter-explorer'
+          cmake -S native/windows-preview -B $build -A x64
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build $build --config Release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ctest --test-dir $build -C Release --output-on-failure
+      - name: Prepare a medium-integrity test process
+        run: ./tools/setup-windows-acceptance.ps1
+      - name: Exercise scoped registration and competing-provider preservation
+        run: |
+          $dll = Join-Path $env:RUNNER_TEMP 'markwriter-explorer/Release/MarkWriterPreview.dll'
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File native/windows-preview/registration-test.ps1 -DllPath $dll
+          exit $LASTEXITCODE
+
+  dolphin:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install distribution KF6 build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
+            cmake g++ extra-cmake-modules qt6-base-dev libkf6coreaddons-dev libkf6kio-dev
+      - name: Build and test the Dolphin thumbnail provider
+        run: |
+          cmake -S native/linux-preview/kde -B "$RUNNER_TEMP/markwriter-dolphin" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build "$RUNNER_TEMP/markwriter-dolphin" --parallel 2
+          ctest --test-dir "$RUNNER_TEMP/markwriter-dolphin" --output-on-failure
