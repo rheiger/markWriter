@@ -49,9 +49,14 @@ if ($Action -eq 'Enable') {
   foreach ($target in $targets) {
     if ((DefaultValue $target) -eq $clsid) {
       # Remove only our default value; retain any other values or subkeys.
-      $key = Get-Item -LiteralPath $target
-      $key.DeleteValue('', $false)
-      if ($key.ValueCount -eq 0 -and $key.SubKeyCount -eq 0) { Remove-Item -LiteralPath $target }
+      $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($target.Substring(6), $true)
+      if (!$key) { throw "Cannot open $target for cleanup." }
+      try {
+        # Recheck after opening writable, in case another provider changed it.
+        if ($key.GetValue('') -eq $clsid) { $key.DeleteValue('', $false) }
+        $empty = $key.ValueCount -eq 0 -and $key.SubKeyCount -eq 0
+      } finally { $key.Dispose() }
+      if ($empty) { Remove-Item -LiteralPath $target }
     }
   }
   if (Test-Path -LiteralPath $list) { Remove-ItemProperty -LiteralPath $list -Name $clsid -ErrorAction SilentlyContinue }
