@@ -5,6 +5,7 @@
 <key>CFBundleName</key><string>MarkWriter Quick Look Prototype</string>
 <key>CFBundleExecutable</key><string>QuickLookPrototype</string>
 <key>CFBundlePackageType</key><string>XPC!</string>
+<key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>NSExtension</key><dict>

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build an isolated unsigned experimental extension. Never install or register it.
+# Build an unsigned arm64 extension for staging and isolated tests.
 set -eu
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 /absolute/path/to/new-output-directory" >&2
@@ -10,7 +10,7 @@ if [ -e "$1" ]; then echo "Output already exists: $1" >&2; exit 2; fi
 src=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 mkdir -p "$1/MarkWriterQuickLook.appex/Contents/MacOS"
 cp "$src/Info.plist" "$1/MarkWriterQuickLook.appex/Contents/Info.plist"
-xcrun swiftc -parse-as-library -application-extension -Xlinker -no_adhoc_codesign \
+xcrun swiftc -target arm64-apple-macos12.0 -parse-as-library -application-extension -Xlinker -no_adhoc_codesign \
   -Xlinker -e -Xlinker _NSExtensionMain "$src/PreviewRenderer.swift" "$src/SimpleXMLFormatter.swift" "$src/JSONFormatter.swift" "$src/SafeFileReader.swift" "$src/PreviewProvider.swift" \
   -o "$1/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype"
 plutil -lint "$1/MarkWriterQuickLook.appex/Contents/Info.plist"

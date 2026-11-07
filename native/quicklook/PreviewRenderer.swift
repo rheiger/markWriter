@@ -52,13 +52,76 @@ enum PreviewRenderer {
                 return page("<p class=\"notice\">Formatted XML (element-only subset)</p><pre>\(escape(formatted))</pre>")
             }
             return literal(text, notice: "Literal text; XML is invalid or outside the supported element-only subset.")
-        case "yaml", "yml": return literal(text, notice: "Literal text; YAML formatting is not supported in this prototype.")
+        case "yaml", "yml":
+            if let formatted = formatSimpleYAML(text) {
+                return page("<p class=\"notice\">Formatted YAML (block mapping/list subset; syntax not validated)</p><pre>\(escape(formatted))</pre>")
+            }
+            return literal(text, notice: "Literal text; quotes, block scalars, anchors, aliases, flow collections and other YAML constructs are not formatted.")
         default: return literal(text, notice: "Unsupported file type; showing literal text.")
         }
     }
 
     private static func normalizedLines(_ text: String) -> [String] {
         text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
+    }
+
+    // Formats a narrow block-style subset, without parsing or resolving values.
+    // Source indentation and every scalar lexeme are preserved.
+    private static func formatSimpleYAML(_ text: String) -> String? {
+        let lines = normalizedLines(text)
+        guard lines.count <= 5000 else { return nil }
+        let keyChars = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+        let valueChars = CharacterSet.letters.union(.decimalDigits).union(.nonBaseCharacters)
+            .union(CharacterSet(charactersIn: "_-. "))
+        var result: [String] = []
+        var group: [(String, String, String)] = []
+        var groupPrefix: String?
+        var formattedAny = false
+        var outputBytes = 0
+        func emit(_ line: String) -> Bool {
+            outputBytes += line.utf8.count + 1
+            guard outputBytes <= 2_097_152 else { return false }
+            result.append(line)
+            return true
+        }
+        func flush() -> Bool {
+            let width = group.map { $0.1.utf8.count }.max() ?? 0
+            for (prefix, key, value) in group {
+                guard emit(prefix + key + String(repeating: " ", count: width - key.utf8.count) + ":" + value) else { return false }
+            }
+            group.removeAll(); groupPrefix = nil
+            return true
+        }
+        for line in lines {
+            let indentCount = line.prefix(while: { $0 == " " }).count
+            guard indentCount <= 128 else { return nil }
+            let indent = String(line.prefix(indentCount))
+            let rest = String(line.dropFirst(indentCount))
+            if rest.isEmpty || (indentCount == 0 && (rest == "---" || rest == "...")) {
+                guard flush(), emit(line) else { return nil }
+                continue
+            }
+            let listItem = rest == "-" || rest.hasPrefix("- ")
+            let content = listItem ? String(rest.dropFirst(min(2, rest.count))) : rest
+            let prefix = indent + (listItem ? "- " : "")
+            if listItem && !content.contains(":") {
+                guard content.unicodeScalars.allSatisfy({ valueChars.contains($0) }), flush(), emit(line) else { return nil }
+                formattedAny = true
+                continue
+            }
+            guard let colon = content.firstIndex(of: ":") else { return nil }
+            let key = String(content[..<colon]).trimmingCharacters(in: CharacterSet(charactersIn: " "))
+            let value = String(content[content.index(after: colon)...])
+            guard !key.isEmpty, key != "-", key != "---", key.utf8.count <= 64,
+                  key.unicodeScalars.allSatisfy({ keyChars.contains($0) }),
+                  value.isEmpty || value.first == " ",
+                  value.unicodeScalars.allSatisfy({ valueChars.contains($0) }) else { return nil }
+            if let existing = groupPrefix, existing != prefix { guard flush() else { return nil } }
+            groupPrefix = prefix
+            group.append((prefix, key, value)); formattedAny = true
+        }
+        guard flush(), formattedAny else { return nil }
+        return result.joined(separator: "\n")
     }
 
     private static func markdown(_ text: String) -> String {

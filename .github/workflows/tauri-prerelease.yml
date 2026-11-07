@@ -1,11 +1,11 @@
 name: Tauri production packages
 on:
   pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
     branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json', 'codex/2.6-native-integration']
     tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
+    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -77,6 +77,18 @@ jobs:
           # Candidate packages deliberately perform no OS signing.
           CI: true
         run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles ${{ matrix.bundles }}
+      - name: Verify Quick Look renderers and unsigned package staging
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p package-acceptance-results/quicklook-staging
+          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
+            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
+            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-staging/renderer-tests.log
+          tools/package-quicklook-macos.sh stage \
+            "$PWD/src-tauri/target/release/bundle/macos/MarkWriter.app" \
+            "$RUNNER_TEMP/markwriter-quicklook-stage" | tee package-acceptance-results/quicklook-staging/build.log
+          extension="$RUNNER_TEMP/markwriter-quicklook-stage/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex"
+          plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
       - name: Install external native test driver
         if: runner.os != 'macOS'
         run: cargo install tauri-driver --version 2.1.0 --locked
