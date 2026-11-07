@@ -34,8 +34,11 @@ for unused in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ -n "$window" ] || { echo 'Nautilus window did not appear' >&2; exit 1; }
 xdotool windowfocus --sync "$window"
-# --select requests the fixture selection; the content assertion below verifies it.
+# Click the only visible fixture tile in a fixed-size disposable window.
+xdotool windowsize "$window" 890 550
 sleep 4
+xdotool mousemove --sync --window "$window" 284 122 click 1
+sleep 1
 xdotool key space
 if /usr/bin/python3 - <<'PY' 
 import time
