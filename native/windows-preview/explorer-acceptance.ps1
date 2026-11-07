@@ -79,7 +79,7 @@ try {
   Start-Process -FilePath "$env:WINDIR\explorer.exe" -ArgumentList ('"{0}"' -f $root) | Out-Null
   for ($i=0; $i -lt 100 -and !$window; $i++) {
     Start-Sleep -Milliseconds 200
-    foreach ($candidate in $shell.Windows()) { try { if ($candidate.Document.Folder.Self.Path -eq $root) { $window=$candidate; break } } catch {} }
+    foreach ($candidate in $shell.Windows()) { try { $location = [Uri]$candidate.LocationURL; if ($location.IsFile -and [IO.Path]::GetFullPath($location.LocalPath).TrimEnd('\') -ieq [IO.Path]::GetFullPath($root).TrimEnd('\')) { $window=$candidate; break } } catch {} }
   }
   if (!$window) {
     $seen = @($shell.Windows() | ForEach-Object { try { [string]$_.LocationURL } catch { '<unavailable>' } } | Select-Object -First 20)
