@@ -2,7 +2,8 @@
 param(
   [Parameter(Mandatory=$true)][string]$DllPath,
   [Parameter(Mandatory=$true)][string]$ResultPath,
-  [Parameter(Mandatory=$true)][string]$AppPath,
+  [string]$AppPath,
+  [switch]$Diagnostic,
   [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
   [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
@@ -30,6 +31,7 @@ public static class PreviewProcessIntegrity {
 }
 '@
 $dll = (Resolve-Path -LiteralPath $DllPath).Path
+if (!$Diagnostic -and !$AppPath) { throw 'A production acceptance receipt requires AppPath.' }
 if (Test-Path -LiteralPath $ResultPath) { throw 'Result path already exists; refusing stale evidence.' }
 if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL digest does not match the expected packaged asset.' }
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -40,8 +42,8 @@ foreach ($ext in @('.md','.markdown')) { if (Test-Path "HKCU:\Software\Classes\$
 $list='HKCU:\Software\Microsoft\Windows\CurrentVersion\PreviewHandlers'
 if ((Test-Path $list) -and $null -ne (Get-Item $list).GetValue($clsid)) { throw 'Profile already contains a preview list entry.' }
 $root = Join-Path $env:TEMP ('markwriter-preview-' + [guid]::NewGuid())
-$resolvedApp = (Resolve-Path -LiteralPath $AppPath).Path
-foreach ($p in Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($resolvedApp)) -ErrorAction SilentlyContinue) {
+$resolvedApp = if ($AppPath) { (Resolve-Path -LiteralPath $AppPath).Path } else { $null }
+foreach ($p in @(if ($resolvedApp) { Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($resolvedApp)) -ErrorAction SilentlyContinue })) {
   $processPath = $null
   try { $processPath = $p.Path } catch { throw 'Could not establish whether MarkWriter is already running.' }
   if (!$processPath -or $processPath -ieq $resolvedApp) { throw 'MarkWriter is already running or its path is unavailable; use a clean disposable profile.' }
@@ -99,10 +101,12 @@ try {
   Select-And-Observe $fixtures[1]; $cases.Add('Explorer markdown extension and selection change')
   $window.Width = $window.Width - 100; $window.Height = $window.Height - 100
   Select-And-Observe $fixtures[0]; $cases.Add('preview survives Explorer resize')
-  $appProcess = Start-Process -FilePath $resolvedApp -PassThru
-  Start-Sleep -Seconds 3
-  if ($appProcess.HasExited) { throw 'MarkWriter did not remain open' }
-  Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
+  if ($resolvedApp) {
+    $appProcess = Start-Process -FilePath $resolvedApp -PassThru
+    Start-Sleep -Seconds 3
+    if ($appProcess.HasExited) { throw 'MarkWriter did not remain open' }
+    Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
+  } else { Write-Host 'DIAGNOSTIC ONLY: MarkWriter-open case was not run; no acceptance receipt will be written.' }
   Select-And-Observe $fixtures[2]; $cases.Add('Explorer oversized preview bounded and source preserved')
   $hosts = @(Get-Process prevhost -ErrorAction SilentlyContinue | Where-Object {
     try { @($_.Modules | Where-Object { $_.FileName -ieq $dll }).Count -gt 0 } catch { $false }
@@ -128,5 +132,6 @@ try {
 }
 
 if (Test-Path -LiteralPath $root) { throw 'Fixture cleanup failed' }
+if ($Diagnostic) { Write-Host 'DIAGNOSTIC ONLY: Explorer and cleanup checks passed; no acceptance receipt written.'; return }
 $os = Get-CimInstance Win32_OperatingSystem
 @{passed=$true; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray())} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8
