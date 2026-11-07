@@ -18,15 +18,17 @@ markdown.inline.ruler.before('escape', 'table_break', (state, silent) => {
   state.pos += match[0].length
   return true
 })
+const opaqueFences = new Set(['dot', 'dbml', 'math'])
 const fence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]
   const notation = token.info.trim()
-  if (notation === 'dot' || notation === 'graphviz' || notation === 'math') {
+  const type = notation === 'graphviz' ? 'dot' : notation
+  if (opaqueFences.has(type)) {
     const lines = (env?.source as string | undefined)?.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
     const raw = token.map ? lines.slice(token.map[0], token.map[1]).join('').replace(/(?:\r\n|\r|\n)$/, '') : ''
     const escape = markdown.utils.escapeHtml
-    return `<div data-type="${notation === 'math' ? 'math' : 'dot'}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
+    return `<div data-type="${type}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(raw.startsWith(token.markup) ? raw : ''))}">${escape(token.content)}</div>\n`
   }
   const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
   if (notation !== 'mermaid') return fence(tokens, index, { ...options, highlight: highlight ? (code, language) => highlightedHtml(code, highlight(code, language)) : null }, env, renderer)
@@ -99,7 +101,8 @@ export function toWysiwygHtml(source: string): string {
 
 function embeddedFence(node: HTMLElement): string {
   const chart = node.getAttribute('data-chart') ?? ''
-  const notation = node.getAttribute('data-type') === 'math' ? 'math' : node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
+  const type = node.getAttribute('data-type')
+  const notation = type === 'math' || type === 'dbml' ? type : node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
   const raw = node.getAttribute('data-source-fence')
   if (raw) {
     try {
@@ -149,7 +152,7 @@ const turndown = new TurndownService({
   // Atom nodes serialize as empty elements; Turndown checks blankness before custom rules.
   blankReplacement: (_content, node) => {
     const element = node as HTMLElement
-    if (['dot','math'].includes(element.getAttribute?.('data-type') ?? '')) return embeddedFence(element)
+    if (opaqueFences.has(element.getAttribute?.('data-type') ?? '')) return embeddedFence(element)
     if (element.getAttribute?.('data-type') === 'mermaid') return mermaidFence(element)
     return (node as HTMLElement & { isBlock: boolean }).isBlock ? '\n\n' : ''
   },
@@ -162,7 +165,7 @@ turndown.addRule('inlineCode', {
   filter: node => node.nodeName === 'CODE' && node.parentElement?.nodeName !== 'PRE',
   replacement: (_content, node) => inlineCode(node.textContent ?? '', !!(node as HTMLElement).closest('[data-mw-table-cell]')),
 })
-turndown.addRule('embeddedFence', { filter: node => ['dot','math'].includes(node.getAttribute('data-type') ?? ''), replacement: (_content, node) => embeddedFence(node as HTMLElement) })
+turndown.addRule('embeddedFence', { filter: node => opaqueFences.has(node.getAttribute('data-type') ?? ''), replacement: (_content, node) => embeddedFence(node as HTMLElement) })
 turndown.addRule('mermaid', {
   filter: node => node.getAttribute('data-type') === 'mermaid',
   replacement: (_content, node) => mermaidFence(node as HTMLElement),
