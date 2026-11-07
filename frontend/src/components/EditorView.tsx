@@ -43,6 +43,8 @@ import TableHeader from '@tiptap/extension-table-header'
 import { TableTools } from './TableTools'
 import { MermaidNode } from '../extensions/MermaidNode'
 import { DotNode } from '../extensions/DotNode'
+import { DbmlNode } from '../extensions/DbmlNode'
+import { dbmlRenderer } from '../lib/dbmlRenderer'
 import { dotRenderer } from '../lib/dotRenderer'
 import { MathNode } from '../extensions/MathNode'
 import { mathRenderer, createMathBudget } from '../lib/mathRenderer'
@@ -197,6 +199,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       TextAlign.configure({ types: ['tableCell', 'tableHeader'] }),
       MermaidNode,
       DotNode.configure({ documentId }),
+      DbmlNode.configure({ documentId }),
       MathNode.configure({ documentId }),
       Image.configure({ inline: true, allowBase64: true }),
     ],
@@ -244,7 +247,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (tiptap.isActive('codeBlock')) blockLabel = 'Code'
     if (tiptap.isActive('table')) blockLabel = 'Table'
     if (tiptap.isActive('taskItem') || tiptap.isActive('taskList')) blockLabel = 'Task'
-    if (tiptap.isActive('mermaid') || tiptap.isActive('dot') || tiptap.isActive('math')) blockLabel = 'Body'
+    if (tiptap.isActive('mermaid') || tiptap.isActive('dot') || tiptap.isActive('dbml') || tiptap.isActive('math')) blockLabel = 'Body'
 
     return {
       blockLabel,
@@ -603,13 +606,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   // Parse fenced blocks through the Markdown parser, then render only this preview generation.
   const previewGeneration = useRef(0)
-  const dotPreviewAbort = useRef<AbortController | null>(null)
-  useEffect(() => { if (!active || editorMode !== 'markdown') dotPreviewAbort.current?.abort(); return () => { dotPreviewAbort.current?.abort() } }, [active, editorMode])
+  const previewAbort = useRef<AbortController | null>(null)
+  useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => { previewAbort.current?.abort() } }, [active, editorMode])
   const updatePreview = useCallback((content: string) => {
     const container = previewRef.current
     if (!container || !active || useAppStore.getState().currentDocument?.id !== documentId) return
-    dotPreviewAbort.current?.abort()
-    const abort = dotPreviewAbort.current = new AbortController()
+    previewAbort.current?.abort()
+    const abort = previewAbort.current = new AbortController()
     const generation = ++previewGeneration.current
     const doc = useAppStore.getState().documents.find(item => item.id === documentId)
     const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation }, config.syntaxHighlighting)
@@ -620,19 +623,29 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const blocks = elements.map((element, index) => ({
       id: `preview-${generation}-${index}`, chart: element.getAttribute('data-chart') ?? '', index,
     }))
-    const dotElements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="dot"]'))
-    setDiagramCount(elements.length + dotElements.length)
-    for (const element of dotElements) {
+    const diagrams = Array.from(container.querySelectorAll<HTMLElement>('[data-type="dot"], [data-type="dbml"]'))
+    setDiagramCount(elements.length + diagrams.length)
+    for (const element of diagrams) {
       const chart = element.getAttribute('data-chart') ?? ''
-      element.textContent = 'Rendering DOT…'
+      const isDbml = element.dataset.type === 'dbml'
+      const label = isDbml ? 'DBML' : 'DOT'
+      const renderer = isDbml ? dbmlRenderer : dotRenderer
+      element.textContent = `Rendering ${label}…`
       const owner = `${documentId}:${doc?.revision ?? 0}:${generation}`
-      dotRenderer.render(chart, owner, abort.signal).then(svg => {
-        const current = useAppStore.getState()
-        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected && current.currentDocument?.id === documentId && (current.documents.find(item => item.id === documentId)?.revision ?? 0) === map.owner.revision) {
-          element.innerHTML = svg; syncRef.current?.invalidate()
-        }
+      const ownsPreview = () => {
+        const current = useAppStore.getState().currentDocument
+        return !abort.signal.aborted && generation === previewGeneration.current && element.isConnected &&
+          current?.id === documentId && (current?.revision ?? 0) === map.owner.revision
+      }
+      renderer.render(chart, owner, abort.signal).then(svg => {
+        if (!ownsPreview()) return
+        element.innerHTML = svg
+        syncRef.current?.invalidate()
       }).catch(error => {
-        if (!abort.signal.aborted && generation === previewGeneration.current && element.isConnected) { element.textContent = `DOT error: ${error.message}`; syncRef.current?.invalidate() }
+        if (!ownsPreview()) return
+        element.textContent = `${label} error: ${error instanceof Error ? error.message : String(error)}`
+        element.setAttribute('role', 'status')
+        syncRef.current?.invalidate()
       })
     }
     const mathBudget = createMathBudget()

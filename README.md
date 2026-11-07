@@ -26,7 +26,7 @@ See the [platform signing and unsigned-app guides](docs/distribution-signing/REA
 - Native Open, Save, Save As and HTML export, plus local session recovery.
 - Find/Replace in both editors, contextual tables and embedded-source folding.
 - Auto/Light/Dark themes and independent source/rendered font preferences.
-- Bundled offline syntax highlighting, Mermaid diagrams, DOT/Graphviz diagrams and explicit `math` fences.
+- Bundled offline syntax highlighting, Mermaid and DOT/Graphviz diagrams, and explicit `math` fences. The 2.7 candidate adds [bounded DBML schema diagrams](docs/dbml-2.7.md).
 - Searchable offline documentation through **Help → User Guide**.
 
 Markdown is the canonical document source. Navigation and view changes preserve its bytes. Actual WYSIWYG edits may normalize Markdown syntax; consult the acceptance report for fidelity boundaries. Syntax highlighting and diagram/math rendering are bounded and fall back to readable source when their limits are exceeded. Inline dollar math, arbitrary TeX packages and PDF export are not supported.

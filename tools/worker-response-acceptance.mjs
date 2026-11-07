@@ -21,6 +21,6 @@ export async function verifyNativeWorkerResponse(request,session,assets,kind='do
   assert.equal(response.status,200,JSON.stringify(response))
   assert.match(response.type??'',/^(?:text|application)\/(?:java|ecma)script(?:;|$)/i)
   assert.equal(response.sha256,expected,'Native worker response must match packaged build bytes')
-  assert.equal(response.policy,kind==='math'||kind==='regex'?MATH_WORKER_POLICY:WORKER_POLICY,'Exact narrowly scoped worker response policy required')
+  assert.equal(response.policy,kind==='dot'?WORKER_POLICY:MATH_WORKER_POLICY,'Exact narrowly scoped worker response policy required')
   return response
 }
