@@ -17,6 +17,9 @@ testdir=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-dolphin-XXXXXX")
 cleanup() { [ -z "${dolphin_pid:-}" ] || kill "$dolphin_pid" 2>/dev/null || :; rm -rf "$testdir"; }
 trap cleanup EXIT HUP INT TERM
 printf '# MarkWriter KIO Preview\n\n**Rendered** content\n' > "$testdir/acceptance.md"
+fixture="$testdir/acceptance.md"
+before_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
+before_stat=$(stat -c '%s %y' "$fixture")
 printf '[Dolphin]\nVersion=4\nViewMode=0\nPreviewsShown=true\n' > "$testdir/.directory"
 dolphin --new-window "$testdir" >/tmp/markwriter-dolphin-test.log 2>&1 &
 dolphin_pid=$!
@@ -51,3 +54,8 @@ found = best >= .92 and paper_pixels >= 30
 if (mode == 'enabled' and not found) or (mode == 'disabled' and found):
     raise SystemExit('Dolphin thumbnail did not match expected enabled/disabled state')
 PY
+
+after_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
+after_stat=$(stat -c '%s %y' "$fixture")
+[ "$before_hash" = "$after_hash" ] && [ "$before_stat" = "$after_stat" ] || { echo 'Preview changed the input file' >&2; exit 1; }
+printf 'Fixture preserved: sha256=%s size/mtime=%s\n' "$after_hash" "$after_stat"

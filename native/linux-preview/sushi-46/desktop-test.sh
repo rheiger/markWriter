@@ -11,6 +11,9 @@ testdir=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-nautilus-XXXXXX")
 cleanup() { [ -z "${nautilus_pid:-}" ] || kill "$nautilus_pid" 2>/dev/null || :; rm -rf "$testdir"; }
 trap cleanup EXIT HUP INT TERM
 printf '# MarkWriterSushiAcceptanceHeading\n\nMarkWriterSushiAcceptanceBody\n' > "$testdir/preview.md"
+fixture="$testdir/preview.md"
+before_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
+before_stat=$(stat -c '%s %y' "$fixture")
 nautilus --new-window "$testdir" >/tmp/markwriter-nautilus-test.log 2>&1 &
 nautilus_pid=$!
 window=''
@@ -51,3 +54,8 @@ for _ in range(40):
 else:
     raise SystemExit('No accessible ' + expect + ' Sushi document after Nautilus Space')
 PY
+
+after_hash=$(sha256sum "$fixture" | cut -d' ' -f1)
+after_stat=$(stat -c '%s %y' "$fixture")
+[ "$before_hash" = "$after_hash" ] && [ "$before_stat" = "$after_stat" ] || { echo 'Preview changed the input file' >&2; exit 1; }
+printf 'Fixture preserved: sha256=%s size/mtime=%s\n' "$after_hash" "$after_stat"
