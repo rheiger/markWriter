@@ -7,7 +7,8 @@ source_file=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/markwriterMarkdown.js
 target=$base/markwriterMarkdown.js
 case "$mode" in
   enable)
-    [ "$(dpkg-query -W -f='${Version}' gnome-sushi 2>/dev/null || :)" = '46.0-3' ] || { echo 'Requires the qualified Ubuntu gnome-sushi 46.0-3 baseline.' >&2; exit 1; }
+    version=$(dpkg-query -W -f='${Version}' gnome-sushi 2>/dev/null || :)
+    case "$version" in 46.0-3|50.0-0ubuntu0.1) ;; *) echo 'Unsupported Ubuntu Sushi version; refusing enablement.' >&2; exit 1 ;; esac
     [ -r "$source_file" ] || exit 1
     if [ -e "$base" ]; then
       [ -d "$base" ] && [ ! -L "$base" ] || { echo 'Viewer directory is not a normal directory.' >&2; exit 1; }
