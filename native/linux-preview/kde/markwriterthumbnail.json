@@ -1,0 +1,9 @@
+{
+  "KPlugin": {
+    "Name": "MarkWriter Markdown",
+    "Description": "Offline Markdown thumbnail",
+    "MimeTypes": ["text/markdown"],
+    "EnabledByDefault": false
+  },
+  "CacheThumbnail": false
+}
