@@ -41,7 +41,7 @@ QImage renderMarkdownThumbnail(const QString &path, const QSize &size)
     if (decoder.hasError()) return {};
     OfflineDocument document;
     document.setDefaultStyleSheet(QStringLiteral("body { color: #202020; }"));
-    document.setMarkdown(text, QTextDocument::MarkdownDialectGitHub | QTextDocument::MarkdownNoHTML);
+    document.setMarkdown(text, QTextDocument::MarkdownFeatures(QTextDocument::MarkdownDialectGitHub) | QTextDocument::MarkdownNoHTML);
     document.setTextWidth(600);
     const QSize canvas(size.width(), size.height());
     QImage image(canvas, QImage::Format_ARGB32_Premultiplied);
