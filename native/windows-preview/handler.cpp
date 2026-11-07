@@ -101,5 +101,5 @@ public:
   HRESULT STDMETHODCALLTYPE LockServer(BOOL lock) override { if(lock)++locks;else --locks;return S_OK; }
 };
 extern "C" BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,LPVOID) { if(reason==DLL_PROCESS_ATTACH){module=instance;DisableThreadLibraryCalls(instance);} return TRUE; }
-extern "C" __declspec(dllexport) HRESULT __stdcall DllCanUnloadNow(){return objects==0 && locks==0 ? S_OK:S_FALSE;}
-extern "C" __declspec(dllexport) HRESULT __stdcall DllGetClassObject(REFCLSID clsid,REFIID id,void** p){if(!p)return E_POINTER;*p=nullptr;if(clsid!=CLSID_MarkWriterPreview)return CLASS_E_CLASSNOTAVAILABLE;auto f=new(std::nothrow) Factory;if(!f)return E_OUTOFMEMORY;auto hr=f->QueryInterface(id,p);f->Release();return hr;}
+STDAPI DllCanUnloadNow(){return objects==0 && locks==0 ? S_OK:S_FALSE;}
+STDAPI DllGetClassObject(REFCLSID clsid,REFIID id,void** p){if(!p)return E_POINTER;*p=nullptr;if(clsid!=CLSID_MarkWriterPreview)return CLASS_E_CLASSNOTAVAILABLE;auto f=new(std::nothrow) Factory;if(!f)return E_OUTOFMEMORY;auto hr=f->QueryInterface(id,p);f->Release();return hr;}
