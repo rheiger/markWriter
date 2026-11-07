@@ -35,6 +35,13 @@ if (!text.includes('Heading') || !text.includes('code') || text.includes('unavai
 if (!buffer.get_start_iter().get_tags().some(tag => tag.name === 'heading' && tag.weight === 700))
     throw new Error('Heading text is missing its bold formatting tag');
 widget.destroy();
+GLib.file_set_contents(path, 'x'.repeat(256 * 1024 + 1));
+const bigInfo = file.query_info('standard::type,standard::size', Gio.FileQueryInfoFlags.NONE, null);
+const bigWidget = new viewer.Klass(file, bigInfo);
+const bigBuffer = bigWidget.get_child().get_buffer();
+const errorText = bigBuffer.get_text(bigBuffer.get_start_iter(), bigBuffer.get_end_iter(), false);
+if (!errorText.includes('up to 256 KiB')) throw new Error('Oversized file was not rejected');
+bigWidget.destroy();
 file.delete(null);
 Gio.File.new_for_path(dir).delete(null);
 print('Sushi 46 dispatch and renderer smoke test passed');
