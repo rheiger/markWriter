@@ -52,6 +52,18 @@ for _ in range(40):
         break
     time.sleep(.25)
 else:
+    def dump(node, depth=0):
+        if depth > 8: return
+        try:
+            text = ''
+            try:
+                value = node.queryText()
+                text = value.getText(0, min(value.characterCount, 300))
+            except Exception: pass
+            print('  ' * depth + repr((node.getRoleName(), node.name, text)), flush=True)
+            for child in node: dump(child, depth + 1)
+        except Exception: pass
+    dump(pyatspi.Registry.getDesktop(0))
     raise SystemExit('No accessible ' + expect + ' Sushi document after Nautilus Space')
 PY
 
