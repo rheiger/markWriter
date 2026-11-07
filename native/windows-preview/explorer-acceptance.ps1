@@ -63,12 +63,19 @@ try {
     @{ Name='large.md'; Text=('# Oversized evidence' + ('x' * 1100000)); Expected='Preview truncated at 1 MiB.' }
   )
   foreach ($f in $fixtures) { [IO.File]::WriteAllText((Join-Path $root $f.Name), $f.Text, [Text.UTF8Encoding]::new($false)) }
-  $shell.Open($root)
+  # Start Explorer explicitly: a hosted runner may have no desktop shell to
+  # receive Shell.Application.Open. The temporary fixture path is quoted.
+  Start-Process -FilePath "$env:WINDIR\explorer.exe" -ArgumentList ('"{0}"' -f $root) | Out-Null
   for ($i=0; $i -lt 100 -and !$window; $i++) {
     Start-Sleep -Milliseconds 200
     foreach ($candidate in $shell.Windows()) { try { if ($candidate.Document.Folder.Self.Path -eq $root) { $window=$candidate; break } } catch {} }
   }
-  if (!$window) { throw 'Explorer window did not open' }
+  if (!$window) {
+    $seen = @($shell.Windows() | ForEach-Object { try { [string]$_.LocationURL } catch { '<unavailable>' } } | Select-Object -First 20)
+    Write-Host ("Explorer windows observed: " + ($seen -join ', '))
+    Write-Host ("Explorer process count: " + @(Get-Process explorer -ErrorAction SilentlyContinue).Count)
+    throw 'Explorer fixture window was not found through Shell.Application'
+  }
   $explorerHwnd = [IntPtr]$window.HWND
   [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
   Start-Sleep -Milliseconds 200
@@ -129,7 +136,18 @@ try {
   if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL changed during acceptance.' }
   $cases.Add('installed DLL matches packaged SHA-256')
 } finally {
-  if ($window) { $window.Quit() }
+  if ($window) {
+    # Fixture-window-only, bounded UIA evidence; never capture the full desktop.
+    try {
+      $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$window.HWND)
+      $nodes = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+      $snapshot = @($nodes | Select-Object -First 200 | ForEach-Object {
+        try { @{name=([string]$_.Current.Name).Substring(0, [Math]::Min(160, ([string]$_.Current.Name).Length)); controlType=[string]$_.Current.ControlType.ProgrammaticName} } catch {}
+      })
+      @{fixtureWindow=$true; nodeCount=$nodes.Count; nodes=$snapshot} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath ($ResultPath + '.uia.json') -Encoding UTF8
+    } catch { Write-Warning "Could not capture fixture-window UIA diagnostics: $_" }
+    $window.Quit()
+  }
   if ($appProcess -and !$appProcess.HasExited) { $appProcess.CloseMainWindow() | Out-Null; if (!$appProcess.WaitForExit(5000)) { $appProcess.Kill(); $appProcess.WaitForExit() } }
   & $installer -Action Disable -DllPath $dll
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
