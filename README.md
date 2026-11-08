@@ -4,6 +4,8 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## 2.6.3 preliminary
 
+The MarkWriter 2.7 Apple silicon Finder Quick Look bundle renders Markdown tables, emphasis, inline code, link labels and supported offline diagrams. It highlights supported fenced code and standalone Bash, Python, Makefile, SQL and structured text when Finder selects the extension. Link labels are inert, and over-budget content keeps its source. XML outside the formatting subset can still be highlighted as source.
+
 The desktop preview add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac package retains Finder Quick Look. See the [installation and enablement guide](docs/install-2.6.3.md) and the [desktop qualification plan](docs/next-increment-2.6.3-plan.md).
 
 ## 2.6.2 preliminary

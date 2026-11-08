@@ -13,19 +13,20 @@ enum PreviewRenderer {
 
     private static func page(_ body: String) -> String {
         """
-        <!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><style>body{font:16px -apple-system,system-ui;line-height:1.5;max-width:880px;margin:2em auto;padding:0 1em;color:CanvasText;background:Canvas;color-scheme:light dark}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:rgba(128,128,128,.12);padding:1em}p{white-space:pre-wrap;overflow-wrap:anywhere}.notice{opacity:.75}</style></head><body>\(body)</body></html>
+        <!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><style>body{font:16px -apple-system,system-ui;line-height:1.5;max-width:880px;margin:2em auto;padding:0 1em;color:CanvasText;background:Canvas;color-scheme:light dark}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:rgba(128,128,128,.12);padding:1em}p{white-space:pre-wrap;overflow-wrap:anywhere}table{border-collapse:collapse;max-width:100%;margin:1em 0}th,td{border:1px solid GrayText;padding:.3em .6em;overflow-wrap:anywhere}th{background:rgba(128,128,128,.12)}:not(pre)>code{background:rgba(128,128,128,.12);padding:.1em .2em}.markdown-link{text-decoration:underline;text-decoration-style:dotted}.notice{opacity:.75}</style></head><body>\(body)</body></html>
         """
     }
 
-    private static func literal(_ text: String, notice: String) -> String {
-        page("<p class=\"notice\">\(escape(notice))</p><pre>\(escape(text))</pre>")
+    private static func literal(_ text: String, notice: String, language: String? = nil) -> String {
+        let attribute = language.map { " data-language=\"\(escape($0))\"" } ?? ""
+        return page("<p class=\"notice\">\(escape(notice))</p><pre\(attribute)>\(escape(text))</pre>")
     }
 
-    static func render(data: Data, extension ext: String) -> String {
+    static func render(data: Data, extension ext: String, filename: String? = nil) -> String {
         guard data.count <= limit else { return page("<p>File exceeds the 1 MiB preview limit.</p>") }
         guard let text = String(data: data, encoding: .utf8) else { return page("<p>Only UTF-8 text is supported.</p>") }
+        if isMarkdown(ext) { return markdown(text) }
         switch ext.lowercased() {
-        case "md", "markdown", "mdown", "mkd": return markdown(text)
         case "json":
             guard let result = JSONFormatter.format(text) else { return literal(text, notice: "Invalid JSON or formatting limit exceeded; showing Literal text.") }
             return page("<pre data-language=\"json\">\(escape(result))</pre>")
@@ -54,14 +55,28 @@ enum PreviewRenderer {
             if let formatted = SimpleXMLFormatter.format(text) {
                 return page("<p class=\"notice\">Formatted XML (element-only subset)</p><pre data-language=\"xml\">\(escape(formatted))</pre>")
             }
-            return literal(text, notice: "Literal text; XML is invalid or outside the supported element-only subset.")
+            return literal(text, notice: "Literal text; XML is invalid or outside the supported element-only subset.", language: "xml")
         case "yaml", "yml":
             if let formatted = formatSimpleYAML(text) {
                 return page("<p class=\"notice\">Formatted YAML (block mapping/list subset; syntax not validated)</p><pre data-language=\"yaml\">\(escape(formatted))</pre>")
             }
             return literal(text, notice: "Literal text; quotes, block scalars, anchors, aliases, flow collections and other YAML constructs are not formatted.")
+        case "sh", "bash": return source(text, language: "bash")
+        case "py": return source(text, language: "python")
+        case "sql": return source(text, language: "sql")
+        case "mk", "mak": return source(text, language: "makefile")
+        case "" where ["makefile", "gnumakefile"].contains(filename?.lowercased() ?? ""):
+            return source(text, language: "makefile")
         default: return literal(text, notice: "Unsupported file type; showing literal text.")
         }
+    }
+
+    static func isMarkdown(_ ext: String) -> Bool {
+        ["md", "markdown", "mdown", "mkd"].contains(ext.lowercased())
+    }
+
+    private static func source(_ text: String, language: String) -> String {
+        page("<pre data-language=\"\(language)\">\(escape(text))</pre>")
     }
 
     private static func normalizedLines(_ text: String) -> [String] {
@@ -128,7 +143,7 @@ enum PreviewRenderer {
     }
 
     private static func markdown(_ text: String) -> String {
-        var body = "<p class=\"notice\">Limited Markdown preview; inline formatting, images and links appear as source. Unsupported diagrams retain their source.</p>"
+        var body = "<p class=\"notice\">Basic Markdown preview. Tables, inline formatting and diagrams appear as source.</p>"
         var code: [String] = []
         var paragraph: [String] = []
         var fence: Character? = nil

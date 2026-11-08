@@ -87,3 +87,16 @@ print("Nested YAML tests passed")
 
 let alignedUnicodeYAML = PreviewRenderer.render(data: Data("key  : café\nlonger: 漢字".utf8), extension: "yml")
 check(alignedUnicodeYAML.contains("Formatted YAML") && alignedUnicodeYAML.contains("key   : café") && alignedUnicodeYAML.contains("longer: 漢字"), "already aligned keys and Unicode words retain scalar text")
+
+let displayXML = "<?xml version=\"1.0\"?><root type=\"demo\">&amp;</root>"
+let displayXMLPage = PreviewRenderer.render(data: Data(displayXML.utf8), extension: "xml")
+check(displayXMLPage.contains("<pre data-language=\"xml\">&lt;?xml"), "XML literal fallback remains eligible for lexical highlighting")
+check(displayXMLPage.contains("&amp;amp;"), "XML fallback preserves entity spelling")
+
+for (ext, filename, language) in [("SH", "example.SH", "bash"), ("py", "example.py", "python"),
+                                 ("sql", "example.sql", "sql"), ("mk", "rules.mk", "makefile"),
+                                 ("", "Makefile", "makefile"), ("", "GNUmakefile", "makefile")] {
+    let page = PreviewRenderer.render(data: Data("<script>&".utf8), extension: ext, filename: filename)
+    check(page.contains("<pre data-language=\"\(language)\">&lt;script&gt;&amp;"), "escaped standalone \(filename)")
+}
+check(PreviewRenderer.render(data: Data("hello".utf8), extension: "", filename: "README").contains("Unsupported"), "unrelated extensionless file")
