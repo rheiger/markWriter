@@ -5,13 +5,13 @@ import { foldEffect, unfoldAll } from '@codemirror/language'
 import { embeddedSourceFolds, findEmbeddedSource, synchronizeSource } from '../lib/sourceFolds'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
 import { useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { closeHistory } from '@tiptap/pm/history'
+import { closeHistory, isHistoryTransaction } from '@tiptap/pm/history'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -29,7 +29,7 @@ import { HighlightedCodeBlock, codeHighlightKey, sourceCodeHighlighting } from '
 import { useResolvedDark } from '../lib/theme'
 import { cancelAutomaticReplacement, literalInputAttributes, technicalInput } from '../lib/technicalInput'
 import '../lib/codeHighlight.css'
-import { toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
+import { appendDbmlFence, toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import { parseInlineCodeDocument, createInlineCodeClipboardParser } from '../lib/inlineCodeParser'
 import Strike from '@tiptap/extension-strike'
 import Underline from '@tiptap/extension-underline'
@@ -82,6 +82,7 @@ export interface EditorViewRef {
   getSelectionIdentity: () => { editor: object; selection: string } | null
   insertText: (text: string) => void
   insertMarkdown: (text: string) => void
+  appendDbml: (dbml: string) => void
   selectAll: () => void
   // Editor instance access for advanced operations
   getEditorView: () => CodeMirrorView | null
@@ -157,6 +158,19 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
   const lastTiptapSemantic = useRef<string | null>(null)
   const dbmlBaseline = useRef<{ semantic: string; source: string } | null>(null)
+  // A small journal lets rendered Undo/Redo recover exact bytes for imports.
+  // Its character budget includes semantic copies and applies per document.
+  const importSourceHistory = useRef<{ semantic: string; source: string }[]>([])
+  function rememberImportedSource(semantic: string, canonical: string) {
+    const entries = importSourceHistory.current.filter(item => item.semantic !== semantic)
+    entries.push({ semantic, source: canonical })
+    let size = entries.reduce((sum, item) => sum + item.semantic.length + item.source.length, 0)
+    while (entries.length > 2 && (entries.length > 16 || size > 2_000_000)) {
+      const removed = entries.shift()!
+      size -= removed.semantic.length + removed.source.length
+    }
+    importSourceHistory.current = entries
+  }
   function rememberRenderedSource(html: string, canonical: string) {
     const semantic = fromWysiwygHtml(html)
     lastTiptapSemantic.current = semantic
@@ -224,14 +238,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
       requestAnimationFrame(() => { if (wysiwygContainerRef.current && remembered?.renderedScroll !== undefined) wysiwygContainerRef.current.scrollTop = remembered.renderedScroll })
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
       const markdownFromHtml = fromWysiwygHtml(html)
       if (markdownFromHtml === lastTiptapSemantic.current) return
       lastTiptapSemantic.current = markdownFromHtml
       const baseline = dbmlBaseline.current
-      const canonical = baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml
+      const exact = isHistoryTransaction(transaction) ? importSourceHistory.current.find(item => item.semantic === markdownFromHtml) : undefined
+      const canonical = exact?.source ?? (baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml)
       lastTiptapSource.current = canonical
       updateDocumentContent(canonical)
     },
@@ -411,6 +426,42 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       }
       const view = editorViewRef.current
       if (view) view.dispatch(view.state.replaceSelection(text))
+    },
+    appendDbml: (dbml: string) => {
+      const before = source()
+      const { addition, raw, chart } = appendDbmlFence(before, dbml)
+      if (editorMode === 'markdown') {
+        if (before.endsWith('\r') && sourceNewline.current === '\n') {
+          throw new Error('The document ends in a bare carriage return. Import into a new document or replace that character first.')
+        }
+        const view = editorViewRef.current
+        if (!view || view.state.doc.toString() !== editorText(before)) throw new Error('The editor changed. Open SQL import again.')
+        view.dispatch({
+          changes: { from: view.state.doc.length, insert: editorText(addition) },
+          annotations: isolateHistory.of('full'),
+        })
+        return
+      }
+      if (!tiptap || tiptap.isDestroyed || lastTiptapSource.current !== before) {
+        throw new Error('The editor changed. Open SQL import again.')
+      }
+      const beforeSemantic = fromWysiwygHtml(tiptap.getHTML())
+      const node = tiptap.schema.nodes.dbml.create({ chart, notation: 'dbml', sourceFence: JSON.stringify(raw) })
+      isUpdatingFromMarkdown.current = true
+      try {
+        const transaction = closeHistory(tiptap.state.tr.insert(tiptap.state.doc.content.size, node))
+        tiptap.view.dispatch(transaction)
+        tiptap.view.dispatch(closeHistory(tiptap.state.tr).setMeta('addToHistory', false))
+      } finally {
+        isUpdatingFromMarkdown.current = false
+      }
+      const after = before + addition
+      const afterSemantic = fromWysiwygHtml(tiptap.getHTML())
+      rememberImportedSource(beforeSemantic, before)
+      rememberImportedSource(afterSemantic, after)
+      lastTiptapSemantic.current = afterSemantic
+      lastTiptapSource.current = after
+      updateDocumentContent(after)
     },
     insertText: (text: string) => {
       if (editorMode === 'wysiwyg' && tiptap) {

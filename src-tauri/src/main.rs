@@ -9,6 +9,7 @@ mod storage_profile;
 mod native_menu;
 mod os_open;
 mod update_policy;
+mod sql_import;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -244,12 +245,14 @@ fn main() {
     tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
+        .manage(sql_import::SqlPicker::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             native_menu::sync_native_menu,
             update_policy::check_updates,
             take_os_open,
+            sql_import::pick_sql_source,
             retain_rejected_storage,
             load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
@@ -271,7 +274,7 @@ fn main() {
                 tauri::WebviewWindowBuilder::from_config(app, config)?
                     .on_web_resource_request(|request, response| {
                         let path = request.uri().path();
-                        if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) {
+                        if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) || dot_policy::is_sql_worker(path) {
                             response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::LOCAL_WORKER_CSP));
                             response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
                         }

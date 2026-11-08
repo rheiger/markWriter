@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const localWorkerCsp = "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'"
 const isLocalWorker = (url: string) =>
-  /^\/src\/lib\/(?:regexSearch\.worker|mathWorker|dbmlWorker)\.ts\?/.test(url) ||
-  /^\/assets\/(?:regexSearch\.worker|mathWorker|dbmlWorker)-[^/]+\.js$/.test(url)
+  /^\/src\/lib\/(?:regexSearch\.worker|mathWorker|dbmlWorker|sqlDdlWorker)\.ts\?/.test(url) ||
+  /^\/assets\/(?:regexSearch\.worker|mathWorker|dbmlWorker|sqlDdlWorker)-[^/]+\.js$/.test(url)
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({

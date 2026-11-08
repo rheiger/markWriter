@@ -45,6 +45,9 @@ dirs = "5.0"
 html-escape = "0.2"
 tempfile = "3"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [[bin]]
 name = "markwriter"
 path = "src/main.rs"

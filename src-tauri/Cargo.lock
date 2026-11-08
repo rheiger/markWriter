@@ -2159,6 +2159,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "html-escape",
+ "libc",
  "regex",
  "reqwest",
  "serde",
