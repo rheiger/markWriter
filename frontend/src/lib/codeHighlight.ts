@@ -44,11 +44,12 @@ const plain: CodeHighlight = { language: null, ranges: [] }
 const cache = new Map<string, CodeHighlight>()
 let cacheSize = 0
 
-function rangesFor(tree: Root): CodeRange[] {
+function rangesFor(tree: Root, spanLimit: number): CodeRange[] {
   const ranges: CodeRange[] = []
   let offset = 0
   const visit = (nodes: RootContent[], inherited: string[]) => {
     for (const node of nodes) {
+      if (ranges.length > spanLimit) return
       if (node.type === 'text') {
         const to = offset + node.value.length
         if (to > offset && inherited.length) ranges.push({ from: offset, to, className: inherited.join(' ') })
@@ -60,7 +61,7 @@ function rangesFor(tree: Root): CodeRange[] {
     }
   }
   visit(tree.children, [])
-  return ranges.length > SPAN_LIMIT ? [] : ranges
+  return ranges.length > spanLimit ? [] : ranges
 }
 
 function codeLanguage(info: string) {
@@ -81,8 +82,8 @@ export function highlightCode(code: string, info = ''): CodeHighlight {
   return highlightEligibleCode(code, language)
 }
 
-function highlightEligibleCode(code: string, language: string): CodeHighlight {
-  const key = language + '\0' + code
+function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_LIMIT): CodeHighlight {
+  const key = spanLimit + '\0' + language + '\0' + code
   const cached = cache.get(key)
   if (cached) { cache.delete(key); cache.set(key, cached); return cached }
   let result: CodeHighlight = plain
@@ -97,7 +98,7 @@ function highlightEligibleCode(code: string, language: string): CodeHighlight {
       const best = candidates[0].data?.relevance ?? 0, second = candidates[1].data?.relevance ?? 0
       if (best >= 5 && best - second >= 2 && best >= second * 1.25) tree = candidates[0]
     }
-    if (tree) result = { language: String(tree.data?.language ?? language), ranges: rangesFor(tree) }
+    if (tree) result = { language: String(tree.data?.language ?? language), ranges: rangesFor(tree, spanLimit) }
   } catch { /* A grammar failure affects presentation only. Keep all source as plain text. */ }
   cache.set(key, result); cacheSize += key.length
   while (cache.size > 128 || cacheSize > 512 * 1024) {
@@ -108,10 +109,10 @@ function highlightEligibleCode(code: string, language: string): CodeHighlight {
 }
 
 // New budget per document render/rebuild, including cache hits. No document writes.
-export function createCodeHighlighter(enabled: boolean, additionalLongGrammars: readonly string[] = []) {
+export function createCodeHighlighter(enabled: boolean) {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
   return (code: string, info = ''): CodeHighlight => {
-    const language = codeLanguage(info), longer = longerGrammar(language) || additionalLongGrammars.includes(language)
+    const language = codeLanguage(info), longer = longerGrammar(language)
     if (!enabled || --blocks < 0 || !eligible(code, language, longer) ||
       code.length > (longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
     if (longer) longerRemaining -= code.length
@@ -119,6 +120,24 @@ export function createCodeHighlighter(enabled: boolean, additionalLongGrammars: 
     return highlightEligibleCode(code, language)
   }
 }
+// Finder uses a disposable WebKit renderer with its own deadline. Only explicit
+// grammars use the larger budget, and long JSON Lines streams share one budget.
+export function createQuickLookHighlighter() {
+  let remaining = 256 * 1024
+  let spansRemaining = 32 * 1024
+  return (code: string, info: string): CodeHighlight => {
+    const language = codeLanguage(info)
+    if (!language || !lowlight.registered(language) || !code.length ||
+        code.length > 128 * 1024 || code.length > remaining || spansRemaining === 0 ||
+        code.split(/\r\n?|\n/).some(line => line.length > 16 * 1024)) return plain
+    remaining -= code.length
+    const result = highlightEligibleCode(code, language, 24 * 1024)
+    if (result.ranges.length > spansRemaining) return plain
+    spansRemaining -= result.ranges.length
+    return result
+  }
+}
+
 const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 export function highlightedHtml(code: string, result: CodeHighlight): string {
   let html = '', from = 0

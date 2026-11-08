@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Keep Finder syntax highlighting on larger source files and longer JSON Lines previews. Finder uses a separate budget for explicitly labeled languages. [#49](https://github.com/rheiger/markWriter/issues/49)
+- Register `.jsonl` for Finder Quick Look alongside `.ndjson`. [#49](https://github.com/rheiger/markWriter/issues/49)
+
 ## [2.7.0](https://github.com/rheiger/markWriter/releases/tag/v2.7.0) — 2026-11-08
 
 - Render fenced DBML as offline entity-relationship diagrams in Preview, WYSIWYG and self-contained HTML export. The supported subset covers schema-qualified tables, keys, nullability, composite references and cardinality. Preserve the original fence and restore the exact document on Undo. [#33](https://github.com/rheiger/markWriter/issues/33) · [Supported syntax](docs/dbml-2.7.md)

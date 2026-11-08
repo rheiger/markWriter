@@ -1,7 +1,7 @@
 import mermaid from 'mermaid'
 import { instance } from '@viz-js/viz'
 import { validateDot, sanitizeDotSvg, checkedDotErrors } from './dotSafety'
-import { createCodeHighlighter, highlightedHtml } from './codeHighlight'
+import { createQuickLookHighlighter, highlightedHtml } from './codeHighlight'
 import { renderQuickLookMarkdown } from './quickLookMarkdown'
 import tokenCss from './codeHighlight.css?inline'
 
@@ -99,7 +99,7 @@ export async function quickLookRender(html: string, markdown?: string | null): P
     fragment.innerHTML = renderQuickLookMarkdown(markdown)
     parsed.body.replaceChildren(fragment.content)
   }
-  const highlight = createCodeHighlighter(true, ['bash', 'makefile', 'sql', 'xml'])
+  const highlight = createQuickLookHighlighter()
   let diagrams = 0, diagramChars = 0
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, htmlLabels: false, maxTextSize: MERMAID_BLOCK_CHARS, maxEdges: 160 })
   for (const pre of Array.from(parsed.querySelectorAll('pre'))) {
@@ -130,7 +130,8 @@ export async function quickLookRender(html: string, markdown?: string | null): P
         if (new TextEncoder().encode(parsed.documentElement.outerHTML).length > MAX_OUTPUT_BYTES) { img.replaceWith(pre); details.remove() }
       } catch { /* Keep the escaped source. */ }
     } else if (language && language !== 'dot' && language !== 'graphviz') {
-      target.innerHTML = highlightedHtml(source, highlight(source, language))
+      const result = highlight(source, language)
+      if (result.ranges.length) target.innerHTML = highlightedHtml(source, result)
     }
   }
   parsed.querySelectorAll('script, iframe, object, embed, link, base, form').forEach(node => node.remove())

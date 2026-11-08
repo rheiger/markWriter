@@ -93,3 +93,27 @@ describe('Finder feedback fixtures', () => {
     expect(pre.querySelector('item')).toBeNull()
   })
 })
+
+describe('larger Quick Look previews', () => {
+  it('keeps highlighting through the end of a 48 KiB standalone source file', async () => {
+    const source = 'echo "a representative argument" # ' + 'text '.repeat(15) + '\n'
+    const input = source.repeat(450) + 'echo "last argument"\n'
+    const parsed = new DOMParser().parseFromString(
+      await quickLookRender(doc('<pre data-language="bash">' + input + '</pre>')), 'text/html',
+    )
+    const pre = parsed.querySelector('pre')!
+    expect(pre.textContent).toBe(input)
+    expect(Array.from(pre.querySelectorAll('span')).at(-1)?.textContent).toBe('"last argument"')
+  })
+
+  it('highlights JSON Lines records beyond the old block and token limits', async () => {
+    const records = Array.from({ length: 140 }, (_, i) => JSON.stringify({
+      id: i, name: 'Zürich', enabled: true, values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    }, null, 2))
+    const output = await quickLookRender(doc(records.map(record => '<pre data-language="json">' + record + '</pre>').join('')))
+    const blocks = new DOMParser().parseFromString(output, 'text/html').querySelectorAll('pre')
+    expect(blocks).toHaveLength(records.length)
+    expect(blocks[139].textContent).toBe(records[139])
+    expect(blocks[139].querySelector('span')).not.toBeNull()
+  })
+})

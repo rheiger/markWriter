@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>UTTypeIdentifier</key>
+    <string>com.markwriter.json-lines</string>
+    <key>UTTypeDescription</key>
+    <string>JSON Lines</string>
+    <key>UTTypeConformsTo</key>
+    <array>
+        <string>public.plain-text</string>
+    </array>
+    <key>UTTypeTagSpecification</key>
+    <dict>
+        <key>public.filename-extension</key>
+        <array>
+            <string>jsonl</string>
+        </array>
+    </dict>
+</dict>
+</plist>

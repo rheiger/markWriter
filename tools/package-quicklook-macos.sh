@@ -28,6 +28,13 @@ case "$1" in
     mkdir "$stage"
     app="$stage/MarkWriter.app"
     ditto "$source_app" "$app"
+    # LaunchServices reads filename type declarations from the containing app.
+    app_plist="$app/Contents/Info.plist"
+    if ! plutil -extract UTImportedTypeDeclarations xml1 -o /dev/null "$app_plist" 2>/dev/null; then
+      plutil -insert UTImportedTypeDeclarations -array "$app_plist"
+    fi
+    plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/JSONLinesType.plist")" "$app_plist"
+    plutil -lint "$app_plist"
     "$root/native/quicklook/build-experiment.sh" "$stage/extension-build"
     mkdir -p "$app/Contents/PlugIns"
     mv "$stage/extension-build/MarkWriterQuickLook.appex" "$app/$extension_path"
