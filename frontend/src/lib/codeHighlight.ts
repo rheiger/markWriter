@@ -124,14 +124,19 @@ export function createCodeHighlighter(enabled: boolean) {
 // grammars use the larger budget, and long JSON Lines streams share one budget.
 export function createQuickLookHighlighter() {
   let remaining = 256 * 1024
-  let spansRemaining = 32 * 1024
+  let jsonRemaining = 768 * 1024
+  let spansRemaining = 64 * 1024
   return (code: string, info: string): CodeHighlight => {
     const language = codeLanguage(info)
+    // Pretty-printed JSON can be several times larger than the input file.
+    const json = language === 'json'
     if (!language || !lowlight.registered(language) || !code.length ||
-        code.length > 128 * 1024 || code.length > remaining || spansRemaining === 0 ||
+        code.length > (json ? 512 : 128) * 1024 ||
+        code.length > (json ? jsonRemaining : remaining) || spansRemaining === 0 ||
         code.split(/\r\n?|\n/).some(line => line.length > 16 * 1024)) return plain
-    remaining -= code.length
-    const result = highlightEligibleCode(code, language, 24 * 1024)
+    if (json) jsonRemaining -= code.length
+    else remaining -= code.length
+    const result = highlightEligibleCode(code, language, (json ? 64 : 24) * 1024)
     if (result.ranges.length > spansRemaining) return plain
     spansRemaining -= result.ranges.length
     return result

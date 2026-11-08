@@ -100,6 +100,9 @@ export async function quickLookRender(html: string, markdown?: string | null): P
     parsed.body.replaceChildren(fragment.content)
   }
   const highlight = createQuickLookHighlighter()
+  const encoder = new TextEncoder()
+  const contentLimit = MAX_OUTPUT_BYTES - encoder.encode(tokenCss).length - 128
+  let outputBytes = encoder.encode(parsed.documentElement.outerHTML).length
   let diagrams = 0, diagramChars = 0
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, htmlLabels: false, maxTextSize: MERMAID_BLOCK_CHARS, maxEdges: 160 })
   for (const pre of Array.from(parsed.querySelectorAll('pre'))) {
@@ -127,11 +130,20 @@ export async function quickLookRender(html: string, markdown?: string | null): P
         const details = parsed.createElement('details'), summary = parsed.createElement('summary')
         summary.textContent = 'Diagram source'; details.append(summary, pre.cloneNode(true))
         pre.replaceWith(img, details)
-        if (new TextEncoder().encode(parsed.documentElement.outerHTML).length > MAX_OUTPUT_BYTES) { img.replaceWith(pre); details.remove() }
+        const diagramBytes = encoder.encode(parsed.documentElement.outerHTML).length
+        if (diagramBytes > contentLimit) { img.replaceWith(pre); details.remove() }
+        else outputBytes = diagramBytes
       } catch { /* Keep the escaped source. */ }
     } else if (language && language !== 'dot' && language !== 'graphviz') {
       const result = highlight(source, language)
-      if (result.ranges.length) target.innerHTML = highlightedHtml(source, result)
+      if (result.ranges.length) {
+        const highlighted = highlightedHtml(source, result)
+        const addedBytes = encoder.encode(highlighted).length - encoder.encode(target.innerHTML).length
+        if (outputBytes + addedBytes <= contentLimit) {
+          target.innerHTML = highlighted
+          outputBytes += addedBytes
+        }
+      }
     }
   }
   parsed.querySelectorAll('script, iframe, object, embed, link, base, form').forEach(node => node.remove())

@@ -117,3 +117,17 @@ describe('larger Quick Look previews', () => {
     expect(blocks[139].querySelector('span')).not.toBeNull()
   })
 })
+
+it('highlights a formatted JSON preview from a compact 96 KB file through the final value', async () => {
+  const entries = Array.from({ length: 1600 }, (_, id) => ({
+    id, state: 'ok', active: true, location: 'Zürich', count: 50,
+  }))
+  const compact = JSON.stringify(entries)
+  expect(compact.length).toBeGreaterThan(96_000)
+  const formatted = JSON.stringify(entries, null, 2)
+  expect(formatted.length).toBeGreaterThan(128 * 1024)
+  const html = await quickLookRender(doc('<pre data-language="json">' + formatted + '</pre>'))
+  const pre = new DOMParser().parseFromString(html, 'text/html').querySelector('pre')!
+  expect(pre.textContent).toBe(formatted)
+  expect(Array.from(pre.querySelectorAll('span')).at(-1)?.textContent).toBe('50')
+})
