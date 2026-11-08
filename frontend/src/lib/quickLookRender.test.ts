@@ -129,5 +129,5 @@ it('highlights a formatted JSON preview from a compact 96 KB file through the fi
   const html = await quickLookRender(doc('<pre data-language="json">' + formatted + '</pre>'))
   const pre = new DOMParser().parseFromString(html, 'text/html').querySelector('pre')!
   expect(pre.textContent).toBe(formatted)
-  expect(Array.from(pre.querySelectorAll('span')).at(-1)?.textContent).toBe('50')
+  expect(Array.from(pre.querySelectorAll('.hljs-number')).at(-1)?.textContent).toBe('50')
 })
