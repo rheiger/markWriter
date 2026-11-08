@@ -3,6 +3,7 @@ import { verifyRegex } from './regex-acceptance.mjs'
 // Runs the installed, ordinary release executable. No acceptance bridge/imports.
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
+import { tomlEditorFixture } from './toml-fixtures.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -209,6 +210,11 @@ try{
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session})
  cases.push(...longCode.cases)
+ const longToml = await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
+   exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,fixture:tomlEditorFixture(),name:'long-toml',label:'long explicit TOML'})
+ cases.push(...longToml.cases)
+ await writeFile(join(artifacts,'toml-evidence.json'),JSON.stringify(longToml,null,2))
  const updateCheck=await verifyUpdateCheck({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
  cases.push(...updateCheck.cases)

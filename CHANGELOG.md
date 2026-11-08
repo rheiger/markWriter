@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.2 — Unreleased
+
+- Highlight explicitly labeled TOML fences offline in Markdown, WYSIWYG, Preview and HTML export. On Apple silicon macOS, Finder Quick Look supports TOML fences and standalone `.toml` source. [#68](https://github.com/rheiger/markWriter/issues/68)
+
+[Installation and rollback](docs/install-2.7.2.md)
+
 ## [2.7.1](https://github.com/rheiger/markWriter/releases/tag/v2.7.1) — 2026-11-08
 
 - Keep Finder syntax highlighting on larger source files and longer JSON Lines previews. Finder uses a separate budget for explicitly labeled languages. [#49](https://github.com/rheiger/markWriter/issues/49)

@@ -100,3 +100,10 @@ for (ext, filename, language) in [("SH", "example.SH", "bash"), ("py", "example.
     check(page.contains("<pre data-language=\"\(language)\">&lt;script&gt;&amp;"), "escaped standalone \(filename)")
 }
 check(PreviewRenderer.render(data: Data("hello".utf8), extension: "", filename: "README").contains("Unsupported"), "unrelated extensionless file")
+
+let malformedTOML = PreviewRenderer.render(data: Data("[broken\nvalue = \"<script>&\"".utf8), extension: "TOML", filename: "bad.TOML")
+check(malformedTOML.contains("<pre data-language=\"toml\">[broken") && malformedTOML.contains("&lt;script&gt;&amp;") && !malformedTOML.contains("<script>"), "malformed TOML stays escaped and eligible for highlighting")
+let longTOML = String(repeating: "key = 12345\n", count: 4096) + "final_sentinel = true\n"
+let longTOMLPage = PreviewRenderer.render(data: Data(longTOML.utf8), extension: "toml")
+check(longTOMLPage.contains("data-language=\"toml\"") && longTOMLPage.contains("final_sentinel = true"), "long standalone TOML retains final sentinel")
+check(PreviewRenderer.render(data: Data(repeating: 65, count: PreviewRenderer.limit + 1), extension: "toml").contains("1 MiB"), "oversized TOML is bounded")

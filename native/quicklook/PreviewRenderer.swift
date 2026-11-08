@@ -64,6 +64,7 @@ enum PreviewRenderer {
         case "sh", "bash": return source(text, language: "bash")
         case "py": return source(text, language: "python")
         case "sql": return source(text, language: "sql")
+        case "toml": return source(text, language: "toml")
         case "mk", "mak": return source(text, language: "makefile")
         case "" where ["makefile", "gnumakefile"].contains(filename?.lowercased() ?? ""):
             return source(text, language: "makefile")

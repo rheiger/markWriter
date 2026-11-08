@@ -18,11 +18,13 @@ import dockerfile from 'highlight.js/lib/languages/dockerfile'
 import css from 'highlight.js/lib/languages/css'
 import swift from 'highlight.js/lib/languages/swift'
 import makefile from 'highlight.js/lib/languages/makefile'
+import toml from 'highlight.js/lib/languages/ini'
 
 // Local, pinned grammars only. lowlight's public AST API preserves UTF-16 text offsets:
 // https://github.com/wooorm/lowlight#lowlightHighlightlanguage-value-options
 const grammars = { c, cpp, csharp, objectivec, sql, bash, rust, python, go, yaml, json, xml, javascript, typescript, dockerfile, css, swift, makefile }
-const lowlight = createLowlight(grammars)
+// TOML is explicit-only: do not add it to the automatic candidate set.
+const lowlight = createLowlight({ ...grammars, toml })
 const aliases: Record<string, string> = {
   'c++': 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', 'c#': 'csharp', cs: 'csharp',
   'objective-c': 'objectivec', objc: 'objectivec', 'obj-c': 'objectivec', m: 'objectivec', mm: 'objectivec',
@@ -30,7 +32,7 @@ const aliases: Record<string, string> = {
   js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', html: 'xml', htm: 'xml', svg: 'xml', docker: 'dockerfile',
 }
 export const CODE_LIMIT = 4 * 1024
-// Explicit Python/JSON are independently qualified for longer technical examples.
+// Explicit Python, JSON and TOML are independently qualified for longer technical examples.
 // Keep the conservative cap for other grammars (notably C++), and never enlarge auto work.
 export const LONG_CODE_LIMIT = 16 * 1024
 export const AUTO_LIMIT = 2 * 1024
@@ -68,7 +70,7 @@ function codeLanguage(info: string) {
   const word = info.trim().split(/\s/, 1)[0].toLowerCase()
   return Object.hasOwn(aliases, word) ? aliases[word] : word
 }
-const longerGrammar = (language: string) => language === 'python' || language === 'json'
+const longerGrammar = (language: string) => language === 'python' || language === 'json' || language === 'toml'
 function eligible(code: string, language: string, longer = longerGrammar(language)) {
   const limit = longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
   return code.length > 0 && code.length <= limit &&
