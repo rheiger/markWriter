@@ -1,24 +1,49 @@
+# Changelog
+
+## [2.7.0](https://github.com/rheiger/markWriter/releases/tag/v2.7.0) — 2026-11-08
+
+- Render fenced DBML as offline entity-relationship diagrams in Preview, WYSIWYG and self-contained HTML export. The supported subset covers schema-qualified tables, keys, nullability, composite references and cardinality. Preserve the original fence and restore the exact document on Undo. [#33](https://github.com/rheiger/markWriter/issues/33) · [Supported syntax](docs/dbml-2.7.md)
+- Render tables, emphasis, inline code and inert link labels in Finder Quick Look. Render the reported Mermaid flowchart and state diagram within the existing offline safety limits. [#48](https://github.com/rheiger/markWriter/issues/48)
+- Highlight longer supported fences and standalone Bash, Python, Makefile and SQL in Finder. Highlight escaped XML source when the file falls outside the formatting subset. [#49](https://github.com/rheiger/markWriter/issues/49)
+- Carry forward Markdown preview add-ons for Windows Explorer and GNOME Files and Markdown thumbnails for Dolphin on the tested Ubuntu baseline. [#63](https://github.com/rheiger/markWriter/issues/63) · [#64](https://github.com/rheiger/markWriter/issues/64)
+- SQL DDL import, native PDF export and app-controlled update installation remain open. [#42](https://github.com/rheiger/markWriter/issues/42) · [#41](https://github.com/rheiger/markWriter/issues/41) · [#59](https://github.com/rheiger/markWriter/issues/59)
+
+[PR #66](https://github.com/rheiger/markWriter/pull/66) · [Installation and rollback](docs/install-2.7.0.md)
+
+## [2.6.3 preliminary](https://github.com/rheiger/markWriter/releases/tag/v2.6.3) — 2026-11-07
+
+- Add optional Markdown previews in Windows File Explorer and GNOME Files with Sushi, and a Markdown thumbnail provider for KDE Dolphin. Retain Finder Quick Look on Apple silicon. [#48](https://github.com/rheiger/markWriter/issues/48) · [#63](https://github.com/rheiger/markWriter/issues/63) · [#64](https://github.com/rheiger/markWriter/issues/64)
+
+## [2.6.2 preliminary](https://github.com/rheiger/markWriter/releases/tag/v2.6.2) — 2026-11-07
+
+- Add Finder Quick Look for Markdown with fenced code colors and supported Mermaid and DOT, plus display formatting and highlighting for supported JSON, NDJSON, YAML and XML. Finder showed file information for `.jsonl` on the tested Mac. [#48](https://github.com/rheiger/markWriter/issues/48) · [#49](https://github.com/rheiger/markWriter/issues/49)
+- Bring the 2.6 native integration to public packages. Move macOS menus to the screen menu bar, add bounded regular expressions with colored captures and replacement references, route macOS Markdown file opens, and add manual update discovery. [#55](https://github.com/rheiger/markWriter/issues/55) · [#56](https://github.com/rheiger/markWriter/issues/56) · [#48](https://github.com/rheiger/markWriter/issues/48) · [#59](https://github.com/rheiger/markWriter/issues/59)
+
+## [2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) — 2026-11-07
+
+- Fix highlighting for longer explicitly labeled Python and JSON fences and consolidate the README. [#44](https://github.com/rheiger/markWriter/issues/44) · [PR #53](https://github.com/rheiger/markWriter/pull/53)
+
 ## [2.5.0-alpha1](https://github.com/rheiger/markWriter/releases/tag/v2.5.0-alpha1) — 2026-11-06
 
-- Preserve meaningful inline-code spaces, tabs, whitespace-only spans and backticks through rendered parsing/serialization, ordinary editing, clipboard parsing and HTML export. View-only canonical Markdown remains byte-identical; real rendered edits may normalize surrounding Markdown syntax.
-- Add explicit `math` fences with bounded offline KaTeX rendering, literal WYSIWYG source editing, document Undo/Redo, source folds/correspondence, recovery and static HTML export with embedded fonts and licenses. Inline dollars, numbering/references and arbitrary TeX packages remain deferred.
-- Add bundled searchable Help with editing conventions, actual shortcuts, recovery/font guidance and keyboard-accessible Light/Dark navigation.
+- Preserve meaningful inline-code spaces, tabs, whitespace-only spans and backticks through rendered parsing/serialization, ordinary editing, clipboard parsing and HTML export. View-only canonical Markdown remains byte-identical; real rendered edits may normalize surrounding Markdown syntax. [#46](https://github.com/rheiger/markWriter/issues/46)
+- Add explicit `math` fences with bounded offline KaTeX rendering, literal WYSIWYG source editing, document Undo/Redo, source folds/correspondence, recovery and static HTML export with embedded fonts and licenses. Inline dollars, numbering/references and arbitrary TeX packages remain deferred. [#50](https://github.com/rheiger/markWriter/issues/50)
+- Add bundled searchable Help with editing conventions, actual shortcuts, recovery/font guidance and keyboard-accessible Light/Dark navigation. [#47](https://github.com/rheiger/markWriter/issues/47)
 - Extend native and ordinary installed-package acceptance with technical-writing fixtures and strict worker/font/export checks. Released after exact merged/tag qualification; all 12 anonymous public assets match accepted bytes/IDs. See docs/technical-writing-2.5-release-acceptance.md.
 
 ## [2.1.0-alpha3](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha3) — 2026-11-06
 
 - Restore CSS, Swift and Makefile highlighting, add Objective-C `m`, and prevent automatic replacements in fenced/inline code and blockquotes while retaining intentional Unicode and composition. Corrected candidate acceptance: docs/alpha3-feedback-acceptance.md; broader detection/languages deferred to #44, existing inline-code whitespace serialization defect tracked in #46.
-- Add shared offline ordinary-code highlighting across source, WYSIWYG, Preview and self-contained HTML export, with the full requested language set, conservative unlabeled detection and a saved View/toolbar toggle.
-- Add an illustrated paper-and-brass-nib icon and expanded About with product/open-source credits, preserving the exact Richie attribution.
-- Make toolbar controls follow theme tokens; add synchronized Auto/Light/Dark View choices and live system appearance updates.
+- Add shared offline ordinary-code highlighting across source, WYSIWYG, Preview and self-contained HTML export, with the full requested language set, conservative unlabeled detection and a saved View/toolbar toggle. [#40](https://github.com/rheiger/markWriter/issues/40)
+- Add an illustrated paper-and-brass-nib icon and expanded About with product/open-source credits, preserving the exact Richie attribution. [#39](https://github.com/rheiger/markWriter/issues/39)
+- Make toolbar controls follow theme tokens; add synchronized Auto/Light/Dark View choices and live system appearance updates. [#38](https://github.com/rheiger/markWriter/issues/38)
 - Add a maintainable native icon master and packaged macOS/Windows/Linux assets; require a valid whole-bundle macOS ad-hoc seal. This does not establish trusted signing or notarization.
-- Fix Preview correspondence through token spans, menu stacking/Escape and late completion dismissal, viewport-clamped table picker growth, source synchronization entering rendered Undo history, stale async Cut/Paste ownership, and bounded Windows atomic preference replacement recovery with visible terminal errors.
+- Fix Preview correspondence through token spans, menu stacking/Escape and late completion dismissal, viewport-clamped table picker growth, source synchronization entering rendered Undo history, stale async Cut/Paste ownership, and bounded Windows atomic preference replacement recovery with visible terminal errors. [#45](https://github.com/rheiger/markWriter/issues/45)
 - Released source `b40d45bd586c0c127bb696748101ded4276fce52` via PR #43 after exact merged/tagged-source three-platform checks. All 12 public downloads match the same accepted draft IDs/bytes; historical releases/assets/tags/latest remain unchanged. Current evidence: docs/alpha3-release-acceptance.md and attached QUALIFICATION.json. #38/#39/#40/#45 closed; broader detection #44, whitespace serializer #46, Help/Quick View/math and PDF/DBML/SQL DDL import remain deferred.
 
 ## [2.1.0-alpha2](https://github.com/rheiger/markWriter/releases/tag/v2.1.0-alpha2) — 2026-11-06
 
-- Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export.
-- Add a production Tauri DMG/NSIS/DEB build/install/ordinary-dialog acceptance pipeline, isolated optional profile directory, complete bundled notices and exact-source platform/checksum manifests. Isolate the historical Python publisher; only the Tauri workflow may draft v2 prereleases.
+- Add bounded offline DOT/Graphviz rendering to Preview and opaque WYSIWYG atoms, canonical fence preservation, folds/source search/block correspondence and sanitized static SVG export. [#32](https://github.com/rheiger/markWriter/issues/32)
+- Add a production Tauri DMG/NSIS/DEB build/install/ordinary-dialog acceptance pipeline, isolated optional profile directory, complete bundled notices and exact-source platform/checksum manifests. Isolate the historical Python publisher; only the Tauri workflow may draft v2 prereleases. [#35](https://github.com/rheiger/markWriter/issues/35)
 - Preserve the exact Richie About attribution and synchronize version metadata to2.1.0-alpha2. DBML/PlantUML/draw.io/logs and other deferred scope remain deferred.
 - Released source 9bfd2c1 via PR #36 after exact-source three-platform quality/package acceptance and final-byte verification. All 12 public assets match verified bytes; old releases/tags/latest remain unchanged. Windows is unsigned; macOS is linker-ad-hoc/unsealed with failed strict bundle verification, qualified only for the recorded normal launch path under the unsigned experimental allowance. See docs/offline-dot-alpha2-acceptance.md.
 
@@ -65,9 +90,9 @@
 - Restore real-editor and production-command regression coverage; version dependency lockfiles.
 - See docs/stabilization-2026-11-05.md for acceptance boundaries. Still alpha; no release qualification.
 
-# Changelog
+## Historical MarkWrite entries
 
-All notable changes to MarkWrite will be documented in this file.
+These entries document earlier project changes.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

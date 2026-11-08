@@ -18,4 +18,4 @@ The supported subset covers schema-qualified and double-quoted Unicode names, co
 
 Each fence is limited to 32 KiB of UTF-8, 40 tables, 400 columns and 100 relationships. MarkWriter runs up to four parses at a time, queues up to 32 waiting parses, and gives each worker one second. The generated graph shares DOT’s 64 KiB input, two-second layout and 2 MiB SVG limits. HTML export has a ten-second budget for DBML diagrams. These limits bound work and can reject dense schemas below the individual count limits.
 
-The candidate’s DBML feature is scoped to the application and its HTML export. See the [installation guide](install-2.7-candidate.md) for package and provider boundaries.
+The DBML feature is scoped to the application and its HTML export. See the [installation guide](install-2.7.0.md) for package and provider boundaries.

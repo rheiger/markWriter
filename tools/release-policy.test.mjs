@@ -1,10 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
-test('the 2.7 candidate cannot stage a release', () => {
+
+test('only the authorized 2.7.0 regular release can be staged', () => {
   assert.equal(releasePolicy.version, '2.7.0')
   assert.equal(releasePolicy.makeLatest, false)
-  for (const version of ['2.7.0', '2.6.3']) {
-    assert.throws(() => draftReleaseArgs(version, ['SHA256SUMS']), /requires a separate reviewed release instruction/)
-  }
+  assert.deepEqual(draftReleaseArgs('2.7.0', ['SHA256SUMS']), [
+    'release', 'create', 'v2.7.0', 'release-assets/SHA256SUMS',
+    '--verify-tag', '--draft', '--prerelease=false', '--latest=false',
+    '--title', 'MarkWriter v2.7.0', '--notes-file', 'docs/releases/2.7.0.md',
+  ])
+  assert.throws(() => draftReleaseArgs('2.6.3', ['SHA256SUMS']), /Only the reviewed release version/)
 })
