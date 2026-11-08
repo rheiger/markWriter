@@ -122,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WYSIWYG tables: round-trip to Markdown (GFM) requires verification and polish
 - Scroll-sync highlight in Preview not yet implemented
 
-## [2.0.0-alpha.1] - 2025-08-27
+## [2.0.0-alpha.1 WYSIWYG stabilization](https://github.com/rheiger/markWriter/releases/tag/v2.0.0-alpha.1-wysiwyg-stabilized) — published 2025-08-29
 
 ### Added
 - Complete React + TypeScript frontend rewrite
@@ -157,7 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample content with Mermaid diagrams loads correctly
 - Application architecture solid but security configuration needs fixing
 
-## [0.2.4] - 2024-12-19
+## [0.2.4](https://github.com/rheiger/markWriter/releases/tag/v0.2.4) — published 2025-08-20
 
 ### Fixed
 - Fixed PyInstaller spec files by adding required imports for macOS builds
@@ -187,7 +187,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated build process to include all required assets
 - Enhanced documentation and developer guides
 
-## [0.2.1] - 2024-12-19
+## [0.2.1](https://github.com/rheiger/markWriter/releases/tag/v0.2.1) — published 2025-08-19
 
 ### Added
 - Windows support
@@ -199,10 +199,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Offline functionality implementation
 - Local asset bundling for Toast UI Editor and Mermaid.js
 
-## [0.1.2] - 2024-12-19
+## [0.1.2](https://github.com/rheiger/markWriter/releases/tag/v0.1.2) — published 2025-08-12
 
 ### Changed
 - Initial offline functionality planning
+
+## [0.1.1](https://github.com/rheiger/markWriter/releases/tag/v0.1.1) — 2025-08-12
+
+- The release points to the [changes since 0.1.0](https://github.com/rheiger/markWriter/compare/v0.1.0...v0.1.1).
+
+## [0.1.0](https://github.com/rheiger/markWriter/releases/tag/v0.1.0) — 2025-08-12
+
+- Fix macOS Open With, align version metadata, improve CI and add the developer handbook.
+
+## [0.0.2](https://github.com/rheiger/markWriter/releases/tag/v0.0.2) — 2025-08-09
+
+- Add zoom controls, a full-width editor, file toolbar controls and About credits.
+
+## [0.0.1](https://github.com/rheiger/markWriter/releases/tag/v0.0.1) — 2025-08-09
+
+- Ship the first public macOS app with Markdown editing, Open, Save and HTML export.
 
 ## [0.0.8] - 2024-12-19
 

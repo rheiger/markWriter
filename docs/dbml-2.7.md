@@ -1,4 +1,4 @@
-# Offline DBML in the MarkWriter 2.7 candidate
+# Offline DBML in MarkWriter 2.7
 
 Put a schema in a fenced `dbml` block. MarkWriter displays it in Preview, as an opaque diagram in WYSIWYG, and as inline SVG in standalone HTML. Edit the fence in Markdown. An invalid or unsupported schema shows a diagnostic in the editor. HTML export reports a failure before writing a file.
 
