@@ -6,6 +6,11 @@ import UniformTypeIdentifiers
 final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
     func providePreview(for request: QLFilePreviewRequest) async throws -> QLPreviewReply {
         let url = request.fileURL
+        // Other installed apps may use public.toml for generic configuration
+        // files. Decline those requests before reading their contents.
+        guard !["cfg", "config"].contains(url.pathExtension.lowercased()) else {
+            throw CocoaError(.featureUnsupported)
+        }
         let data = try SafeFileReader.read(url)
         let fallback = PreviewRenderer.render(data: data, extension: url.pathExtension, filename: url.lastPathComponent)
         let markdown = PreviewRenderer.isMarkdown(url.pathExtension) && data.count <= PreviewRenderer.limit
