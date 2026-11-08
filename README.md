@@ -4,7 +4,7 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Current release
 
-[MarkWriter 2.7.0](https://github.com/rheiger/markWriter/releases/tag/v2.7.0) adds offline DBML diagrams and improves Finder Quick Look with Markdown tables, emphasis, inline code, inert link labels, and highlighting for supported standalone code files. See the [changelog](CHANGELOG.md) and [installation and rollback guide](docs/install-2.7.0.md).
+[MarkWriter 2.7.1](https://github.com/rheiger/markWriter/releases/tag/v2.7.1) adds Finder Quick Look support for JSON Lines files ending in `.jsonl` and extends highlighting for larger previews. The 2.7 line includes offline DBML diagrams and richer Markdown previews. See the [changelog](CHANGELOG.md) and [installation and rollback guide](docs/install-2.7.1.md).
 
 Packages are available for Apple silicon macOS, Windows x64 and Ubuntu 26.04 x64. Optional add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac app and Finder extension use ad hoc seals. Windows packages are unsigned.
 

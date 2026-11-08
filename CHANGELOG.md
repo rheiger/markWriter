@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2.7.1](https://github.com/rheiger/markWriter/releases/tag/v2.7.1) — 2026-11-08
 
 - Keep Finder syntax highlighting on larger source files and longer JSON Lines previews. Finder uses a separate budget for explicitly labeled languages. [#49](https://github.com/rheiger/markWriter/issues/49)
 - Register `.jsonl` for Finder Quick Look alongside `.ndjson`. [#49](https://github.com/rheiger/markWriter/issues/49)
