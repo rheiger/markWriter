@@ -165,7 +165,7 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
     const forward = !selection || selection.anchorNode === selection.focusNode && selection.anchorOffset <= selection.focusOffset || !!(selection.anchorNode && selection.focusNode && selection.anchorNode.compareDocumentPosition(selection.focusNode) & Node.DOCUMENT_POSITION_FOLLOWING)
     let anchor = selection?.anchorNode && previewPoint(root, map, selection.anchorNode, selection.anchorOffset, forward ? 1 : -1)
     let head = selection?.focusNode && previewPoint(root, map, selection.focusNode, selection.focusOffset, forward ? -1 : 1)
-    const atom = fallback?.closest('[data-type="mermaid"],[data-type="dot"],[data-type="math"],img')
+    const atom = fallback?.closest('[data-type="mermaid"],[data-type="dot"],[data-type="dbml"],[data-type="math"],img')
     if (atom || (!anchor || !head) && fallback) {
       anchor = previewPoint(root, map, atom ?? fallback!, 0, 1)
       head = previewPoint(root, map, atom ?? fallback!, 0, -1)

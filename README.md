@@ -2,23 +2,11 @@
 
 MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
 
-## 2.6.3 preliminary
-
-The desktop preview add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac package retains Finder Quick Look. See the [installation and enablement guide](docs/install-2.6.3.md) and the [desktop qualification plan](docs/next-increment-2.6.3-plan.md).
-
-## 2.6.2 preliminary
-
-The 2.6 line adds macOS screen menus, bounded regex Find/Replace with capture colors and references, Markdown OS-open routing on macOS, and manual stable-release discovery. The Apple silicon 2.6.2 preliminary package includes Finder Quick Look for Markdown, JSON, NDJSON, YAML and XML. Markdown previews include syntax highlighting and supported Mermaid and DOT diagrams. Secure update installation remains deferred. See the [installation and manual registration guide](docs/install-2.6.2.md).
-
 ## Current release
 
-[2.5.1](https://github.com/rheiger/markWriter/releases/tag/v2.5.1) is a regular release, published with `latest=false`. It fixes highlighting of longer Python/JSON blocks and consolidates the project documentation, building on the inline-code fidelity, offline math and searchable Help delivered in 2.5.0-alpha1. Use the explicit version link to find its downloads; the historical latest-release pointer is intentionally unchanged.
+[MarkWriter 2.7.0](https://github.com/rheiger/markWriter/releases/tag/v2.7.0) adds offline DBML diagrams and improves Finder Quick Look with Markdown tables, emphasis, inline code, inert link labels, and highlighting for supported standalone code files. See the [changelog](CHANGELOG.md) and [installation and rollback guide](docs/install-2.7.0.md).
 
-Qualified packages are available for Apple Silicon macOS, Windows x64 and Ubuntu 26.04 x64. Read the [installation and rollback guide](docs/install-2.5.1.md) and [acceptance report and limits](docs/2.5.1-release-acceptance.md) before installing. Each release includes platform manifests, checksums, third-party notices and `QUALIFICATION.json`.
-
-macOS packages have an ad-hoc integrity seal, without Developer ID signing or notarization. Windows packages are unsigned. Other OS baselines and browser-quarantine behavior require separate qualification.
-
-See the [platform signing and unsigned-app guides](docs/distribution-signing/README.md) for separate macOS, Windows and Linux instructions, current limitations and the proposed path to trusted distribution.
+Packages are available for Apple silicon macOS, Windows x64 and Ubuntu 26.04 x64. Optional add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac app and Finder extension use ad hoc seals. Windows packages are unsigned.
 
 ## Features
 
@@ -26,12 +14,12 @@ See the [platform signing and unsigned-app guides](docs/distribution-signing/REA
 - Native Open, Save, Save As and HTML export, plus local session recovery.
 - Find/Replace in both editors, contextual tables and embedded-source folding.
 - Auto/Light/Dark themes and independent source/rendered font preferences.
-- Bundled offline syntax highlighting, Mermaid diagrams, DOT/Graphviz diagrams and explicit `math` fences.
+- Bundled offline syntax highlighting, Mermaid and DOT/Graphviz diagrams, and explicit `math` fences. Includes [bounded DBML schema diagrams](docs/dbml-2.7.md).
 - Searchable offline documentation through **Help → User Guide**.
 
 Markdown is the canonical document source. Navigation and view changes preserve its bytes. Actual WYSIWYG edits may normalize Markdown syntax; consult the acceptance report for fidelity boundaries. Syntax highlighting and diagram/math rendering are bounded and fall back to readable source when their limits are exceeded. Inline dollar math, arbitrary TeX packages and PDF export are not supported.
 
-Independent windows, plugins, draw.io, DBML and SQL DDL remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
+Independent windows, plugins, draw.io and SQL DDL remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
 
 ## Build and develop
 

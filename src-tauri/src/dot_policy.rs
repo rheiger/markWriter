@@ -4,8 +4,8 @@ pub const WORKER_CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe
 pub fn is_dot_worker(path: &str) -> bool {
     path.starts_with("/assets/dotWorker-") && path.ends_with(".js") && !path[8..].contains('/')
 }
-// Math is pure JavaScript: no WASM or network capability is needed.
-pub const MATH_WORKER_CSP: &str = "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'";
+// Pure JavaScript workers require no WASM or network capability.
+pub const LOCAL_WORKER_CSP: &str = "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'";
 pub fn is_math_worker(path: &str) -> bool {
     path.starts_with("/assets/mathWorker-") && path.ends_with(".js") && !path[8..].contains('/')
 }
@@ -15,11 +15,14 @@ mod tests {
     #[test]
     fn math_worker_has_no_network_or_wasm_permission() {
         assert!(is_math_worker("/assets/mathWorker-a1B2.js"));
+        assert!(is_dbml_worker("/assets/dbmlWorker-a1B2.js"));
+        assert!(!is_dbml_worker("/assets/dbmlWorker-x.js/nested.js"));
+        assert!(!is_dot_worker("/assets/dbmlWorker-a1B2.js"));
         for path in ["/index.html", "/assets/mathWorker-x.js/other.js", "/mathWorker.js", "/assets/dotWorker-x.js"] {
             assert!(!is_math_worker(path));
         }
-        assert!(!MATH_WORKER_CSP.contains("eval"));
-        assert!(MATH_WORKER_CSP.contains("connect-src 'none'"));
+        assert!(!LOCAL_WORKER_CSP.contains("eval"));
+        assert!(LOCAL_WORKER_CSP.contains("connect-src 'none'"));
     }
     #[test]
     fn only_bundled_worker_gets_wasm_policy() {
@@ -35,4 +38,8 @@ mod tests {
 // Regex executes only local pure JavaScript, with no subworkers or resources.
 pub fn is_regex_worker(path: &str) -> bool {
     path.starts_with("/assets/regexSearch.worker-") && path.ends_with(".js") && !path[8..].contains('/')
+}
+
+pub fn is_dbml_worker(path: &str) -> bool {
+    path.starts_with("/assets/dbmlWorker-") && path.ends_with(".js") && !path[8..].contains('/')
 }

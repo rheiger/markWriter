@@ -60,3 +60,36 @@ describe('diagram raster contrast', () => {
     } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
   })
 })
+
+describe('Finder feedback fixtures', () => {
+  it('renders full Markdown even when the native fallback has no code fences', async () => {
+    const source = '**Bold** and [example](https://example.test)\n\n| A | B |\n| --- | --- |\n| 1 | 2 |'
+    const output = await quickLookRender(doc('<p>Native fallback</p>'), source)
+    const parsed = new DOMParser().parseFromString(output, 'text/html')
+    expect(parsed.querySelector('strong')?.textContent).toBe('Bold')
+    expect(parsed.querySelector('tbody td')?.textContent).toBe('1')
+    expect(parsed.body.textContent).toContain('example')
+    expect(parsed.querySelector('[href]')).toBeNull()
+    expect(parsed.body.textContent).not.toContain('Native fallback')
+  })
+
+  it('highlights a long supported fence through its last line and preserves its text', async () => {
+    const source = ('printf "%s\\n" "quoted text" # example\n').repeat(150) + 'echo "tail marker"\n'
+    expect(source.length).toBeGreaterThan(4096)
+    const output = await quickLookRender(doc('<p>Native fallback</p>'), '```bash\n' + source + '```')
+    const code = new DOMParser().parseFromString(output, 'text/html').querySelector('code')!
+    expect(code.textContent).toBe(source)
+    expect(Array.from(code.querySelectorAll('span')).at(-1)?.textContent).toBe('"tail marker"')
+  })
+
+  it('colors long literal XML as text without processing entities', async () => {
+    const source = '<?xml version="1.0"?>\n<root>' + '<item name="value">&amp;</item>\n'.repeat(160) + '</root>'
+    expect(source.length).toBeGreaterThan(4096)
+    const escaped = source.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    const output = await quickLookRender(doc('<pre data-language="xml">' + escaped + '</pre>'))
+    const pre = new DOMParser().parseFromString(output, 'text/html').querySelector('pre')!
+    expect(pre.textContent).toBe(source)
+    expect(pre.querySelectorAll('span').length).toBeGreaterThan(100)
+    expect(pre.querySelector('item')).toBeNull()
+  })
+})

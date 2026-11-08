@@ -67,6 +67,20 @@ describe('document fidelity with real editors', () => {
     } finally {spy.mockRestore()}
   })
 
+  it('retains nested DBML bytes through a rendered edit and restores the canonical document on Undo', async () => {
+    const source = 'Before\r\n\r\n> ~~~~dbml\r\n> Table t { id int }\r\n> ~~~~\r\n\r\nAfter\r\n'
+    const { ref, editor } = await mount(source)
+    act(() => editor.commands.insertContentAt(1, 'Edited '))
+    const edited = ref.current!.getMarkdown()
+    expect(edited).toContain('Edited Before')
+    expect(edited).toContain('> ~~~~dbml\r\n> Table t { id int }\r\n> ~~~~')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe(edited)
+  })
+
   it('preserves actual inline code whitespace through rendered edits, source sync and Undo', async () => {
     const source = 'Prose  normalizes. ` a  b ` and `a\tb` and `   `\n\n`  tail  `'
     const { ref, editor } = await mount(source)

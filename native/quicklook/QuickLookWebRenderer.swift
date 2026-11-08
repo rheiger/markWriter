@@ -6,7 +6,13 @@ import os
 // the resulting static document. The fallback is built before WebKit is started.
 @MainActor
 final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
-    private static var busy = false
+    private struct Input: Hashable {
+        let html: Data
+        let markdown: Data?
+        let scriptURL: URL
+    }
+
+    private static var active: [Input: Task<String?, Never>] = [:]
     private static let log = Logger(subsystem: "com.markwriter.app.quicklook", category: "renderer")
     private var continuation: CheckedContinuation<String?, Never>?
     private var view: WKWebView?
@@ -14,21 +20,31 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
     private var initialNavigation = true
     private var ruleDirectory: URL?
     private let html: String
+    private let markdown: String?
 
-    private init(html: String) { self.html = html }
+    private init(html: String, markdown: String?) {
+        self.html = html
+        self.markdown = markdown
+    }
 
-    static func enrich(_ html: String, scriptURL: URL? = Bundle(for: PreviewProvider.self).url(forResource: "quicklook-render", withExtension: "js")) async -> String? {
-        guard !busy else { log.notice("Fallback: renderer busy"); return nil }
+    static func enrich(_ html: String, markdown: String? = nil, scriptURL: URL? = Bundle(for: PreviewProvider.self).url(forResource: "quicklook-render", withExtension: "js")) async -> String? {
         guard html.utf8.count <= 1_500_000 else { log.notice("Fallback: document exceeds enrichment limit"); return nil }
-        guard html.contains("data-language=") else { return nil }
-        guard let scriptURL, let script = try? String(contentsOf: scriptURL, encoding: .utf8), script.utf8.count <= 12_000_000 else {
+        guard markdown != nil || html.contains("data-language=") else { return nil }
+        guard let scriptURL else { log.error("Fallback: renderer resource unavailable"); return nil }
+        // Finder's preview pane and Space can ask for the same preview concurrently.
+        let input = Input(html: Data(html.utf8), markdown: markdown.map { Data($0.utf8) }, scriptURL: scriptURL)
+        if let task = active[input] { return await task.value }
+        guard active.count < 2 else { log.notice("Fallback: renderer busy"); return nil }
+        guard let script = try? String(contentsOf: scriptURL, encoding: .utf8), script.utf8.count <= 12_000_000 else {
             log.error("Fallback: renderer resource unavailable or oversized"); return nil
         }
         log.info("Starting local renderer")
-        busy = true
-        defer { busy = false }
-        let renderer = QuickLookWebRenderer(html: html)
-        return await renderer.run(script)
+        let task = Task {
+            await QuickLookWebRenderer(html: html, markdown: markdown).run(script)
+        }
+        active[input] = task
+        defer { active.removeValue(forKey: input) }
+        return await task.value
     }
 
     private func run(_ script: String) async -> String? {
@@ -95,8 +111,8 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        webView.callAsyncJavaScript("return await globalThis.markwriterQuickLookRender(html)",
-                                     arguments: ["html": html], in: nil, in: .defaultClient) { [weak self] result in
+        webView.callAsyncJavaScript("return await globalThis.markwriterQuickLookRender(html, markdown)",
+                                     arguments: ["html": html, "markdown": markdown as Any? ?? NSNull()], in: nil, in: .defaultClient) { [weak self] result in
             guard case let .success(value) = result, let page = value as? String,
                   page.utf8.count <= 4_500_000 else {
                 Self.log.error("Fallback: renderer script failed or exceeded output limit"); self?.finish(nil); return

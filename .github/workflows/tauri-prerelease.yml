@@ -156,7 +156,7 @@ jobs:
             src-tauri/target
           key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
   draft-release:
-    # Candidate: publication remains disabled until a separately reviewed release instruction.
+    # The signed macOS Quick Look package and shell add-ons are assembled and verified before manual publication.
     if: false
     needs: package
     runs-on: ubuntu-26.04

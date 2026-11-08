@@ -2,6 +2,7 @@ import mermaid from 'mermaid'
 import { instance } from '@viz-js/viz'
 import { validateDot, sanitizeDotSvg, checkedDotErrors } from './dotSafety'
 import { createCodeHighlighter, highlightedHtml } from './codeHighlight'
+import { renderQuickLookMarkdown } from './quickLookMarkdown'
 import tokenCss from './codeHighlight.css?inline'
 
 // The native wrapper supplies escaped HTML and a locked-down offline CSP.
@@ -13,11 +14,24 @@ const MAX_SVG_BYTES = 512 * 1024
 const MAX_PNG_BYTES = 3 * 1024 * 1024
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024
 
-function safeMermaid(source: string): boolean {
-  return !!source.trim() && source.length <= MERMAID_BLOCK_CHARS &&
-    !/^\s*---(?:\s|$)/.test(source) && !/%%\s*\{/i.test(source) &&
-    !/(?:https?:|file:|data:|javascript:|@import|url\s*\(|<\s*[a-z!/])/i.test(source) &&
-    !/^\s*(?:click|classDef|style|linkStyle)\b/im.test(source)
+function safeMermaid(source: string): string | null {
+  if (!source.trim() || source.length > MERMAID_BLOCK_CHARS || /^\s*---(?:\s|$)/.test(source) || /%%\s*\{/i.test(source) || /(?:#0*60;|#x0*3c;|&(?:lt|#0*60|#x0*3c);)/i.test(source)) return null
+  // Only path-shaped placeholders are converted. Other markup remains forbidden.
+  const input = source.replace(/\/<([a-z][\w-]*)>(?=\/|["|])/gi, (match, name: string) => {
+    if (/^(?:script|style|img|image|svg|iframe|object|embed|link|a|form|input|video|audio|source|math)$/i.test(name)) return match
+    return `/#60;${name}#62;`
+  })
+  // A state description named "file" is not a file URL.
+  const checked = /^\s*stateDiagram(?:-v2)?\b/i.test(input)
+    ? input.replace(/^(\s*)file:(?=\s+[^/\\\s])/gim, '$1state-description:')
+    : input
+  if (/(?:https?:|file:|data:|javascript:|@import|url\s*\(|<\s*[a-z!/])/i.test(checked) || /(?:^|[;\n])\s*(?:click|classDef|linkStyle)\b/i.test(checked) || /;\s*style\b/i.test(checked)) return null
+  // Permit only a small, non-URL color/dash subset of Mermaid's style syntax.
+  for (const line of checked.split(/\r?\n/)) {
+    if (!/^\s*style\b/i.test(line)) continue
+    if (!/^\s*style\s+[\w-]+\s+(?:(?:fill|stroke):#[\da-f]{3}(?:[\da-f]{3})?|stroke-dasharray:\d+(?:\s+\d+)*)(?:\s*,\s*(?:(?:fill|stroke):#[\da-f]{3}(?:[\da-f]{3})?|stroke-dasharray:\d+(?:\s+\d+)*))*\s*$/i.test(line)) return null
+  }
+  return input
 }
 
 function safeCss(css: string): boolean {
@@ -40,7 +54,7 @@ function safeSvg(svg: string): { svg: string; width: number; height: number } {
     for (const attr of Array.from(node.attributes)) {
       if (/^on/i.test(attr.localName)) throw new Error('SVG event')
       if (/^(?:href|src)$/i.test(attr.localName) && !/^#[\w.-]+$/.test(attr.value)) throw new Error('SVG external reference')
-      if (/url\s*\(/i.test(attr.value) && !/^url\(\s*#[\w.-]+\s*\)$/.test(attr.value)) throw new Error('SVG external paint')
+      if (!/^style$/i.test(attr.localName) && /url\s*\(/i.test(attr.value) && !/^url\(\s*#[\w.-]+\s*\)$/.test(attr.value)) throw new Error('SVG external paint')
       if (/^(?:style)$/i.test(attr.localName) && !safeCss(attr.value)) throw new Error('SVG unsafe style')
     }
     if (node.localName === 'style') {
@@ -78,9 +92,14 @@ async function rasterize(svg: string): Promise<string> {
   } finally { URL.revokeObjectURL(url) }
 }
 
-export async function quickLookRender(html: string): Promise<string> {
+export async function quickLookRender(html: string, markdown?: string | null): Promise<string> {
   const parsed = new DOMParser().parseFromString(html, 'text/html')
-  const highlight = createCodeHighlighter(true)
+  if (typeof markdown === 'string') {
+    const fragment = parsed.createElement('template')
+    fragment.innerHTML = renderQuickLookMarkdown(markdown)
+    parsed.body.replaceChildren(fragment.content)
+  }
+  const highlight = createCodeHighlighter(true, ['bash', 'makefile', 'sql', 'xml'])
   let diagrams = 0, diagramChars = 0
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, htmlLabels: false, maxTextSize: MERMAID_BLOCK_CHARS, maxEdges: 160 })
   for (const pre of Array.from(parsed.querySelectorAll('pre'))) {
@@ -93,8 +112,9 @@ export async function quickLookRender(html: string): Promise<string> {
       try {
         let svg: string
         if (language === 'mermaid') {
-          if (!safeMermaid(source)) continue
-          svg = (await mermaid.render(`mwql-${diagrams}`, source)).svg
+          const safeSource = safeMermaid(source)
+          if (!safeSource) continue
+          svg = (await mermaid.render(`mwql-${diagrams}`, safeSource)).svg
         } else {
           validateDot(source)
           const viz = await instance()
@@ -125,5 +145,5 @@ export async function quickLookRender(html: string): Promise<string> {
   return result
 }
 
-declare global { var markwriterQuickLookRender: (html: string) => Promise<string> }
+declare global { var markwriterQuickLookRender: (html: string, markdown?: string | null) => Promise<string> }
 globalThis.markwriterQuickLookRender = quickLookRender

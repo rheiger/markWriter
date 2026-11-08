@@ -68,8 +68,8 @@ function codeLanguage(info: string) {
   return Object.hasOwn(aliases, word) ? aliases[word] : word
 }
 const longerGrammar = (language: string) => language === 'python' || language === 'json'
-function eligible(code: string, language: string) {
-  const limit = longerGrammar(language) ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
+function eligible(code: string, language: string, longer = longerGrammar(language)) {
+  const limit = longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
   return code.length > 0 && code.length <= limit &&
     (!language || lowlight.registered(language)) &&
     !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
@@ -78,6 +78,10 @@ function eligible(code: string, language: string) {
 export function highlightCode(code: string, info = ''): CodeHighlight {
   const language = codeLanguage(info)
   if (!eligible(code, language)) return plain
+  return highlightEligibleCode(code, language)
+}
+
+function highlightEligibleCode(code: string, language: string): CodeHighlight {
   const key = language + '\0' + code
   const cached = cache.get(key)
   if (cached) { cache.delete(key); cache.set(key, cached); return cached }
@@ -104,15 +108,15 @@ export function highlightCode(code: string, info = ''): CodeHighlight {
 }
 
 // New budget per document render/rebuild, including cache hits. No document writes.
-export function createCodeHighlighter(enabled: boolean) {
+export function createCodeHighlighter(enabled: boolean, additionalLongGrammars: readonly string[] = []) {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
   return (code: string, info = ''): CodeHighlight => {
-    const language = codeLanguage(info), longer = longerGrammar(language)
-    if (!enabled || --blocks < 0 || !eligible(code, language) ||
+    const language = codeLanguage(info), longer = longerGrammar(language) || additionalLongGrammars.includes(language)
+    if (!enabled || --blocks < 0 || !eligible(code, language, longer) ||
       code.length > (longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
     if (longer) longerRemaining -= code.length
     else remaining -= code.length
-    return highlightCode(code, info)
+    return highlightEligibleCode(code, language)
   }
 }
 const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
