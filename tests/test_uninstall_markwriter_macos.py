@@ -70,6 +70,42 @@ class RemovalTest(unittest.TestCase):
         self.assertIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
         self.assertEqual(doc.read_text(), 'draft'); self.assertEqual(profile.read_text(), 'recovery'); self.assertTrue(other.exists())
 
+    def test_interrupted_move_retry_refuses_stale_registration_without_mutation(self):
+        u.run(self.app, '2.7.3', True)
+        for apply in (False, True):
+            self.calls.clear()
+            with patch.object(u, 'registration_paths', return_value=[str(self.extension)]):
+                with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', apply)
+            self.assertTrue(self.backup.exists()); self.assertFalse(self.app.exists())
+            self.assertFalse(any(c[0] in (u.PLUGIN, u.LSREGISTER) for c in self.calls))
+        # Explicit restoration provides a path-scoped recovery, even if the
+        # interrupted move left the old registration behind.
+        with patch.object(u, 'registration_paths', return_value=[str(self.extension)]):
+            u.run(self.app, '2.7.3', True, restore=True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+
+    def test_interrupted_move_retry_allows_other_physical_provider(self):
+        u.run(self.app, '2.7.3', True)
+        other = self.root / 'other/Contents/PlugIns/MarkWriterQuickLook.appex'
+        other.mkdir(parents=True)
+        with patch.object(u, 'registration_paths', return_value=[str(other)]):
+            u.run(self.app, '2.7.3')
+            u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_interrupted_move_retry_and_restore_reject_process_at_old_path(self):
+        u.run(self.app, '2.7.3', True)
+        process_path = unicodedata.normalize('NFD', str(self.app / 'Contents/MacOS/markwriter'))
+        self.stopped.stop()
+        try:
+            fake = subprocess.CompletedProcess([], 0, stdout=process_path + '\n')
+            with patch.object(u.subprocess, 'run', return_value=fake):
+                for apply, restore in ((False, False), (True, False), (False, True), (True, True)):
+                    with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', apply, restore)
+        finally:
+            self.stopped.start()
+        self.assertTrue(self.backup.exists()); self.assertFalse(self.app.exists())
+
     def test_distinct_versions_support_exact_path_upgrade_and_rollback(self):
         self.host['CFBundleShortVersionString'] = self.ext['CFBundleShortVersionString'] = '2.7.2'
         self.write_plists()
@@ -213,6 +249,36 @@ class RemovalTest(unittest.TestCase):
         with self.assertRaises(u.Refusal): u.checked_path(str(link / 'MarkWriter.app'))
         plist = self.extension / 'Contents/Info.plist'; plist.unlink(); plist.symlink_to(self.app / 'Contents/Info.plist')
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+
+    def test_source_substitution_at_removal_move_is_returned_unregistered(self):
+        original_rename = u.rename_exclusive
+        parked = self.root / 'original-removal'
+        def substitute(source, destination):
+            if source == self.app:
+                source.rename(parked)
+                shutil.copytree(parked, source)
+            original_rename(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=substitute):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+        self.assertTrue(parked.exists())
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+
+    def test_source_substitution_at_restore_move_is_returned_unregistered(self):
+        u.run(self.app, '2.7.3', True)
+        self.calls.clear()
+        original_rename = u.rename_exclusive
+        parked = self.root / 'original-restore'
+        def substitute(source, destination):
+            if source == self.backup:
+                source.rename(parked)
+                shutil.copytree(parked, source)
+            original_rename(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=substitute):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, restore=True)
+        self.assertFalse(self.app.exists()); self.assertTrue(self.backup.exists())
+        self.assertTrue(parked.exists())
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
 
     def test_exclusive_rename_refuses_racing_destination(self):
         original = u.rename_exclusive

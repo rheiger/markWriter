@@ -110,6 +110,18 @@ def identity(app):
                 digest.update(chunk)
     return info.st_dev, info.st_ino, digest.digest()
 
+def entry_identity(path):
+    info = path.lstat()
+    return info.st_dev, info.st_ino
+
+def return_observed(source, destination, observed):
+    # Move only the item actually observed after the first exclusive rename.
+    if entry_identity(source) != observed:
+        raise Refusal('Moved item changed; refusing automatic return')
+    rename_exclusive(source, destination)
+    if entry_identity(destination) != observed:
+        raise Refusal('Returned item changed during recovery')
+
 def verify(app, version):
     if app.is_symlink() or not app.is_dir():
         raise Refusal(f'App is missing or not a directory: {app}')
@@ -148,16 +160,19 @@ def verify(app, version):
     command(CODESIGN, '--verify', '--deep', '--strict', str(app))
     command(CODESIGN, '--verify', '--strict', '-R=identifier \"com.markwriter.app\"', str(app))
 
-def assert_stopped(app):
+def assert_stopped(app, prior_path=None):
     result = subprocess.run(['/bin/ps', '-ww', '-axo', 'comm='], check=True, text=True, capture_output=True)
     # Compare directory identities rather than strings: APFS may report a
     # decomposed or differently cased spelling for the same selected bundle.
     target = os.stat(app)
     normalized_prefix = unicodedata.normalize('NFD', str(app)).casefold() + '/'
+    previous_prefix = unicodedata.normalize('NFD', str(prior_path)).casefold() + '/' if prior_path else None
     for line in result.stdout.splitlines():
         executable = line.strip()
         if not executable.startswith('/'):
             continue
+        if previous_prefix and unicodedata.normalize('NFD', executable).casefold().startswith(previous_prefix):
+            raise Refusal('A process still refers to the original app path; quit it and retry')
         for parent in Path(executable).parents:
             try:
                 info = os.stat(parent)
@@ -225,6 +240,14 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
     if not source.exists():
         if not restore and backup.exists():
             verify(backup, version)
+            before = identity(backup)
+            assert_stopped(backup, app)
+            try:
+                confirm_unregistered(app, backup)
+            except (Refusal, OSError, subprocess.CalledProcessError, UnicodeError) as exc:
+                raise Refusal(f'Cannot verify removal; inspect and use --restore --apply to recover: {exc}') from exc
+            if app.exists() or app.is_symlink() or identity(backup) != before:
+                raise Refusal('App or backup changed while verifying removal')
             print(f'Already moved to {backup}; use --restore to return it')
             return
         raise Refusal(f'Source does not exist: {source}')
@@ -232,7 +255,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         raise Refusal(f'Destination already exists: {destination}')
     verify(source, version)
     original = identity(source)
-    assert_stopped(source)
+    assert_stopped(source, app if restore else None)
     print(f'{"Restore" if restore else "Remove"}: {source} -> {destination}')
     print(f'Verified version: {version}; app and extension registration are path-scoped.')
     if not apply:
@@ -240,10 +263,27 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         return
     if restore:
         verify(source, version)
-        assert_stopped(source)
+        assert_stopped(source, app)
         if identity(source) != original:
             raise Refusal('Bundle changed during operation')
-        rename_exclusive(source, destination)
+        observed = None
+        try:
+            rename_exclusive(source, destination)
+            observed = entry_identity(destination)
+            verify(destination, version)
+            if identity(destination) != original:
+                raise Refusal('Restored bundle changed during move')
+            assert_stopped(destination)
+        except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt, UnicodeError):
+            if observed is not None:
+                try:
+                    if destination.is_symlink() or not destination.is_dir():
+                        raise Refusal('Moved item cannot be safely inspected')
+                    assert_stopped(destination)
+                    return_observed(destination, source, observed)
+                except (OSError, Refusal):
+                    print(f'Recovery incomplete; inspect {destination} and {source}.', file=sys.stderr)
+            raise
         try:
             register(destination)
         except (OSError, subprocess.CalledProcessError, KeyboardInterrupt):
@@ -252,6 +292,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         print(f'Restored: {destination}')
         return
     moved = False
+    observed = None
     try:
         try:
             command(PLUGIN, '-r', str(app / EXT))
@@ -272,16 +313,23 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
             raise Refusal('Bundle changed during operation')
         rename_exclusive(app, backup)
         moved = True
+        observed = entry_identity(backup)
+        verify(backup, version)
+        if identity(backup) != original:
+            raise Refusal('Quarantined bundle changed during move')
+        assert_stopped(backup, app)
         if app.exists() or app.is_symlink():
             raise Refusal('Original app path reappeared after move')
         confirm_unregistered(app, backup)
     except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt, UnicodeError):
         try:
             if moved:
-                verify(backup, version)
-                if identity(backup) != original:
-                    raise Refusal('Quarantined bundle changed; refusing automatic restore')
-                rename_exclusive(backup, app)
+                if observed is None:
+                    raise Refusal('Moved item identity was not captured')
+                if backup.is_symlink() or not backup.is_dir():
+                    raise Refusal('Moved item cannot be safely inspected')
+                assert_stopped(backup, app)
+                return_observed(backup, app, observed)
             if app.exists():
                 if identity(app) != original:
                     raise Refusal('Bundle changed; refusing automatic registration')
