@@ -2,7 +2,6 @@ import { foldedRanges } from '@codemirror/language'
 import { EditorView as CMView } from '@codemirror/view'
 import { SearchQuery, setSearchQuery, findNext, openSearchPanel } from '@codemirror/search'
 import { createRef } from 'react'
-import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
@@ -674,8 +673,8 @@ describe('document fidelity with real editors', () => {
     expect(doc.querySelector('code.language-typescript')?.textContent).toBe('const literal = "```";\n')
   })
 
-  it('retains the existing sample document structure over an edited round-trip', async () => {
-    const source = readFileSync('../Samples/SampleMD+mermaid.md', 'utf8')
+  it('retains mixed document structure over an edited round-trip', async () => {
+    const source = ['# Example', '', 'A **bold** paragraph and a [link](https://example.com).', '', '- First', '- Second', '', '| Name | Value |', '| --- | --- |', '| One | Two |', '', '```mermaid', 'graph TD', '  A --> B', '```', '', '> A quotation'].join('\n')
     const { editor } = await mount(source)
     act(() => { editor.commands.insertContentAt(1, 'Corpus edit ') })
     const expected = editor.getJSON()
