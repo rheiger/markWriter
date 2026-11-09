@@ -8,6 +8,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unicodedata
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('uninstall', Path(__file__).resolve().parents[1] / 'tools/uninstall-markwriter-macos.py')
@@ -221,6 +222,39 @@ with u.transaction_lock(app.parent / u.QUARANTINE, app):
         self.assertTrue(self.app.exists())
         self.assertFalse(self.backup.exists())
         self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+
+    def test_running_detection_handles_macos_unicode_and_case_without_other_copy(self):
+        original = self.app.with_name('MarkWriter Prüfling.app')
+        self.app.rename(original)
+        running = unicodedata.normalize('NFD', str(original / 'Contents/MacOS/markwriter'))
+        self.assertTrue(Path(running).exists(), 'This regression requires a Unicode-normalizing macOS volume')
+        alternative_case = running.replace('MarkWriter Pru', 'MARKWRITER PRU')
+        self.assertTrue(Path(alternative_case).exists(), 'This regression requires a case-insensitive macOS volume')
+        other = original.parent / 'MarkWriter Other.app' / 'Contents/MacOS'
+        other.mkdir(parents=True)
+        (other / 'markwriter').write_text('other synthetic app')
+        self.stopped.stop()
+        try:
+            with patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=alternative_case + '\n')):
+                with self.assertRaises(u.Refusal): u.assert_stopped(original)
+            with patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=str(other / 'markwriter') + '\n')):
+                u.assert_stopped(original)
+        finally:
+            self.stopped.start()
+
+    def test_actual_running_unicode_bundle_is_rejected(self):
+        original = self.app.with_name('MarkWriter Prüfling.app')
+        self.app.rename(original)
+        executable = original / 'Contents/MacOS/markwriter'
+        shutil.copyfile('/bin/sleep', executable)
+        executable.chmod(0o755)
+        process = subprocess.Popen([str(executable), '30'])
+        self.stopped.stop()
+        try:
+            with self.assertRaises(u.Refusal): u.assert_stopped(original)
+        finally:
+            process.terminate(); process.wait(timeout=5)
+            self.stopped.start()
 
     def test_process_check_detects_exact_bundle_prefix(self):
         self.stopped.stop()

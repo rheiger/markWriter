@@ -147,9 +147,25 @@ def verify(app, version):
 
 def assert_stopped(app):
     result = subprocess.run(['/bin/ps', '-ww', '-axo', 'comm='], check=True, text=True, capture_output=True)
-    prefix = str(app) + '/'
-    if any(line.strip().startswith(prefix) for line in result.stdout.splitlines()):
-        raise Refusal('A process from this app is running; quit MarkWriter and its extension, then retry')
+    # Compare directory identities rather than strings: APFS may report a
+    # decomposed or differently cased spelling for the same selected bundle.
+    target = os.stat(app)
+    normalized_prefix = unicodedata.normalize('NFD', str(app)).casefold() + '/'
+    for line in result.stdout.splitlines():
+        executable = line.strip()
+        if not executable.startswith('/'):
+            continue
+        for parent in Path(executable).parents:
+            try:
+                info = os.stat(parent)
+            except OSError:
+                # If a matching path cannot be inspected, fail closed instead
+                # of declaring the app stopped on incomplete evidence.
+                if unicodedata.normalize('NFD', executable).casefold().startswith(normalized_prefix):
+                    raise Refusal('Cannot inspect a process from this app; quit it and retry')
+                continue
+            if (info.st_dev, info.st_ino) == (target.st_dev, target.st_ino):
+                raise Refusal('A process from this app is running; quit MarkWriter and its extension, then retry')
 
 def register(app):
     command(LSREGISTER, '-f', str(app))
