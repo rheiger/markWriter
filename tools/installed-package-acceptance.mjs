@@ -4,6 +4,7 @@ import { verifyRegex } from './regex-acceptance.mjs'
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
 import { tomlEditorFixture } from './toml-fixtures.mjs'
+import { sqlHighlightFixture } from './sql-highlight-fixtures.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -225,6 +226,12 @@ try{
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,fixture:tomlEditorFixture(),name:'long-toml',label:'long explicit TOML'})
  cases.push(...longToml.cases)
  await writeFile(join(artifacts,'toml-evidence.json'),JSON.stringify(longToml,null,2))
+ const longSql = await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
+   exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,
+   fixture:sqlHighlightFixture(),name:'long-sql',label:'large explicit SQL',verifyUndo:true})
+ cases.push(...longSql.cases)
+ await writeFile(join(artifacts,'sql-highlight-evidence.json'),JSON.stringify(longSql,null,2))
  const updateCheck=await verifyUpdateCheck({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
  cases.push(...updateCheck.cases)

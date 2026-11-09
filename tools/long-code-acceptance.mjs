@@ -30,13 +30,13 @@ export function longCodeFixture() {
   return {blocks,source:'# Long explicit code regression\n\n'+blocks.map(({language,code},n)=>`## Block ${n+1}\n\n\`\`\`${language}\n${code}\n\`\`\``).join('\n\n')+'\n'}
 }
 
-export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,close,saveAs,exportHtml,wait,syntax,request,session,fixture=longCodeFixture(),name='long-code',label='long Python/JSON'}) {
+export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,close,saveAs,exportHtml,wait,syntax,request,session,fixture=longCodeFixture(),name='long-code',label='long Python/JSON',verifyUndo=false}) {
   const {blocks,source}=fixture,cases=[]
   const path=join(dir,name+'.md'),saved=join(dir,name+'-saved.md')
   await writeFile(path,source);await open(path,basename(path));await syntax(true,'toolbar')
   const expected=blocks.map(block=>block.code+'\n')
   const finalMarkers=blocks.map(block=>block.finalMarker??null)
-  const evidence={sizes:blocks.map(block=>block.code.length),blocks:[],sourceMarkers:[],cases}
+  const evidence={sizes:blocks.map(block=>block.code.length),utf8Bytes:blocks.map(block=>Buffer.byteLength(block.code)),blocks:[],sourceMarkers:[],cases}
   async function saveExact(destination,label) {
     await saveAs(destination)
     await wait(async()=>await readFile(destination,'utf8').catch(()=>null)===source,label+' file bytes')
@@ -58,7 +58,7 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
         await wait(()=>run('return document.querySelector("[role=search] output")?.textContent.includes("1 match")'),'unique long-code source marker')
         await click('//button[normalize-space(.)="Next"]')
         await click('//button[normalize-space(.)="Close Find"]')
-        await wait(()=>run(`return [...document.querySelectorAll('[data-active=true] .cm-line')].some(n=>n.textContent.includes(arguments[0])&&!!n.querySelector('[class*=hljs-]'))`,marker),'visible highlighted CodeMirror block '+marker)
+        await wait(()=>run(`return [...document.querySelectorAll('[data-active=true] .cm-line')].some(n=>n.textContent.includes(arguments[0])&&[...n.querySelectorAll('[class*=hljs-]')].some(token=>!arguments[1]||token.textContent.includes(arguments[0])))`,marker,finalMarkers.includes(marker)),'visible highlighted CodeMirror block '+marker)
         evidence.sourceMarkers.push({marker,highlighted:true})
       }
     }
@@ -87,6 +87,26 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
   await syntax(true,'menu');await mode(false);await mode(true)
   const savedAgain=join(dir,name+'-cycle-saved.md');await saveExact(savedAgain,'long-code toggle/mode cycles preserve canonical saved bytes')
   cases.push(label+' view-only native Save As and repeated mode/toggle cycles preserve original bytes')
+  if(verifyUndo) {
+    const marker=finalMarkers[0]
+    assert.ok(marker,'Undo probe requires a unique final marker')
+    const changed=marker+'_edited'
+    for(const markdown of [true,false]) {
+      const surface=markdown?'source':'rendered'
+      await mode(markdown)
+      await menu('Edit','Replace...')
+      await wait(()=>run('return document.querySelectorAll("[role=search] textarea").length===2'),'large SQL Replace opened')
+      await run(`for(const [index,text] of arguments[0].entries()){const field=document.querySelectorAll('[role=search] textarea')[index];Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,text);field.dispatchEvent(new Event('input',{bubbles:true}))}`,[marker,changed])
+      await wait(()=>run('return document.querySelector("[role=search] output")?.textContent.includes("1 match")'),'unique large SQL Undo probe')
+      await click('//button[normalize-space(.)="Replace All"]')
+      await click('//button[normalize-space(.)="Close Find"]')
+      await wait(()=>run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'large SQL edit becomes dirty')
+      await menu('Edit','Undo')
+      await wait(()=>run('return !document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'one large SQL Undo restores clean document')
+      await saveExact(join(dir,name+'-undo-'+surface+'.md'),label+' one Undo in '+surface)
+    }
+    cases.push(label+' one Undo restores exact native saved bytes in both modes')
+  }
   await close()
   return evidence
 }
