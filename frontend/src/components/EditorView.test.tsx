@@ -921,3 +921,29 @@ describe('restored view state', () => {
     expect(useAppStore.getState().currentDocument!.revision).toBeUndefined()
   })
 })
+
+describe('large SQL preview scheduling', () => {
+  it('coalesces source edits and never renders an obsolete revision after a mode switch', async () => {
+    const source = '```sql\n' + 'SELECT 42;\n'.repeat(500) + '```'
+    const {ref, container} = await mount(source)
+    await markdown(ref)
+    const view = ref.current!.getEditorView()!
+    const preview = container.querySelector('[data-active="true"] .markwriter-preview')!
+    expect(preview.textContent).not.toContain('newest_marker')
+    act(() => {
+      view.dispatch({changes:{from:7,insert:'-- old_marker\n'}})
+      view.dispatch({changes:{from:7,insert:'-- newest_marker\n'}})
+    })
+    expect(ref.current!.getMarkdown()).toContain('newest_marker')
+    await waitFor(() => expect(preview.textContent).toContain('newest_marker'))
+    act(() => {
+      view.dispatch({changes:{from:7,insert:'-- stale_marker\n'}})
+      ref.current!.setMode('wysiwyg')
+    })
+    await new Promise(resolve => setTimeout(resolve, 150))
+    expect(preview.textContent).not.toContain('stale_marker')
+    await markdown(ref)
+    await waitFor(() => expect(preview.textContent).toContain('stale_marker'))
+    expect(ref.current!.getMarkdown()).toContain('newest_marker')
+  }, 15000)
+})

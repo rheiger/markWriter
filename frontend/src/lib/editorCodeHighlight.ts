@@ -21,9 +21,14 @@ function sourceDecorations(state: EditorState) {
         code += state.sliceDoc(child.from, child.to)
       }
     }
-    for (const token of highlight(code, info).ranges) for (const chunk of chunks) {
-      const from = Math.max(token.from, chunk.offset), to = Math.min(token.to, chunk.offset + chunk.to - chunk.from)
-      if (to > from) decorations.push(Decoration.mark({ class: token.className }).range(chunk.from + from - chunk.offset, chunk.from + to - chunk.offset))
+    let chunkIndex = 0
+    for (const token of highlight(code, info).ranges) {
+      while (chunkIndex < chunks.length && chunks[chunkIndex].offset + chunks[chunkIndex].to - chunks[chunkIndex].from <= token.from) chunkIndex++
+      for (let i = chunkIndex; i < chunks.length && chunks[i].offset < token.to; i++) {
+        const chunk = chunks[i]
+        const from = Math.max(token.from, chunk.offset), to = Math.min(token.to, chunk.offset + chunk.to - chunk.from)
+        if (to > from) decorations.push(Decoration.mark({ class: token.className }).range(chunk.from + from - chunk.offset, chunk.from + to - chunk.offset))
+      }
     }
     return false
   } })

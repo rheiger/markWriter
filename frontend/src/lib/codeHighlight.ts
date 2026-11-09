@@ -35,6 +35,7 @@ export const CODE_LIMIT = 4 * 1024
 // Explicit Python, JSON and TOML are independently qualified for longer technical examples.
 // Keep the conservative cap for other grammars (notably C++), and never enlarge auto work.
 export const LONG_CODE_LIMIT = 16 * 1024
+export const SQL_CODE_LIMIT = 128 * 1024
 export const AUTO_LIMIT = 2 * 1024
 const LINE_LIMIT = 2 * 1024
 const DOCUMENT_LIMIT = 16 * 1024
@@ -72,7 +73,7 @@ function codeLanguage(info: string) {
 }
 const longerGrammar = (language: string) => language === 'python' || language === 'json' || language === 'toml'
 function eligible(code: string, language: string, longer = longerGrammar(language)) {
-  const limit = longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
+  const limit = language === 'sql' ? SQL_CODE_LIMIT : longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
   return code.length > 0 && code.length <= limit &&
     (!language || lowlight.registered(language)) &&
     !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
@@ -81,7 +82,7 @@ function eligible(code: string, language: string, longer = longerGrammar(languag
 export function highlightCode(code: string, info = ''): CodeHighlight {
   const language = codeLanguage(info)
   if (!eligible(code, language)) return plain
-  return highlightEligibleCode(code, language)
+  return highlightEligibleCode(code, language, language === 'sql' ? 24 * 1024 : SPAN_LIMIT)
 }
 
 function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_LIMIT): CodeHighlight {
@@ -113,13 +114,15 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
 // New budget per document render/rebuild, including cache hits. No document writes.
 export function createCodeHighlighter(enabled: boolean) {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
+  let sqlRemaining = SQL_CODE_LIMIT
   return (code: string, info = ''): CodeHighlight => {
     const language = codeLanguage(info), longer = longerGrammar(language)
     if (!enabled || --blocks < 0 || !eligible(code, language, longer) ||
-      code.length > (longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
-    if (longer) longerRemaining -= code.length
+      code.length > (language === 'sql' ? sqlRemaining : longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
+    if (language === 'sql') sqlRemaining -= code.length
+    else if (longer) longerRemaining -= code.length
     else remaining -= code.length
-    return highlightEligibleCode(code, language)
+    return highlightEligibleCode(code, language, language === 'sql' ? 24 * 1024 : SPAN_LIMIT)
   }
 }
 // Finder uses a disposable WebKit renderer with its own deadline. Only explicit

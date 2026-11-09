@@ -668,8 +668,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   // Parse fenced blocks through the Markdown parser, then render only this preview generation.
   const previewGeneration = useRef(0)
   const previewAbort = useRef<AbortController | null>(null)
-  useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => { previewAbort.current?.abort() } }, [active, editorMode])
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => {
+    previewAbort.current?.abort()
+    if (previewTimer.current) clearTimeout(previewTimer.current)
+    previewTimer.current = null
+  } }, [active, editorMode])
   const updatePreview = useCallback((content: string) => {
+    if (previewTimer.current) clearTimeout(previewTimer.current)
+    previewTimer.current = null
     const container = previewRef.current
     if (!container || !active || useAppStore.getState().currentDocument?.id !== documentId) return
     previewAbort.current?.abort()
@@ -745,6 +752,24 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview
+  const schedulePreview = (content: string) => {
+    if (previewTimer.current) clearTimeout(previewTimer.current)
+    if (content.length <= 4096) {
+      latestPreview.current(content)
+      return
+    }
+    // Coalesce expensive large previews after typing. An old diagram must
+    // not finish into the visible preview while the new revision is pending.
+    previewAbort.current?.abort()
+    const revision = useAppStore.getState().documents.find(item => item.id === documentId)?.revision
+    previewTimer.current = setTimeout(() => {
+      previewTimer.current = null
+      const doc = useAppStore.getState().documents.find(item => item.id === documentId)
+      if (doc && doc.revision === revision && doc.content === content) latestPreview.current(content)
+    }, 100)
+  }
+  const latestScheduledPreview = useRef(schedulePreview)
+  latestScheduledPreview.current = schedulePreview
 
   // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
@@ -801,7 +826,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
             const newContent = editorText(prior) === update.startState.doc.toString() ? applyEditorChanges(prior, update.changes, sourceNewline.current) : update.state.doc.toString()
             console.log('[EDITOR] Content changed, length:', newContent.length)
             updateDocumentContent(newContent)
-            latestPreview.current(newContent)
+            latestScheduledPreview.current(newContent)
           }
         }),
         CodeMirrorView.theme({
