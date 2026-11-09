@@ -1192,3 +1192,49 @@ describe('equal-model rendered history events', () => {
     expect(ref.current!.getMarkdown()).toBe('FooX')
   })
 })
+
+describe('rendered Find and Replace after equal-model transactions', () => {
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+  it('does not restart regex work for selection or highlight-only transactions', async () => {
+    const search = await import('../lib/regexSearch')
+    const { highlightRendered } = await import('../lib/editorSearch')
+    const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
+    try {
+      const { editor, ref } = await mount('Foo\n')
+      act(() => ref.current!.openFind(true))
+      fireEvent.click(screen.getByLabelText('Regex'))
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: 'Foo' } })
+      await waitFor(() => expect(screen.getByText('1 matches · wraps')).toBeVisible())
+      const calls = spy.mock.calls.length
+      act(() => {
+        editor.commands.setTextSelection(2)
+        highlightRendered(editor, [{ from: 1, to: 4 }])
+      })
+      expect(spy).toHaveBeenCalledTimes(calls)
+      expect(screen.getByText('1 matches · wraps')).toBeVisible()
+    } finally { spy.mockRestore() }
+  })
+  it.each([false, true])('keeps the open panel usable after a no-op replacement (regex: %s)', async regex => {
+    const search = await import('../lib/regexSearch')
+    const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
+    try {
+      const { editor, ref } = await mount('Foo\n')
+      act(() => ref.current!.openFind(true))
+      if (regex) fireEvent.click(screen.getByLabelText('Regex'))
+      fireEvent.change(screen.getByLabelText('Find'), { target: { value: 'Foo' } })
+      await waitFor(() => expect(screen.getByText('1 matches · wraps')).toBeVisible())
+      fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: 'Foo' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(screen.getByRole('search')).toBeVisible()
+      expect(ref.current!.getMarkdown()).toBe('Foo\n')
+      fireEvent.change(screen.getByLabelText('Replace with'), { target: { value: 'Hello' } })
+      await waitFor(() => expect(screen.getByText('1 matches · wraps')).toBeVisible())
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      expect(editor.getText()).toBe('Hello')
+      expect(ref.current!.getMarkdown()).toBe('Hello')
+      act(() => ref.current!.undo())
+      expect(ref.current!.getMarkdown()).toBe('Foo\n')
+      expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    } finally { spy.mockRestore() }
+  })
+})

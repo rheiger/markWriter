@@ -26,9 +26,18 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
   const owner = () => active && useAppStore.getState().currentDocument?.id === documentId
   useEffect(() => {
     if (!editor) return
-    const changed = () => setEngineRevision(n => n + 1)
-    editor.on('update', changed)
-    return () => { editor.off('update', changed) }
+    let lastDoc = editor.state.doc
+    const changed = () => {
+      const doc = editor.state.doc
+      if (doc === lastDoc) return
+      lastDoc = doc
+      setEngineRevision(n => n + 1)
+    }
+    // Tiptap suppresses update for structurally equal replacements, although
+    // ProseMirror still creates a new document object and history event.
+    // Selection and decoration-only transactions keep the same identity.
+    editor.on('transaction', changed)
+    return () => { editor.off('transaction', changed) }
   }, [editor])
   const basis = useMemo(() => {
     void engineRevision
