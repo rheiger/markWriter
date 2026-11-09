@@ -34,6 +34,9 @@ class RemovalTest(unittest.TestCase):
             signature = bundle / 'Contents/_CodeSignature/CodeResources'
             signature.parent.mkdir()
             signature.write_text('synthetic seal')
+        self.query = patch.object(u, 'registration_paths', return_value=[])
+        self.query.start()
+        self.addCleanup(self.query.stop)
         self.calls = []
         self.commands = patch.object(u, 'command', side_effect=lambda *args: self.calls.append(args))
         self.commands.start()
@@ -99,6 +102,80 @@ class RemovalTest(unittest.TestCase):
         (self.app / 'Contents/PlugIns/Other.appex').mkdir()
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
         self.assertTrue(self.app.exists())
+
+    def test_plugin_remove_failure_succeeds_only_after_verified_absence(self):
+        def fail_plugin(*args):
+            self.calls.append(args)
+            if args[:2] == (u.PLUGIN, '-r'): raise subprocess.CalledProcessError(1, args, stderr='remove: no plugin at ' + str(self.extension))
+        with patch.object(u, 'command', side_effect=fail_plugin):
+            u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists()); self.assertFalse(self.app.exists())
+        self.assertIn((u.LSREGISTER, '-u', str(self.app)), self.calls)
+
+    def test_unexpected_plugin_failure_refuses_recovery_path(self):
+        def deny(*args):
+            self.calls.append(args)
+            if args[:2] == (u.PLUGIN, '-r'):
+                raise subprocess.CalledProcessError(1, args, stderr='permission denied')
+        with patch.object(u, 'command', side_effect=deny):
+            with self.assertRaises(subprocess.CalledProcessError): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+        self.assertNotIn((u.LSREGISTER, '-u', str(self.app)), self.calls)
+
+    def test_post_move_registration_uncertainty_rolls_back(self):
+        for failure in (u.Refusal('ambiguous query'), subprocess.CalledProcessError(1, 'query')):
+            with patch.object(u, 'registration_paths', side_effect=failure):
+                with self.assertRaises(type(failure)): u.run(self.app, '2.7.3', True)
+            self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+            self.assertIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+
+    def test_post_move_selected_registration_refuses_and_restores(self):
+        with patch.object(u, 'registration_paths', return_value=[str(self.extension)]):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+
+    def test_backup_alias_record_causes_rollback(self):
+        alias = self.root / 'alias.appex'
+        def alias_record():
+            alias.symlink_to(self.backup / u.EXT)
+            return [str(alias)]
+        with patch.object(u, 'registration_paths', side_effect=alias_record):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+
+    def test_rollback_does_not_clobber_new_target(self):
+        def collision():
+            self.app.mkdir()
+            raise u.Refusal('injected collision')
+        with patch.object(u, 'registration_paths', side_effect=collision):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertTrue(self.backup.exists())
+        self.assertFalse((self.app / 'Contents').exists())
+
+    def test_unrelated_plugin_path_does_not_prevent_removal(self):
+        other = self.root / 'other/Contents/PlugIns/MarkWriterQuickLook.appex'
+        other.mkdir(parents=True)
+        with patch.object(u, 'registration_paths', return_value=[str(other)]):
+            u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_uninspectable_other_registration_is_ambiguous(self):
+        with patch.object(u, 'registration_paths', return_value=[str(self.root / 'missing.appex')]):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+
+    def test_plugin_query_requires_complete_parseable_output(self):
+        self.query.stop()
+        try:
+            with patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='  (no matches)\n')):
+                self.assertEqual(u.registration_paths(), [])
+            sample = ' Path = /a/one.appex\n Path = /b/two.appex\n (2 plug-ins)\n'
+            with patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=sample)):
+                self.assertEqual(u.registration_paths(), ['/a/one.appex', '/b/two.appex'])
+            with patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=' Path = /a\n (2 plug-ins)\n')):
+                with self.assertRaises(u.Refusal): u.registration_paths()
+        finally:
+            self.query.start()
 
     def test_failure_restores_registration_and_retry(self):
         def fail(*args):

@@ -26,7 +26,10 @@ class Refusal(Exception):
     pass
 
 def command(*args):
-    subprocess.run(args, check=True)
+    if args[:2] == (PLUGIN, '-r'):
+        subprocess.run(args, check=True, text=True, capture_output=True)
+    else:
+        subprocess.run(args, check=True)
 
 def checked_path(raw):
     p = Path(raw)
@@ -171,6 +174,34 @@ def register(app):
     command(LSREGISTER, '-f', str(app))
     command(PLUGIN, '-a', str(app / EXT))
 
+def registration_paths():
+    result = subprocess.run([PLUGIN, '-m', '-ADvv', '-i', 'com.markwriter.app.quicklook'],
+                            check=True, text=True, capture_output=True)
+    if result.stderr and result.stderr.strip():
+        raise Refusal('PlugInKit query returned a warning')
+    output = result.stdout.strip()
+    if output == '(no matches)':
+        return []
+    paths = re.findall(r'^\s*Path = (.+)$', output, flags=re.MULTILINE)
+    count = re.search(r'^\s*\(([0-9]+) plug-ins?\)\s*$', output, flags=re.MULTILINE)
+    if not count or int(count.group(1)) != len(paths) or not paths or any(not p.startswith('/') for p in paths):
+        raise Refusal('Cannot establish complete PlugInKit registration state')
+    return paths
+
+def confirm_unregistered(app, backup):
+    def normalized(path):
+        return unicodedata.normalize('NFD', os.path.normpath(str(path))).casefold()
+    original = normalized(app / EXT)
+    moved = normalized(backup / EXT)
+    for record in registration_paths():
+        if normalized(record) in (original, moved):
+            raise Refusal('Selected extension is still registered')
+        try:
+            if os.path.samefile(record, backup / EXT):
+                raise Refusal('Quarantined extension is still registered')
+        except OSError as exc:
+            raise Refusal(f'Cannot inspect registered extension path: {exc}')
+
 def run_locked(app, version, apply=False, restore=False, repair=False):
     backup_dir = app.parent / QUARANTINE
     backup = backup_dir / (app.name + '.' + version + '.quarantined')
@@ -220,23 +251,44 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
             raise
         print(f'Restored: {destination}')
         return
+    moved = False
     try:
-        command(PLUGIN, '-r', str(app / EXT))
+        try:
+            command(PLUGIN, '-r', str(app / EXT))
+        except subprocess.CalledProcessError as exc:
+            expected_error = 'remove: no plugin at ' + str(app / EXT)
+            if (exc.returncode != 1 or exc.stdout not in (None, '') or not isinstance(exc.stderr, str) or
+                    unicodedata.normalize('NFD', exc.stderr.strip()).casefold() !=
+                    unicodedata.normalize('NFD', expected_error).casefold()):
+                raise
+            # Some macOS versions reject a Unicode path despite a matching
+            # record. Continue only with path-scoped LS removal, a reversible
+            # move, and independent confirmation that the record is gone.
+            print('PlugInKit removal failed; checking path-scoped recovery.', file=sys.stderr)
         command(LSREGISTER, '-u', str(app))
         verify(app, version)
         assert_stopped(app)
         if identity(app) != original:
             raise Refusal('Bundle changed during operation')
         rename_exclusive(app, backup)
-    except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt):
-        if app.exists():
-            try:
+        moved = True
+        if app.exists() or app.is_symlink():
+            raise Refusal('Original app path reappeared after move')
+        confirm_unregistered(app, backup)
+    except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt, UnicodeError):
+        try:
+            if moved:
+                verify(backup, version)
+                if identity(backup) != original:
+                    raise Refusal('Quarantined bundle changed; refusing automatic restore')
+                rename_exclusive(backup, app)
+            if app.exists():
                 if identity(app) != original:
                     raise Refusal('Bundle changed; refusing automatic registration')
                 verify(app, version)
                 register(app)
-            except (OSError, subprocess.CalledProcessError, Refusal):
-                print(f'Re-registration failed; manually register {app} and {app / EXT}.', file=sys.stderr)
+        except (OSError, subprocess.CalledProcessError, Refusal):
+            print(f'Recovery incomplete; inspect {app} and {backup} before retrying registration.', file=sys.stderr)
         raise
     print(f'Moved to {backup}. Restore with the same command plus --restore --apply.')
 
