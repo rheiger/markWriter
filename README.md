@@ -32,6 +32,6 @@ For native development, run `npm run frontend:dev` and, in another terminal, `cd
 
 ## Project information
 
-[Changelog](CHANGELOG.md) · [Release notes](docs/releases/) · [Document ownership](docs/document-ownership.md) · [Preview correspondence](docs/preview-correspondence.md) · [Project guidance](AGENTS.md)
+[Changelog](CHANGELOG.md) · [Release notes](docs/releases/) · [Architecture](docs/architecture.md) · [Document ownership](docs/document-ownership.md) · [Preview correspondence](docs/preview-correspondence.md) · [Project guidance](AGENTS.md)
 
 Historical implementation and qualification documents are available in [Git history before cleanup](https://github.com/rheiger/markWriter/tree/3dcf648b412eaf9f73bef82e846f83ced0008156). Bundled dependency licenses and attribution are provided in the app and release notices. MarkWriter uses the [MIT License](LICENSE).
