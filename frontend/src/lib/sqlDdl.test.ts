@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { convertSqlDdl } from './sqlDdl'
 
 describe('bounded SQL DDL import', () => {
+  it('gives actionable errors for common unsupported inputs without echoing source', () => {
+    const cases = [
+      ['# Private notes\n```sql\nCREATE TABLE t(id int);\n```', /Markdown.*\.sql/i],
+      ['-- comment\nPRAGMA foreign_keys = ON;', /PRAGMA.*line 2.*supported/i],
+      ['CREATE TABLE t(id INTEGER CHECK(id > 0));', /CHECK.*line 1.*supported/i],
+      ['CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT);', /AUTOINCREMENT.*line 1.*supported/i],
+      ['CREATE VIEW secret AS SELECT * FROM t;', /VIEW.*line 1.*supported/i],
+    ] as const
+    for (const [input, message] of cases) {
+      try { convertSqlDdl(input, 'sqlite'); throw new Error('unexpected success') }
+      catch (error) { expect(String(error)).toMatch(message); expect(String(error)).not.toContain('secret') }
+    }
+  })
   it('preserves ordered PostgreSQL keys and qualified foreign keys', () => {
     const result = convertSqlDdl(`CREATE TABLE accounting.customers (id integer, region text, PRIMARY KEY (region,id));
 CREATE TABLE orders (region text, customer_id integer, UNIQUE(region, customer_id), FOREIGN KEY (region, customer_id) REFERENCES accounting.customers(region,id));`, 'postgresql')

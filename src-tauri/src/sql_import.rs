@@ -17,9 +17,9 @@ fn read_sql(path: &Path) -> Result<String, String> {
             .extension()
             .is_some_and(|suffix| suffix.eq_ignore_ascii_case("sql"))
     {
-        return Err("Choose a local .sql file.".into());
+        return Err("Choose a local .sql file containing supported table DDL.".into());
     }
-    let io_error = |_: std::io::Error| "Could not read the selected SQL file.".to_owned();
+    let io_error = |_: std::io::Error| "Could not read the selected SQL file. Check that it exists and you have permission to read it.".to_owned();
     if !fs::metadata(path).map_err(io_error)?.is_file() {
         return Err("Choose a regular SQL file.".into());
     }
@@ -38,16 +38,16 @@ fn read_sql(path: &Path) -> Result<String, String> {
         return Err("Choose a regular SQL file.".into());
     }
     if metadata.len() > MAX_SQL_BYTES {
-        return Err("SQL file exceeds 64 KiB.".into());
+        return Err("SQL file exceeds 64 KiB. Choose a smaller supported schema excerpt.".into());
     }
     let mut bytes = Vec::new();
     file.take(MAX_SQL_BYTES + 1)
         .read_to_end(&mut bytes)
         .map_err(io_error)?;
     if bytes.len() as u64 > MAX_SQL_BYTES {
-        return Err("SQL file exceeds 64 KiB.".into());
+        return Err("SQL file exceeds 64 KiB. Choose a smaller supported schema excerpt.".into());
     }
-    String::from_utf8(bytes).map_err(|_| "SQL file must be UTF-8.".into())
+    String::from_utf8(bytes).map_err(|_| "SQL file must be UTF-8. Re-save a copy as UTF-8 and choose it again.".into())
 }
 
 #[tauri::command]
@@ -97,9 +97,16 @@ mod tests {
         assert_eq!(read_sql(&file).unwrap().as_bytes(), before);
         assert_eq!(fs::read(&file).unwrap(), before);
         fs::write(&file, [0xff]).unwrap();
-        assert!(read_sql(&file).unwrap_err().contains("UTF-8"));
+        assert!(read_sql(&file).unwrap_err().contains("Re-save a copy as UTF-8"));
+        let mut boundary = vec![b' '; MAX_SQL_BYTES as usize];
+        boundary[..3].copy_from_slice(&[0xef, 0xbb, 0xbf]);
+        fs::write(&file, &boundary).unwrap();
+        assert_eq!(read_sql(&file).unwrap().as_bytes(), boundary);
         fs::write(&file, vec![b' '; MAX_SQL_BYTES as usize + 1]).unwrap();
         assert!(read_sql(&file).unwrap_err().contains("64 KiB"));
+        let wrong_extension = dir.path().join("schema.md");
+        fs::write(&wrong_extension, b"CREATE TABLE t(id int);").unwrap();
+        assert!(read_sql(&wrong_extension).unwrap_err().contains(".sql"));
         let directory = dir.path().join("directory.sql");
         fs::create_dir(&directory).unwrap();
         assert!(read_sql(&directory).unwrap_err().contains("regular"));
