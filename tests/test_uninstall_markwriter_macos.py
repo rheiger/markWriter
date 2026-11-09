@@ -3,7 +3,9 @@ import os
 from pathlib import Path
 import plistlib
 import subprocess
+import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -13,7 +15,7 @@ spec.loader.exec_module(u)
 
 class RemovalTest(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = tempfile.TemporaryDirectory(dir='/private/tmp')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.app = self.root / 'custom ü' / 'MarkWriter.app'
@@ -21,10 +23,15 @@ class RemovalTest(unittest.TestCase):
         self.extension = self.app / u.EXT
         (self.app / 'Contents/MacOS').mkdir(parents=True)
         (self.app / 'Contents/MacOS/markwriter').write_text('synthetic')
-        (self.extension / 'Contents').mkdir(parents=True)
-        self.host = {'CFBundleIdentifier': 'com.markwriter.app', 'CFBundleShortVersionString': '2.7.3', 'CFBundleVersion': '273'}
-        self.ext = {'CFBundleIdentifier': 'com.markwriter.app.quicklook', 'CFBundleShortVersionString': '2.7.3', 'CFBundleVersion': '273', 'NSExtension': {'NSExtensionPointIdentifier': 'com.apple.quicklook.preview'}}
+        (self.extension / 'Contents/MacOS').mkdir(parents=True)
+        (self.extension / 'Contents/MacOS/QuickLookPrototype').write_text('synthetic')
+        self.host = {'CFBundlePackageType': 'APPL', 'CFBundleExecutable': 'markwriter', 'CFBundleIdentifier': 'com.markwriter.app', 'CFBundleShortVersionString': '2.7.3', 'CFBundleVersion': '273'}
+        self.ext = {'CFBundleExecutable': 'QuickLookPrototype', 'CFBundlePackageType': 'XPC!', 'CFBundleIdentifier': 'com.markwriter.app.quicklook', 'CFBundleShortVersionString': '2.7.3', 'CFBundleVersion': '273', 'NSExtension': {'NSExtensionPointIdentifier': 'com.apple.quicklook.preview'}}
         self.write_plists()
+        for bundle in (self.app, self.extension):
+            signature = bundle / 'Contents/_CodeSignature/CodeResources'
+            signature.parent.mkdir()
+            signature.write_text('synthetic seal')
         self.calls = []
         self.commands = patch.object(u, 'command', side_effect=lambda *args: self.calls.append(args))
         self.commands.start()
@@ -42,7 +49,7 @@ class RemovalTest(unittest.TestCase):
         u.run(self.app, '2.7.3')
         self.assertTrue(self.app.exists())
         self.assertFalse(self.backup.parent.exists())
-        self.assertEqual([c[0] for c in self.calls], [u.CODESIGN, u.CODESIGN])
+        self.assertEqual([c[0] for c in self.calls], [u.CODESIGN, u.CODESIGN, u.CODESIGN])
 
     def test_remove_repeat_restore_and_survival(self):
         doc = self.root / 'document.md'; doc.write_text('draft')
@@ -98,12 +105,98 @@ class RemovalTest(unittest.TestCase):
         self.assertIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
 
     def test_path_and_symlinks_rejected(self):
-        for path in ['relative/MarkWriter.app', '/tmp/../MarkWriter.app', '/tmp/not.app']:
+        for path in ['relative/MarkWriter.app', '/tmp/../MarkWriter.app', '/MarkWriter.app']:
             with self.assertRaises(u.Refusal): u.checked_path(path)
         link = self.root / 'linked'; link.symlink_to(self.app.parent)
         with self.assertRaises(u.Refusal): u.checked_path(str(link / 'MarkWriter.app'))
         plist = self.extension / 'Contents/Info.plist'; plist.unlink(); plist.symlink_to(self.app / 'Contents/Info.plist')
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+
+    def test_exclusive_rename_refuses_racing_destination(self):
+        original = u.rename_exclusive
+        def race(source, destination):
+            destination.mkdir()
+            original(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=race):
+            with self.assertRaises(OSError): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists())
+        self.assertTrue(self.backup.is_dir())
+        self.assertFalse((self.backup / 'Contents').exists())
+
+    def test_parallel_operations_refuse_without_stranding_lock(self):
+        entered = threading.Event(); release = threading.Event(); errors = []
+        def hold(*args):
+            entered.set(); release.wait(5)
+        def first():
+            try:
+                with patch.object(u, 'register', side_effect=hold):
+                    u.run(self.app, '2.7.3', True, repair=True)
+            except BaseException as error: errors.append(error)
+        thread = threading.Thread(target=first); thread.start()
+        self.assertTrue(entered.wait(5))
+        try:
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        finally:
+            release.set(); thread.join(5)
+        self.assertFalse(thread.is_alive()); self.assertFalse(errors)
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_terminated_process_releases_transaction_lock(self):
+        program = """import importlib.util, pathlib, sys, time
+spec = importlib.util.spec_from_file_location('u', sys.argv[1]); u = importlib.util.module_from_spec(spec); spec.loader.exec_module(u)
+app = pathlib.Path(sys.argv[2])
+with u.transaction_lock(app.parent / u.QUARANTINE, app):
+ print('locked', flush=True)
+ time.sleep(30)
+"""
+        child = subprocess.Popen([sys.executable, '-c', program, str(Path(u.__file__)), str(self.app)], stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), 'locked')
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        finally:
+            child.terminate(); child.wait(timeout=5); child.stdout.close()
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_interruption_between_deregistration_steps_rolls_back(self):
+        def interrupt(*args):
+            self.calls.append(args)
+            if args[:2] == (u.LSREGISTER, '-u'): raise KeyboardInterrupt('injected')
+        with patch.object(u, 'command', side_effect=interrupt):
+            with self.assertRaises(KeyboardInterrupt): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists())
+        self.assertIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_custom_unicode_bundle_and_unsafe_directory(self):
+        renamed = self.app.with_name('MarkWriter 瑞典.app')
+        self.app.rename(renamed)
+        self.assertEqual(u.checked_path(str(renamed)), renamed)
+        u.run(renamed, '2.7.3', True)
+        self.assertTrue(renamed.parent.joinpath(u.QUARANTINE, renamed.name).exists())
+        os.chmod(self.app.parent, 0o777)
+        with self.assertRaises(u.Refusal): u.checked_path(str(renamed))
+
+    def test_executable_metadata_and_signature_identifier_are_required(self):
+        self.ext['CFBundleExecutable'] = 'other'; self.write_plists()
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3')
+        self.ext['CFBundleExecutable'] = 'QuickLookPrototype'; self.write_plists()
+        u.run(self.app, '2.7.3')
+        self.assertTrue(any('com.markwriter.app.quicklook' in ' '.join(c) for c in self.calls))
+        self.assertTrue(any('com.markwriter.app"' in ' '.join(c) for c in self.calls))
+
+    def test_bundle_drift_during_deregistration_is_refused(self):
+        def drift(*args):
+            self.calls.append(args)
+            if args[:2] == (u.LSREGISTER, '-u'):
+                (self.app / 'Contents/MacOS/markwriter').write_text('changed')
+        with patch.object(u, 'command', side_effect=drift):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists())
+        self.assertFalse(self.backup.exists())
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
 
     def test_process_check_detects_exact_bundle_prefix(self):
         self.stopped.stop()
