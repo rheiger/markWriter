@@ -5,7 +5,9 @@ import { CodeBlock, type CodeBlockOptions } from '@tiptap/extension-code-block'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration as PMDecoration, DecorationSet } from '@tiptap/pm/view'
-import { createCodeHighlighter } from './codeHighlight'
+import { createCodeHighlighter, SQL_FALLBACK_NOTICE } from './codeHighlight'
+
+const fallbackAttributes = { 'data-sql-fallback': SQL_FALLBACK_NOTICE, title: SQL_FALLBACK_NOTICE, 'aria-description': SQL_FALLBACK_NOTICE }
 
 // Public CodeMirror StateField/Decoration contracts: installed @codemirror/{state,view}/dist/index.d.ts.
 function sourceDecorations(state: EditorState) {
@@ -21,9 +23,16 @@ function sourceDecorations(state: EditorState) {
         code += state.sliceDoc(child.from, child.to)
       }
     }
-    for (const token of highlight(code, info).ranges) for (const chunk of chunks) {
-      const from = Math.max(token.from, chunk.offset), to = Math.min(token.to, chunk.offset + chunk.to - chunk.from)
-      if (to > from) decorations.push(Decoration.mark({ class: token.className }).range(chunk.from + from - chunk.offset, chunk.from + to - chunk.offset))
+    const result = highlight(code, info)
+    if (result.fallback) decorations.push(Decoration.line({ attributes: fallbackAttributes }).range(state.doc.lineAt(node.from).from))
+    let chunkIndex = 0
+    for (const token of result.ranges) {
+      while (chunkIndex < chunks.length && chunks[chunkIndex].offset + chunks[chunkIndex].to - chunks[chunkIndex].from <= token.from) chunkIndex++
+      for (let i = chunkIndex; i < chunks.length && chunks[i].offset < token.to; i++) {
+        const chunk = chunks[i]
+        const from = Math.max(token.from, chunk.offset), to = Math.min(token.to, chunk.offset + chunk.to - chunk.from)
+        if (to > from) decorations.push(Decoration.mark({ class: token.className }).range(chunk.from + from - chunk.offset, chunk.from + to - chunk.offset))
+      }
     }
     return false
   } })
@@ -40,7 +49,9 @@ function renderedDecorations(doc: PMNode, enabled: boolean) {
   const highlight = createCodeHighlighter(enabled), decorations: PMDecoration[] = []
   doc.descendants((node, pos) => {
     if (node.type.name !== 'codeBlock') return true
-    for (const token of highlight(node.textContent, node.attrs.language ?? '').ranges) {
+    const result = highlight(node.textContent, node.attrs.language ?? '')
+    if (result.fallback) decorations.push(PMDecoration.node(pos, pos + node.nodeSize, fallbackAttributes))
+    for (const token of result.ranges) {
       decorations.push(PMDecoration.inline(pos + 1 + token.from, pos + 1 + token.to, { class: token.className }))
     }
     return false

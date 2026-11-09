@@ -72,6 +72,28 @@ describe('SQL import through the application', () => {
     expect(useAppStore.getState().currentDocument?.content).toBe(content)
   })
 
+  it('keeps rejected edited DBML available and leaves the destination unchanged', async () => {
+    render(<App />)
+    openImport()
+    const preview = await screen.findByRole('textbox', { name: 'DBML preview' })
+    fireEvent.change(preview, { target: { value: 'Table broken {' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Append DBML' }))
+    expect(await screen.findByRole('alert')).toBeVisible()
+    expect(preview).toHaveValue('Table broken {')
+    expect(useAppStore.getState().currentDocument?.content).toBe(original)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
+  it('shows a dialect-specific error without changing the destination', async () => {
+    vi.mocked(invoke).mockImplementation(async command => command === 'pick_sql_source' ? 'CREATE TABLE t (payload BLOB);' : null)
+    render(<App />)
+    openImport()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/PostgreSQL.*line 1.*dialect/i)
+    expect(screen.queryByRole('textbox', { name: 'DBML preview' })).toBeNull()
+    expect(useAppStore.getState().currentDocument?.content).toBe(original)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
   it('does not append after the destination changes while validation is pending', async () => {
     let finish!: (svg: string) => void
     const pending = new Promise<string>(resolve => { finish = resolve })
@@ -90,5 +112,23 @@ describe('SQL import through the application', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('The destination changed')
     expect(useAppStore.getState().currentDocument?.content).toBe(original)
     expect(useAppStore.getState().documents.find(doc => doc.id === 'different')?.content).toBe('Other')
+  })
+
+  it.each(['revision', 'close'])('does not append after destination %s while validation is pending', async change => {
+    let finish!: (svg: string) => void
+    const pending = new Promise<string>(resolve => { finish = resolve })
+    vi.mocked(dbmlRenderer.render).mockReturnValueOnce(pending)
+    render(<App />)
+    openImport()
+    await screen.findByRole('textbox', { name: 'DBML preview' })
+    fireEvent.click(screen.getByRole('button', { name: 'Append DBML' }))
+    act(() => {
+      if (change === 'revision') useAppStore.getState().updateDocumentContent(original + '\nnew edit')
+      else useAppStore.setState({ documents: [], currentDocument: null })
+    })
+    await act(async () => { finish('<svg />'); await pending })
+    expect(await screen.findByRole('alert')).toHaveTextContent('The destination changed')
+    if (change === 'revision') expect(useAppStore.getState().currentDocument?.content).toBe(original + '\nnew edit')
+    else expect(useAppStore.getState().documents).toHaveLength(0)
   })
 })

@@ -4,6 +4,7 @@ import { verifyRegex } from './regex-acceptance.mjs'
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
 import { tomlEditorFixture } from './toml-fixtures.mjs'
+import { sqlHighlightFixture } from './sql-highlight-fixtures.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -184,6 +185,7 @@ try{
  await syntaxHighlighting(true,'toolbar');await themeChoice('Auto');await closeCurrentDocument()
  cases.push('abrupt restart retains syntax-off and Dark preferences in ordinary UI and both engines without changing saved bytes')
  for(const markdown of [true,false]){
+   const observations=[]
    await newDocument();await mode(markdown);await menu('Insert','DOT')
    await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
    const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
@@ -194,7 +196,16 @@ try{
    await wait(()=>run(`const t=document.querySelector('[role=tab][aria-selected=true]');return t?.textContent.includes(arguments[0])&&!t.querySelector('[aria-label=Unsaved]')&&!document.querySelector('.status-item.loading')`,'starter-cycled-'+markdown+'.md'),'starter Save As completed in ordinary UI')
    await menu('Edit','Undo')
    await wait(()=>run(`return document.querySelector('.status-right')?.textContent.includes('Characters: 0')&&!!document.querySelector('[role=tab][aria-selected=true] [aria-label=Unsaved]')`),'single starter Undo completed in ordinary UI')
-   await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
+   const observe=async phase=>{
+     const ui=await run(`const tab=document.querySelector('[role=tab][aria-selected=true]'),active=document.querySelector('[data-active=true]'),focus=document.activeElement;return {tab:tab?.textContent,path:document.querySelector('.status-item.path')?.title,documentId:active?.getAttribute('data-document-id'),markdown:document.querySelector('button[role=switch]')?.getAttribute('aria-checked'),dirty:!!tab?.querySelector('[aria-label=Unsaved]'),status:document.querySelector('.status-right')?.textContent,loading:!!document.querySelector('.status-item.loading'),error:document.querySelector('.error-message')?.textContent,focus:{tag:focus?.tagName,role:focus?.getAttribute('role'),label:focus?.getAttribute('aria-label')}}`).catch(error=>({observationError:String(error)}))
+     const file=await readFile(cyclePath).then(bytes=>({bytes:bytes.length}),error=>({error:String(error)}))
+     observations.push({phase,at:new Date().toISOString(),ui,file})
+     await writeFile(join(artifacts,`starter-save-${markdown}.json`),JSON.stringify(observations,null,2))
+   }
+   await observe('before Save')
+   await menu('File','Save')
+   await wait(async()=>{await observe('waiting for Save');return (await readFile(cyclePath,'utf8'))===''},'one starter Undo saves empty original')
+   await observe('saved')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
  const regex=await verifyRegex({dir:fixture,run,click,menu,mode,open:openDocument,
@@ -215,6 +226,12 @@ try{
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,fixture:tomlEditorFixture(),name:'long-toml',label:'long explicit TOML'})
  cases.push(...longToml.cases)
  await writeFile(join(artifacts,'toml-evidence.json'),JSON.stringify(longToml,null,2))
+ const longSql = await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
+   saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
+   exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,
+   fixture:sqlHighlightFixture(),name:'long-sql',label:'large explicit SQL',verifyUndo:true})
+ cases.push(...longSql.cases)
+ await writeFile(join(artifacts,'sql-highlight-evidence.json'),JSON.stringify(longSql,null,2))
  const updateCheck=await verifyUpdateCheck({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
  cases.push(...updateCheck.cases)

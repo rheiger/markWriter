@@ -60,7 +60,12 @@ enum PreviewRenderer {
             if let formatted = formatSimpleYAML(text) {
                 return page("<p class=\"notice\">Formatted YAML (block mapping/list subset; syntax not validated)</p><pre data-language=\"yaml\">\(escape(formatted))</pre>")
             }
-            return literal(text, notice: "Literal text; quotes, block scalars, anchors, aliases, flow collections and other YAML constructs are not formatted.")
+            return literal(text, notice: "Literal text; quotes, block scalars, anchors, aliases, flow collections and other YAML constructs are not formatted.", language: "yaml")
+        // Headers are ambiguous; treat .h as C without inferring its contents.
+        case "h": return source(text, language: "c")
+        case "cpp": return source(text, language: "cpp")
+        case "js": return source(text, language: "javascript")
+        case "css": return source(text, language: "css")
         case "sh", "bash": return source(text, language: "bash")
         case "py": return source(text, language: "python")
         case "sql": return source(text, language: "sql")

@@ -58,8 +58,21 @@ export async function verifyTechnicalWriting({root,dir,artifacts,run,click,menu,
   assert.deepEqual(await run(`return [...document.querySelectorAll('[data-active=true] .tiptap p code')].map(e=>e.textContent)`),codes,'Edited native reopen retains meaningful inline-code whitespace')
   cases.push('actual rendered edit, native Save/reopen and single Undo preserve code spaces/tabs/backticks')
   // Source editing is a real edit immediately, so ordinary Save/recovery owns it.
+  // Reopen can expose the tab/editor before its active math node has rendered.
+  // At the minimum viewport the first button can also be below the editor's
+  // scrollport. Establish an unobstructed, stable target for the real click.
+  await wait(()=>run(`const m=document.querySelector('[data-active=true] .tiptap [data-type=math]');return !!m?.querySelector('.katex')&&!!m.querySelector('button')`),'reopened first math rendered')
+  await run(`document.querySelector('[data-active=true] .tiptap [data-type=math] button').scrollIntoView({block:'center',inline:'nearest',behavior:'instant'})`)
+  let lastMathButton
+  await wait(async()=>{
+    const bounds=await run(`const e=document.querySelector('[data-active=true] .tiptap [data-type=math] button');if(!e||e.disabled)return null;const r=e.getBoundingClientRect(),x=(r.left+r.right)/2,y=(r.top+r.bottom)/2,hit=document.elementFromPoint(x,y);return r.width>0&&r.height>0&&x>=0&&x<innerWidth&&y>=0&&y<innerHeight&&(hit===e||e.contains(hit))?{left:r.left,top:r.top,right:r.right,bottom:r.bottom}:null`)
+    const stable=!!bounds&&!!lastMathButton&&Object.keys(bounds).every(key=>bounds[key]===lastMathButton[key])
+    lastMathButton=bounds
+    return stable
+  },'reopened math edit button visible, unobstructed and stable')
   await click('(//*[@data-active="true"]//*[@data-type="math"]//button[normalize-space(.)="Edit math source"])[1]')
   const changed='\\frac{3}{4}'
+  await wait(()=>run(`return document.querySelector('[data-active=true] textarea[aria-label="Math source"]') instanceof HTMLTextAreaElement`),'math source editor mounted')
   await run(`const e=document.querySelector('[data-active=true] textarea[aria-label="Math source"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}))`,changed)
   await wait(()=>run(`return document.querySelector('[data-active=true] .tiptap [data-type=math]').getAttribute('data-chart')===arguments[0]`,changed),'live math source owns document transaction')
   await mode(true);await mode(false)

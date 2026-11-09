@@ -42,9 +42,11 @@ function lex(source: string, dialect: SqlDialect): Token[] {
       if (!closed || (c === '"' && !value) || [...value].some(ch => ch.charCodeAt(0) < 32) || (c === "'" && dialect === 'postgresql' && value.includes('\\')) || value.length > 256) fail('Invalid quoted token')
       out.push({ value, kind: c === '"' ? 'quoted' : 'string', line: start }); continue
     }
-    if ('(),.;+-'.includes(c)) { out.push({ value: c, kind: 'symbol', line }); i++; continue }
+    // Recognize comparison symbols so unsupported CHECK and PRAGMA syntax can
+    // be diagnosed by the parser. They are not accepted by the grammar.
+    if ('(),.;+-=<>*'.includes(c)) { out.push({ value: c, kind: 'symbol', line }); i++; continue }
     const match = /^[\p{L}_][\p{L}\p{N}_$]*|^[0-9]+/u.exec(source.slice(i))
-    if (!match || match[0].length > 256) fail('Unsupported SQL character')
+    if (!match || match[0].length > 256) fail('Unsupported SQL character or token; use a supported DDL excerpt and check the selected dialect')
     if (/^\d/u.test(match![0]) && /^[\p{L}_$]/u.test(source.slice(i + match![0].length))) fail('Invalid numeric token')
     out.push({ value: match![0], kind: 'word', line }); i += match![0].length
   }
@@ -55,9 +57,13 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   if (dialect !== 'postgresql' && dialect !== 'sqlite') throw new Error('Unsupported SQL dialect')
   if (source.includes('\0')) throw new Error('SQL contains a NUL character')
   if (source.length > SQL_DDL_MAX_BYTES || new TextEncoder().encode(source).length > SQL_DDL_MAX_BYTES) throw new Error('SQL exceeds 64 KiB limit')
+  if (/^\ufeff?\s*(?:#{1,6}\s|`{3,}|~{3,})/u.test(source)) throw new Error('This looks like Markdown, not SQL DDL. Choose a .sql file containing supported CREATE TABLE statements.')
   const tokens = lex(source, dialect); let pos = 0
   const warnings: string[] = []; const tables: Table[] = []
   const fail = (message: string): never => { throw new Error(tokens[pos] ? `${message} at line ${tokens[pos].line}` : message) }
+  const unsupported = (feature: string): never => { throw new Error(`${feature} is not supported${tokens[pos] ? ` at line ${tokens[pos].line}` : ''}. Use an excerpt containing supported table DDL and check the selected dialect.`) }
+  const dialectName = dialect === 'sqlite' ? 'SQLite' : 'PostgreSQL'
+  const dialectError = (message: string, line?: number): never => { throw new Error(`${message}${line ? ` at line ${line}` : ''}. Check the selected dialect; this syntax may also be outside the supported subset.`) }
   const is = (s: string) => tokens[pos]?.kind !== 'quoted' && tokens[pos]?.kind !== 'string' && tokens[pos]?.value.toUpperCase() === s
   const take = (s: string) => { if (!is(s)) fail(`Expected ${s}`); pos++ }
   const maybe = (s: string) => { if (is(s)) { pos++; return true } return false }
@@ -89,6 +95,7 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   const foreign = (table: Table, columns: string[], context: string) => { take('REFERENCES'); const target = dialect === 'sqlite' ? ['main', name()] : path(); if (dialect === 'sqlite' && is('.')) fail('SQLite references cannot qualify a schema'); const targetColumns = names(); actions(context); table.refs.push({ columns, target, targetColumns }) }
   const constraint = (table: Table) => {
     if (maybe('CONSTRAINT')) name()
+    if (is('CHECK')) unsupported('CHECK constraints')
     if (maybe('PRIMARY')) { take('KEY'); table.keys.push({ columns: names(), primary: true }) }
     else if (maybe('UNIQUE')) table.keys.push({ columns: names(), primary: false })
     else if (maybe('FOREIGN')) { take('KEY'); const cols = names(); foreign(table, cols, table.path.join('.')) }
@@ -97,9 +104,9 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   const typeNames = new Set(['INT','INTEGER','SMALLINT','BIGINT','TEXT','VARCHAR','CHAR','CHARACTER','BOOLEAN','BOOL','REAL','DOUBLE','FLOAT','NUMERIC','DECIMAL','DATE','TIME','TIMESTAMP','UUID','BLOB','BYTEA'])
   const column = (table: Table) => {
     const colName = name(); const typeToken = tokens[pos]
-    if (!typeToken || typeToken.kind !== 'word' || !typeNames.has(typeToken.value.toUpperCase())) fail('Unsupported column type')
+    if (!typeToken || typeToken.kind !== 'word' || !typeNames.has(typeToken.value.toUpperCase())) dialectError(`Unsupported ${dialectName} column type`, typeToken?.line)
+    if (dialect === 'postgresql' && typeToken.value.toUpperCase() === 'BLOB') dialectError('Unsupported PostgreSQL column type', typeToken.line)
     pos++; let type = typeToken.value
-    if (dialect === 'postgresql' && type.toUpperCase() === 'BLOB') fail('Unsupported PostgreSQL type')
     if (maybe('PRECISION')) { if (type.toUpperCase() !== 'DOUBLE') fail('Unsupported type modifier'); type += ' precision' }
     else if (dialect === 'postgresql' && type.toUpperCase() === 'DOUBLE') fail('Expected PRECISION after DOUBLE')
     if (maybe('VARYING')) { if (type.toUpperCase() !== 'CHARACTER') fail('Unsupported type modifier'); type += ' varying' }
@@ -108,7 +115,9 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
     const col = { name: colName, type, nullable: null as boolean | null }; table.columns.push(col)
     let primary = false; let unique = false; let ref = false; let hasDefault = false
     while (!is(',') && !is(')') && pos < tokens.length) {
-      if (maybe('CONSTRAINT')) { name(); if (!['NOT','NULL','PRIMARY','UNIQUE','REFERENCES','DEFAULT'].some(is)) fail('Expected column constraint') }
+      if (is('CHECK')) unsupported('CHECK constraints')
+      if (is('AUTOINCREMENT')) unsupported('AUTOINCREMENT')
+      if (maybe('CONSTRAINT')) { name(); if (is('CHECK')) unsupported('CHECK constraints'); if (!['NOT','NULL','PRIMARY','UNIQUE','REFERENCES','DEFAULT'].some(is)) fail('Expected column constraint') }
       if (maybe('NOT')) { take('NULL'); if (col.nullable !== null) fail('Duplicate nullability'); col.nullable = false }
       else if (maybe('NULL')) { if (col.nullable !== null) fail('Duplicate nullability'); col.nullable = true }
       else if (maybe('PRIMARY')) { take('KEY'); if (primary) fail('Duplicate primary key'); primary = true; table.keys.push({ columns: [colName], primary: true }) }
@@ -124,15 +133,18 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
     }
   }
   while (pos < tokens.length) {
+    if (is('PRAGMA')) unsupported('PRAGMA statements')
+    const statementLine = tokens[pos]?.line
     if (maybe('CREATE')) {
+      if (is('VIEW')) unsupported('CREATE VIEW')
       take('TABLE'); const table: Table = { path: path(), columns: [], keys: [], refs: [] }; tables.push(table)
       if (tables.length > 40) fail('Table limit exceeded')
       take('(')
       let sawConstraint = false
-      do { if (is('CONSTRAINT') || is('PRIMARY') || is('UNIQUE') || is('FOREIGN')) { sawConstraint = true; constraint(table) } else { if (dialect === 'sqlite' && sawConstraint) fail('SQLite columns must precede table constraints'); column(table) } } while (maybe(','))
+      do { if (is('CONSTRAINT') || is('PRIMARY') || is('UNIQUE') || is('FOREIGN') || is('CHECK')) { sawConstraint = true; constraint(table) } else { if (dialect === 'sqlite' && sawConstraint) fail('SQLite columns must precede table constraints'); column(table) } } while (maybe(','))
       take(')')
     } else if (maybe('ALTER')) {
-      if (dialect !== 'postgresql') fail('ALTER TABLE is only supported for PostgreSQL')
+      if (dialect !== 'postgresql') dialectError('SQLite ALTER TABLE is not supported; ALTER TABLE is supported only for PostgreSQL', statementLine)
       take('TABLE'); const p = path(); const table = tables.find(t => pathKey(t.path) === pathKey(p)); if (!table) fail('ALTER TABLE target must already be declared')
       take('ADD'); constraint(table!)
     } else fail('Unsupported SQL statement')

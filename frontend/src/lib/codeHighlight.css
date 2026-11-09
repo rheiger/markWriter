@@ -33,3 +33,11 @@
 .hljs-meta, .hljs-doctag, .hljs-variable, .hljs-template-variable { color: var(--code-meta); }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 700; }
+[data-sql-fallback]::after {
+  content: attr(data-sql-fallback);
+  display: block;
+  color: var(--code-comment);
+  font: 0.85em system-ui, sans-serif;
+  white-space: normal;
+  user-select: none;
+}

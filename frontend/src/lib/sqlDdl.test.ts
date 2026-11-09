@@ -2,6 +2,32 @@ import { describe, expect, it } from 'vitest'
 import { convertSqlDdl } from './sqlDdl'
 
 describe('bounded SQL DDL import', () => {
+  it.each(['sqlite', 'postgresql'] as const)('diagnoses table and named column CHECK constraints in %s', dialect => {
+    for (const sql of [
+      'CREATE TABLE t (id INTEGER,\n CHECK (id > 0));',
+      'CREATE TABLE t (id INTEGER\n CONSTRAINT positive CHECK (id > 0));',
+    ]) expect(() => convertSqlDdl(sql, dialect)).toThrow(/CHECK constraints is not supported at line 2/i)
+  })
+  it('gives actionable errors for common unsupported inputs without echoing source', () => {
+    const cases = [
+      ['# Private notes\n```sql\nCREATE TABLE t(id int);\n```', /Markdown.*\.sql/i],
+      ['-- comment\nPRAGMA foreign_keys = ON;', /PRAGMA.*line 2.*supported/i],
+      ['CREATE TABLE t(id INTEGER CHECK(id > 0));', /CHECK.*line 1.*supported/i],
+      ['CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT);', /AUTOINCREMENT.*line 1.*supported/i],
+      ['CREATE VIEW secret AS SELECT * FROM t;', /VIEW.*line 1.*supported/i],
+    ] as const
+    for (const [input, message] of cases) {
+      try { convertSqlDdl(input, 'sqlite'); throw new Error('unexpected success') }
+      catch (error) { expect(String(error)).toMatch(message); expect(String(error)).not.toContain('secret') }
+    }
+  })
+  it('names the selected dialect and suggests checking it for dialect-specific syntax', () => {
+    expect(() => convertSqlDdl('CREATE TABLE t (data BLOB);', 'postgresql')).toThrow(/PostgreSQL.*line 1.*dialect/i)
+    expect(() => convertSqlDdl('CREATE TABLE t (id INT);\nALTER TABLE t ADD PRIMARY KEY (id);', 'sqlite')).toThrow(/SQLite.*PostgreSQL.*line 2.*dialect/i)
+    expect(() => convertSqlDdl('CREATE TABLE t (id SERIAL);', 'postgresql')).toThrow(/PostgreSQL.*line 1.*dialect/i)
+    expect(convertSqlDdl('\ufeffCREATE TABLE t (id INTEGER PRIMARY KEY);', 'sqlite').dbml).toContain('main.t')
+    expect(convertSqlDdl('CREATE TABLE t (id INTEGER PRIMARY KEY);', 'sqlite').dbml).toContain('main.t')
+  })
   it('preserves ordered PostgreSQL keys and qualified foreign keys', () => {
     const result = convertSqlDdl(`CREATE TABLE accounting.customers (id integer, region text, PRIMARY KEY (region,id));
 CREATE TABLE orders (region text, customer_id integer, UNIQUE(region, customer_id), FOREIGN KEY (region, customer_id) REFERENCES accounting.customers(region,id));`, 'postgresql')

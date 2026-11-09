@@ -1,7 +1,7 @@
 import mermaid from 'mermaid'
 import { instance } from '@viz-js/viz'
 import { validateDot, sanitizeDotSvg, checkedDotErrors } from './dotSafety'
-import { createQuickLookHighlighter, highlightedHtml } from './codeHighlight'
+import { createQuickLookHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE } from './codeHighlight'
 import { renderQuickLookMarkdown } from './quickLookMarkdown'
 import tokenCss from './codeHighlight.css?inline'
 
@@ -136,13 +136,19 @@ export async function quickLookRender(html: string, markdown?: string | null): P
       } catch { /* Keep the escaped source. */ }
     } else if (language && language !== 'dot' && language !== 'graphviz') {
       const result = highlight(source, language)
+      const noticeFallback = () => {
+        pre.setAttribute('data-sql-fallback', SQL_FALLBACK_NOTICE)
+        pre.setAttribute('title', SQL_FALLBACK_NOTICE)
+        pre.setAttribute('aria-description', SQL_FALLBACK_NOTICE)
+      }
+      if (result.fallback) noticeFallback()
       if (result.ranges.length) {
         const highlighted = highlightedHtml(source, result)
         const addedBytes = encoder.encode(highlighted).length - encoder.encode(target.innerHTML).length
         if (outputBytes + addedBytes <= contentLimit) {
           target.innerHTML = highlighted
           outputBytes += addedBytes
-        }
+        } else if (language === 'sql') noticeFallback()
       }
     }
   }

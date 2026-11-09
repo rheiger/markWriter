@@ -35,18 +35,21 @@ export const CODE_LIMIT = 4 * 1024
 // Explicit Python, JSON and TOML are independently qualified for longer technical examples.
 // Keep the conservative cap for other grammars (notably C++), and never enlarge auto work.
 export const LONG_CODE_LIMIT = 16 * 1024
+export const SQL_CODE_LIMIT = 128 * 1024
 export const AUTO_LIMIT = 2 * 1024
 const LINE_LIMIT = 2 * 1024
 const DOCUMENT_LIMIT = 16 * 1024
 const LONG_DOCUMENT_LIMIT = 32 * 1024
 const SPAN_LIMIT = 4096
 export interface CodeRange { from: number; to: number; className: string }
-export interface CodeHighlight { language: string | null; ranges: readonly CodeRange[] }
+export interface CodeHighlight { language: string | null; ranges: readonly CodeRange[]; fallback?: boolean }
+export const SQL_FALLBACK_NOTICE = 'SQL highlighting unavailable for this block; the original text is preserved.'
 const plain: CodeHighlight = { language: null, ranges: [] }
+const sqlFallback: CodeHighlight = { ...plain, fallback: true }
 const cache = new Map<string, CodeHighlight>()
 let cacheSize = 0
 
-function rangesFor(tree: Root, spanLimit: number): CodeRange[] {
+function rangesFor(tree: Root, spanLimit: number): CodeRange[] | null {
   const ranges: CodeRange[] = []
   let offset = 0
   const visit = (nodes: RootContent[], inherited: string[]) => {
@@ -63,7 +66,7 @@ function rangesFor(tree: Root, spanLimit: number): CodeRange[] {
     }
   }
   visit(tree.children, [])
-  return ranges.length > spanLimit ? [] : ranges
+  return ranges.length > spanLimit ? null : ranges
 }
 
 function codeLanguage(info: string) {
@@ -72,7 +75,7 @@ function codeLanguage(info: string) {
 }
 const longerGrammar = (language: string) => language === 'python' || language === 'json' || language === 'toml'
 function eligible(code: string, language: string, longer = longerGrammar(language)) {
-  const limit = longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
+  const limit = language === 'sql' ? SQL_CODE_LIMIT : longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
   return code.length > 0 && code.length <= limit &&
     (!language || lowlight.registered(language)) &&
     !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
@@ -80,8 +83,8 @@ function eligible(code: string, language: string, longer = longerGrammar(languag
 
 export function highlightCode(code: string, info = ''): CodeHighlight {
   const language = codeLanguage(info)
-  if (!eligible(code, language)) return plain
-  return highlightEligibleCode(code, language)
+  if (!eligible(code, language)) return language === 'sql' && code.length ? sqlFallback : plain
+  return highlightEligibleCode(code, language, language === 'sql' ? 24 * 1024 : SPAN_LIMIT)
 }
 
 function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_LIMIT): CodeHighlight {
@@ -100,8 +103,11 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
       const best = candidates[0].data?.relevance ?? 0, second = candidates[1].data?.relevance ?? 0
       if (best >= 5 && best - second >= 2 && best >= second * 1.25) tree = candidates[0]
     }
-    if (tree) result = { language: String(tree.data?.language ?? language), ranges: rangesFor(tree, spanLimit) }
-  } catch { /* A grammar failure affects presentation only. Keep all source as plain text. */ }
+    if (tree) {
+      const ranges = rangesFor(tree, spanLimit)
+      result = ranges === null && language === 'sql' ? sqlFallback : { language: String(tree.data?.language ?? language), ranges: ranges ?? [] }
+    }
+  } catch { result = language === 'sql' ? sqlFallback : plain /* Keep all source as plain text. */ }
   cache.set(key, result); cacheSize += key.length
   while (cache.size > 128 || cacheSize > 512 * 1024) {
     const oldest = cache.keys().next().value!
@@ -113,13 +119,16 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
 // New budget per document render/rebuild, including cache hits. No document writes.
 export function createCodeHighlighter(enabled: boolean) {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
+  let sqlRemaining = SQL_CODE_LIMIT
   return (code: string, info = ''): CodeHighlight => {
     const language = codeLanguage(info), longer = longerGrammar(language)
-    if (!enabled || --blocks < 0 || !eligible(code, language, longer) ||
-      code.length > (longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return plain
-    if (longer) longerRemaining -= code.length
+    if (!enabled) return plain
+    if (--blocks < 0 || !eligible(code, language, longer) ||
+      code.length > (language === 'sql' ? sqlRemaining : longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return language === 'sql' && code.length ? sqlFallback : plain
+    if (language === 'sql') sqlRemaining -= code.length
+    else if (longer) longerRemaining -= code.length
     else remaining -= code.length
-    return highlightEligibleCode(code, language)
+    return highlightEligibleCode(code, language, language === 'sql' ? 24 * 1024 : SPAN_LIMIT)
   }
 }
 // Finder uses a disposable WebKit renderer with its own deadline. Only explicit
@@ -135,11 +144,11 @@ export function createQuickLookHighlighter() {
     if (!language || !lowlight.registered(language) || !code.length ||
         code.length > (json ? 512 : 128) * 1024 ||
         code.length > (json ? jsonRemaining : remaining) || spansRemaining === 0 ||
-        code.split(/\r\n?|\n/).some(line => line.length > 16 * 1024)) return plain
+        code.split(/\r\n?|\n/).some(line => line.length > 16 * 1024)) return language === 'sql' && code.length ? sqlFallback : plain
     if (json) jsonRemaining -= code.length
     else remaining -= code.length
     const result = highlightEligibleCode(code, language, (json ? 64 : 24) * 1024)
-    if (result.ranges.length > spansRemaining) return plain
+    if (result.ranges.length > spansRemaining) return language === 'sql' ? sqlFallback : plain
     spansRemaining -= result.ranges.length
     return result
   }

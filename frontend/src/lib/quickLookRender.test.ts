@@ -139,3 +139,28 @@ it('highlights a formatted JSON preview from a compact 96 KB file through the fi
   expect(pre.textContent).toBe(formatted)
   expect(Array.from(pre.querySelectorAll('.hljs-number')).at(-1)?.textContent).toBe('50')
 })
+
+describe('standalone Finder language markers', () => {
+  it.each([
+    ['c', 'int main(void) { return 42; }'],
+    ['cpp', 'int main() { return 42; }'],
+    ['javascript', 'const answer = 42;'],
+    ['css', 'body { color: red; }'],
+    ['yaml', 'defaults: &base {enabled: true}\ncopy: *base\nscript: "<script>&"'],
+  ])('enriches escaped %s text without changing or executing it', async (language, source) => {
+    const pre = document.createElement('pre')
+    pre.setAttribute('data-language', language); pre.textContent = source
+    const parsed = new DOMParser().parseFromString(await quickLookRender(doc(pre.outerHTML)), 'text/html')
+    expect(parsed.querySelector('pre')?.textContent).toBe(source)
+    expect(parsed.querySelector('pre span')).not.toBeNull()
+    expect(parsed.querySelector('script')).toBeNull()
+  })
+})
+
+it('explains SQL fallback in Finder enrichment without changing the code', async () => {
+  const code = 'SELECT 1;\n' + 'x'.repeat(16 * 1024 + 1)
+  const pre=document.createElement('pre'); pre.setAttribute('data-language','sql'); pre.textContent=code
+  const output=new DOMParser().parseFromString(await quickLookRender(doc(pre.outerHTML)),'text/html')
+  expect(output.querySelector('pre')!.getAttribute('aria-description')).toContain('original text is preserved')
+  expect(output.querySelector('pre')!.textContent).toBe(code)
+})

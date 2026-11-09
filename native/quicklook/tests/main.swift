@@ -107,3 +107,13 @@ let longTOML = String(repeating: "key = 12345\n", count: 4096) + "final_sentinel
 let longTOMLPage = PreviewRenderer.render(data: Data(longTOML.utf8), extension: "toml")
 check(longTOMLPage.contains("data-language=\"toml\"") && longTOMLPage.contains("final_sentinel = true"), "long standalone TOML retains final sentinel")
 check(PreviewRenderer.render(data: Data(repeating: 65, count: PreviewRenderer.limit + 1), extension: "toml").contains("1 MiB"), "oversized TOML is bounded")
+
+for (ext, language) in [("h", "c"), ("cpp", "cpp"), ("js", "javascript"), ("css", "css")] {
+    let page = PreviewRenderer.render(data: Data("<tag>& final_sentinel".utf8), extension: ext)
+    check(page.contains("data-language=\"\(language)\"") && page.contains("&lt;tag&gt;&amp; final_sentinel"), "\(ext) source is escaped and requests \(language)")
+}
+for ext in ["yml", "yaml"] {
+    let page = PreviewRenderer.render(data: Data("base: &anchor [<value>]\ncopy: *anchor".utf8), extension: ext)
+    check(page.contains("Literal text") && page.contains("data-language=\"yaml\"") && page.contains("&amp;anchor [&lt;value&gt;]") && page.contains("*anchor"), "\(ext) literal fallback remains escaped and eligible for highlighting")
+}
+print("Source dispatch and YAML fallback tests passed")
