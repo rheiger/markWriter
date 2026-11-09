@@ -1,6 +1,6 @@
 [package]
 name = "markwriter"
-version = "2.7.2"
+version = "2.7.3"
 description = "A modern Markdown editor built with Tauri"
 authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
