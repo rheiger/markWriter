@@ -923,6 +923,40 @@ describe('restored view state', () => {
 })
 
 describe('large SQL preview scheduling', () => {
+  it.each(['resolve', 'reject'] as const)('rejects obsolete Mermaid %s while the next Preview is coalesced', async outcome => {
+    const { default: mermaid } = await import('mermaid')
+    const jobs: { resolve: (value: { svg: string; diagramType: string }) => void; reject: (error: Error) => void }[] = []
+    const spy = vi.mocked(mermaid.render).mockImplementation((id) => id.startsWith('preview-')
+      ? new Promise((resolve, reject) => { jobs.push({ resolve, reject }) })
+      : Promise.resolve({ svg: '<svg>rendered editor</svg>', diagramType: 'flowchart' }))
+    try {
+      useAppStore.setState({ documents: [], currentDocument: null, error: null })
+      const source = '```mermaid\nflowchart TD\n A --> B\n```\n\n' + 'large document line\n'.repeat(250)
+      const { ref, container } = await mount(source)
+      await markdown(ref)
+      await waitFor(() => expect(jobs.length).toBeGreaterThan(0))
+      const preview = container.querySelector('[data-active="true"] .markwriter-preview')!
+      const oldJobs = jobs.splice(0)
+      // Freeze the coalescing timer so the stale completion is tested before
+      // the replacement Preview even on a heavily loaded runner.
+      vi.useFakeTimers()
+      act(() => ref.current!.getEditorView()!.dispatch({ changes: { from: source.length, insert: 'new revision' } }))
+      await act(async () => {
+        for (const job of oldJobs) {
+          if (outcome === 'resolve') job.resolve({ svg: '<svg>STALE_RENDER</svg>', diagramType: 'flowchart' })
+          else job.reject(new Error('STALE_ERROR'))
+        }
+        await Promise.resolve()
+      })
+      expect(preview.textContent).not.toContain('STALE_RENDER')
+      expect(preview.textContent).not.toContain('STALE_ERROR')
+      await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+      expect(jobs.length).toBeGreaterThan(0)
+      await act(async () => { for (const job of jobs) job.resolve({ svg: '<svg>NEW_RENDER</svg>', diagramType: 'flowchart' }); await Promise.resolve() })
+      expect(preview.textContent).toContain('NEW_RENDER')
+      expect(ref.current!.getMarkdown()).toBe(source + 'new revision')
+    } finally { vi.useRealTimers(); spy.mockRestore() }
+  })
   it('coalesces source edits and never renders an obsolete revision after a mode switch', async () => {
     const source = '```sql\n' + 'SELECT 42;\n'.repeat(500) + '```'
     const {ref, container} = await mount(source)

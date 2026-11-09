@@ -670,11 +670,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const previewGeneration = useRef(0)
   const previewAbort = useRef<AbortController | null>(null)
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => {
+  const invalidatePreview = useCallback(() => {
+    previewGeneration.current++
     previewAbort.current?.abort()
+  }, [])
+  useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => {
+    invalidatePreview()
     if (previewTimer.current) clearTimeout(previewTimer.current)
     previewTimer.current = null
-  } }, [active, editorMode])
+  } }, [active, editorMode, invalidatePreview])
   const updatePreview = useCallback((content: string) => {
     if (previewTimer.current) clearTimeout(previewTimer.current)
     previewTimer.current = null
@@ -761,7 +765,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     }
     // Coalesce expensive large previews after typing. An old diagram must
     // not finish into the visible preview while the new revision is pending.
-    previewAbort.current?.abort()
+    invalidatePreview()
     const revision = useAppStore.getState().documents.find(item => item.id === documentId)?.revision
     previewTimer.current = setTimeout(() => {
       previewTimer.current = null
