@@ -56,6 +56,12 @@ import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/source
 import { wrapContinuation } from '../lib/wrapContinuation'
 import { toggleSourceCode, toggleSourceList, clearSourceCode, toggleSourceMark, toggleRenderedCode, finishRenderedFormat, sourceFormatting } from '../lib/editingCommands'
 
+type SourcePatch = { semantic: string; prefix: number; suffix: number; original: string }
+export function restoreSourcePatch(patch: SourcePatch | undefined, semantic: string) {
+  if (!patch || semantic !== patch.semantic) return semantic
+  return semantic.slice(0, patch.prefix) + patch.original + semantic.slice(semantic.length - patch.suffix)
+}
+
 // Source synchronization is a view update, never a rendered Undo event. Close
 // the prior group as well, so the next real rendered edit starts its own event.
 function synchronizeRendered(editor: Editor, source: string) {
@@ -159,38 +165,43 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const lastTiptapSemantic = useRef<string | null>(null)
   // Checkpoints belong to history positions, not semantic text: the same
   // rendered model can represent different canonical bytes at two positions.
-  // Store only the difference from serialized Markdown. Older patches are
-  // limited to 128 entries and 2,000,000 UTF-16 units; a single current
+  // Store the serialized Markdown for exact validation plus its source delta.
+  // Older checkpoints are limited to 128 entries and 2,000,000 UTF-16 units; a single current
   // external baseline remains pinned. Evicted/oversized older patches fall
   // back to serialization rather than being matched by text at another depth.
-  type SourcePatch = { length: number; prefix: number; suffix: number; expected: string; original: string }
   const renderedHistory = useRef<{ depth: number; previous: number; patches: Map<number, SourcePatch>; anchor: { depth: number; patch: SourcePatch } | null }>({ depth: 0, previous: 0, patches: new Map(), anchor: null })
+  function trimCheckpoints() {
+    const journal = renderedHistory.current, patches = journal.patches
+    const retainedSize = () => Array.from(new Set(patches.values())).reduce((sum, item) => sum + (item === journal.anchor?.patch ? 0 : item.semantic.length + item.original.length), 0)
+    while (patches.size > 128 || retainedSize() > 2_000_000) patches.delete(patches.keys().next().value!)
+  }
+  function copyCheckpoint(from: number, to: number) {
+    const journal = renderedHistory.current
+    const patch = journal.patches.get(from) ?? (journal.anchor?.depth === from ? journal.anchor.patch : undefined)
+    journal.patches.delete(to)
+    if (patch) journal.patches.set(to, patch)
+    trimCheckpoints()
+  }
   function rememberCheckpoint(depth: number, semantic: string, canonical: string, pin = false) {
     const journal = renderedHistory.current, patches = journal.patches
     patches.delete(depth)
-    if (journal.anchor?.depth === depth) journal.anchor = null
+    if (journal.anchor?.depth === depth) { journal.anchor = null; trimCheckpoints() }
     if (semantic === canonical) return
     let prefix = 0, suffix = 0
     while (prefix < semantic.length && prefix < canonical.length && semantic[prefix] === canonical[prefix]) prefix++
     while (suffix < semantic.length - prefix && suffix < canonical.length - prefix && semantic[semantic.length - 1 - suffix] === canonical[canonical.length - 1 - suffix]) suffix++
-    const patch = { length: semantic.length, prefix, suffix, expected: semantic.slice(prefix, semantic.length - suffix), original: canonical.slice(prefix, canonical.length - suffix) }
+    const patch = { semantic, prefix, suffix, original: canonical.slice(prefix, canonical.length - suffix) }
     // Preserve the current externally supplied baseline even when it alone
     // exceeds the budget for older checkpoints, as before this journal.
     if (pin) { journal.anchor = { depth, patch }; return }
-    if (patch.expected.length + patch.original.length > 2_000_000) return
+    if (patch.semantic.length + patch.original.length > 2_000_000) return
     patches.set(depth, patch)
-    let size = Array.from(patches.values()).reduce((sum, item) => sum + item.expected.length + item.original.length, 0)
-    while (patches.size > 128 || size > 2_000_000) {
-      const oldest = patches.keys().next().value!
-      const removed = patches.get(oldest)!
-      patches.delete(oldest); size -= removed.expected.length + removed.original.length
-    }
+    trimCheckpoints()
   }
   function restoreCheckpoint(depth: number, semantic: string) {
     const journal = renderedHistory.current
     const patch = journal.patches.get(depth) ?? (journal.anchor?.depth === depth ? journal.anchor.patch : undefined)
-    if (!patch || semantic.length !== patch.length || semantic.slice(patch.prefix, semantic.length - patch.suffix) !== patch.expected) return semantic
-    return semantic.slice(0, patch.prefix) + patch.original + semantic.slice(semantic.length - patch.suffix)
+    return restoreSourcePatch(patch, semantic)
   }
   function rememberRenderedSource(html: string, canonical: string, depth = 0) {
     const semantic = fromWysiwygHtml(html)
@@ -266,14 +277,16 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         if (!isHistoryTransaction(transaction) && transaction.getMeta('addToHistory') !== false) {
           // ProseMirror occasionally prunes the oldest events in a batch.
           const shift = next < previous ? previous + 1 - next : 0
+          let removedAnchor = false
           if (shift) {
             journal.previous -= shift
             journal.patches = new Map(Array.from(journal.patches, ([depth, patch]) => [depth - shift, patch] as const).filter(([depth]) => depth >= 0))
-            if (journal.anchor) { journal.anchor.depth -= shift; if (journal.anchor.depth < 0) journal.anchor = null }
+            if (journal.anchor) { journal.anchor.depth -= shift; if (journal.anchor.depth < 0) { journal.anchor = null; removedAnchor = true } }
           }
           const branchPoint = previous - shift
           for (const depth of journal.patches.keys()) if (depth > branchPoint) journal.patches.delete(depth)
-          if (journal.anchor && journal.anchor.depth > branchPoint) journal.anchor = null
+          if (journal.anchor && journal.anchor.depth > branchPoint) { journal.anchor = null; removedAnchor = true }
+          if (removedAnchor) trimCheckpoints()
         } else if (!isHistoryTransaction(transaction)) {
           // A non-history document rewrite can remap every old history event.
           // Never apply checkpoints captured against the previous document.
@@ -282,6 +295,21 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
       journal.depth = next
+      // Tiptap does not emit onUpdate when a transaction's final document is
+      // structurally equal to its starting document, even if it advanced or
+      // moved history. Keep the canonical position in step with that event.
+      if (changed && editor.isInitialized && !isUpdatingFromMarkdown.current && lastTiptapSemantic.current !== null &&
+          transaction.before.content.size === editor.state.doc.content.size && transaction.before.eq(editor.state.doc)) {
+        if (isHistoryTransaction(transaction)) {
+          const canonical = restoreCheckpoint(next, lastTiptapSemantic.current)
+          if (canonical !== lastTiptapSource.current) {
+            lastTiptapSource.current = canonical
+            updateDocumentContent(canonical)
+          }
+        } else if (transaction.getMeta('addToHistory') === false) {
+          rememberCheckpoint(next, lastTiptapSemantic.current, lastTiptapSource.current, true)
+        } else if (next !== journal.previous) copyCheckpoint(journal.previous, next)
+      }
     },
     onUpdate: ({ editor, transaction }) => {
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
@@ -292,11 +320,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const unchanged = markdownFromHtml === lastTiptapSemantic.current
       const canonical = history ? restoreCheckpoint(journal.depth, markdownFromHtml) : unchanged ? lastTiptapSource.current : markdownFromHtml
       if (!history && unchanged && journal.depth !== journal.previous) {
-        const patch = journal.patches.get(journal.previous) ?? (journal.anchor?.depth === journal.previous ? journal.anchor.patch : undefined)
-        if (patch) {
-          journal.patches.set(journal.depth, patch)
-          while (journal.patches.size > 128) journal.patches.delete(journal.patches.keys().next().value!)
-        }
+        copyCheckpoint(journal.previous, journal.depth)
       } else if (!history && !unchanged) rememberCheckpoint(journal.depth, markdownFromHtml, canonical)
       if (!history && unchanged && !journal.anchor && !journal.patches.size && canonical !== markdownFromHtml) rememberCheckpoint(journal.depth, markdownFromHtml, canonical, true)
       if (markdownFromHtml === lastTiptapSemantic.current && canonical === lastTiptapSource.current) return

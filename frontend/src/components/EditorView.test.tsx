@@ -5,7 +5,7 @@ import { createRef } from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
-import { EditorView, type EditorViewRef } from './EditorView'
+import { EditorView, restoreSourcePatch, type EditorViewRef } from './EditorView'
 import { toWysiwygHtml } from '../lib/markdown'
 import { useAppStore } from '../store/useAppStore'
 
@@ -1096,5 +1096,99 @@ describe('rendered canonical history positions', () => {
     act(() => ref.current!.undo())
     expect(ref.current!.getMarkdown()).toBe('Foo\n')
     expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+  })
+})
+
+describe('equal-model rendered history events', () => {
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+  it('requires the entire serialized source to match before restoring a checkpoint', () => {
+    const patch = { semantic:'Foo', prefix:3, suffix:0, original:'\n' }
+    expect(restoreSourcePatch(patch, 'Foo')).toBe('Foo\n')
+    expect(restoreSourcePatch(patch, 'Bar')).toBe('Bar')
+    expect(restoreSourcePatch(patch, 'FooX')).toBe('FooX')
+  })
+  it('tracks equal-model transactions at dirty positions and truncates redo on a new branch', async () => {
+    const { closeHistory, undoDepth, redoDepth } = await import('@tiptap/pm/history')
+    const { editor, ref } = await mount('Foo\n')
+    const isolated = (from: number, to: number, text: string) => act(() => {
+      editor.view.dispatch(closeHistory(editor.state.tr.insertText(text, from, to)))
+      editor.view.dispatch(closeHistory(editor.state.tr).setMeta('addToHistory', false))
+    })
+    isolated(4, 4, 'X'); isolated(4, 5, '')
+    expect(ref.current!.getMarkdown()).toBe('Foo')
+    isolated(1, 4, 'Foo') // Equal final model still advances real history.
+    expect(undoDepth(editor.state)).toBe(3)
+    isolated(4, 4, 'Y')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo')
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(true)
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe('Foo')
+    isolated(4, 4, 'Z')
+    expect(redoDepth(editor.state)).toBe(0)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo')
+    act(() => ref.current!.undo())
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('FooX')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+  })
+
+  it('keeps equal-model checkpoints aligned when ProseMirror prunes history', async () => {
+    const { closeHistory, undoDepth } = await import('@tiptap/pm/history')
+    const { editor, ref } = await mount('Foo\n')
+    act(() => {
+      for (let n = 0; n < 122; n++) {
+        editor.view.dispatch(closeHistory(editor.state.tr.insertText('Foo', 1, 4)))
+        editor.view.dispatch(closeHistory(editor.state.tr).setMeta('addToHistory', false))
+      }
+    })
+    expect(undoDepth(editor.state)).toBeLessThan(122)
+    act(() => editor.view.dispatch(closeHistory(editor.state.tr.insertText('X', 4))))
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    act(() => { for (let n = 0; n < 90; n++) ref.current!.undo() })
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+  })
+
+  it('does not reuse a checkpoint after an untracked same-length rewrite', async () => {
+    const { closeHistory } = await import('@tiptap/pm/history')
+    const { editor, ref } = await mount('Foo\n')
+    act(() => editor.view.dispatch(closeHistory(editor.state.tr.insertText('X', 4))))
+    act(() => editor.view.dispatch(editor.state.tr.insertText('Bar', 1, 4).setMeta('addToHistory', false)))
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Bar')
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(true)
+  })
+
+  it('preserves exact source across no-op Replace All, Undo, and Redo', async () => {
+    const { undoDepth } = await import('@tiptap/pm/history')
+    const { editor, ref } = await mount('Foo\n')
+    const replace = async (find: string, withText: string) => {
+      act(() => ref.current!.openFind(true))
+      fireEvent.change(screen.getByRole('textbox', { name: 'Find' }), { target: { value: find } })
+      fireEvent.change(screen.getByRole('textbox', { name: 'Replace with' }), { target: { value: withText } })
+      await screen.findByText(/1 matches/)
+      fireEvent.click(screen.getByRole('button', { name: 'Replace All' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Close Find' }))
+    }
+    await replace('Foo', 'Foo')
+    expect(undoDepth(editor.state)).toBe(1)
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    await replace('Foo', 'FooX')
+    expect(ref.current!.getMarkdown()).toBe('FooX')
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe('Foo\n')
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe('FooX')
   })
 })
