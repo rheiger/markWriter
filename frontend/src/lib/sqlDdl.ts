@@ -117,7 +117,7 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
     while (!is(',') && !is(')') && pos < tokens.length) {
       if (is('CHECK')) unsupported('CHECK constraints')
       if (is('AUTOINCREMENT')) unsupported('AUTOINCREMENT')
-      if (maybe('CONSTRAINT')) { name(); if (!['NOT','NULL','PRIMARY','UNIQUE','REFERENCES','DEFAULT'].some(is)) fail('Expected column constraint') }
+      if (maybe('CONSTRAINT')) { name(); if (is('CHECK')) unsupported('CHECK constraints'); if (!['NOT','NULL','PRIMARY','UNIQUE','REFERENCES','DEFAULT'].some(is)) fail('Expected column constraint') }
       if (maybe('NOT')) { take('NULL'); if (col.nullable !== null) fail('Duplicate nullability'); col.nullable = false }
       else if (maybe('NULL')) { if (col.nullable !== null) fail('Duplicate nullability'); col.nullable = true }
       else if (maybe('PRIMARY')) { take('KEY'); if (primary) fail('Duplicate primary key'); primary = true; table.keys.push({ columns: [colName], primary: true }) }
@@ -141,7 +141,7 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
       if (tables.length > 40) fail('Table limit exceeded')
       take('(')
       let sawConstraint = false
-      do { if (is('CONSTRAINT') || is('PRIMARY') || is('UNIQUE') || is('FOREIGN')) { sawConstraint = true; constraint(table) } else { if (dialect === 'sqlite' && sawConstraint) fail('SQLite columns must precede table constraints'); column(table) } } while (maybe(','))
+      do { if (is('CONSTRAINT') || is('PRIMARY') || is('UNIQUE') || is('FOREIGN') || is('CHECK')) { sawConstraint = true; constraint(table) } else { if (dialect === 'sqlite' && sawConstraint) fail('SQLite columns must precede table constraints'); column(table) } } while (maybe(','))
       take(')')
     } else if (maybe('ALTER')) {
       if (dialect !== 'postgresql') dialectError('SQLite ALTER TABLE is not supported; ALTER TABLE is supported only for PostgreSQL', statementLine)

@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { convertSqlDdl } from './sqlDdl'
 
 describe('bounded SQL DDL import', () => {
+  it.each(['sqlite', 'postgresql'] as const)('diagnoses table and named column CHECK constraints in %s', dialect => {
+    for (const sql of [
+      'CREATE TABLE t (id INTEGER,\n CHECK (id > 0));',
+      'CREATE TABLE t (id INTEGER\n CONSTRAINT positive CHECK (id > 0));',
+    ]) expect(() => convertSqlDdl(sql, dialect)).toThrow(/CHECK constraints is not supported at line 2/i)
+  })
   it('gives actionable errors for common unsupported inputs without echoing source', () => {
     const cases = [
       ['# Private notes\n```sql\nCREATE TABLE t(id int);\n```', /Markdown.*\.sql/i],
