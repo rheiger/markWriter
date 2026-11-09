@@ -19,6 +19,8 @@ import { ensureSyntaxTree } from '@codemirror/language'
 import { history, undo } from '@codemirror/commands'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
+import { EditorState as PMEditorState } from '@tiptap/pm/state'
+import { history as pmHistory, undo as pmUndo } from '@tiptap/pm/history'
 import { codeHighlightKey, HighlightedCodeBlock, sourceCodeHighlighting } from './editorCodeHighlight'
 
 const sqlFixture = (multibyte = false) => Array.from({ length: 1170 }, (_, n) =>
@@ -46,6 +48,7 @@ describe('bounded larger SQL fences', () => {
 
   it('decorates both editors and preserves text through one Undo', () => {
     const code = sqlFixture(), source = '```sql\n' + code + '\n```'
+    expect(new TextEncoder().encode(code).length).toBeGreaterThan(100 * 1024)
     let state = EditorState.create({doc:source, extensions:[markdown(), history(), sourceCodeHighlighting]})
     ensureSyntaxTree(state, source.length, 5000); state = state.update({}).state
     const end = source.lastIndexOf('AS final_sentinel')
@@ -54,11 +57,21 @@ describe('bounded larger SQL fences', () => {
     const changed = state.update({changes:{from:end,insert:'x'}, userEvent:'input'}).state
     let restored = changed; expect(undo({state:changed, dispatch:tr => { restored = tr.state }})).toBe(true)
     expect(restored.doc.toString()).toBe(source)
-    const editor = new Editor({extensions:[StarterKit.configure({codeBlock:false}),HighlightedCodeBlock], content:{type:'doc',content:[{type:'codeBlock',attrs:{language:'sql'},content:[{type:'text',text:code}]}]}})
+    // Mounting thousands of decorated spans in JSDOM is unrelated to the
+    // model, plugin, and history contracts under test. Installed acceptance
+    // separately exercises the mounted editor and native UI.
+    const editor = new Editor({element:null, extensions:[StarterKit.configure({codeBlock:false}),HighlightedCodeBlock], content:{type:'doc',content:[{type:'codeBlock',attrs:{language:'sql'},content:[{type:'text',text:code}]}]}})
     try {
-      expect(codeHighlightKey.getState(editor.state)!.decorations.find(code.lastIndexOf('AS final_sentinel') + 1, code.lastIndexOf('AS final_sentinel') + 3).length).toBeGreaterThan(0)
-      editor.commands.insertContentAt(2, 'x'); expect(editor.commands.undo()).toBe(true)
-      expect(editor.state.doc.textContent).toBe(code)
+      const plugin = editor.extensionManager.plugins.find(plugin => plugin.spec.key === codeHighlightKey)!
+      expect(plugin).toBeDefined()
+      const initial = PMEditorState.create({doc:editor.state.doc, plugins:[pmHistory(), plugin]})
+      expect(codeHighlightKey.getState(initial)!.decorations.find(code.lastIndexOf('AS final_sentinel') + 1, code.lastIndexOf('AS final_sentinel') + 3).length).toBeGreaterThan(0)
+      const edited = initial.apply(initial.tr.insertText('x', 2))
+      expect(edited.doc.textContent).not.toBe(code)
+      let undone = edited
+      expect(pmUndo(edited, tr => { undone = edited.apply(tr) })).toBe(true)
+      expect(undone.doc.textContent).toBe(code)
+      expect(codeHighlightKey.getState(undone)!.decorations.find(code.lastIndexOf('AS final_sentinel') + 1, code.lastIndexOf('AS final_sentinel') + 3).length).toBeGreaterThan(0)
     } finally { editor.destroy() }
   }, 30000)
 
