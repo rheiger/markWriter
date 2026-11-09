@@ -6,6 +6,7 @@ import ctypes
 import fcntl
 import grp
 import hashlib
+import json
 import os
 from pathlib import Path
 import plistlib
@@ -94,6 +95,95 @@ def transaction_lock(directory, app):
     finally:
         os.close(fd)
 
+def record_path(app, version):
+    key = unicodedata.normalize('NFD', app.name).casefold() + '\0' + version
+    return app.parent / QUARANTINE / ('.transaction-' + hashlib.sha256(key.encode('utf-8')).hexdigest() + '.json')
+
+def sync_directory(directory):
+    fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+def read_record(app, version, backup):
+    path = record_path(app, version)
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise Refusal(f'Cannot safely open transaction record: {exc}') from exc
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_nlink != 1 or
+                info.st_mode & 0o077 or info.st_size < 1 or info.st_size > 8192):
+            raise Refusal('Unsafe transaction record ownership, permissions, or size')
+        with os.fdopen(fd, 'rb', closefd=False) as stream:
+            raw = stream.read(8193)
+        after = os.fstat(fd)
+        if (len(raw) > 8192 or len(raw) != info.st_size or
+                (after.st_size, after.st_mtime_ns, after.st_ctime_ns) !=
+                (info.st_size, info.st_mtime_ns, info.st_ctime_ns)):
+            raise Refusal('Transaction record changed while reading')
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError('Duplicate transaction field')
+                result[key] = value
+            return result
+        try:
+            data = json.loads(raw, object_pairs_hook=unique_object)
+        except (ValueError, UnicodeError, RecursionError) as exc:
+            raise Refusal('Malformed transaction record') from exc
+        keys = {'schema', 'app', 'backup', 'version', 'device', 'inode', 'digest'}
+        if (not isinstance(data, dict) or set(data) != keys or type(data['schema']) is not int or data['schema'] != 1 or
+                data['app'] != str(app) or data['backup'] != str(backup) or data['version'] != version or
+                type(data['device']) is not int or data['device'] < 0 or
+                type(data['inode']) is not int or data['inode'] < 1 or
+                not isinstance(data['digest'], str) or not re.fullmatch('[0-9a-f]{64}', data['digest'])):
+            raise Refusal('Transaction record does not match the selected path and version')
+        return ((data['device'], data['inode'], bytes.fromhex(data['digest'])), (info.st_dev, info.st_ino))
+    finally:
+        os.close(fd)
+
+def create_record(app, version, backup, proof):
+    path = record_path(app, version)
+    data = {'schema': 1, 'app': str(app), 'backup': str(backup), 'version': version,
+            'device': proof[0], 'inode': proof[1], 'digest': proof[2].hex()}
+    payload = json.dumps(data, ensure_ascii=True, separators=(',', ':')).encode('ascii')
+    if len(payload) > 8192:
+        raise Refusal('Transaction record would be too large')
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        with os.fdopen(fd, 'wb', closefd=False) as stream:
+            stream.write(payload)
+            stream.flush()
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    sync_directory(path.parent)
+    record = read_record(app, version, backup)
+    if record is None or record[0] != proof:
+        raise Refusal('Cannot establish transaction record')
+    return record
+
+def clear_record(app, version, record):
+    path = record_path(app, version)
+    backup = path.parent / (app.name + '.' + version + '.quarantined')
+    if read_record(app, version, backup) != record or entry_identity(path) != record[1]:
+        raise Refusal('Transaction record changed; refusing cleanup')
+    path.unlink()
+    sync_directory(path.parent)
+
+def verify_proof(path, version, proof):
+    if entry_identity(path) != proof[:2]:
+        raise Refusal('Bundle does not match the recorded transaction identity')
+    verify(path, version)
+    if identity(path) != proof:
+        raise Refusal('Bundle contents do not match the recorded transaction identity')
+
 def identity(app):
     info = app.lstat()
     digest = hashlib.sha256()
@@ -142,10 +232,17 @@ def verify(app, version):
             raise Refusal(f'Unsafe component ownership or permissions: {path}')
     if sorted(p.name for p in (app / 'Contents/PlugIns').iterdir()) != ['MarkWriterQuickLook.appex']:
         raise Refusal('Unexpected extension layout')
-    with (app / 'Contents/Info.plist').open('rb') as f:
-        host = plistlib.load(f)
-    with (app / EXT / 'Contents/Info.plist').open('rb') as f:
-        ext = plistlib.load(f)
+    try:
+        with (app / 'Contents/Info.plist').open('rb') as f:
+            host = plistlib.load(f)
+        with (app / EXT / 'Contents/Info.plist').open('rb') as f:
+            ext = plistlib.load(f)
+    except Exception as exc:
+        # plistlib can raise different parse/shape errors for corrupt binary
+        # and XML inputs; convert them while preserving transaction recovery.
+        raise Refusal('Malformed or unreadable bundle metadata') from exc
+    if not isinstance(host, dict) or not isinstance(ext, dict) or not isinstance(ext.get('NSExtension'), dict):
+        raise Refusal('Unexpected bundle metadata shape')
     if host.get('CFBundlePackageType') != 'APPL' or host.get('CFBundleExecutable') != 'markwriter' or ext.get('CFBundleExecutable') != 'QuickLookPrototype' or ext.get('CFBundlePackageType') != 'XPC!':
         raise Refusal('Unexpected executable or extension package type')
     if host.get('CFBundleIdentifier') != 'com.markwriter.app' or ext.get('CFBundleIdentifier') != 'com.markwriter.app.quicklook':
@@ -225,12 +322,20 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
             raise Refusal(f'Symlink at backup path: {p}')
     if backup_dir.exists() and (not backup_dir.is_dir() or backup_dir.stat().st_uid != os.getuid() or backup_dir.stat().st_mode & 0o077):
         raise Refusal('Backup directory must be private and owned by the current user')
+    record = read_record(app, version, backup)
     if repair:
-        verify(app, version)
+        if record is None:
+            raise Refusal('Missing transaction record; inspect the app and registration manually')
+        if backup.exists() or backup.is_symlink():
+            raise Refusal('Backup and app both present; inspect both paths')
+        verify_proof(app, version, record[0])
         assert_stopped(app)
         print(f'Register verified app and extension at {app}')
         if apply:
+            verify_proof(app, version, record[0])
             register(app)
+            verify_proof(app, version, record[0])
+            clear_record(app, version, record)
             print('Registration commands completed.')
         else:
             print('Dry run only; add --apply to make changes.')
@@ -239,8 +344,10 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
     destination = app if restore else backup
     if not source.exists():
         if not restore and backup.exists():
-            verify(backup, version)
-            before = identity(backup)
+            if record is None:
+                raise Refusal('Missing transaction record for backup; inspect both paths manually')
+            verify_proof(backup, version, record[0])
+            before = record[0]
             assert_stopped(backup, app)
             try:
                 confirm_unregistered(app, backup)
@@ -253,8 +360,14 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         raise Refusal(f'Source does not exist: {source}')
     if destination.exists():
         raise Refusal(f'Destination already exists: {destination}')
-    verify(source, version)
-    original = identity(source)
+    if restore and record is None:
+        raise Refusal('Missing transaction record for backup; inspect both paths manually')
+    if record is not None:
+        verify_proof(source, version, record[0])
+        original = record[0]
+    else:
+        verify(source, version)
+        original = identity(source)
     assert_stopped(source, app if restore else None)
     print(f'{"Restore" if restore else "Remove"}: {source} -> {destination}')
     print(f'Verified version: {version}; app and extension registration are path-scoped.')
@@ -262,7 +375,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         print('Dry run only; add --apply to make changes.')
         return
     if restore:
-        verify(source, version)
+        verify_proof(source, version, record[0])
         assert_stopped(source, app)
         if identity(source) != original:
             raise Refusal('Bundle changed during operation')
@@ -270,9 +383,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         try:
             rename_exclusive(source, destination)
             observed = entry_identity(destination)
-            verify(destination, version)
-            if identity(destination) != original:
-                raise Refusal('Restored bundle changed during move')
+            verify_proof(destination, version, original)
             assert_stopped(destination)
         except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt, UnicodeError):
             if observed is not None:
@@ -286,11 +397,16 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
             raise
         try:
             register(destination)
+            verify_proof(destination, version, record[0])
+            clear_record(app, version, record)
         except (OSError, subprocess.CalledProcessError, KeyboardInterrupt):
             print(f'Registration incomplete; app remains at {destination}. Retry with --register --apply.', file=sys.stderr)
             raise
         print(f'Restored: {destination}')
         return
+    if record is None:
+        record = create_record(app, version, backup, original)
+    verify_proof(app, version, record[0])
     moved = False
     observed = None
     try:
@@ -314,9 +430,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         rename_exclusive(app, backup)
         moved = True
         observed = entry_identity(backup)
-        verify(backup, version)
-        if identity(backup) != original:
-            raise Refusal('Quarantined bundle changed during move')
+        verify_proof(backup, version, original)
         assert_stopped(backup, app)
         if app.exists() or app.is_symlink():
             raise Refusal('Original app path reappeared after move')

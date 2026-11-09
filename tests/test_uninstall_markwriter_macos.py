@@ -50,6 +50,174 @@ class RemovalTest(unittest.TestCase):
         for path, value in [(self.app / 'Contents/Info.plist', self.host), (self.extension / 'Contents/Info.plist', self.ext)]:
             path.write_bytes(plistlib.dumps(value))
 
+    def test_interrupted_substitution_never_adopts_backup_or_repair(self):
+        class Crash(BaseException): pass
+        rename = u.rename_exclusive
+        parked = self.root / 'expected'
+        def substitute_then_crash(source, destination):
+            if source == self.app:
+                source.rename(parked); shutil.copytree(parked, source)
+                rename(source, destination)
+                raise Crash()
+            rename(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=substitute_then_crash):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+        for apply, restore in ((False, False), (True, False), (False, True), (True, True)):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', apply, restore)
+        self.assertFalse(self.app.exists()); self.assertTrue(parked.exists())
+
+    def test_actual_hard_exit_after_substitution_retains_expected_identity(self):
+        program = """import importlib.util, os, pathlib, shutil, sys
+spec = importlib.util.spec_from_file_location('u', sys.argv[1]); u = importlib.util.module_from_spec(spec); spec.loader.exec_module(u)
+app = pathlib.Path(sys.argv[2]); parked = pathlib.Path(sys.argv[3]); rename = u.rename_exclusive
+u.command = lambda *args: None
+u.assert_stopped = lambda *args: None
+u.registration_paths = lambda: []
+def swap_and_exit(source, destination):
+ source.rename(parked); shutil.copytree(parked, source); rename(source, destination); os._exit(77)
+u.rename_exclusive = swap_and_exit
+u.run(app, '2.7.3', True)
+"""
+        parked = self.root / 'hard-exit-original'
+        result = subprocess.run([sys.executable, '-c', program, str(Path(u.__file__)), str(self.app), str(parked)])
+        self.assertEqual(result.returncode, 77)
+        self.assertTrue(self.backup.exists()); self.assertTrue(parked.exists())
+        for restore in (False, True):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, restore=restore)
+        self.assertFalse(self.app.exists())
+
+    def test_legitimate_interruption_and_interrupted_restore_registration(self):
+        class Crash(BaseException): pass
+        rename = u.rename_exclusive
+        def crash_after(source, destination):
+            rename(source, destination)
+            raise Crash()
+        with patch.object(u, 'rename_exclusive', side_effect=crash_after):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        u.run(self.app, '2.7.3')
+        with patch.object(u, 'rename_exclusive', side_effect=crash_after):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True, restore=True)
+        self.assertTrue(self.app.exists())
+        u.run(self.app, '2.7.3', True, repair=True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+
+    def test_interruption_before_deregistration_can_be_repaired(self):
+        class Crash(BaseException): pass
+        with patch.object(u, 'command', side_effect=lambda *args: (_ for _ in ()).throw(Crash()) if args[0] == u.PLUGIN else None):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+        u.run(self.app, '2.7.3', True, repair=True)
+        self.assertFalse(u.record_path(self.app, '2.7.3').exists())
+
+    def test_hard_exit_after_restore_substitution_cannot_register_it(self):
+        class Crash(BaseException): pass
+        u.run(self.app, '2.7.3', True)
+        rename = u.rename_exclusive
+        parked = self.root / 'expected-backup'
+        def substitute_then_crash(source, destination):
+            source.rename(parked); shutil.copytree(parked, source)
+            rename(source, destination); raise Crash()
+        with patch.object(u, 'rename_exclusive', side_effect=substitute_then_crash):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True, restore=True)
+        self.calls.clear()
+        for repair in (False, True):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, repair=repair)
+        self.assertTrue(self.app.exists()); self.assertTrue(parked.exists())
+        self.assertFalse(any(c[0] in (u.PLUGIN, u.LSREGISTER) for c in self.calls))
+
+    def test_interrupt_before_either_rename_can_resume(self):
+        class Crash(BaseException): pass
+        def crash_before(*args): raise Crash()
+        with patch.object(u, 'rename_exclusive', side_effect=crash_before):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertTrue(u.record_path(self.app, '2.7.3').exists())
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.backup.exists())
+        with patch.object(u, 'rename_exclusive', side_effect=crash_before):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True, restore=True)
+        self.assertTrue(self.backup.exists()); self.assertFalse(self.app.exists())
+        u.run(self.app, '2.7.3', True, restore=True)
+        self.assertTrue(self.app.exists()); self.assertFalse(u.record_path(self.app, '2.7.3').exists())
+
+    def test_backup_without_private_proof_refuses_restore_or_retry(self):
+        self.backup.parent.mkdir(mode=0o700)
+        self.app.rename(self.backup)
+        for apply, restore in ((False, False), (True, False), (False, True), (True, True)):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', apply, restore)
+        self.assertTrue(self.backup.exists())
+
+    def test_record_symlink_malformed_and_wrong_permissions_are_rejected(self):
+        class Crash(BaseException): pass
+        rename = u.rename_exclusive
+        def crash_after(source, destination):
+            rename(source, destination); raise Crash()
+        with patch.object(u, 'rename_exclusive', side_effect=crash_after):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        record = u.record_path(self.app, '2.7.3')
+        good = record.read_bytes()
+        record.write_text('{broken')
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
+        record.write_bytes(good); record.chmod(0o644)
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
+        record.unlink(); record.symlink_to(self.backup / 'Contents/Info.plist')
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
+
+    def test_malformed_bundle_metadata_is_a_controlled_refusal(self):
+        plist = self.app / 'Contents/Info.plist'
+        plist.write_bytes(b'not a plist')
+        with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+        plist.write_bytes(plistlib.dumps([]))
+        with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+        self.write_plists()
+        self.ext['NSExtension'] = []
+        self.write_plists()
+        with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+
+    def test_missing_record_refuses_registration_repair(self):
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', repair=True)
+        self.assertFalse(self.backup.parent.exists())
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, repair=True)
+        self.assertFalse(u.record_path(self.app, '2.7.3').exists())
+
+    def test_duplicate_and_oversized_transaction_records_are_refused(self):
+        class Crash(BaseException): pass
+        rename = u.rename_exclusive
+        def crash_after(source, destination): rename(source, destination); raise Crash()
+        with patch.object(u, 'rename_exclusive', side_effect=crash_after):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        record = u.record_path(self.app, '2.7.3')
+        valid = record.read_bytes()
+        record.write_bytes(valid[:-1] + b',"schema":1}')
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
+        record.write_bytes(b'x' * 8193)
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
+
+    def test_malformed_plist_substitution_is_returned_both_directions(self):
+        rename = u.rename_exclusive
+        parked = self.root / 'parked'
+        def replace(source, destination):
+            if source == self.app:
+                source.rename(parked); shutil.copytree(parked, source)
+                (source / 'Contents/Info.plist').write_bytes(b'not plist')
+            rename(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=replace):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+        # Fresh fixture for the opposite direction, with valid proof.
+        shutil.rmtree(self.app); parked.rename(self.app)
+        u.run(self.app, '2.7.3', True)
+        def replace_backup(source, destination):
+            if source == self.backup:
+                source.rename(parked); shutil.copytree(parked, source)
+                (source / 'Contents/Info.plist').write_bytes(plistlib.dumps([]))
+            rename(source, destination)
+        with patch.object(u, 'rename_exclusive', side_effect=replace_backup):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, restore=True)
+        self.assertTrue(self.backup.exists()); self.assertFalse(self.app.exists())
+
     def test_dry_run_has_no_mutation_or_registration(self):
         u.run(self.app, '2.7.3')
         self.assertTrue(self.app.exists())
@@ -292,6 +460,8 @@ class RemovalTest(unittest.TestCase):
         self.assertFalse((self.backup / 'Contents').exists())
 
     def test_parallel_operations_refuse_without_stranding_lock(self):
+        with u.transaction_lock(self.backup.parent, self.app):
+            u.create_record(self.app, '2.7.3', self.backup, u.identity(self.app))
         entered = threading.Event(); release = threading.Event(); errors = []
         def hold(*args):
             entered.set(); release.wait(5)
