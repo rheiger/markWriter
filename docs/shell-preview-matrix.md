@@ -27,7 +27,7 @@ The Swift fallback escapes document text and applies a 1 MiB UTF-8 input limit. 
 | Shell | Registration / format | Renderer and current qualification |
 | --- | --- | --- |
 | Windows Explorer | Optional per-user handler for `.md` and `.markdown` only ([installer](../native/windows-preview/install.ps1)) | Bounded basic Markdown to inert RTF; no syntax highlighting. Installed Explorer, low-integrity and coexistence qualification is required; see [Windows preview README](../native/windows-preview/README.md). |
-| GNOME Sushi 46 | Optional user-local `text/markdown` handler ([source](../native/linux-preview/sushi-46/markwriterMarkdown.js)) | Limited Gtk text rendering, 256 KiB and 4,000 lines; no syntax highlighting. Actual desktop/provider selection is a separate gate. |
+| Ubuntu GNOME Sushi `50.0-0ubuntu0.1` | Optional user-local `text/markdown` handler ([source](../native/linux-preview/sushi-46/markwriterMarkdown.js)); enablement checks this package version | Limited Gtk text rendering, 256 KiB and 4,000 lines; no syntax highlighting. The extracted component was exercised in Nautilus on an isolated X11 session at this baseline; broader desktop/provider selection remains a separate gate. |
 | KDE Dolphin | Optional `text/markdown` thumbnail plugin ([metadata](../native/linux-preview/kde/markwriterthumbnail.json)) | Markdown thumbnail, not a general source-file preview; actual Dolphin/plugin selection is a separate gate. |
 
 ## Finder candidate observations
