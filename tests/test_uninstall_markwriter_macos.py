@@ -165,6 +165,35 @@ u.run(app, '2.7.3', True)
         record.unlink(); record.symlink_to(self.backup / 'Contents/Info.plist')
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
 
+    def test_fifo_transaction_record_is_refused_without_blocking(self):
+        self.backup.parent.mkdir(mode=0o700)
+        os.mkfifo(u.record_path(self.app, '2.7.3'), 0o600)
+        program = """import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location('u', sys.argv[1]); u = importlib.util.module_from_spec(spec); spec.loader.exec_module(u)
+try: u.read_record(pathlib.Path(sys.argv[2]), '2.7.3', pathlib.Path(sys.argv[3]))
+except u.Refusal: sys.exit(0)
+sys.exit(1)
+"""
+        result = subprocess.run([sys.executable, '-c', program, str(Path(u.__file__)), str(self.app), str(self.backup)], timeout=2)
+        self.assertEqual(result.returncode, 0)
+
+    def test_special_required_files_are_refused_before_plist_read(self):
+        required = [self.app / 'Contents/Info.plist', self.extension / 'Contents/Info.plist',
+                    self.app / 'Contents/_CodeSignature/CodeResources', self.extension / 'Contents/_CodeSignature/CodeResources',
+                    self.app / 'Contents/MacOS/markwriter', self.extension / 'Contents/MacOS/QuickLookPrototype']
+        for path in required:
+            contents = path.read_bytes(); path.unlink(); os.mkfifo(path, 0o600)
+            try:
+                with patch.object(u.plistlib, 'load', side_effect=AssertionError('metadata was read')):
+                    with self.assertRaisesRegex(u.Refusal, 'regular'): u.verify(self.app, '2.7.3')
+            finally:
+                path.unlink(); path.write_bytes(contents)
+
+    def test_required_directory_must_be_a_directory(self):
+        directory = self.app / 'Contents/MacOS'
+        shutil.rmtree(directory); directory.write_text('not a directory')
+        with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+
     def test_malformed_bundle_metadata_is_a_controlled_refusal(self):
         plist = self.app / 'Contents/Info.plist'
         plist.write_bytes(b'not a plist')

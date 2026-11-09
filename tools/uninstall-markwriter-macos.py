@@ -100,7 +100,7 @@ def record_path(app, version):
     return app.parent / QUARANTINE / ('.transaction-' + hashlib.sha256(key.encode('utf-8')).hexdigest() + '.json')
 
 def sync_directory(directory):
-    fd = os.open(directory, os.O_RDONLY)
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         os.fsync(fd)
     finally:
@@ -109,7 +109,7 @@ def sync_directory(directory):
 def read_record(app, version, backup):
     path = record_path(app, version)
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except FileNotFoundError:
         return None
     except OSError as exc:
@@ -224,10 +224,14 @@ def verify(app, version):
              app / EXT / 'Contents/_CodeSignature', app / EXT / 'Contents/_CodeSignature/CodeResources']
     if any(p.is_symlink() or not p.exists() for p in paths):
         raise Refusal('Missing or symlinked required bundle component')
-    if not paths[3].is_file() or not paths[9].is_file():
-        raise Refusal('Host executable is not a file')
-    for path in paths:
+    directories = {0, 2, 4, 5, 6, 8, 10, 12}
+    for index, path in enumerate(paths):
         info = path.lstat()
+        if index in directories:
+            if not stat.S_ISDIR(info.st_mode):
+                raise Refusal(f'Required bundle component is not a directory: {path}')
+        elif not stat.S_ISREG(info.st_mode):
+            raise Refusal(f'Required bundle component is not a regular file: {path}')
         if info.st_uid not in (0, os.geteuid()) or info.st_mode & 0o022:
             raise Refusal(f'Unsafe component ownership or permissions: {path}')
     if sorted(p.name for p in (app / 'Contents/PlugIns').iterdir()) != ['MarkWriterQuickLook.appex']:
