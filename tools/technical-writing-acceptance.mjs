@@ -60,6 +60,7 @@ export async function verifyTechnicalWriting({root,dir,artifacts,run,click,menu,
   // Source editing is a real edit immediately, so ordinary Save/recovery owns it.
   await click('(//*[@data-active="true"]//*[@data-type="math"]//button[normalize-space(.)="Edit math source"])[1]')
   const changed='\\frac{3}{4}'
+  await wait(()=>run(`return document.querySelector('[data-active=true] textarea[aria-label="Math source"]') instanceof HTMLTextAreaElement`),'math source editor mounted')
   await run(`const e=document.querySelector('[data-active=true] textarea[aria-label="Math source"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,arguments[0]);e.dispatchEvent(new Event('input',{bubbles:true}))`,changed)
   await wait(()=>run(`return document.querySelector('[data-active=true] .tiptap [data-type=math]').getAttribute('data-chart')===arguments[0]`,changed),'live math source owns document transaction')
   await mode(true);await mode(false)

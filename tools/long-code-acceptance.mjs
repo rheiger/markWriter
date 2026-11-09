@@ -101,8 +101,9 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
       await click('//button[normalize-space(.)="Replace All"]')
       await click('//button[normalize-space(.)="Close Find"]')
       await wait(()=>run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'large SQL edit becomes dirty')
+      await wait(()=>run(`const code=document.querySelector('[data-active=true] '+arguments[0]+' pre>code');return code?.textContent.includes(arguments[1])`,markdown?'.markwriter-preview':'.tiptap',changed),'large SQL '+surface+' replacement visible')
       await menu('Edit','Undo')
-      await wait(()=>run('return !document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'one large SQL Undo restores clean document')
+      await wait(()=>run('return !document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'one large SQL Undo restores clean '+surface+' document')
       await saveExact(join(dir,name+'-undo-'+surface+'.md'),label+' one Undo in '+surface)
     }
     cases.push(label+' one Undo restores exact native saved bytes in both modes')
