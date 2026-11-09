@@ -165,6 +165,54 @@ u.run(app, '2.7.3', True)
         record.unlink(); record.symlink_to(self.backup / 'Contents/Info.plist')
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
 
+    def test_fifo_injected_during_deregistration_never_blocks_or_registers(self):
+        sentinel = self.root / 'registered'
+        program = """import importlib.util, os, pathlib, sys
+spec = importlib.util.spec_from_file_location('u', sys.argv[1]); u = importlib.util.module_from_spec(spec); spec.loader.exec_module(u)
+app = pathlib.Path(sys.argv[2]); sentinel = pathlib.Path(sys.argv[3])
+u.assert_stopped = lambda *args: None
+u.registration_paths = lambda: []
+def command(*args):
+ if args[:2] == (u.LSREGISTER, '-u'):
+  plist = app / 'Contents/Info.plist'; plist.unlink(); os.mkfifo(plist, 0o600)
+ if args[:2] in ((u.PLUGIN, '-a'), (u.LSREGISTER, '-f')): sentinel.write_text('wrong registration')
+u.command = command
+try: u.run(app, '2.7.3', True)
+except u.Refusal: sys.exit(0)
+sys.exit(1)
+"""
+        result = subprocess.run([sys.executable, '-c', program, str(Path(u.__file__)), str(self.app), str(sentinel)], timeout=3)
+        self.assertEqual(result.returncode, 0)
+        self.assertFalse(sentinel.exists()); self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
+
+    def test_read_race_rejects_fifo_after_initial_layout_check(self):
+        plist = self.app / 'Contents/Info.plist'
+        original_open = os.open
+        swapped = []
+        def replace_on_open(path, flags, *args, **kwargs):
+            if str(path).endswith('Info.plist') and not swapped:
+                plist.unlink(); os.mkfifo(plist, 0o600); swapped.append(True)
+            return original_open(path, flags, *args, **kwargs)
+        with patch.object(u.os, 'open', side_effect=replace_on_open):
+            with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+        self.assertTrue(swapped)
+
+    def test_identity_read_refuses_fifo_after_initial_inspection(self):
+        plist = self.app / 'Contents/Info.plist'
+        original_open = os.open
+        swapped = []
+        def replace_on_open(path, flags, *args, **kwargs):
+            if str(path).endswith('Info.plist') and not swapped:
+                plist.unlink(); os.mkfifo(plist, 0o600); swapped.append(True)
+            return original_open(path, flags, *args, **kwargs)
+        with patch.object(u.os, 'open', side_effect=replace_on_open):
+            with self.assertRaises(u.Refusal): u.identity(self.app)
+        self.assertTrue(swapped)
+
+    def test_oversized_plist_is_refused(self):
+        (self.app / 'Contents/Info.plist').write_bytes(b'x' * (4 * 1024 * 1024 + 1))
+        with self.assertRaises(u.Refusal): u.verify(self.app, '2.7.3')
+
     def test_fifo_transaction_record_is_refused_without_blocking(self):
         self.backup.parent.mkdir(mode=0o700)
         os.mkfifo(u.record_path(self.app, '2.7.3'), 0o600)

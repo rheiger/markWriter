@@ -184,6 +184,70 @@ def verify_proof(path, version, proof):
     if identity(path) != proof:
         raise Refusal('Bundle contents do not match the recorded transaction identity')
 
+def read_component(app, relative, digest=None, limit=None):
+    # Hold each directory open without following symlinks, then inspect the
+    # opened file itself. A FIFO substituted after an earlier lstat must not
+    # block a recovery path or be interpreted as bundle metadata.
+    opened = []
+    try:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK
+        root = os.open(app, flags)
+        opened.append(root)
+        root_info = os.fstat(root)
+        if not stat.S_ISDIR(root_info.st_mode) or root_info.st_uid not in (0, os.geteuid()) or root_info.st_mode & 0o022:
+            raise Refusal('Unsafe bundle directory during read')
+        chain = []
+        current = root
+        parts = Path(relative).parts
+        for part in parts[:-1]:
+            fd = os.open(part, flags, dir_fd=current)
+            opened.append(fd)
+            info = os.fstat(fd)
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, os.geteuid()) or info.st_mode & 0o022:
+                raise Refusal('Unsafe bundle directory during read')
+            chain.append((current, part, info.st_dev, info.st_ino))
+            current = fd
+        fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=current)
+        opened.append(fd)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid not in (0, os.geteuid()) or info.st_mode & 0o022:
+            raise Refusal('Required bundle component is not a safe regular file')
+        if limit is not None and info.st_size > limit:
+            raise Refusal('Bundle metadata exceeds the size limit')
+        result = bytearray() if digest is None else None
+        count = 0
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            count += len(chunk)
+            if limit is not None and count > limit:
+                raise Refusal('Bundle metadata exceeds the size limit')
+            if digest is None:
+                result.extend(chunk)
+            else:
+                digest.update(chunk)
+        after = os.fstat(fd)
+        named = os.stat(parts[-1], dir_fd=current, follow_symlinks=False)
+        if (count != info.st_size or
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns) !=
+                (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns) or
+                (named.st_dev, named.st_ino) != (info.st_dev, info.st_ino)):
+            raise Refusal('Bundle component changed during read')
+        for parent, name, device, inode in chain:
+            named_dir = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            if (named_dir.st_dev, named_dir.st_ino) != (device, inode):
+                raise Refusal('Bundle directory changed during read')
+        named_root = app.lstat()
+        if (named_root.st_dev, named_root.st_ino) != (root_info.st_dev, root_info.st_ino):
+            raise Refusal('Bundle changed during read')
+        return bytes(result) if result is not None else None
+    except OSError as exc:
+        raise Refusal(f'Cannot safely read bundle component: {exc}') from exc
+    finally:
+        for fd in reversed(opened):
+            os.close(fd)
+
 def identity(app):
     info = app.lstat()
     digest = hashlib.sha256()
@@ -192,12 +256,10 @@ def identity(app):
                      str(EXT / 'Contents/Info.plist'),
                      str(EXT / 'Contents/MacOS/QuickLookPrototype'),
                      str(EXT / 'Contents/_CodeSignature/CodeResources')):
-        with (app / relative).open('rb') as stream:
-            while True:
-                chunk = stream.read(1024 * 1024)
-                if not chunk:
-                    break
-                digest.update(chunk)
+        limit = 4 * 1024 * 1024 if relative.endswith('Info.plist') else (32 * 1024 * 1024 if relative.endswith('CodeResources') else None)
+        read_component(app, relative, digest=digest, limit=limit)
+    if entry_identity(app) != (info.st_dev, info.st_ino):
+        raise Refusal('Bundle changed while computing its identity')
     return info.st_dev, info.st_ino, digest.digest()
 
 def entry_identity(path):
@@ -237,10 +299,8 @@ def verify(app, version):
     if sorted(p.name for p in (app / 'Contents/PlugIns').iterdir()) != ['MarkWriterQuickLook.appex']:
         raise Refusal('Unexpected extension layout')
     try:
-        with (app / 'Contents/Info.plist').open('rb') as f:
-            host = plistlib.load(f)
-        with (app / EXT / 'Contents/Info.plist').open('rb') as f:
-            ext = plistlib.load(f)
+        host = plistlib.loads(read_component(app, 'Contents/Info.plist', limit=4 * 1024 * 1024))
+        ext = plistlib.loads(read_component(app, str(EXT / 'Contents/Info.plist'), limit=4 * 1024 * 1024))
     except Exception as exc:
         # plistlib can raise different parse/shape errors for corrupt binary
         # and XML inputs; convert them while preserving transaction recovery.
@@ -449,9 +509,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
                 assert_stopped(backup, app)
                 return_observed(backup, app, observed)
             if app.exists():
-                if identity(app) != original:
-                    raise Refusal('Bundle changed; refusing automatic registration')
-                verify(app, version)
+                verify_proof(app, version, original)
                 register(app)
         except (OSError, subprocess.CalledProcessError, Refusal):
             print(f'Recovery incomplete; inspect {app} and {backup} before retrying registration.', file=sys.stderr)
