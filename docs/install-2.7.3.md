@@ -45,9 +45,9 @@ python3 uninstall-markwriter-macos.py --app "$app" --version "$version" --restor
 
 1. Verify the new DMG and stage the new copy. Verify its bundle seal, version and nested extension before switching copies. Save your work, quit the running app and close its Finder previews. Keep the old installer and back up the profile.
 2. Use the removal tool with the old version and exact app path. Retain its reported backup. Copy the verified candidate to the vacated path and open it. Check **About**, a saved document, a recovery draft and Finder Quick Look.
-3. To roll back, quit the candidate and close previews. Verify it, unregister its exact extension and app paths using `pluginkit -r "$extension"` and `"$lsregister" -u "$app"`, then move that copy to a separate holding path. Run the restore command with the old version and original path. Check launch, documents, recovery and Quick Look again.
+3. To roll back, quit the candidate and close previews. Run the removal command with the candidate version and original path. Then run the restore command with the old version and original path. Check launch, documents, recovery and Quick Look again.
 
-Each removal target has a single backup slot. Keep the candidate and old backup at separate paths during rollback. The in-app update check points to the official downloads for manual installation.
+Each app path has a separate backup slot for each version. If a slot already exists or the destination is occupied, inspect the paths before continuing. The in-app update check points to the official downloads for manual installation.
 
 ## Windows File Explorer
 
