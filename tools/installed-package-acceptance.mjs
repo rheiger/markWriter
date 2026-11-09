@@ -155,7 +155,6 @@ try{
  await mode(false);await wait(()=>run('return !document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'toolbar disables rendered syntax')
  await syntaxHighlighting(true,'menu');await wait(()=>run('return !!document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'View menu enables rendered syntax')
  for(const markdown of [true,false]){
-   const observations=[]
   await mode(markdown)
   for(const name of ['Light','Dark','Auto'])alpha3Themes.push({mode:markdown?'markdown':'wysiwyg',...await themeChoice(name)})
  }
@@ -186,6 +185,7 @@ try{
  await syntaxHighlighting(true,'toolbar');await themeChoice('Auto');await closeCurrentDocument()
  cases.push('abrupt restart retains syntax-off and Dark preferences in ordinary UI and both engines without changing saved bytes')
  for(const markdown of [true,false]){
+   const observations=[]
    await newDocument();await mode(markdown);await menu('Insert','DOT')
    await wait(()=>run('return document.querySelectorAll(arguments[0]).length===1',markdown?'[data-active=true] .markwriter-preview [data-type=dot] svg':'[data-active=true] .tiptap [data-type=dot] svg'),'offline DOT starter in '+(markdown?'source':'rendered'))
    const starterPath=join(fixture,'starter-'+markdown+'.md');await menu('File','Save As...');await dialog(starterPath);const inserted=await wait(()=>readFile(starterPath,'utf8').catch(()=>null),'native starter Save As');assert.ok(inserted.includes('start -> finish;'))
@@ -197,7 +197,7 @@ try{
    await menu('Edit','Undo')
    await wait(()=>run(`return document.querySelector('.status-right')?.textContent.includes('Characters: 0')&&!!document.querySelector('[role=tab][aria-selected=true] [aria-label=Unsaved]')`),'single starter Undo completed in ordinary UI')
    const observe=async phase=>{
-     const ui=await run(`const tab=document.querySelector('[role=tab][aria-selected=true]'),active=document.querySelector('[data-active=true]'),focus=document.activeElement;return {tab:tab?.textContent,path:document.querySelector('.status-item.path')?.title,documentId:active?.getAttribute('data-document-id'),markdown:document.querySelector('button[role=switch]')?.getAttribute('aria-checked'),dirty:!!tab?.querySelector('[aria-label=Unsaved]'),status:document.querySelector('.status-right')?.textContent,loading:!!document.querySelector('.status-item.loading'),error:document.querySelector('.error-message')?.textContent,focus:{tag:focus?.tagName,role:focus?.getAttribute('role'),label:focus?.getAttribute('aria-label')}}`)
+     const ui=await run(`const tab=document.querySelector('[role=tab][aria-selected=true]'),active=document.querySelector('[data-active=true]'),focus=document.activeElement;return {tab:tab?.textContent,path:document.querySelector('.status-item.path')?.title,documentId:active?.getAttribute('data-document-id'),markdown:document.querySelector('button[role=switch]')?.getAttribute('aria-checked'),dirty:!!tab?.querySelector('[aria-label=Unsaved]'),status:document.querySelector('.status-right')?.textContent,loading:!!document.querySelector('.status-item.loading'),error:document.querySelector('.error-message')?.textContent,focus:{tag:focus?.tagName,role:focus?.getAttribute('role'),label:focus?.getAttribute('aria-label')}}`).catch(error=>({observationError:String(error)}))
      const file=await readFile(cyclePath).then(bytes=>({bytes:bytes.length}),error=>({error:String(error)}))
      observations.push({phase,at:new Date().toISOString(),ui,file})
      await writeFile(join(artifacts,`starter-save-${markdown}.json`),JSON.stringify(observations,null,2))
