@@ -1,79 +1,37 @@
 # MarkWriter
 
-MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown mode or Tiptap WYSIWYG mode, with a read-only Preview and self-contained HTML export.
+MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React and TypeScript. Edit in CodeMirror 6 Markdown or Tiptap WYSIWYG, with a read-only Preview and self-contained HTML export.
 
-## Current release
+## Download
 
-[MarkWriter 2.7.1](https://github.com/rheiger/markWriter/releases/tag/v2.7.1) adds Finder Quick Look support for JSON Lines files ending in `.jsonl` and extends highlighting for larger previews. The 2.7 line includes offline DBML diagrams and richer Markdown previews. See the [changelog](CHANGELOG.md) and [installation and rollback guide](docs/install-2.7.1.md).
-
-Packages are available for Apple silicon macOS, Windows x64 and Ubuntu 26.04 x64. Optional add-ons provide Markdown previews in Windows File Explorer and GNOME Files with Sushi, and Markdown thumbnails in KDE Dolphin. The Mac app and Finder extension use ad hoc seals. Windows packages are unsigned.
+[MarkWriter 2.7.2](https://github.com/rheiger/markWriter/releases/tag/v2.7.2) is the current release. It adds TOML highlighting and Finder previews, and a preview of offline PostgreSQL and SQLite DDL import. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB; optional desktop preview add-ons are separate. Verify downloads against SHA256SUMS. The Mac app and extension have ad hoc seals; Windows packages are unsigned. See [installation and rollback](docs/install-2.7.2.md) and [release notes](docs/releases/2.7.2.md).
 
 ## Features
 
-- Markdown and WYSIWYG editing, live Preview, document tabs and per-tab Undo/Redo.
-- Native Open, Save, Save As and HTML export, plus local session recovery.
-- Find/Replace in both editors, contextual tables and embedded-source folding.
-- Auto/Light/Dark themes and independent source/rendered font preferences.
-- Bundled offline syntax highlighting, Mermaid and DOT/Graphviz diagrams, and explicit `math` fences. Includes [bounded DBML schema diagrams](docs/dbml-2.7.md).
-- Searchable offline documentation through **Help → User Guide**.
+- Markdown and WYSIWYG editing, live Preview, tabs, per-tab Undo/Redo, Find/Replace and tables.
+- Native file operations and HTML export, local session recovery, themes and independent editor fonts.
+- Offline syntax highlighting, Mermaid, [DOT](docs/dot-security.md), [DBML](docs/dbml-2.7.md), explicit math fences and [SQL DDL import preview](docs/sql-import-preview.md).
+- Searchable offline **Help → User Guide**.
 
-Markdown is the canonical document source. Navigation and view changes preserve its bytes. Actual WYSIWYG edits may normalize Markdown syntax; consult the acceptance report for fidelity boundaries. Syntax highlighting and diagram/math rendering are bounded and fall back to readable source when their limits are exceeded. Inline dollar math, arbitrary TeX packages and PDF export are not supported.
-
-Independent windows, plugins, draw.io and SQL DDL remain backlog work. See [current project status](CURRENT_STATUS.md) and [issue dispositions](docs/issue-status-2026-11-06.md).
+Markdown is canonical. Navigation and view changes preserve its bytes; actual WYSIWYG edits may normalize syntax. Rendering is bounded and falls back to source when limits are exceeded. See [editing conventions](docs/supported-markdown.md) and [regex search](docs/regex-search.md). Independent windows, plugins, draw.io and PDF export are not implemented.
 
 ## Build and develop
 
-Use Node.js 24 or newer, npm 9 or newer and Rust 1.90 or newer with the platform’s Tauri build prerequisites. The supported dependencies and native build steps are recorded in [the CI workflow](.github/workflows/v2-ci.yml).
-
-Install JavaScript dependencies from the repository root:
+Use Node.js 24 or newer, npm 9 or newer, Rust 1.90 or newer and the platform’s Tauri prerequisites. See [CI](.github/workflows/v2-ci.yml) for platform dependencies.
 
 ```sh
 npm install
 npm --prefix frontend ci
-```
-
-For native development, run these in separate terminals:
-
-```sh
-npm run frontend:dev
-```
-
-```sh
-cd frontend
-npm exec tauri dev
-```
-
-For frontend checks:
-
-```sh
 npm run frontend:test
 npm run frontend:lint
 npm run frontend:build
-```
-
-For Rust tests and a native bundle:
-
-```sh
 npm run tauri:test
-cd frontend
-npm exec tauri build
 ```
 
-The native bundle requires a built frontend; run `npm run frontend:build` first. A browser-only development server does not provide native file dialogs, storage or menus.
+For native development, run `npm run frontend:dev` and, in another terminal, `cd frontend && npm exec tauri dev`. For a native bundle, build the frontend first, then run `cd frontend && npm exec tauri build`. A browser-only server does not provide native file dialogs, storage or menus.
 
-## Documentation and history
+## Project information
 
-This README is the maintained project entry point. [README-v2.md](README-v2.md) is a compatibility pointer; there is no separate active v2 development branch to switch to.
+[Changelog](CHANGELOG.md) · [Release notes](docs/releases/) · [Document ownership](docs/document-ownership.md) · [Preview correspondence](docs/preview-correspondence.md) · [Project guidance](AGENTS.md)
 
-- [Current status](CURRENT_STATUS.md)
-- [Proposed next increment and session prompts](docs/next-increment-2.6-plan.md)
-- [2.5 implementation details](docs/technical-writing-2.5-alpha1.md)
-- [2.5.1 release acceptance](docs/2.5.1-release-acceptance.md)
-- [Release notes](docs/releases/2.5.1.md)
-- [Historical changelog](CHANGELOG.md)
-
-The former Python/Qt instructions and early rewrite notes remain available in [Git history](https://github.com/rheiger/markWriter/tree/7887a2ba60bb265a9f18420840adc2aa0700cab8). They do not describe the current application.
-
-## License
-
-MarkWriter is licensed under the [MIT License](LICENSE). Bundled dependency licenses and attributions are supplied in the application and each release’s `THIRD_PARTY_NOTICES.txt`.
+Historical implementation and qualification documents are available in [Git history before cleanup](https://github.com/rheiger/markWriter/tree/3dcf648b412eaf9f73bef82e846f83ced0008156). Bundled dependency licenses and attribution are provided in the app and release notices. MarkWriter uses the [MIT License](LICENSE).

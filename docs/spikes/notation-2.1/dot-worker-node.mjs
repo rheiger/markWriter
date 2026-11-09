@@ -1,7 +1,0 @@
-import { parentPort } from "node:worker_threads";
-import { instance } from "@viz-js/viz";
-const viz = await instance();
-parentPort.postMessage("ready");
-parentPort.on("message", (source) =>
-  parentPort.postMessage(viz.render(source, { format: "svg" }).status),
-);

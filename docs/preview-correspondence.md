@@ -1,6 +1,5 @@
 # Preview correspondence ownership
 
-6 November 2026 — 2.1.0-alpha1 implementation
 
 Canonical source and the editing engines remain authoritative. The parser sidecar belongs to a document ID, source revision and render generation. Rendering never serializes WYSIWYG to obtain locations. Only the interactive Preview gets mapping attributes; ordinary rendering and HTML export do not.
 

@@ -1,6 +1,6 @@
 # MarkWriter desktop icons
 
-The editable master is [`assets/markwriter-icon.svg`](../../assets/markwriter-icon.svg): warm folded paper and a sculpted brass fountain-pen nib on a deep teal/indigo tile, joined by one flowing ink stroke. Large shapes carry the identity at small sizes; gradients and highlights add depth at larger sizes. The same master appears in About and generates the native desktop assets, without a third-party mark. The legacy `assets/icon_1024.png` and `MarkWrite.iconset` are historical artwork and are not packaged.
+The editable master is [`assets/markwriter-icon.svg`](../../assets/markwriter-icon.svg): warm folded paper and a sculpted brass fountain-pen nib on a deep teal/indigo tile, joined by one flowing ink stroke. Large shapes carry the identity at small sizes; gradients and highlights add depth at larger sizes. The same master appears in About and generates the native desktop assets, without a third-party mark.
 
 The tracked desktop output is generated using the project's pinned Tauri CLI 2.8.3:
 
