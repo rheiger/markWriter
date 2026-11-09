@@ -157,7 +157,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
   const lastTiptapSemantic = useRef<string | null>(null)
-  const dbmlBaseline = useRef<{ semantic: string; source: string } | null>(null)
+  const renderedBaseline = useRef<{ semantic: string; source: string } | null>(null)
   // A small journal lets rendered Undo/Redo recover exact bytes for imports.
   // Its character budget includes semantic copies and applies per document.
   const importSourceHistory = useRef<{ semantic: string; source: string }[]>([])
@@ -174,9 +174,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   function rememberRenderedSource(html: string, canonical: string) {
     const semantic = fromWysiwygHtml(html)
     lastTiptapSemantic.current = semantic
-    // The rendered codec may normalize prose separators. Keep the exact
-    // source checkpoint when history returns to the initial DBML model.
-    dbmlBaseline.current = html.includes('data-type="dbml"') ? { semantic, source: canonical } : null
+    // The rendered codec may normalize Markdown, including terminal newlines.
+    // Keep the exact source checkpoint for an Undo back to this rendered model.
+    renderedBaseline.current = { semantic, source: canonical }
   }
   if (lastTiptapSemantic.current === null) rememberRenderedSource(initialHtml, lastTiptapSource.current)
   // Tiptap editor instance (WYSIWYG)
@@ -244,9 +244,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const markdownFromHtml = fromWysiwygHtml(html)
       if (markdownFromHtml === lastTiptapSemantic.current) return
       lastTiptapSemantic.current = markdownFromHtml
-      const baseline = dbmlBaseline.current
-      const exact = isHistoryTransaction(transaction) ? importSourceHistory.current.find(item => item.semantic === markdownFromHtml) : undefined
-      const canonical = exact?.source ?? (baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml)
+      const history = isHistoryTransaction(transaction)
+      const exact = history ? importSourceHistory.current.find(item => item.semantic === markdownFromHtml) : undefined
+      const baseline = renderedBaseline.current
+      const canonical = exact?.source ?? (history && baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml)
       lastTiptapSource.current = canonical
       updateDocumentContent(canonical)
     },

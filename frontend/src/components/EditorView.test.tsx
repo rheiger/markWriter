@@ -372,7 +372,7 @@ describe('document fidelity with real editors', () => {
     } finally { vi.unstubAllGlobals() }
   })
 
-  it('restores the rendered regex edit model with normalized final LF after one Undo', async () => {
+  it('restores the exact source and rendered regex edit model after one Undo', async () => {
     const search = await import('../lib/regexSearch')
     const spy = vi.spyOn(search, 'startRegex').mockImplementation((request, complete) => { complete(search.executeRegex(request)); return () => {} })
     try {
@@ -388,7 +388,7 @@ describe('document fidelity with real editors', () => {
       expect(editor.getText()).toContain('😀 a-sa a-sa')
       act(() => ref.current!.undo())
       expect(editor.getJSON()).toEqual(model)
-      expect(ref.current!.getMarkdown()).toBe('# Regex acceptance\n\n😀 same same')
+      expect(ref.current!.getMarkdown()).toBe(source)
     } finally { spy.mockRestore() }
   })
 
@@ -946,4 +946,22 @@ describe('large SQL preview scheduling', () => {
     await waitFor(() => expect(preview.textContent).toContain('stale_marker'))
     expect(ref.current!.getMarkdown()).toContain('newest_marker')
   }, 15000)
+})
+
+describe('rendered Undo canonical source', () => {
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+  it.each(['\n', '\r\n'])('restores exact bytes and clean state after a rendered SQL edit (newline %j)', async newline => {
+    const source = ['# SQL', '', '```sql', "SELECT 'sql_final_sentinel';", '```', ''].join(newline)
+    const {editor,ref} = await mount(source)
+    const position = editor.state.doc.textContent.indexOf('sql_final_sentinel')
+    expect(position).toBeGreaterThan(0)
+    let from = -1
+    editor.state.doc.descendants((node,pos) => { if (node.isText && node.text?.includes('sql_final_sentinel')) from = pos + node.text.indexOf('sql_final_sentinel') })
+    expect(from).toBeGreaterThan(0)
+    act(() => { editor.commands.insertContentAt(from + 'sql_final_sentinel'.length, '_edited') })
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(true)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(source)
+    expect(useAppStore.getState().currentDocument!.isDirty).toBe(false)
+  })
 })
