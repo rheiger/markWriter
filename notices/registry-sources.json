@@ -508,6 +508,13 @@
       "path": "notices/upstream/d8870d5e2ab20fc50915b711c5aa7588131c9abcc1bcb980da1efd7486522a46.txt"
     }
   ],
+  "Rust/r-efi@6.0.0": [
+    {
+      "url": "crate:r-efi@6.0.0/AUTHORS",
+      "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111",
+      "path": "notices/upstream/d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111.txt"
+    }
+  ],
   "Rust/r-efi@5.3.0": [
     {
       "url": "crate:r-efi@5.3.0/AUTHORS",
