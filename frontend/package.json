@@ -26,8 +26,6 @@
     "@codemirror/view": "^6.22.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
-    "@tauri-apps/plugin-fs": "^2.0.0",
-    "@tauri-apps/plugin-notification": "^2.0.0",
     "@tiptap/core": "^3.32.3",
     "@tiptap/extension-blockquote": "^3.32.3",
     "@tiptap/extension-bold": "^3.32.3",
