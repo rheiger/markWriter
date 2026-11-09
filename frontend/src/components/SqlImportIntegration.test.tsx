@@ -84,6 +84,16 @@ describe('SQL import through the application', () => {
     expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
   })
 
+  it('shows a dialect-specific error without changing the destination', async () => {
+    vi.mocked(invoke).mockImplementation(async command => command === 'pick_sql_source' ? 'CREATE TABLE t (payload BLOB);' : null)
+    render(<App />)
+    openImport()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/PostgreSQL.*line 1.*dialect/i)
+    expect(screen.queryByRole('textbox', { name: 'DBML preview' })).toBeNull()
+    expect(useAppStore.getState().currentDocument?.content).toBe(original)
+    expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+  })
+
   it('does not append after the destination changes while validation is pending', async () => {
     let finish!: (svg: string) => void
     const pending = new Promise<string>(resolve => { finish = resolve })

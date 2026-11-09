@@ -15,6 +15,13 @@ describe('bounded SQL DDL import', () => {
       catch (error) { expect(String(error)).toMatch(message); expect(String(error)).not.toContain('secret') }
     }
   })
+  it('names the selected dialect and suggests checking it for dialect-specific syntax', () => {
+    expect(() => convertSqlDdl('CREATE TABLE t (data BLOB);', 'postgresql')).toThrow(/PostgreSQL.*line 1.*dialect/i)
+    expect(() => convertSqlDdl('CREATE TABLE t (id INT);\nALTER TABLE t ADD PRIMARY KEY (id);', 'sqlite')).toThrow(/SQLite.*PostgreSQL.*line 2.*dialect/i)
+    expect(() => convertSqlDdl('CREATE TABLE t (id SERIAL);', 'postgresql')).toThrow(/PostgreSQL.*line 1.*dialect/i)
+    expect(convertSqlDdl('\ufeffCREATE TABLE t (id INTEGER PRIMARY KEY);', 'sqlite').dbml).toContain('main.t')
+    expect(convertSqlDdl('CREATE TABLE t (id INTEGER PRIMARY KEY);', 'sqlite').dbml).toContain('main.t')
+  })
   it('preserves ordered PostgreSQL keys and qualified foreign keys', () => {
     const result = convertSqlDdl(`CREATE TABLE accounting.customers (id integer, region text, PRIMARY KEY (region,id));
 CREATE TABLE orders (region text, customer_id integer, UNIQUE(region, customer_id), FOREIGN KEY (region, customer_id) REFERENCES accounting.customers(region,id));`, 'postgresql')

@@ -62,6 +62,8 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   const warnings: string[] = []; const tables: Table[] = []
   const fail = (message: string): never => { throw new Error(tokens[pos] ? `${message} at line ${tokens[pos].line}` : message) }
   const unsupported = (feature: string): never => { throw new Error(`${feature} is not supported${tokens[pos] ? ` at line ${tokens[pos].line}` : ''}. Use an excerpt containing supported table DDL and check the selected dialect.`) }
+  const dialectName = dialect === 'sqlite' ? 'SQLite' : 'PostgreSQL'
+  const dialectError = (message: string, line?: number): never => { throw new Error(`${message}${line ? ` at line ${line}` : ''}. Check the selected dialect; this syntax may also be outside the supported subset.`) }
   const is = (s: string) => tokens[pos]?.kind !== 'quoted' && tokens[pos]?.kind !== 'string' && tokens[pos]?.value.toUpperCase() === s
   const take = (s: string) => { if (!is(s)) fail(`Expected ${s}`); pos++ }
   const maybe = (s: string) => { if (is(s)) { pos++; return true } return false }
@@ -102,9 +104,9 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   const typeNames = new Set(['INT','INTEGER','SMALLINT','BIGINT','TEXT','VARCHAR','CHAR','CHARACTER','BOOLEAN','BOOL','REAL','DOUBLE','FLOAT','NUMERIC','DECIMAL','DATE','TIME','TIMESTAMP','UUID','BLOB','BYTEA'])
   const column = (table: Table) => {
     const colName = name(); const typeToken = tokens[pos]
-    if (!typeToken || typeToken.kind !== 'word' || !typeNames.has(typeToken.value.toUpperCase())) fail('Unsupported column type')
+    if (!typeToken || typeToken.kind !== 'word' || !typeNames.has(typeToken.value.toUpperCase())) dialectError(`Unsupported ${dialectName} column type`, typeToken?.line)
+    if (dialect === 'postgresql' && typeToken.value.toUpperCase() === 'BLOB') dialectError('Unsupported PostgreSQL column type', typeToken.line)
     pos++; let type = typeToken.value
-    if (dialect === 'postgresql' && type.toUpperCase() === 'BLOB') fail('Unsupported PostgreSQL type')
     if (maybe('PRECISION')) { if (type.toUpperCase() !== 'DOUBLE') fail('Unsupported type modifier'); type += ' precision' }
     else if (dialect === 'postgresql' && type.toUpperCase() === 'DOUBLE') fail('Expected PRECISION after DOUBLE')
     if (maybe('VARYING')) { if (type.toUpperCase() !== 'CHARACTER') fail('Unsupported type modifier'); type += ' varying' }
@@ -132,6 +134,7 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
   }
   while (pos < tokens.length) {
     if (is('PRAGMA')) unsupported('PRAGMA statements')
+    const statementLine = tokens[pos]?.line
     if (maybe('CREATE')) {
       if (is('VIEW')) unsupported('CREATE VIEW')
       take('TABLE'); const table: Table = { path: path(), columns: [], keys: [], refs: [] }; tables.push(table)
@@ -141,7 +144,7 @@ export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportRes
       do { if (is('CONSTRAINT') || is('PRIMARY') || is('UNIQUE') || is('FOREIGN')) { sawConstraint = true; constraint(table) } else { if (dialect === 'sqlite' && sawConstraint) fail('SQLite columns must precede table constraints'); column(table) } } while (maybe(','))
       take(')')
     } else if (maybe('ALTER')) {
-      if (dialect !== 'postgresql') fail('ALTER TABLE is only supported for PostgreSQL')
+      if (dialect !== 'postgresql') dialectError('SQLite ALTER TABLE is not supported; ALTER TABLE is supported only for PostgreSQL', statementLine)
       take('TABLE'); const p = path(); const table = tables.find(t => pathKey(t.path) === pathKey(p)); if (!table) fail('ALTER TABLE target must already be declared')
       take('ADD'); constraint(table!)
     } else fail('Unsupported SQL statement')
