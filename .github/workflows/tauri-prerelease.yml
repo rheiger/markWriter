@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   push:
-    branches: [main, 'codex/2.5-technical-writing', 'codex/highlighting-long-python-json', 'codex/2.6-native-integration']
+    branches: [main]
     tags: ['v2.*']
     paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
