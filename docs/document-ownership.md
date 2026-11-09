@@ -1,6 +1,5 @@
 # Document ownership and local persistence
 
-6 November 2026 — productivity increment
 
 Canonical Markdown lives once in an ordered document collection, identified by stable ID. The active document is a derived selection. Revision/saved-content metadata belongs to each document. Editor sessions retain engine states, selection, mode and scroll per open document; closing disposes them. Inactive sessions must not render previews or handle active-document callbacks.
 

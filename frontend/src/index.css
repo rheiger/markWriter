@@ -151,31 +151,3 @@ input:focus, textarea:focus, select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
-
-/* Toast UI Editor Overrides */
-.toastui-editor-defaultUI {
-  border: 1px solid var(--border-color);
-}
-
-.toastui-editor-defaultUI-toolbar {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toastui-editor-toolbar-icons {
-  color: var(--text-primary);
-}
-
-.toastui-editor .ProseMirror {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.toastui-editor-md-container {
-  background: var(--bg-primary);
-}
-
-.toastui-editor-md-preview {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}

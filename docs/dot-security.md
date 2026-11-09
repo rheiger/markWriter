@@ -1,6 +1,5 @@
 # Offline DOT trust boundary
 
-6 November 2026 — alpha2 implementation; qualification in progress.
 
 Canonical `dot` and `graphviz` fences remain Markdown. SVG is a disposable view and has block correspondence only. The opaque rendered editor node retains notation/source; unchanged mode/view changes never serialize it. Source editing/search/folds remain the editor's existing responsibilities.
 
