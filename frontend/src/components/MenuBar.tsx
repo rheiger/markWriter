@@ -11,6 +11,10 @@ import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 import { HelpDialog } from './HelpDialog'
 import { UpdateDialog, type UpdateCheckResult } from './UpdateDialog'
+import { SqlImportDialog } from './SqlImportDialog'
+import { convertSqlInWorker } from '../lib/sqlDdlClient'
+import type { SqlDialect } from '../lib/sqlDdl'
+import { dbmlRenderer } from '../lib/dbmlRenderer'
 const checkUpdates = () => invoke<UpdateCheckResult>('check_updates')
 
 interface MenuBarProps {
@@ -51,9 +55,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
+  const [sqlTarget, setSqlTarget] = useState<ReturnType<typeof clipboardTarget>>(null)
+  const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
   const menuIdentity = useRef({ key: '', generation: 0 })
-  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!useAppStore.getState().pendingClose
+  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!sqlTarget || !!useAppStore.getState().pendingClose
   const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
   if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
   const generation = menuIdentity.current.generation
@@ -61,6 +67,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   renderedOwner.current = currentDocument
   useEffect(() => useAppStore.subscribe((state, previous) => {
     if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose) {
+      ownerEpoch.current++
       menuIdentity.current = { key: '', generation: menuIdentity.current.generation + 1 }
     }
   }), [])
@@ -236,6 +243,37 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       return current?.id === document.id && (current.revision ?? 0) === revision &&
         activeSelection?.editor === selection.editor && activeSelection.selection === selection.selection
     } }
+  }
+
+  const handleSqlImport = () => {
+    setActiveMenu(null)
+    const target = clipboardTarget()
+    if (!target) return
+    const epoch = ownerEpoch.current
+    setSqlTarget({
+      editor: target.editor,
+      valid: () => epoch === ownerEpoch.current && target.valid(),
+    })
+  }
+
+  const loadSqlImport = async (dialect: SqlDialect, signal: AbortSignal) => {
+    if (!sqlTarget?.valid()) throw new Error('The destination changed. Reopen SQL import.')
+    let source: string | null
+    try { source = await invoke<string | null>('pick_sql_source') }
+    catch (error) { throw new Error(String(error)) }
+    if (signal.aborted || source === null) return null
+    if (!sqlTarget.valid()) throw new Error('The destination changed. Reopen SQL import.')
+    return convertSqlInWorker(source, dialect, signal)
+  }
+
+  const appendSqlImport = async (dbml: string, signal: AbortSignal) => {
+    if (!sqlTarget?.valid()) throw new Error('The destination changed. Reopen SQL import.')
+    await dbmlRenderer.render(dbml, 'sql-import-review', signal)
+    if (signal.aborted) return
+    if (!sqlTarget.valid()) throw new Error('The destination changed. Reopen SQL import.')
+    const editor = editorViewRef?.current
+    if (!editor) throw new Error('The destination editor is unavailable.')
+    editor.appendDbml(dbml)
   }
 
   const handleCut = async () => {
@@ -457,6 +495,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       undo: handleUndo, redo: handleRedo, find: () => handleFind(), replace: () => handleFind(true),
       updates: () => setUpdatesOpen(true), settings: () => setSettingsOpen(true), about: handleAbout, help: () => setHelpOpen(true),
       markdown: () => editorViewRef?.current?.setMode('markdown'), wysiwyg: () => editorViewRef?.current?.setMode('wysiwyg'),
+      'import-sql': handleSqlImport,
       erd: () => editorViewRef?.current?.insertMarkdown(mermaidErdTemplate),
       dot: () => editorViewRef?.current?.insertMarkdown(dotTemplate), math: () => editorViewRef?.current?.insertMarkdown(mathTemplate),
       highlighting: () => updateConfig({ syntaxHighlighting: !config.syntaxHighlighting }),
@@ -488,6 +527,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
   return (
     <div className={nativeMac ? 'native-menu-host' : 'menu-bar'}>
+      {sqlTarget && <SqlImportDialog onSelectFile={loadSqlImport} onInsert={appendSqlImport} onClose={() => setSqlTarget(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {!nativeMac && <>
       {/* File Menu */}
@@ -627,6 +667,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
           <div className="menu-label">Diagram</div>
           <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mermaidErdTemplate); closeMenus() }}>Mermaid ERD</button>
           <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(dotTemplate); closeMenus() }}>DOT</button>
+          <button className="menu-option" disabled={!currentDocument} onClick={handleSqlImport}>Import SQL DDL…</button>
           <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mathTemplate); closeMenus() }}>Math block</button>
         </div>}
       </div>

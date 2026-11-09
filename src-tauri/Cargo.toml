@@ -1,6 +1,6 @@
 [package]
 name = "markwriter"
-version = "2.7.1"
+version = "2.7.2"
 description = "A modern Markdown editor built with Tauri"
 authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
@@ -44,6 +44,9 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 dirs = "5.0"
 html-escape = "0.2"
 tempfile = "3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [[bin]]
 name = "markwriter"

@@ -95,6 +95,14 @@ describe('Finder feedback fixtures', () => {
 })
 
 describe('larger Quick Look previews', () => {
+  it('preserves and highlights standalone TOML through its final sentinel', async () => {
+    const input = ('name = "example" # value\n').repeat(1800) + 'final_sentinel = true\n'
+    const output = await quickLookRender(doc('<pre data-language="toml">' + input + '</pre>'))
+    const pre = new DOMParser().parseFromString(output, 'text/html').querySelector('pre')!
+    expect(pre.textContent).toBe(input)
+    expect(Array.from(pre.querySelectorAll('span')).at(-1)?.textContent).toBe('true')
+  })
+
   it('keeps highlighting through the end of a 48 KiB standalone source file', async () => {
     const source = 'echo "a representative argument" # ' + 'text '.repeat(15) + '\n'
     const input = source.repeat(450) + 'echo "last argument"\n'

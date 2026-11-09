@@ -108,6 +108,27 @@ export function renderMappedMarkdown(source: string, owner: MapOwner, highlighti
   return map
 }
 
+// Keep every existing source byte and require an independent top-level fence.
+export function appendDbmlFence(source: string, dbml: string) {
+  if (source.length > 512 * 1024) throw new Error('This document is too large for SQL import. Import into a new document instead.')
+  const newline = source.includes('\r\n') ? '\r\n' : '\n'
+  const chart = dbml.replace(/\r\n?/g, '\n').replace(/\n+$/, '') + '\n'
+  let fenceLength = 3
+  for (const run of chart.matchAll(/`+/g)) fenceLength = Math.max(fenceLength, run[0].length + 1)
+  const fence = '`'.repeat(fenceLength)
+  // Two newlines also work when a trailing CR joins the first inserted LF.
+  const separator = source ? newline + newline : ''
+  const raw = fence + 'dbml' + newline + chart.replace(/\n/g, newline) + fence
+  const addition = separator + raw + newline
+  const last = markdown.parse(source + addition, {}).at(-1)
+  if (last?.type !== 'fence' || last.level !== 0 || last.info !== 'dbml' ||
+      last.markup !== fence || last.content !== chart || !last.map ||
+      sourceLines(source + addition).slice(...last.map).join('') !== raw + newline) {
+    throw new Error('Close the unfinished Markdown block at the end of the document, then try again.')
+  }
+  return { addition, raw, chart }
+}
+
 export function toWysiwygHtml(source: string): string {
   const doc = new DOMParser().parseFromString(markdown.render(source, { source, retainDbmlSource: true }), 'text/html')
   doc.querySelectorAll('ins').forEach(node => {

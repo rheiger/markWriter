@@ -45,7 +45,7 @@ fn apply_menu_state(app: tauri::AppHandle, state: MenuState) -> Result<(), Strin
     }
     #[cfg(target_os = "macos")]
     if let Some(menu) = app.menu() {
-        for id in ["save", "save-as", "save-all", "close-tab", "export", "find", "replace", "erd", "dot", "math", "markdown", "wysiwyg", "zoom-in", "zoom-out", "actual-size"] {
+        for id in ["save", "save-as", "save-all", "close-tab", "export", "find", "replace", "erd", "dot", "import-sql", "math", "markdown", "wysiwyg", "zoom-in", "zoom-out", "actual-size"] {
             if let Some(item) = menu.get(id) {
                 match item {
                     tauri::menu::MenuItemKind::MenuItem(i) => i.set_enabled(state.has_document && !state.modal),
@@ -100,6 +100,7 @@ pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
     let insert=SubmenuBuilder::new(app,"Insert")
         .item(&item("erd","Mermaid ERD",None)?)
         .item(&item("dot","DOT",None)?)
+        .item(&item("import-sql","Import SQL DDL…",None)?)
         .item(&item("math","Math block",None)?).build()?;
     let theme=SubmenuBuilder::new(app,"Theme")
         .item(&check("theme-system","Auto")?).item(&check("theme-light","Light")?).item(&check("theme-dark","Dark")?).build()?;

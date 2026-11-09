@@ -16,6 +16,9 @@ mod tests {
     fn math_worker_has_no_network_or_wasm_permission() {
         assert!(is_math_worker("/assets/mathWorker-a1B2.js"));
         assert!(is_dbml_worker("/assets/dbmlWorker-a1B2.js"));
+        assert!(is_sql_worker("/assets/sqlDdlWorker-a1B2.js"));
+        assert!(!is_sql_worker("/assets/sqlDdlWorker-a1B2.js/nested.js"));
+        assert!(!is_dot_worker("/assets/sqlDdlWorker-a1B2.js"));
         assert!(!is_dbml_worker("/assets/dbmlWorker-x.js/nested.js"));
         assert!(!is_dot_worker("/assets/dbmlWorker-a1B2.js"));
         for path in ["/index.html", "/assets/mathWorker-x.js/other.js", "/mathWorker.js", "/assets/dotWorker-x.js"] {
@@ -42,4 +45,8 @@ pub fn is_regex_worker(path: &str) -> bool {
 
 pub fn is_dbml_worker(path: &str) -> bool {
     path.starts_with("/assets/dbmlWorker-") && path.ends_with(".js") && !path[8..].contains('/')
+}
+
+pub fn is_sql_worker(path: &str) -> bool {
+    path.starts_with("/assets/sqlDdlWorker-") && path.ends_with(".js") && !path[8..].contains('/')
 }

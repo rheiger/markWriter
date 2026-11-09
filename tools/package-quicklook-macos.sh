@@ -34,6 +34,9 @@ case "$1" in
       plutil -insert UTImportedTypeDeclarations -array "$app_plist"
     fi
     plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/JSONLinesType.plist")" "$app_plist"
+    # Preserve the standard TOML type on hosts where no other app declares it.
+    # Import only .toml and do not add an editor document type.
+    plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/TOMLType.plist")" "$app_plist"
     plutil -lint "$app_plist"
     "$root/native/quicklook/build-experiment.sh" "$stage/extension-build"
     mkdir -p "$app/Contents/PlugIns"

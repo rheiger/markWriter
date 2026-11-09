@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>UTTypeIdentifier</key>
+    <string>public.toml</string>
+    <key>UTTypeDescription</key>
+    <string>TOML</string>
+    <key>UTTypeConformsTo</key>
+    <array>
+        <string>public.text</string>
+    </array>
+    <key>UTTypeTagSpecification</key>
+    <dict>
+        <key>public.filename-extension</key>
+        <array>
+            <string>toml</string>
+        </array>
+    </dict>
+</dict>
+</plist>
