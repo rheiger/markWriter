@@ -113,4 +113,22 @@ describe('SQL import through the application', () => {
     expect(useAppStore.getState().currentDocument?.content).toBe(original)
     expect(useAppStore.getState().documents.find(doc => doc.id === 'different')?.content).toBe('Other')
   })
+
+  it.each(['revision', 'close'])('does not append after destination %s while validation is pending', async change => {
+    let finish!: (svg: string) => void
+    const pending = new Promise<string>(resolve => { finish = resolve })
+    vi.mocked(dbmlRenderer.render).mockReturnValueOnce(pending)
+    render(<App />)
+    openImport()
+    await screen.findByRole('textbox', { name: 'DBML preview' })
+    fireEvent.click(screen.getByRole('button', { name: 'Append DBML' }))
+    act(() => {
+      if (change === 'revision') useAppStore.getState().updateDocumentContent(original + '\nnew edit')
+      else useAppStore.setState({ documents: [], currentDocument: null })
+    })
+    await act(async () => { finish('<svg />'); await pending })
+    expect(await screen.findByRole('alert')).toHaveTextContent('The destination changed')
+    if (change === 'revision') expect(useAppStore.getState().currentDocument?.content).toBe(original + '\nnew edit')
+    else expect(useAppStore.getState().documents).toHaveLength(0)
+  })
 })
