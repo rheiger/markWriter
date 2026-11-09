@@ -2,6 +2,7 @@ import importlib.util
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -39,7 +40,7 @@ class RemovalTest(unittest.TestCase):
         self.stopped = patch.object(u, 'assert_stopped')
         self.stopped.start()
         self.addCleanup(self.stopped.stop)
-        self.backup = self.app.parent / u.QUARANTINE / self.app.name
+        self.backup = self.app.parent / u.QUARANTINE / (self.app.name + '.2.7.3.quarantined')
 
     def write_plists(self):
         for path, value in [(self.app / 'Contents/Info.plist', self.host), (self.extension / 'Contents/Info.plist', self.ext)]:
@@ -64,6 +65,29 @@ class RemovalTest(unittest.TestCase):
         self.assertTrue(self.app.exists()); self.assertFalse(self.backup.exists())
         self.assertIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
         self.assertEqual(doc.read_text(), 'draft'); self.assertEqual(profile.read_text(), 'recovery'); self.assertTrue(other.exists())
+
+    def test_distinct_versions_support_exact_path_upgrade_and_rollback(self):
+        self.host['CFBundleShortVersionString'] = self.ext['CFBundleShortVersionString'] = '2.7.2'
+        self.write_plists()
+        old = self.app.parent / u.QUARANTINE / (self.app.name + '.2.7.2.quarantined')
+        u.run(self.app, '2.7.2', True)
+        self.assertTrue(old.exists())
+        shutil.copytree(old, self.app)
+        self.host['CFBundleShortVersionString'] = self.ext['CFBundleShortVersionString'] = '2.7.3'
+        self.write_plists()
+        u.run(self.app, '2.7.3', True)
+        self.assertTrue(old.exists()); self.assertTrue(self.backup.exists())
+        u.run(self.app, '2.7.2', True, True)
+        self.assertTrue(self.app.exists()); self.assertTrue(self.backup.exists())
+        with (self.app / 'Contents/Info.plist').open('rb') as file:
+            self.assertEqual(plistlib.load(file)['CFBundleShortVersionString'], '2.7.2')
+        with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, True)
+
+    def test_invalid_versions_are_refused_before_any_mutation(self):
+        for version in ('../escape', '', '.', '2.7.3/other', '2.7.3\\other', '２.7.3', '2.7.3..', 'x' * 300):
+            with self.assertRaises(u.Refusal): u.run(self.app, version, True)
+        self.assertFalse((self.app.parent / u.QUARANTINE).exists())
+        self.assertTrue(self.app.exists())
 
     def test_rejects_identity_build_and_extension_changes(self):
         for key, value in [('CFBundleIdentifier', 'other'), ('CFBundleShortVersionString', '2.7.2'), ('CFBundleVersion', 'other')]:
@@ -175,7 +199,7 @@ with u.transaction_lock(app.parent / u.QUARANTINE, app):
         self.app.rename(renamed)
         self.assertEqual(u.checked_path(str(renamed)), renamed)
         u.run(renamed, '2.7.3', True)
-        self.assertTrue(renamed.parent.joinpath(u.QUARANTINE, renamed.name).exists())
+        self.assertTrue(renamed.parent.joinpath(u.QUARANTINE, renamed.name + '.2.7.3.quarantined').exists())
         os.chmod(self.app.parent, 0o777)
         with self.assertRaises(u.Refusal): u.checked_path(str(renamed))
 

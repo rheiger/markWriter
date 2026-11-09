@@ -9,6 +9,7 @@ import hashlib
 import os
 from pathlib import Path
 import plistlib
+import re
 import signal
 import stat
 import subprocess
@@ -156,7 +157,7 @@ def register(app):
 
 def run_locked(app, version, apply=False, restore=False, repair=False):
     backup_dir = app.parent / QUARANTINE
-    backup = backup_dir / app.name
+    backup = backup_dir / (app.name + '.' + version + '.quarantined')
     for p in (backup_dir, backup):
         if p.is_symlink():
             raise Refusal(f'Symlink at backup path: {p}')
@@ -224,6 +225,8 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
     print(f'Moved to {backup}. Restore with the same command plus --restore --apply.')
 
 def run(app, version, apply=False, restore=False, repair=False):
+    if len(version) > 100 or not re.fullmatch(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', version, flags=re.ASCII):
+        raise Refusal('Version must be a safe semantic version such as 2.7.3')
     safe_parents(app.parent)
     if apply:
         with transaction_lock(app.parent / QUARANTINE, app):
