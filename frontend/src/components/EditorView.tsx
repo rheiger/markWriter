@@ -11,7 +11,7 @@ import { useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { closeHistory, isHistoryTransaction } from '@tiptap/pm/history'
+import { closeHistory, isHistoryTransaction, undoDepth } from '@tiptap/pm/history'
 import mermaid from 'mermaid'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -157,26 +157,46 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
   const lastTiptapSemantic = useRef<string | null>(null)
-  const renderedBaseline = useRef<{ semantic: string; source: string } | null>(null)
-  // A small journal lets rendered Undo/Redo recover exact bytes for imports.
-  // Its character budget includes semantic copies and applies per document.
-  const importSourceHistory = useRef<{ semantic: string; source: string }[]>([])
-  function rememberImportedSource(semantic: string, canonical: string) {
-    const entries = importSourceHistory.current.filter(item => item.semantic !== semantic)
-    entries.push({ semantic, source: canonical })
-    let size = entries.reduce((sum, item) => sum + item.semantic.length + item.source.length, 0)
-    while (entries.length > 2 && (entries.length > 16 || size > 2_000_000)) {
-      const removed = entries.shift()!
-      size -= removed.semantic.length + removed.source.length
+  // Checkpoints belong to history positions, not semantic text: the same
+  // rendered model can represent different canonical bytes at two positions.
+  // Store only the difference from serialized Markdown. Older patches are
+  // limited to 128 entries and 2,000,000 UTF-16 units; a single current
+  // external baseline remains pinned. Evicted/oversized older patches fall
+  // back to serialization rather than being matched by text at another depth.
+  type SourcePatch = { length: number; prefix: number; suffix: number; expected: string; original: string }
+  const renderedHistory = useRef<{ depth: number; previous: number; patches: Map<number, SourcePatch>; anchor: { depth: number; patch: SourcePatch } | null }>({ depth: 0, previous: 0, patches: new Map(), anchor: null })
+  function rememberCheckpoint(depth: number, semantic: string, canonical: string, pin = false) {
+    const journal = renderedHistory.current, patches = journal.patches
+    patches.delete(depth)
+    if (journal.anchor?.depth === depth) journal.anchor = null
+    if (semantic === canonical) return
+    let prefix = 0, suffix = 0
+    while (prefix < semantic.length && prefix < canonical.length && semantic[prefix] === canonical[prefix]) prefix++
+    while (suffix < semantic.length - prefix && suffix < canonical.length - prefix && semantic[semantic.length - 1 - suffix] === canonical[canonical.length - 1 - suffix]) suffix++
+    const patch = { length: semantic.length, prefix, suffix, expected: semantic.slice(prefix, semantic.length - suffix), original: canonical.slice(prefix, canonical.length - suffix) }
+    // Preserve the current externally supplied baseline even when it alone
+    // exceeds the budget for older checkpoints, as before this journal.
+    if (pin) { journal.anchor = { depth, patch }; return }
+    if (patch.expected.length + patch.original.length > 2_000_000) return
+    patches.set(depth, patch)
+    let size = Array.from(patches.values()).reduce((sum, item) => sum + item.expected.length + item.original.length, 0)
+    while (patches.size > 128 || size > 2_000_000) {
+      const oldest = patches.keys().next().value!
+      const removed = patches.get(oldest)!
+      patches.delete(oldest); size -= removed.expected.length + removed.original.length
     }
-    importSourceHistory.current = entries
   }
-  function rememberRenderedSource(html: string, canonical: string) {
+  function restoreCheckpoint(depth: number, semantic: string) {
+    const journal = renderedHistory.current
+    const patch = journal.patches.get(depth) ?? (journal.anchor?.depth === depth ? journal.anchor.patch : undefined)
+    if (!patch || semantic.length !== patch.length || semantic.slice(patch.prefix, semantic.length - patch.suffix) !== patch.expected) return semantic
+    return semantic.slice(0, patch.prefix) + patch.original + semantic.slice(semantic.length - patch.suffix)
+  }
+  function rememberRenderedSource(html: string, canonical: string, depth = 0) {
     const semantic = fromWysiwygHtml(html)
     lastTiptapSemantic.current = semantic
-    // The rendered codec may normalize Markdown, including terminal newlines.
-    // Keep the exact source checkpoint for an Undo back to this rendered model.
-    renderedBaseline.current = { semantic, source: canonical }
+    renderedHistory.current = { depth, previous: depth, patches: new Map(), anchor: null }
+    rememberCheckpoint(depth, semantic, canonical, true)
   }
   if (lastTiptapSemantic.current === null) rememberRenderedSource(initialHtml, lastTiptapSource.current)
   // Tiptap editor instance (WYSIWYG)
@@ -233,21 +253,54 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         editorProps: { ...editor.options.editorProps, clipboardParser: createInlineCodeClipboardParser(editor.schema) } })
     },
     onCreate: ({ editor }) => {
-      rememberRenderedSource(editor.getHTML(), lastTiptapSource.current)
+      rememberRenderedSource(editor.getHTML(), lastTiptapSource.current, undoDepth(editor.state))
       const remembered = initialViewState.current
       if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
       requestAnimationFrame(() => { if (wysiwygContainerRef.current && remembered?.renderedScroll !== undefined) wysiwygContainerRef.current.scrollTop = remembered.renderedScroll })
+    },
+    onTransaction: ({ editor, transaction, appendedTransactions }) => {
+      const journal = renderedHistory.current, previous = journal.depth, next = undoDepth(editor.state)
+      journal.previous = previous
+      const changed = transaction.docChanged || appendedTransactions.some(tr => tr.docChanged)
+      if (changed && lastTiptapSemantic.current !== null) {
+        if (!isHistoryTransaction(transaction) && transaction.getMeta('addToHistory') !== false) {
+          // ProseMirror occasionally prunes the oldest events in a batch.
+          const shift = next < previous ? previous + 1 - next : 0
+          if (shift) {
+            journal.previous -= shift
+            journal.patches = new Map(Array.from(journal.patches, ([depth, patch]) => [depth - shift, patch] as const).filter(([depth]) => depth >= 0))
+            if (journal.anchor) { journal.anchor.depth -= shift; if (journal.anchor.depth < 0) journal.anchor = null }
+          }
+          const branchPoint = previous - shift
+          for (const depth of journal.patches.keys()) if (depth > branchPoint) journal.patches.delete(depth)
+          if (journal.anchor && journal.anchor.depth > branchPoint) journal.anchor = null
+        } else if (!isHistoryTransaction(transaction)) {
+          // A non-history document rewrite can remap every old history event.
+          // Never apply checkpoints captured against the previous document.
+          journal.patches.clear()
+          journal.anchor = null
+        }
+      }
+      journal.depth = next
     },
     onUpdate: ({ editor, transaction }) => {
       if (!editor.isInitialized || isUpdatingFromMarkdown.current) return
       const html = editor.getHTML()
       const markdownFromHtml = fromWysiwygHtml(html)
-      if (markdownFromHtml === lastTiptapSemantic.current) return
-      lastTiptapSemantic.current = markdownFromHtml
       const history = isHistoryTransaction(transaction)
-      const exact = history ? importSourceHistory.current.find(item => item.semantic === markdownFromHtml) : undefined
-      const baseline = renderedBaseline.current
-      const canonical = exact?.source ?? (history && baseline?.semantic === markdownFromHtml ? baseline.source : markdownFromHtml)
+      const journal = renderedHistory.current
+      const unchanged = markdownFromHtml === lastTiptapSemantic.current
+      const canonical = history ? restoreCheckpoint(journal.depth, markdownFromHtml) : unchanged ? lastTiptapSource.current : markdownFromHtml
+      if (!history && unchanged && journal.depth !== journal.previous) {
+        const patch = journal.patches.get(journal.previous) ?? (journal.anchor?.depth === journal.previous ? journal.anchor.patch : undefined)
+        if (patch) {
+          journal.patches.set(journal.depth, patch)
+          while (journal.patches.size > 128) journal.patches.delete(journal.patches.keys().next().value!)
+        }
+      } else if (!history && !unchanged) rememberCheckpoint(journal.depth, markdownFromHtml, canonical)
+      if (!history && unchanged && !journal.anchor && !journal.patches.size && canonical !== markdownFromHtml) rememberCheckpoint(journal.depth, markdownFromHtml, canonical, true)
+      if (markdownFromHtml === lastTiptapSemantic.current && canonical === lastTiptapSource.current) return
+      lastTiptapSemantic.current = markdownFromHtml
       lastTiptapSource.current = canonical
       updateDocumentContent(canonical)
     },
@@ -328,7 +381,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           const text = source()
           if (lastTiptapSource.current !== text) {
             synchronizeRendered(tiptap, text)
-            rememberRenderedSource(tiptap.getHTML(), text)
+            rememberRenderedSource(tiptap.getHTML(), text, undoDepth(tiptap.state))
           }
           lastTiptapSource.current = text
           isUpdatingFromMarkdown.current = false
@@ -368,7 +421,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     setMarkdown: (content: string) => {
       updateDocumentContent(content)
       if (tiptap) synchronizeRendered(tiptap, content)
-      if (tiptap) rememberRenderedSource(tiptap.getHTML(), content)
+      if (tiptap) rememberRenderedSource(tiptap.getHTML(), content, undoDepth(tiptap.state))
       lastTiptapSource.current = content
       if (editorViewRef.current) {
         isSwitchingModeRef.current = true
@@ -446,7 +499,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       if (!tiptap || tiptap.isDestroyed || lastTiptapSource.current !== before) {
         throw new Error('The editor changed. Open SQL import again.')
       }
-      const beforeSemantic = fromWysiwygHtml(tiptap.getHTML())
       const node = tiptap.schema.nodes.dbml.create({ chart, notation: 'dbml', sourceFence: JSON.stringify(raw) })
       isUpdatingFromMarkdown.current = true
       try {
@@ -458,8 +510,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       }
       const after = before + addition
       const afterSemantic = fromWysiwygHtml(tiptap.getHTML())
-      rememberImportedSource(beforeSemantic, before)
-      rememberImportedSource(afterSemantic, after)
+      rememberCheckpoint(undoDepth(tiptap.state), afterSemantic, after)
       lastTiptapSemantic.current = afterSemantic
       lastTiptapSource.current = after
       updateDocumentContent(after)
