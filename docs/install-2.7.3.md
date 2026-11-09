@@ -33,7 +33,7 @@ python3 uninstall-markwriter-macos.py --app "$app" --version "$version"
 python3 uninstall-markwriter-macos.py --app "$app" --version "$version" --apply
 ```
 
-The first command is a dry run. Review the version and paths, quit the selected app, and close its Quick Look previews before applying. The tool checks the app and nested extension IDs, versions and seals, deregisters those paths and moves the copy to the reported backup path. The ad hoc seal checks integrity. Establish provenance using the package checksum before installation. The operation leaves documents, preferences and recovery data in place. Keep the backup while you may need to restore it.
+The first command is a dry run. Review the version and paths, quit the selected app, and close its Quick Look previews before applying. Finder can keep the extension process alive after closing its window. If the tool reports an active process, allow it to exit before retrying. The tool checks the app and nested extension IDs, versions and seals, deregisters those paths and moves the copy to the reported backup path. The ad hoc seal checks integrity. Establish provenance using the package checksum before installation. The operation leaves documents, preferences and recovery data in place. Keep the backup while you may need to restore it.
 
 Preview a restore by omitting `--apply`. Restore returns the bundle to its original path and registers it again. If an interruption leaves the bundle at the original path with incomplete registration, use `--register --apply` with that same path and version. If an interruption leaves the bundle in the backup, rerun the same removal to check its state or restore it.
 
