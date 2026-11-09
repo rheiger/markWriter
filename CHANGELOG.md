@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.3](https://github.com/rheiger/markWriter/releases/tag/v2.7.3) — 2026-11-09
+
+- Keep representative long explicit SQL fences highlighted while preserving source and Undo.
+- Add Finder preview registrations for C headers, C++ source, JavaScript and CSS, plus literal YAML highlighting.
+- Give actionable feedback for rejected SQL DDL import inputs.
+- Add dry-run-first, reversible removal and registration repair for a selected macOS app copy.
+
+[Installation and rollback](docs/install-2.7.3.md) · [Architecture](docs/architecture.md) · [Shell preview matrix](docs/shell-preview-matrix.md)
+
 ## [2.7.2](https://github.com/rheiger/markWriter/releases/tag/v2.7.2) — 2026-11-09
 
 - Highlight explicitly labeled TOML fences offline in Markdown, WYSIWYG, Preview and HTML export. On Apple silicon macOS, Finder Quick Look supports TOML fences and standalone `.toml` source. [#68](https://github.com/rheiger/markWriter/issues/68)

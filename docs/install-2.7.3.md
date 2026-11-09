@@ -18,16 +18,36 @@ codesign --verify --deep --strict "$app" &&
   pluginkit -m -ADv -i com.markwriter.app.quicklook
 ```
 
-Reopen Quick Look on a fresh file. Finder selection was tested on Apple silicon macOS 27.2 with `.md`, `.markdown`, `.json`, `.ndjson`, `.yaml`, `.yml` and `.xml`. The bundle also handles `.jsonl` through the same record formatter as `.ndjson`. Select a `.toml` file to preview highlighted literal source. This adds no Open With association. macOS can choose another installed provider. Some tools declare additional extensions for the same TOML content type; MarkWriter highlights standalone source only for the `.toml` suffix. Legacy MarkWrite may still appear in Finder's **Open with** button, which controls the editor association.
+Reopen Quick Look on a fresh file. See the [format and platform matrix](https://github.com/rheiger/markWriter/blob/v2.7.3/docs/shell-preview-matrix.md) for registered file types, grammar mappings and fallback behavior. macOS selects among eligible providers. The **Open with** button identifies the editor association.
 
-Markdown previews render tables, emphasis, inline code, inert link labels, and supported Mermaid and DOT diagrams. Finder can highlight supported code fences, including explicit TOML, and standalone Bash, Python, SQL and Makefile source. XML outside the formatting subset can still receive syntax colors. Unsupported diagram source remains readable. YAML formatting covers a subset of block maps and lists. The extension uses a disposable WebKit view and blocks remote document resources. Its App Sandbox client entitlement allows WebKit to start and grants outgoing capability at the process level. [Apple App Sandbox entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.client) · [WebKit content blocking](https://webkit.org/blog/3476/content-blockers-first-look/)
+The extension reads source files without writing to them. It uses a disposable WebKit view and blocks remote document resources. Its App Sandbox client entitlement allows WebKit to start and grants outgoing capability at the process level. [Apple App Sandbox entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.client) · [WebKit content blocking](https://webkit.org/blog/3476/content-blockers-first-look/)
 
-To remove the manual registration before moving this copy to Trash or restoring a previous app, use the same `app`, `extension`, and `lsregister` values:
+### Remove or restore one Mac copy
+
+Download `uninstall-markwriter-macos.py` from the v2.7.3 release and check its SHA-256 against `SHA256SUMS`. Use Python 3 from a regular account. Specify the absolute path to the app you want to remove and its exact installed version.
 
 ```sh
-pluginkit -r "$extension"
-"$lsregister" -u "$app"
+app="/Applications/MarkWriter.app"
+version="2.7.3"
+python3 uninstall-markwriter-macos.py --app "$app" --version "$version"
+python3 uninstall-markwriter-macos.py --app "$app" --version "$version" --apply
 ```
+
+The first command is a dry run. Review the version and paths, quit the selected app, and close its Quick Look previews before applying. The tool checks the app and nested extension IDs, versions and seals, deregisters those paths and moves the copy to the reported backup path. The ad hoc seal checks integrity. Establish provenance using the package checksum before installation. The operation leaves documents, preferences and recovery data in place. Keep the backup while you may need to restore it.
+
+Preview a restore by omitting `--apply`. Restore returns the bundle to its original path and registers it again. If an interruption leaves the bundle at the original path with incomplete registration, use `--register --apply` with that same path and version. If an interruption leaves the bundle in the backup, rerun the same removal to check its state or restore it.
+
+```sh
+python3 uninstall-markwriter-macos.py --app "$app" --version "$version" --restore --apply
+```
+
+### Manual upgrade and rollback
+
+1. Verify the new DMG and stage the new copy. Verify its bundle seal, version and nested extension before switching copies. Save your work, quit the running app and close its Finder previews. Keep the old installer and back up the profile.
+2. Use the removal tool with the old version and exact app path. Retain its reported backup. Copy the verified candidate to the vacated path and open it. Check **About**, a saved document, a recovery draft and Finder Quick Look.
+3. To roll back, quit the candidate and close previews. Verify it, unregister its exact extension and app paths using `pluginkit -r "$extension"` and `"$lsregister" -u "$app"`, then move that copy to a separate holding path. Run the restore command with the old version and original path. Check launch, documents, recovery and Quick Look again.
+
+Each removal target has a single backup slot. Keep the candidate and old backup at separate paths during rollback. The in-app update check points to the official downloads for manual installation.
 
 ## Windows File Explorer
 
@@ -44,11 +64,13 @@ $dll = Join-Path $PWD 'MarkWriterPreview.dll'
 
 Open File Explorer, enable the **Preview pane** from **View → Show**, and select a local Markdown file. For a fresh test, create a `.md` file locally. Windows may block previewing files marked as originating from the Internet. [Microsoft Preview pane security](https://support.microsoft.com/en-us/servicing/os/windows/docs/2025/10/file-explorer-automatically-disables-the-preview-feature-for-files-downloaded-from-the-internet)
 
+To remove the editor, use **Settings → Apps → Installed apps → MarkWriter → Uninstall**. Disable the separate Explorer add-on using its own installer.
+
 The handler previews `.md` and `.markdown` with basic headings, bold and inline code. The tested Explorer baseline is Windows Server 2025 x64. Keep the DLL in the folder while enabled. To remove it or replace it with another version, close the Preview pane and run `.\install.ps1 -Action Disable -DllPath $dll` from the original folder first.
 
 ## Ubuntu 26.04 x64
 
-Install the editor with `sudo apt install ./MarkWriter-2.7.3-ubuntu-26.04-x64.deb`. Verify the GitHub download against `SHA256SUMS`. The separate preview components use the same checksums. They have no distribution repository signature.
+Install the editor with `sudo apt install ./MarkWriter-2.7.3-ubuntu-26.04-x64.deb`. Verify the GitHub download against `SHA256SUMS`. The separate preview components use the same checksums. They have no distribution repository signature. To remove the editor package, run `sudo apt remove mark-writer`. Remove each preview component through its own mechanism.
 
 ### GNOME Files with Ubuntu Sushi
 
@@ -58,10 +80,10 @@ Install Ubuntu's `gnome-sushi` package. The add-on is qualified with `50.0-0ubun
 
 Install the separate verified DEB with `sudo apt install ./MarkWriter-2.7.3-ubuntu-26.04-x64-dolphin-preview.deb`. In Dolphin, enable **MarkWriter Markdown** in the preview settings and turn on **Show Previews**. Dolphin displays a rendered thumbnail. The tested baseline is Dolphin 25.12.3 with KF6 KIO 6.24 on Ubuntu 26.04.1 x64. Installation makes the provider available to other KF6 KIO applications, which may use different defaults. To remove the add-on, run `sudo apt remove markwriter-dolphin-preview` and reopen Dolphin.
 
-The Windows and Linux add-ons cover Markdown. On Linux, the installed desktop checks used `.md` fixtures and isolated X11 sessions. The Mac package carries forward its broader Quick Look formats and rich Markdown rendering.
+The Windows and Linux add-ons cover Markdown. The Mac package bundles its Finder Quick Look extension.
 
-## Rollback
+## Windows and Ubuntu rollback
 
 Disable a preview component before moving its files or reinstalling an older version. Close MarkWriter, remove the editor through the same platform's install mechanism and reinstall the prior installer. Restore the backed-up profile if needed. Update discovery remains manual.
 
-See the [changelog](../CHANGELOG.md) for the feature and issue history.
+See the [changelog](https://github.com/rheiger/markWriter/blob/v2.7.3/CHANGELOG.md) for the feature and issue history.
