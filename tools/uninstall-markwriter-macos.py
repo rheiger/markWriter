@@ -346,8 +346,10 @@ def assert_stopped(app, prior_path=None):
             if (info.st_dev, info.st_ino) == (target.st_dev, target.st_ino):
                 raise Refusal('A process from this app is running; quit MarkWriter and its extension, then retry')
 
-def register(app):
+def register(app, version, proof):
+    verify_proof(app, version, proof)
     command(LSREGISTER, '-f', str(app))
+    verify_proof(app, version, proof)
     command(PLUGIN, '-a', str(app / EXT))
 
 def registration_paths():
@@ -396,8 +398,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
         assert_stopped(app)
         print(f'Register verified app and extension at {app}')
         if apply:
-            verify_proof(app, version, record[0])
-            register(app)
+            register(app, version, record[0])
             verify_proof(app, version, record[0])
             clear_record(app, version, record)
             print('Registration commands completed.')
@@ -460,11 +461,11 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
                     print(f'Recovery incomplete; inspect {destination} and {source}.', file=sys.stderr)
             raise
         try:
-            register(destination)
+            register(destination, version, record[0])
             verify_proof(destination, version, record[0])
             clear_record(app, version, record)
-        except (OSError, subprocess.CalledProcessError, KeyboardInterrupt):
-            print(f'Registration incomplete; app remains at {destination}. Retry with --register --apply.', file=sys.stderr)
+        except (OSError, subprocess.CalledProcessError, Refusal, KeyboardInterrupt):
+            print(f'Registration incomplete; inspect {destination} and the transaction record. If the original matches, retry with --register --apply.', file=sys.stderr)
             raise
         print(f'Restored: {destination}')
         return
@@ -475,6 +476,8 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
     observed = None
     try:
         try:
+            assert_stopped(app)
+            verify_proof(app, version, original)
             command(PLUGIN, '-r', str(app / EXT))
         except subprocess.CalledProcessError as exc:
             expected_error = 'remove: no plugin at ' + str(app / EXT)
@@ -486,6 +489,8 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
             # record. Continue only with path-scoped LS removal, a reversible
             # move, and independent confirmation that the record is gone.
             print('PlugInKit removal failed; checking path-scoped recovery.', file=sys.stderr)
+        assert_stopped(app)
+        verify_proof(app, version, original)
         command(LSREGISTER, '-u', str(app))
         verify(app, version)
         assert_stopped(app)
@@ -509,8 +514,7 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
                 assert_stopped(backup, app)
                 return_observed(backup, app, observed)
             if app.exists():
-                verify_proof(app, version, original)
-                register(app)
+                register(app, version, original)
         except (OSError, subprocess.CalledProcessError, Refusal):
             print(f'Recovery incomplete; inspect {app} and {backup} before retrying registration.', file=sys.stderr)
         raise

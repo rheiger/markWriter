@@ -165,6 +165,73 @@ u.run(app, '2.7.3', True)
         record.unlink(); record.symlink_to(self.backup / 'Contents/Info.plist')
         with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', restore=True)
 
+    def test_removal_stops_before_second_mutation_when_copy_is_swapped(self):
+        parked = self.root / 'removal-original'
+        def swap(*args):
+            self.calls.append(args)
+            if args[:2] == (u.PLUGIN, '-r'):
+                self.app.rename(parked); shutil.copytree(parked, self.app)
+        with patch.object(u, 'command', side_effect=swap):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertIn((u.PLUGIN, '-r', str(self.extension)), self.calls)
+        self.assertNotIn((u.LSREGISTER, '-u', str(self.app)), self.calls)
+        self.assertTrue(self.app.exists()); self.assertTrue(parked.exists())
+        self.assertTrue(u.record_path(self.app, '2.7.3').exists())
+
+    def test_restore_registration_stops_when_copy_is_swapped_after_first_command(self):
+        u.run(self.app, '2.7.3', True)
+        self.calls.clear(); parked = self.root / 'restore-original'
+        def swap(*args):
+            self.calls.append(args)
+            if args[:2] == (u.LSREGISTER, '-f'):
+                self.app.rename(parked); shutil.copytree(parked, self.app)
+        with patch.object(u, 'command', side_effect=swap):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, restore=True)
+        self.assertIn((u.LSREGISTER, '-f', str(self.app)), self.calls)
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+        self.assertTrue(self.app.exists()); self.assertTrue(parked.exists())
+        self.assertTrue(u.record_path(self.app, '2.7.3').exists())
+
+    def test_registration_repair_stops_when_copy_is_swapped_after_first_command(self):
+        class Crash(BaseException): pass
+        with patch.object(u, 'command', side_effect=lambda *args: (_ for _ in ()).throw(Crash()) if args[0] == u.PLUGIN else None):
+            with self.assertRaises(Crash): u.run(self.app, '2.7.3', True)
+        parked = self.root / 'repair-original'; self.calls.clear()
+        def swap(*args):
+            self.calls.append(args)
+            if args[:2] == (u.LSREGISTER, '-f'):
+                self.app.rename(parked); shutil.copytree(parked, self.app)
+        with patch.object(u, 'command', side_effect=swap):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True, repair=True)
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+        self.assertTrue(self.app.exists()); self.assertTrue(parked.exists())
+        self.assertTrue(u.record_path(self.app, '2.7.3').exists())
+
+    def test_recovery_registration_stops_if_copy_changes_between_commands(self):
+        parked = self.root / 'recovery-original'
+        def swap(*args):
+            self.calls.append(args)
+            if args[:2] == (u.PLUGIN, '-r'):
+                raise subprocess.CalledProcessError(1, args, stderr='permission denied')
+            if args[:2] == (u.LSREGISTER, '-f'):
+                self.app.rename(parked); shutil.copytree(parked, self.app)
+        with patch.object(u, 'command', side_effect=swap):
+            with self.assertRaises(subprocess.CalledProcessError): u.run(self.app, '2.7.3', True)
+        self.assertIn((u.LSREGISTER, '-f', str(self.app)), self.calls)
+        self.assertNotIn((u.PLUGIN, '-a', str(self.extension)), self.calls)
+        self.assertTrue(self.app.exists()); self.assertTrue(parked.exists())
+        self.assertTrue(u.record_path(self.app, '2.7.3').exists())
+
+    def test_removal_rechecks_stopped_state_before_second_mutation(self):
+        def stopped(*args):
+            if (u.PLUGIN, '-r', str(self.extension)) in self.calls:
+                raise u.Refusal('process started')
+        with patch.object(u, 'assert_stopped', side_effect=stopped):
+            with self.assertRaises(u.Refusal): u.run(self.app, '2.7.3', True)
+        self.assertIn((u.PLUGIN, '-r', str(self.extension)), self.calls)
+        self.assertNotIn((u.LSREGISTER, '-u', str(self.app)), self.calls)
+        self.assertTrue(self.app.exists())
+
     def test_fifo_injected_during_deregistration_never_blocks_or_registers(self):
         sentinel = self.root / 'registered'
         program = """import importlib.util, os, pathlib, sys
