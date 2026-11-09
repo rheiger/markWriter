@@ -154,6 +154,7 @@ try{
  await mode(false);await wait(()=>run('return !document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'toolbar disables rendered syntax')
  await syntaxHighlighting(true,'menu');await wait(()=>run('return !!document.querySelector("[data-active=true] .tiptap [class*=hljs-]")'),'View menu enables rendered syntax')
  for(const markdown of [true,false]){
+   const observations=[]
   await mode(markdown)
   for(const name of ['Light','Dark','Auto'])alpha3Themes.push({mode:markdown?'markdown':'wysiwyg',...await themeChoice(name)})
  }
@@ -194,7 +195,16 @@ try{
    await wait(()=>run(`const t=document.querySelector('[role=tab][aria-selected=true]');return t?.textContent.includes(arguments[0])&&!t.querySelector('[aria-label=Unsaved]')&&!document.querySelector('.status-item.loading')`,'starter-cycled-'+markdown+'.md'),'starter Save As completed in ordinary UI')
    await menu('Edit','Undo')
    await wait(()=>run(`return document.querySelector('.status-right')?.textContent.includes('Characters: 0')&&!!document.querySelector('[role=tab][aria-selected=true] [aria-label=Unsaved]')`),'single starter Undo completed in ordinary UI')
-   await menu('File','Save');await wait(async()=>await readFile(cyclePath,'utf8')==='','one starter Undo saves empty original')
+   const observe=async phase=>{
+     const ui=await run(`const tab=document.querySelector('[role=tab][aria-selected=true]'),active=document.querySelector('[data-active=true]'),focus=document.activeElement;return {tab:tab?.textContent,path:document.querySelector('.status-item.path')?.title,documentId:active?.getAttribute('data-document-id'),markdown:document.querySelector('button[role=switch]')?.getAttribute('aria-checked'),dirty:!!tab?.querySelector('[aria-label=Unsaved]'),status:document.querySelector('.status-right')?.textContent,loading:!!document.querySelector('.status-item.loading'),error:document.querySelector('.error-message')?.textContent,focus:{tag:focus?.tagName,role:focus?.getAttribute('role'),label:focus?.getAttribute('aria-label')}}`)
+     const file=await readFile(cyclePath).then(bytes=>({bytes:bytes.length}),error=>({error:String(error)}))
+     observations.push({phase,at:new Date().toISOString(),ui,file})
+     await writeFile(join(artifacts,`starter-save-${markdown}.json`),JSON.stringify(observations,null,2))
+   }
+   await observe('before Save')
+   await menu('File','Save')
+   await wait(async()=>{await observe('waiting for Save');return (await readFile(cyclePath,'utf8'))===''},'one starter Undo saves empty original')
+   await observe('saved')
  }
  cases.push('both-editor DOT menu starter, native Save As, mode cycles and single Undo')
  const regex=await verifyRegex({dir:fixture,run,click,menu,mode,open:openDocument,
