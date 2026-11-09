@@ -156,3 +156,11 @@ describe('standalone Finder language markers', () => {
     expect(parsed.querySelector('script')).toBeNull()
   })
 })
+
+it('explains SQL fallback in Finder enrichment without changing the code', async () => {
+  const code = 'SELECT 1;\n' + 'x'.repeat(16 * 1024 + 1)
+  const pre=document.createElement('pre'); pre.setAttribute('data-language','sql'); pre.textContent=code
+  const output=new DOMParser().parseFromString(await quickLookRender(doc(pre.outerHTML)),'text/html')
+  expect(output.querySelector('pre')!.getAttribute('aria-description')).toContain('original text is preserved')
+  expect(output.querySelector('pre')!.textContent).toBe(code)
+})

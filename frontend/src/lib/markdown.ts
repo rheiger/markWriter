@@ -6,7 +6,7 @@ import TurndownService from 'turndown'
 // @ts-expect-error plugin has no bundled declarations
 import { gfm } from 'turndown-plugin-gfm'
 import { mapTokens, type MapOwner, type PreviewMap } from './sourceMap'
-import { createCodeHighlighter, highlightedHtml } from './codeHighlight'
+import { createCodeHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE } from './codeHighlight'
 
 const markdown = new MarkdownIt({ html: false, linkify: true })
 markdown.use(markdownItIns).use(taskLists)
@@ -57,7 +57,14 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
     return `<div data-type="${type}" data-notation="${notation}" data-chart="${escape(token.content)}" data-source-fence="${escape(JSON.stringify(metadata))}">${escape(token.content)}</div>\n`
   }
   const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
-  if (notation !== 'mermaid') return fence(tokens, index, { ...options, highlight: highlight ? (code, language) => highlightedHtml(code, highlight(code, language)) : null }, env, renderer)
+  if (notation !== 'mermaid') {
+    let fallback = false
+    const html = fence(tokens, index, { ...options, highlight: highlight ? (code, language) => {
+      const result = highlight(code, language); fallback = !!result.fallback
+      return highlightedHtml(code, result)
+    } : null }, env, renderer)
+    return fallback ? html.replace('<pre>', `<pre data-sql-fallback="${SQL_FALLBACK_NOTICE}" title="${SQL_FALLBACK_NOTICE}" aria-description="${SQL_FALLBACK_NOTICE}">`) : html
+  }
   const source = markdown.utils.escapeHtml(token.content)
   return `<div data-type="mermaid" data-chart="${source}">${source}</div>\n`
 }

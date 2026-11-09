@@ -77,6 +77,7 @@ describe('bounded larger SQL fences', () => {
     for (const code of [over, 'x'.repeat(2049), 'SELECT 1;\n'.repeat(13000)]) {
       const result=highlightCode(code,'sql')
       expect(result.ranges).toEqual([])
+      expect(result.fallback).toBe(true)
       const el=document.createElement('code'); el.innerHTML=highlightedHtml(code,result); expect(el.textContent).toBe(code)
     }
     const atLimit = (('-- ' + 'x'.repeat(100) + '\n').repeat(Math.ceil(SQL_CODE_LIMIT / 104))).slice(0, SQL_CODE_LIMIT - 7) + '\nSELECT'
@@ -88,7 +89,33 @@ describe('bounded larger SQL fences', () => {
     }
     const highlight=createCodeHighlighter(true), code=sqlFixture()
     expect(highlight(code,'sql').ranges.length).toBeGreaterThan(0)
-    expect(highlight(code,'sql').ranges).toEqual([])
+    expect(highlight(code,'sql').fallback).toBe(true)
     expect(highlight('const x = 1;', 'js').ranges.length).toBeGreaterThan(0)
   })
+})
+
+it('explains SQL fallback on both editors, Preview, and export without changing text', async () => {
+  const code = 'SELECT 1;\n' + 'x'.repeat(2049) + '\n', source = '```sql\n' + code + '```'
+  expect(highlightCode(code, 'sql').fallback).toBe(true)
+  expect(createCodeHighlighter(false)(code, 'sql').fallback).toBeUndefined()
+  let state = EditorState.create({doc:source,extensions:[markdown(),sourceCodeHighlighting]})
+  ensureSyntaxTree(state,source.length,1000); state=state.update({}).state
+  let explained = false
+  state.field(sourceCodeHighlighting).between(0,source.length,(_from,_to,value) => {
+    if (value.spec.attributes?.['aria-description']) explained = true
+  })
+  expect(explained).toBe(true)
+  expect(state.doc.toString()).toBe(source)
+  const editor = new Editor({extensions:[StarterKit.configure({codeBlock:false}),HighlightedCodeBlock],content:{type:'doc',content:[{type:'codeBlock',attrs:{language:'sql'},content:[{type:'text',text:code}]}]}})
+  try {
+    const pre=editor.view.dom.querySelector('pre')!
+    expect(pre.getAttribute('aria-description')).toContain('original text is preserved')
+    expect(pre.textContent).toBe(code)
+    expect(editor.state.doc.textContent).toBe(code)
+  } finally { editor.destroy() }
+  for (const html of [renderMarkdownHtml(source), await createHtmlExport(source)]) {
+    const doc=new DOMParser().parseFromString(html,'text/html'), pre=doc.querySelector('pre')!
+    expect(pre.getAttribute('aria-description')).toContain('original text is preserved')
+    expect(pre.querySelector('code')!.textContent).toBe(code)
+  }
 })

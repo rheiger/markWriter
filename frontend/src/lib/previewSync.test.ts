@@ -64,3 +64,23 @@ it.each([false, true])('keeps exact source correspondence through nested syntax 
     else Reflect.deleteProperty(Range.prototype, 'getClientRects')
   }
 })
+
+it('does not navigate from stale Preview correspondence', () => {
+  const source = 'Old paragraph', map = renderMappedMarkdown(source, { documentId:'A', revision:1, generation:1 })
+  const root = document.createElement('div'); root.innerHTML = map.html
+  const scroller = document.createElement('div'); scroller.append(root)
+  document.body.append(scroller)
+  const frames: FrameRequestCallback[] = []
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.push(callback); return frames.length })
+  vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  const dispatch = vi.fn()
+  const view = { scrollDOM:document.createElement('div'), documentTop:0, state:EditorState.create({doc:source}), dispatch } as unknown as EditorView
+  const sync = synchronizePreview({view,root,scroller,getMap:()=>map,getSource:()=>source,valid:()=>false})
+  try {
+    frames.shift()!(0)
+    root.dispatchEvent(new Event('pointerdown', {bubbles:true}))
+    root.querySelector('[data-mw-text]')!.dispatchEvent(new Event('pointerup', {bubbles:true}))
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(scroller.querySelector('.correspondence-range, .correspondence-caret, .correspondence-block')).toBeNull()
+  } finally { sync.dispose(); scroller.remove(); vi.unstubAllGlobals() }
+})
