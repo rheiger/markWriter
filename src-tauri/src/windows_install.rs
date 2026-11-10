@@ -13,20 +13,25 @@ use windows::{
             GetLastError, ERROR_NOT_ALL_ASSIGNED, ERROR_NO_SUCH_LOGON_SESSION, E_ACCESSDENIED,
             E_FAIL, HANDLE, LUID, WAIT_OBJECT_0,
         },
+        Security::AppLocker::{
+            SaferCloseLevel, SaferComputeTokenFromLevel, SaferCreateLevel,
+            SAFER_COMPUTE_TOKEN_FROM_LEVEL_FLAGS, SAFER_LEVELID_NORMALUSER, SAFER_LEVEL_OPEN,
+            SAFER_SCOPEID_MACHINE,
+        },
         Security::{
-            AdjustTokenPrivileges, CreateRestrictedToken, CreateWellKnownSid, DuplicateTokenEx,
-            GetTokenInformation, LookupPrivilegeValueW, SecurityImpersonation, SetTokenInformation,
-            TokenElevation, TokenIntegrityLevel, TokenLinkedToken, TokenPrimary,
-            WinBuiltinAdministratorsSid, WinMediumLabelSid, DISABLE_MAX_PRIVILEGE,
-            LUID_AND_ATTRIBUTES, PSID, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID_AND_ATTRIBUTES,
-            TOKEN_ADJUST_DEFAULT, TOKEN_ADJUST_PRIVILEGES, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE,
-            TOKEN_ELEVATION, TOKEN_LINKED_TOKEN, TOKEN_MANDATORY_LABEL, TOKEN_PRIVILEGES,
-            TOKEN_QUERY,
+            AdjustTokenPrivileges, CreateWellKnownSid, DuplicateTokenEx, GetTokenInformation,
+            LookupPrivilegeValueW, SecurityImpersonation, SetTokenInformation, TokenElevation,
+            TokenIntegrityLevel, TokenLinkedToken, TokenPrimary, WinMediumLabelSid,
+            LUID_AND_ATTRIBUTES, PSID, SAFER_LEVEL_HANDLE, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED,
+            SID_AND_ATTRIBUTES, TOKEN_ADJUST_DEFAULT, TOKEN_ADJUST_PRIVILEGES,
+            TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION, TOKEN_LINKED_TOKEN,
+            TOKEN_MANDATORY_LABEL, TOKEN_PRIVILEGES, TOKEN_QUERY,
         },
         System::Com::{
             CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
             COINIT_APARTMENTTHREADED, STGM_READ,
         },
+        System::SystemServices::SE_GROUP_INTEGRITY,
         System::Threading::{
             CreateProcessAsUserW, CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess,
             OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
@@ -457,42 +462,45 @@ fn restrict_same_account(shell: HANDLE) -> windows::core::Result<OwnedHandle> {
         )?;
         let own = OwnedHandle(handle);
         require_same_token_user(own.0, shell)?;
-        let mut admins = [0usize; 16];
-        let mut admins_size = std::mem::size_of_val(&admins) as u32;
-        let admins_sid = PSID(admins.as_mut_ptr().cast());
-        CreateWellKnownSid(
-            WinBuiltinAdministratorsSid,
+        let mut level = SAFER_LEVEL_HANDLE::default();
+        SaferCreateLevel(
+            SAFER_SCOPEID_MACHINE,
+            SAFER_LEVELID_NORMALUSER,
+            SAFER_LEVEL_OPEN,
+            &mut level,
             None,
-            Some(admins_sid),
-            &mut admins_size,
         )?;
-        CreateRestrictedToken(
-            own.0,
-            DISABLE_MAX_PRIVILEGE,
-            Some(&[SID_AND_ATTRIBUTES {
-                Sid: admins_sid,
-                Attributes: 0,
-            }]),
-            None,
-            None,
+        let result = SaferComputeTokenFromLevel(
+            level,
+            Some(own.0),
             &mut handle,
-        )?;
+            SAFER_COMPUTE_TOKEN_FROM_LEVEL_FLAGS(0),
+            None,
+        );
+        let _ = SaferCloseLevel(level);
+        result?;
         let token = OwnedHandle(handle);
-        let mut medium = [0usize; 16];
-        let mut medium_size = std::mem::size_of_val(&medium) as u32;
-        let medium_sid = PSID(medium.as_mut_ptr().cast());
+        #[repr(C)]
+        struct IntegrityLabel {
+            label: TOKEN_MANDATORY_LABEL,
+            sid: [usize; 16],
+        }
+        let mut medium = IntegrityLabel {
+            label: TOKEN_MANDATORY_LABEL::default(),
+            sid: [0; 16],
+        };
+        let mut medium_size = std::mem::size_of_val(&medium.sid) as u32;
+        let medium_sid = PSID(medium.sid.as_mut_ptr().cast());
         CreateWellKnownSid(WinMediumLabelSid, None, Some(medium_sid), &mut medium_size)?;
-        let label = TOKEN_MANDATORY_LABEL {
-            Label: SID_AND_ATTRIBUTES {
-                Sid: medium_sid,
-                Attributes: 0x20,
-            }, // SE_GROUP_INTEGRITY
+        medium.label.Label = SID_AND_ATTRIBUTES {
+            Sid: medium_sid,
+            Attributes: SE_GROUP_INTEGRITY as u32,
         };
         SetTokenInformation(
             token.0,
             TokenIntegrityLevel,
-            (&label as *const TOKEN_MANDATORY_LABEL).cast(),
-            std::mem::size_of_val(&label) as u32 + medium_size,
+            (&medium as *const IntegrityLabel).cast(),
+            std::mem::size_of::<TOKEN_MANDATORY_LABEL>() as u32 + medium_size,
         )?;
         Ok(token)
     }
