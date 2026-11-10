@@ -8,8 +8,9 @@ $clsid = '{8360D352-56CE-4C43-A12E-A73CF9D10214}'
 $server = (Get-Item "HKLM:\Software\Classes\CLSID\$clsid\InprocServer32").GetValue('')
 if ($server -ine $dll) { throw 'Installed Preview CLSID does not point to the packaged DLL.' }
 $result = Join-Path $root 'package-acceptance-results/explorer-preview.json'
-& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" `
-    -Bundled -DllPath $dll -AppPath $env:MARKWRITER_BINARY -ExpectedSha256 $expected -ResultPath $result
+# gsudo re-parses the command line. Keep Program Files paths in the environment.
+$env:MARKWRITER_PREVIEW_RESULT = $result
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -ExpectedSha256 $expected
 if ($LASTEXITCODE) { throw 'Installed Explorer acceptance failed.' }
 $report = Get-Content -Raw -LiteralPath $result | ConvertFrom-Json -AsHashtable
 $version = (Get-Content -Raw "$root/src-tauri/tauri.conf.json" | ConvertFrom-Json).version

@@ -1,7 +1,7 @@
 # Disposable interactive Windows x64 profile only; run at medium integrity.
 param(
-  [Parameter(Mandatory=$true)][string]$DllPath,
-  [Parameter(Mandatory=$true)][string]$ResultPath,
+  [string]$DllPath,
+  [string]$ResultPath,
   [string]$AppPath,
   [switch]$Diagnostic,
   [switch]$Bundled,
@@ -9,6 +9,12 @@ param(
   [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
 $ErrorActionPreference = 'Stop'
+if ($Bundled) {
+  $AppPath = $env:MARKWRITER_BINARY
+  $DllPath = Join-Path (Split-Path -Parent $AppPath) 'MarkWriterPreview.dll'
+  $ResultPath = $env:MARKWRITER_PREVIEW_RESULT
+}
+if (!$DllPath -or !$ResultPath) { throw 'DLL and result paths are required.' }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
