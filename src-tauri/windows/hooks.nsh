@@ -108,7 +108,11 @@
   !insertmacro MW_RegisterExtension ".md"
   !insertmacro MW_RegisterExtension ".markdown"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  ClearErrors
   ExecWait '$\"$INSTDIR\markwriter.exe$\" --installer-cleanup' $R8
+  ${If} ${Errors}
+    StrCpy $R8 -1
+  ${EndIf}
   ${If} $R8 != 0
     DetailPrint "Legacy cleanup did not finish in the interactive Windows account (result $R8)."
     MessageBox MB_ICONEXCLAMATION|MB_OK "MarkWriter was installed. Legacy cleanup could not finish. Start MarkWriter in the original Windows account to retry." /SD IDOK

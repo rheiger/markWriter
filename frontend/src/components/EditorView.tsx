@@ -132,21 +132,33 @@ export interface EditorViewRef {
 // Diagrams and images can enlarge the scrollable document after its first
 // paint. Give an initially unreachable saved offset a short chance to fit.
 function restoreScroll(scroller: HTMLElement, content: HTMLElement, top: number): () => void {
-  scroller.scrollTop = top
-  if (Math.abs(scroller.scrollTop - top) <= 1 || typeof ResizeObserver === 'undefined') return () => {}
   const interaction = ['pointerdown', 'wheel', 'keydown', 'touchstart']
+  let frame = 0, stableFrames = 0
   const stop = () => {
+    cancelAnimationFrame(frame)
     clearTimeout(timer)
-    observer.disconnect()
+    observer?.disconnect()
     for (const event of interaction) scroller.removeEventListener(event, stop)
   }
-  const observer = new ResizeObserver(() => {
-    scroller.scrollTop = top
-    if (Math.abs(scroller.scrollTop - top) <= 1) stop()
-  })
+  const apply = () => {
+    cancelAnimationFrame(frame)
+    if (!scroller.isConnected) { stop(); return }
+    if (Math.abs(scroller.scrollTop - top) <= 1) {
+      // WebKit can move the viewport once more after mounting the selection.
+      if (++stableFrames === 2) { stop(); return }
+    } else {
+      stableFrames = 0
+      scroller.scrollTop = top
+      if (top > scroller.scrollHeight - scroller.clientHeight + 1) return
+    }
+    frame = requestAnimationFrame(apply)
+  }
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply)
   const timer = setTimeout(stop, 3000)
   for (const event of interaction) scroller.addEventListener(event, stop)
-  observer.observe(content)
+  observer?.observe(content)
+  observer?.observe(scroller)
+  apply()
   return stop
 }
 
@@ -160,6 +172,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [sourceView, setSourceView] = useState<CodeMirrorView | null>(null)
   const [find, setFind] = useState({ open: false, replace: false, request: 0 })
   const [diagramCount, setDiagramCount] = useState(0)
+  const [renderedReady, setRenderedReady] = useState(false)
   const [editorMode, setEditorMode] = useState<EditorMode>(useAppStore.getState().documents.find(doc => doc.id === documentId)?.mode ?? 'wysiwyg')
   const [splitPos, setSplitPos] = useState<number>(50)
   const isDraggingSplit = useRef(false)
@@ -293,6 +306,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       rememberRenderedSource(editor.getHTML(), lastTiptapSource.current, undoDepth(editor.state))
       const remembered = initialViewState.current
       if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
+      setRenderedReady(true)
     },
     onTransaction: ({ editor, transaction, appendedTransactions }) => {
       const journal = renderedHistory.current, previous = journal.depth, next = undoDepth(editor.state)
@@ -388,7 +402,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     }
   }, [tiptap, editorMode])
   useEffect(() => {
-    if (!active || editorMode !== 'wysiwyg' || !tiptap || restoredRenderedScroll.current) return
+    if (!active || editorMode !== 'wysiwyg' || !tiptap || !renderedReady || restoredRenderedScroll.current) return
     // Wait for the rendered editor to attach and become measurable. A hidden
     // tab's scroll box would clamp a saved position to zero.
     let stop = () => {}
@@ -399,7 +413,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       restoredRenderedScroll.current = true
     })
     return () => { cancelAnimationFrame(frame); stop() }
-  }, [active, documentId, editorMode, tiptap])
+  }, [active, documentId, editorMode, tiptap, renderedReady])
 
   const latestFormatting = useRef(computeFormattingState)
   latestFormatting.current = computeFormattingState

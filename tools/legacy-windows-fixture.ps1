@@ -67,18 +67,6 @@ for ($attempt=0; $attempt -lt 100; $attempt++) {
     Start-Sleep -Milliseconds 200
 }
 if ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path "$legacyDir/uninstall.exe") -or (Test-Path $uninstall)) {
-    # A direct ordinary-user retry supplies diagnostics for a failed setup launch.
-    # The required installer test still fails even if the diagnostic retry succeeds.
-    $candidate = Join-Path $env:ProgramFiles 'MarkWriter/markwriter.exe'
-    $errorLog = Join-Path $env:RUNNER_TEMP 'markwriter-cleanup-error.txt'
-    $diagnostic = Start-Process -FilePath $candidate -ArgumentList '--retire-legacy-install --quiet' -RedirectStandardError $errorLog -Wait -PassThru
-    Write-Host "Direct ordinary cleanup exit code: $($diagnostic.ExitCode)"
-    Get-Content -LiteralPath $errorLog
-    Write-Host "After retry, legacy binary present: $(Test-Path "$legacyDir/markwriter.exe"), uninstall record present: $(Test-Path $uninstall)"
-    if (Test-Path $uninstall) {
-        Get-ItemProperty $uninstall | Select-Object Publisher,MainBinaryName,InstallLocation,UninstallString,DisplayIcon,DisplayVersion | Format-List
-        Write-Host "Legacy location: $((Get-Item 'HKCU:\Software\markwriter\MarkWriter').GetValue(''))"
-    }
     throw 'Setup did not retire the known v2.7.3 user installation.'
 }
 if ((Get-Content "$legacyDir/unowned.txt") -cne 'user file in old folder' -or (Get-Content "$profile/upgrade-sentinel.txt") -cne 'preserve user data') {

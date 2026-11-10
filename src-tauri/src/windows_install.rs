@@ -9,20 +9,25 @@ use std::{
 use windows::{
     core::{Interface, PCWSTR, PWSTR},
     Win32::{
-        Foundation::{HANDLE, WAIT_OBJECT_0},
+        Foundation::{
+            GetLastError, ERROR_NOT_ALL_ASSIGNED, E_ACCESSDENIED, E_FAIL, HANDLE, LUID,
+            WAIT_OBJECT_0,
+        },
         Security::{
-            DuplicateTokenEx, GetTokenInformation, SecurityImpersonation, TokenElevation,
-            TokenLinkedToken, TokenPrimary, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION,
-            TOKEN_LINKED_TOKEN, TOKEN_QUERY,
+            AdjustTokenPrivileges, DuplicateTokenEx, GetTokenInformation, LookupPrivilegeValueW,
+            SecurityImpersonation, TokenElevation, TokenLinkedToken, TokenPrimary,
+            LUID_AND_ATTRIBUTES, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES,
+            TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION, TOKEN_LINKED_TOKEN,
+            TOKEN_PRIVILEGES, TOKEN_QUERY,
         },
         System::Com::{
             CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
             COINIT_APARTMENTTHREADED, STGM_READ,
         },
         System::Threading::{
-            CreateProcessWithTokenW, GetExitCodeProcess, OpenProcess, OpenProcessToken,
-            WaitForSingleObject, CREATE_NO_WINDOW, LOGON_WITH_PROFILE, PROCESS_INFORMATION,
-            PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
+            CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess, OpenProcess,
+            OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW, LOGON_WITH_PROFILE,
+            PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
         },
         UI::Shell::{
             IShellLinkW, IsUserAnAdmin, SHChangeNotify, ShellLink, SHCNE_ASSOCCHANGED,
@@ -307,14 +312,76 @@ pub fn run_installer_cleanup() -> io::Result<()> {
     launch_user_cleanup(&install.join("markwriter.exe")).map_err(io::Error::other)
 }
 
+fn open_shell_token(pid: u32) -> windows::core::Result<OwnedHandle> {
+    unsafe {
+        let shell = OwnedHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?);
+        let mut token = HANDLE::default();
+        OpenProcessToken(shell.0, TOKEN_DUPLICATE | TOKEN_QUERY, &mut token)?;
+        Ok(OwnedHandle(token))
+    }
+}
+
+// Over-the-shoulder elevation can make the setup token belong to a different
+// account from Explorer. Enable an already-assigned privilege only while
+// opening that one shell token, then restore its prior state before launch.
+fn open_cross_account_shell_token(pid: u32) -> windows::core::Result<OwnedHandle> {
+    unsafe {
+        let mut handle = HANDLE::default();
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+            &mut handle,
+        )?;
+        let own_token = OwnedHandle(handle);
+        let mut luid = LUID::default();
+        LookupPrivilegeValueW(PCWSTR::null(), SE_DEBUG_NAME, &mut luid)?;
+        let enable = TOKEN_PRIVILEGES {
+            PrivilegeCount: 1,
+            Privileges: [LUID_AND_ATTRIBUTES {
+                Luid: luid,
+                Attributes: SE_PRIVILEGE_ENABLED,
+            }],
+        };
+        let mut prior = TOKEN_PRIVILEGES::default();
+        let mut needed = 0;
+        AdjustTokenPrivileges(
+            own_token.0,
+            false,
+            Some(&enable),
+            std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
+            Some(&mut prior),
+            Some(&mut needed),
+        )?;
+        if GetLastError() == ERROR_NOT_ALL_ASSIGNED {
+            return Err(windows::core::Error::new(
+                E_ACCESSDENIED,
+                "The administrator token cannot open the interactive shell token",
+            ));
+        }
+        let user = open_shell_token(pid);
+        AdjustTokenPrivileges(own_token.0, false, Some(&prior), 0, None, None)?;
+        user
+    }
+}
+
 fn launch_user_cleanup(binary: &Path) -> windows::core::Result<()> {
     let mut pid = 0;
     unsafe {
         GetWindowThreadProcessId(GetShellWindow(), Some(&mut pid));
-        let shell = OwnedHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?);
+        if pid == 0 {
+            return Err(windows::core::Error::new(
+                E_FAIL,
+                "No interactive Explorer shell was available to setup",
+            ));
+        }
+        let mut user = open_shell_token(pid).or_else(|error| {
+            if error.code() == E_ACCESSDENIED {
+                open_cross_account_shell_token(pid)
+            } else {
+                Err(error)
+            }
+        })?;
         let mut handle = HANDLE::default();
-        OpenProcessToken(shell.0, TOKEN_DUPLICATE | TOKEN_QUERY, &mut handle)?;
-        let mut user = OwnedHandle(handle);
         if token_elevated(user.0)? {
             let mut linked = TOKEN_LINKED_TOKEN::default();
             let mut size = 0;

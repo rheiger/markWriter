@@ -15,7 +15,15 @@ if((Get-FileHash -LiteralPath $installedPreview).Hash -ne (Get-FileHash -Literal
  throw 'Installed Explorer handler differs from the bundled build.'
 }
 & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
-if($LASTEXITCODE){throw 'Legacy installation migration failed'}
+if($LASTEXITCODE){
+ # Diagnose the same elevated helper without masking a failed installer handoff.
+ $cleanupLog=Join-Path $env:RUNNER_TEMP 'markwriter-elevated-cleanup.txt'
+ $diagnostic=Start-Process -FilePath $binary -ArgumentList '--installer-cleanup' -RedirectStandardError $cleanupLog -Wait -PassThru
+ Write-Host "Elevated cleanup retry exit code: $($diagnostic.ExitCode)"
+ Get-Content -LiteralPath $cleanupLog
+ & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
+ throw 'Legacy installation migration failed during setup'
+}
 # The same signed-off installer must support an in-place repair.
 $repair=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
 if($repair.ExitCode -ne 0 -or !(Test-Path -LiteralPath "$destination/uninstall.exe")){
