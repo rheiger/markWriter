@@ -12,6 +12,8 @@ mod update_policy;
 mod sql_import;
 #[cfg(target_os = "windows")]
 mod windows_install;
+#[cfg(target_os = "windows")]
+mod windows_open;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -252,18 +254,17 @@ fn main() {
     }
     println!("[TAURI] Starting MarkWriter application");
 
-    let builder = tauri::Builder::default();
     #[cfg(target_os = "windows")]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-        let _ = app.state::<os_open::OpenQueue>().enqueue_argv(args);
-        let _ = app.emit("os-open-pending", ());
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.unminimize();
-            let _ = window.set_focus();
+    let inbox = match windows_open::connect_or_listen() {
+        Ok(Some(inbox)) => inbox,
+        Ok(None) => return,
+        Err(error) => {
+            windows_open::show_error(&error);
+            return;
         }
-    }));
+    };
 
-    builder
+    tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
         .manage(sql_import::SqlPicker::default())
@@ -286,7 +287,7 @@ fn main() {
             show_about_dialog,
             get_document_stats
         ])
-        .setup(|app| {
+        .setup(move |app| {
             #[cfg(target_os = "windows")]
             let _ = app.state::<os_open::OpenQueue>().enqueue_argv(std::env::args_os());
             #[cfg(target_os = "macos")]
@@ -309,6 +310,8 @@ fn main() {
                     })
                     .build()?;
             }
+            #[cfg(target_os = "windows")]
+            inbox.start(app.handle().clone())?;
             println!("[TAURI] Application setup completed");
             Ok(())
         })

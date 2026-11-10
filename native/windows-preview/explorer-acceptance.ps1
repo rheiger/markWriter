@@ -71,7 +71,7 @@ try {
   if (!$Bundled) { & $installer -Action Enable -DllPath $dll }
   $fixtures = @(
     @{ Name='Ä Markdown preview.md'; Text="# Explorer evidence`r`nThis is safe <script>inert</script> Grüße 😀"; Expected='Explorer evidence' },
-    @{ Name='second.markdown'; Text='# Second selected document'; Expected='Second selected document' },
+    @{ Name='Ö second document.markdown'; Text='# Second selected document'; Expected='Second selected document' },
     @{ Name='large.md'; Text=('# Oversized evidence' + ('x' * 1100000)); Expected='Preview truncated at 1 MiB.' }
   )
   foreach ($f in $fixtures) { [IO.File]::WriteAllText((Join-Path $root $f.Name), $f.Text, [Text.UTF8Encoding]::new($false)) }

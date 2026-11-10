@@ -1,0 +1,167 @@
+//! Forward Explorer launches before constructing a second editor or opening
+//! the workspace. The first pipe handle remains live across every request.
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    io,
+    os::windows::io::AsRawHandle,
+    path::PathBuf,
+    time::Duration,
+};
+use tauri::{AppHandle, Emitter, Manager};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::windows::named_pipe::{ClientOptions, NamedPipeServer, ServerOptions},
+    runtime::{Builder, Runtime},
+    time::{sleep, timeout},
+};
+use windows::Win32::{
+    Foundation::HANDLE,
+    System::Pipes::GetNamedPipeServerProcessId,
+    UI::WindowsAndMessaging::{AllowSetForegroundWindow, MessageBoxW, MB_ICONERROR},
+};
+
+const MAX_BYTES: usize = 256 * 1024;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub struct Inbox {
+    runtime: Runtime,
+    server: NamedPipeServer,
+}
+
+fn pipe_name() -> io::Result<String> {
+    let profile = std::env::var_os("MARKWRITER_PROFILE_DIR")
+        .map(PathBuf::from)
+        .or_else(dirs::data_local_dir)
+        .ok_or_else(|| io::Error::other("Could not identify the current Windows profile"))?;
+    let mut hash = DefaultHasher::new();
+    profile.hash(&mut hash);
+    Ok(format!(
+        r"\\.\pipe\com.markwriter.app.{:016x}",
+        hash.finish()
+    ))
+}
+
+pub fn connect_or_listen() -> io::Result<Option<Inbox>> {
+    let name = pipe_name()?;
+    let runtime = Builder::new_current_thread().enable_all().build()?;
+    let server = runtime.block_on(async {
+        match ServerOptions::new()
+            .first_pipe_instance(true)
+            .reject_remote_clients(true)
+            .create(&name)
+        {
+            Ok(server) => Ok(Some(server)),
+            // First-instance creation on an existing pipe returns access denied.
+            Err(error) if error.raw_os_error() == Some(5) => {
+                timeout(REQUEST_TIMEOUT, forward(&name)).await??;
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
+    })?;
+    Ok(server.map(|server| Inbox { runtime, server }))
+}
+
+async fn forward(name: &str) -> io::Result<()> {
+    let paths: Vec<_> = std::env::args_os()
+        .skip(1)
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    let data = serde_json::to_vec(&paths)?;
+    if data.len() > MAX_BYTES {
+        return Err(io::Error::other(
+            "Too much data in the Explorer launch request",
+        ));
+    }
+    let mut client = loop {
+        match ClientOptions::new().open(name) {
+            Ok(client) => break client,
+            Err(error) if matches!(error.raw_os_error(), Some(231)) => {
+                sleep(Duration::from_millis(30)).await
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    // Windows may allow the shell-launched process to transfer foreground
+    // activation to the receiving app for this request.
+    let mut pid = 0;
+    unsafe {
+        if GetNamedPipeServerProcessId(HANDLE(client.as_raw_handle()), &mut pid).is_ok() {
+            let _ = AllowSetForegroundWindow(pid);
+        }
+    }
+    client.write_u32(data.len() as u32).await?;
+    client.write_all(&data).await?;
+    if client.read_u8().await? != 1 {
+        return Err(io::Error::other(
+            "The running editor rejected the launch request",
+        ));
+    }
+    client.write_u8(1).await
+}
+
+impl Inbox {
+    pub fn start(self, app: AppHandle) -> io::Result<()> {
+        std::thread::Builder::new()
+            .name("windows-shell-open".into())
+            .spawn(move || {
+                let Self {
+                    runtime,
+                    mut server,
+                } = self;
+                runtime.block_on(async move {
+                    loop {
+                        if server.connect().await.is_err() {
+                            sleep(Duration::from_millis(100)).await;
+                            continue;
+                        }
+                        let _ = timeout(Duration::from_secs(2), receive(&mut server, &app)).await;
+                        let _ = server.disconnect();
+                    }
+                });
+            })?;
+        Ok(())
+    }
+}
+
+async fn receive(pipe: &mut NamedPipeServer, app: &AppHandle) -> io::Result<()> {
+    let len = pipe.read_u32().await? as usize;
+    if len > MAX_BYTES {
+        return Err(io::Error::other(
+            "Explorer launch request exceeds the limit",
+        ));
+    }
+    let mut data = vec![0; len];
+    pipe.read_exact(&mut data).await?;
+    let paths: Vec<PathBuf> = serde_json::from_slice::<Vec<String>>(&data)?
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+    // Validation and queuing stay in the same path used by the cold launch.
+    let _ = app.state::<crate::os_open::OpenQueue>().enqueue(paths);
+    let _ = app.emit("os-open-pending", ());
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    pipe.write_u8(1).await?;
+    // DisconnectNamedPipe discards unread output. Let the client consume the
+    // acknowledgement before this persistent server disconnects its instance.
+    let _ = pipe.read_u8().await?;
+    Ok(())
+}
+
+pub fn show_error(error: &io::Error) {
+    let text: Vec<_> = format!("MarkWriter could not open this window or file.\n\n{error}")
+        .encode_utf16()
+        .chain([0])
+        .collect();
+    unsafe {
+        MessageBoxW(
+            None,
+            windows::core::PCWSTR(text.as_ptr()),
+            windows::core::w!("MarkWriter"),
+            MB_ICONERROR,
+        );
+    }
+}

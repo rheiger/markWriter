@@ -129,6 +129,27 @@ export interface EditorViewRef {
 }
 
 
+// Diagrams and images can enlarge the scrollable document after its first
+// paint. Give an initially unreachable saved offset a short chance to fit.
+function restoreScroll(scroller: HTMLElement, content: HTMLElement, top: number): () => void {
+  scroller.scrollTop = top
+  if (Math.abs(scroller.scrollTop - top) <= 1 || typeof ResizeObserver === 'undefined') return () => {}
+  const interaction = ['pointerdown', 'wheel', 'keydown', 'touchstart']
+  const stop = () => {
+    clearTimeout(timer)
+    observer.disconnect()
+    for (const event of interaction) scroller.removeEventListener(event, stop)
+  }
+  const observer = new ResizeObserver(() => {
+    scroller.scrollTop = top
+    if (Math.abs(scroller.scrollTop - top) <= 1) stop()
+  })
+  const timer = setTimeout(stop, 3000)
+  for (const event of interaction) scroller.addEventListener(event, stop)
+  observer.observe(content)
+  return stop
+}
+
 const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
   const preferences = useRef(new Compartment())
   const highlighting = useRef(new Compartment())
@@ -152,6 +173,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
   const restoredRenderedScroll = useRef(false)
   const restoredPreviewScroll = useRef(false)
+  const stopPreviewRestore = useRef<() => void>(() => {})
   const sourceNewline = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.content.includes('\r\n') ? '\r\n' : '\n')
   const captureView = useRef<() => void>(() => {})
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
@@ -367,13 +389,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (!active || editorMode !== 'wysiwyg' || !tiptap || restoredRenderedScroll.current) return
     // Wait for the rendered editor to attach and become measurable. A hidden
     // tab's scroll box would clamp a saved position to zero.
+    let stop = () => {}
     const frame = requestAnimationFrame(() => {
       const scroller = wysiwygContainerRef.current
       if (!scroller || useAppStore.getState().currentDocument?.id !== documentId) return
-      scroller.scrollTop = initialViewState.current?.renderedScroll ?? 0
+      stop = restoreScroll(scroller, tiptap.view.dom, initialViewState.current?.renderedScroll ?? 0)
       restoredRenderedScroll.current = true
     })
-    return () => cancelAnimationFrame(frame)
+    return () => { cancelAnimationFrame(frame); stop() }
   }, [active, documentId, editorMode, tiptap])
 
   const latestFormatting = useRef(computeFormattingState)
@@ -765,6 +788,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   }, [])
   useEffect(() => { if (!active || editorMode !== 'markdown') previewAbort.current?.abort(); return () => {
     invalidatePreview()
+    stopPreviewRestore.current()
     if (previewTimer.current) clearTimeout(previewTimer.current)
     previewTimer.current = null
   } }, [active, editorMode, invalidatePreview])
@@ -781,7 +805,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     previewMap.current = map
     container.innerHTML = map.html
     if (editorMode === 'markdown' && !restoredPreviewScroll.current && previewScrollRef.current) {
-      previewScrollRef.current.scrollTop = initialViewState.current?.previewScroll ?? 0
+      stopPreviewRestore.current = restoreScroll(previewScrollRef.current, container, initialViewState.current?.previewScroll ?? 0)
       restoredPreviewScroll.current = true
     }
     syncRef.current?.invalidate()
