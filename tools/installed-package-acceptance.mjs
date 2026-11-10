@@ -101,12 +101,19 @@ async function verifyViewport(firstOpen) {
  await wait(async()=>await renderedScroll()!==null,'rendered viewport fixture has a scrollable layout')
  if(firstOpen){
   assert.equal(await renderedScroll(),0,'First native Open starts at the top of the document')
+  // Begin with a real pointer interaction so the viewport yields to the reader.
+  await click('//*[@data-active="true"]//h1[normalize-space(.)="Start of viewport fixture"]')
   await renderedScroll(1200)
   await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'ordinary rendered document scrolled')
  } else {
   await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'reopened native document restores the rendered position')
  }
  await closeCurrentDocument()
+ if(firstOpen) await wait(async()=>{
+  const workspace=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'))
+  const record=workspace.fileViews?.find(file=>file.path.endsWith('viewport.md'))
+  return Math.abs(record?.viewState.renderedScroll-1200)<4
+ },'closed rendered reading position persisted')
 }
 async function verifyWrappedSourceViewport() {
  const path = join(fixture, 'wrapped-viewport.md')
