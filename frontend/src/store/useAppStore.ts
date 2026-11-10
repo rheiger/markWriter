@@ -73,6 +73,13 @@ const saving = new Map<string, Promise<boolean>>()
 const destinations = new Map<string, string>()
 let closing = false
 
+let activeViewCapture: { id: string, capture: () => void } | undefined
+export function registerActiveViewCapture(id: string, capture: () => void) {
+  const registration = { id, capture }
+  activeViewCapture = registration
+  return () => { if (activeViewCapture === registration) activeViewCapture = undefined }
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   const replace = (id: string, update: (doc: Document) => Document) => set(state => {
     const docs = state.documents.map(doc => doc.id === id ? update(doc) : doc)
@@ -201,6 +208,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
       // Discard must still refer to the revision the user reviewed.
       if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
+      if (activeViewCapture?.id === id) activeViewCapture.capture()
       const stateBeforeClose = get()
       const remaining = stateBeforeClose.documents.filter(d => d.id !== id)
       const fileViews = rememberFileView(stateBeforeClose.fileViews, stateBeforeClose.documents.find(d => d.id === id))
@@ -255,6 +263,7 @@ export async function confirmDiscardChanges(): Promise<boolean> {
   }
   const safe = () => !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
   if (!safe()) return false
+  activeViewCapture?.capture()
   const restore = useAppStore.getState().documents.flatMap(doc => reviewed.some(d => d.id === doc.id) ?
     (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : []) : [doc])
   try { await flushPreferences(); await flushWorkspace(snapshotWorkspace(restore)) }

@@ -7,6 +7,7 @@
 !define MW_APPLICATION "Applications\markwriter.exe"
 !define MW_CAPABILITIES "Software\MarkWriter\Capabilities"
 !define MW_REGISTERED_APPS "Software\RegisteredApplications"
+!define MW_MACHINE_LOCATION "Software\markwriter\MarkWriter"
 !define MW_PREVIEW_LABEL "MarkWriter Markdown Preview"
 !define MW_CLASS "${MW_CLASSES}\CLSID\${MW_PREVIEW}"
 !define MW_COMMAND "$\"$INSTDIR\markwriter.exe$\" $\"%1$\""
@@ -27,6 +28,23 @@
   ${EndIf}
 !macroend
 
+ ; Tauri includes its utilities before this file. Keep the template's check
+ ; but make it refuse instead of killing editors in a silent install.
+!macroundef CheckIfAppIsRunning
+!macro CheckIfAppIsRunning executableName productName
+  !insertmacro MW_RequireClosed
+!macroend
+
+!macro MW_RequirePreviewUnlocked
+  \${If} \${FileExists} "$INSTDIR\MarkWriterPreview.dll"
+    System::Call 'kernel32::CreateFileW(w "$INSTDIR\MarkWriterPreview.dll", i 0x40000000, i 0, p 0, i 3, i 0, p 0) p.R8'
+    \${If} $R8 == -1
+      !insertmacro MW_Fail "Close the File Explorer Preview pane and windows using MarkWriter previews, then retry. If the preview host is still holding the DLL, sign out and back in first."
+    \${EndIf}
+    System::Call 'kernel32::CloseHandle(p R8)'
+  \${EndIf}
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro MW_RequireClosed
   ${If} $INSTDIR != "$PROGRAMFILES64\MarkWriter"
@@ -37,23 +55,23 @@
   ${If} $R8 != 0
     !insertmacro MW_Fail "The MarkWriter installation folder is a reparse point or cannot be inspected."
   ${EndIf}
-  ; Recreate an empty destination so it inherits the protected Program Files ACL.
-  ; The pinned Tauri maintenance flow can leave its old uninstaller behind.
-  SetOutPath "$PROGRAMFILES64"
-  ReadRegStr $R8 HKLM "Software\markwriter\MarkWriter" ""
-  ${If} $R8 == "$INSTDIR"
-    Delete "$INSTDIR\uninstall.exe"
-  ${EndIf}
-  ClearErrors
-  RMDir "$INSTDIR"
-  ${If} ${Errors}
-    !insertmacro MW_Fail "The Program Files\MarkWriter folder contains files. Move the existing installation aside before retrying."
-  ${EndIf}
-  ClearErrors
-  SetOutPath "$INSTDIR"
-  ${If} ${Errors}
-    !insertmacro MW_Fail "The protected installation folder could not be created."
-  ${EndIf}
+  ReadRegStr $R8 HKLM "\${MW_MACHINE_LOCATION}" "ProtectedInstall"
+  \${If} $R8 == "$INSTDIR"
+    !insertmacro MW_RequirePreviewUnlocked
+  \${Else}
+    ; Recreate an empty destination so it inherits the protected Program Files ACL.
+    SetOutPath "$PROGRAMFILES64"
+    ClearErrors
+    RMDir "$INSTDIR"
+    \${If} \${Errors}
+      !insertmacro MW_Fail "The Program Files\MarkWriter folder contains files. Move the existing installation aside before retrying."
+    \${EndIf}
+    ClearErrors
+    SetOutPath "$INSTDIR"
+    \${If} \${Errors}
+      !insertmacro MW_Fail "The protected installation folder could not be created."
+    \${EndIf}
+  \${EndIf}
 !macroend
 
 !macro MW_RegisterExtension ext
@@ -71,6 +89,7 @@
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  WriteRegStr HKLM "\${MW_MACHINE_LOCATION}" "ProtectedInstall" "$INSTDIR"
   WriteRegStr HKLM "${MW_CLASSES}\${MW_PROGID}" "" "Markdown document"
   WriteRegStr HKLM "${MW_CLASSES}\${MW_PROGID}\DefaultIcon" "" "${MW_ICON}"
   WriteRegStr HKLM "${MW_CLASSES}\${MW_PROGID}\shell\open\command" "" "${MW_COMMAND}"
@@ -112,13 +131,7 @@
 
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro MW_RequireClosed
-  IfFileExists "$INSTDIR\MarkWriterPreview.dll" 0 mw_preview_unlocked
-  System::Call 'kernel32::CreateFileW(w "$INSTDIR\MarkWriterPreview.dll", i 0x40000000, i 0, p 0, i 3, i 0, p 0) p.R8'
-  ${If} $R8 == -1
-    !insertmacro MW_Fail "Close the File Explorer Preview pane and windows using MarkWriter previews, then retry. If the preview host is still holding the DLL, sign out and back in first."
-  ${EndIf}
-  System::Call 'kernel32::CloseHandle(p R8)'
-  mw_preview_unlocked:
+  !insertmacro MW_RequirePreviewUnlocked
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL

@@ -16,6 +16,11 @@ if((Get-FileHash -LiteralPath $installedPreview).Hash -ne (Get-FileHash -Literal
 }
 & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
 if($LASTEXITCODE){throw 'Legacy installation migration failed'}
+# The same signed-off installer must support an in-place repair.
+$repair=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+if($repair.ExitCode -ne 0 -or !(Test-Path -LiteralPath "$destination/uninstall.exe")){
+ throw 'Repeated setup did not leave a usable installation and uninstaller.'
+}
 $profile=Join-Path $env:RUNNER_TEMP 'markwriter-profile'
 New-Item -ItemType Directory -Force $profile | Out-Null
 icacls $profile /grant "${env:USERNAME}:(OI)(CI)M" | Out-Null

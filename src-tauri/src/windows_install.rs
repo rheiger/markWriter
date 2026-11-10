@@ -209,6 +209,28 @@ fn retire_legacy_preview(user: &RegKey) -> io::Result<()> {
     Ok(())
 }
 
+// Older MarkWrite left this ProgID behind after its binary was removed.
+fn retire_missing_markwrite_association(user: &RegKey, program_files: &Path) -> io::Result<()> {
+    let binary = program_files.join(r"MarkWrite\MarkWrite.exe");
+    if !fs::symlink_metadata(&binary).is_err_and(|error| error.kind() == io::ErrorKind::NotFound) {
+        return Ok(());
+    }
+    let command_key = r"Software\Classes\MarkWrite.Document\shell\open\command";
+    let command = format!("{} \"%1\"", quoted(&binary));
+    if !read(user, command_key, "").is_some_and(|value| value.eq_ignore_ascii_case(&command)) {
+        return Ok(());
+    }
+    for ext in [".md", ".markdown"] {
+        remove_value(
+            user,
+            &format!(r"Software\Classes\{ext}"),
+            "",
+            "MarkWrite.Document",
+        )?;
+    }
+    remove_value(user, command_key, "", &command)
+}
+
 pub fn retire_legacy_install() -> io::Result<()> {
     if unsafe { IsUserAnAdmin().as_bool() } {
         return Err(io::Error::other(
@@ -228,8 +250,11 @@ pub fn retire_legacy_install() -> io::Result<()> {
         .ok_or_else(|| io::Error::other("Local AppData unavailable"))?
         .join("MarkWriter");
     let user = RegKey::predef(HKEY_CURRENT_USER);
-    retire_legacy_app(&user, &dir)?;
-    retire_legacy_preview(&user)?;
+    let app = retire_legacy_app(&user, &dir);
+    let preview = retire_legacy_preview(&user);
+    let association = installed.parent().map_or(Ok(()), |parent| {
+        retire_missing_markwrite_association(&user, parent)
+    });
     unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None) };
-    Ok(())
+    app.and(preview).and(association)
 }

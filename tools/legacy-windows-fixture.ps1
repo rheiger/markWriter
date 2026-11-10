@@ -9,6 +9,7 @@ $legacyDir = Join-Path $env:LOCALAPPDATA 'MarkWriter'
 $profile = Join-Path $env:LOCALAPPDATA 'com.markwriter.app'
 $uninstall = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MarkWriter'
 $competingKey = "$base\.markdown\shellex\$iid"
+$obsoleteCommand = "$base\MarkWrite.Document\shell\open\command"
 $appCommand = "$base\Applications\markwriter.exe\shell\open\command"
 
 if ($Phase -eq 'Seed') {
@@ -37,6 +38,10 @@ if ($Phase -eq 'Seed') {
     Expand-Archive "$fixtures/MarkWriter-2.7.3-windows-x64-explorer-preview.zip" "$fixtures/preview"
     & "$fixtures/preview/install.ps1" -Action Enable -DllPath "$fixtures/preview/MarkWriterPreview.dll"
     Set-Item -LiteralPath $competingKey -Value $competing
+    if ((Test-Path $obsoleteCommand) -or (Test-Path "$env:ProgramFiles\MarkWrite\MarkWrite.exe")) { throw 'Old MarkWrite fixture path already in use.' }
+    Set-Item -LiteralPath "$base\.md" -Value 'MarkWrite.Document'
+    New-Item -Path $obsoleteCommand -Force | Out-Null
+    Set-Item -LiteralPath $obsoleteCommand -Value ('"{0}\MarkWrite\MarkWrite.exe" "%1"' -f $env:ProgramFiles)
     New-Item -Path $appCommand -Force | Out-Null
     Set-Item -LiteralPath $appCommand -Value ('"{0}\markwriter.exe" "%1"' -f $legacyDir)
     New-Item -ItemType Directory -Force $profile | Out-Null
@@ -61,5 +66,8 @@ if ((Get-Item -LiteralPath $competingKey).GetValue('') -ine $competing) { throw 
 Remove-Item -LiteralPath $competingKey
 if ((Test-Path $appCommand) -and (Get-Item -LiteralPath $appCommand).GetValue('')) {
     throw 'Old per-user Open With command remains.'
+}
+if ((Get-Item -LiteralPath "$base\.md").GetValue('') -eq 'MarkWrite.Document' -or (Test-Path $obsoleteCommand)) {
+    throw 'Obsolete MarkWrite.Document association remains.'
 }
 'Known v2.7.3 user install and preview retired; unrelated file, profile, and competing handler preserved.'

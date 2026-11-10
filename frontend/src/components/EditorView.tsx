@@ -7,7 +7,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
-import { useAppStore } from '../store/useAppStore'
+import { registerActiveViewCapture, useAppStore } from '../store/useAppStore'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -1068,6 +1068,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     }
     const schedule = () => { if (!frame) frame = requestAnimationFrame(save) }
     captureView.current = schedule
+    const unregisterCapture = registerActiveViewCapture(documentId, () => {
+      cancelAnimationFrame(frame)
+      save()
+    })
     sourceView?.scrollDOM.addEventListener('scroll', schedule)
     sourceView?.dom.addEventListener('keyup', schedule)
     sourceView?.dom.addEventListener('pointerup', schedule)
@@ -1076,6 +1080,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     tiptap?.on('selectionUpdate', schedule)
     document.addEventListener('selectionchange', schedule)
     return () => {
+      unregisterCapture()
       cancelAnimationFrame(frame)
       if (captureView.current === schedule) captureView.current = () => {}
       sourceView?.scrollDOM.removeEventListener('scroll', schedule); sourceView?.dom.removeEventListener('keyup', schedule); sourceView?.dom.removeEventListener('pointerup', schedule)
