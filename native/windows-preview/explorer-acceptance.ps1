@@ -163,6 +163,53 @@ try {
         $snapshot.documents | Where-Object { $_.id -eq $snapshot.activeId } | Select-Object -First 1
       } catch { return }
     }
+    function Trace-WebView($editor) {
+      try {
+        $all = Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'"
+        $all | Where-Object { $_.ParentProcessId -eq $editor.Id } | ForEach-Object {
+          Write-Host "WebView2 child PID $($_.ProcessId), image $($_.ExecutablePath)"
+        }
+      } catch { Write-Host "Could not query WebView2 processes: $_" }
+      $webviewProfile = Join-Path $env:LOCALAPPDATA 'com.markwriter.app/EBWebView'
+      Write-Host "Default WebView2 data folder present: $(Test-Path -LiteralPath $webviewProfile)"
+    }
+    function Trace-DirectLaunch($fixturePath, $forceRuntime, $withFile) {
+      $profileOverride = $env:MARKWRITER_PROFILE_DIR
+      $runtimeOverride = $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER
+      $variant = "runtime-$forceRuntime-file-$withFile"
+      try {
+        $env:MARKWRITER_PROFILE_DIR = Join-Path $root $variant
+        if (!$forceRuntime) { Remove-Item Env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER -ErrorAction SilentlyContinue }
+        $stdout = "$ResultPath.$variant.stdout.log"
+        $stderr = "$ResultPath.$variant.stderr.log"
+        $params = @{
+          FilePath=$resolvedApp; WorkingDirectory=$root; PassThru=$true
+          RedirectStandardOutput=$stdout; RedirectStandardError=$stderr
+        }
+        if ($withFile) { $params.ArgumentList = ('"{0}"' -f $fixturePath) }
+        $direct = Start-Process @params
+        $snapshot = Join-Path $env:MARKWRITER_PROFILE_DIR 'workspace.json'
+        $active = $null
+        for ($i=0; $i -lt 50 -and !$direct.HasExited -and !$active; $i++) {
+          Start-Sleep -Milliseconds 200
+          $active = Read-ActiveFixture $snapshot
+        }
+        $direct.Refresh()
+        Write-Host "Direct ${variant}: active '$($active.title)', chars $($active.content.Length), exited $($direct.HasExited), hwnd $($direct.MainWindowHandle)"
+        if (!$direct.HasExited) { Trace-WebView $direct }
+      } catch { Write-Host "Direct $variant failed: $_" }
+      finally {
+        if ($direct -and !$direct.HasExited) {
+          $direct.CloseMainWindow() | Out-Null
+          if (!$direct.WaitForExit(2000)) { $direct.Kill(); $direct.WaitForExit() }
+        }
+        foreach ($log in @($stdout,$stderr)) {
+          if ($log -and (Test-Path -LiteralPath $log)) { Get-Content -LiteralPath $log | Select-Object -First 25 | Out-Host }
+        }
+        $env:MARKWRITER_PROFILE_DIR = $profileOverride
+        $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER = $runtimeOverride
+      }
+    }
     function Open-ThroughExplorer($fixture) {
       $item = $window.Document.Folder.ParseName($fixture.Name)
       if (!$item) { throw 'Explorer file activation fixture missing' }
@@ -174,10 +221,12 @@ try {
       # Enter activates the selected file through the same default verb as double-click.
       [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
       $expectedPath = Join-Path $root $fixture.Name
+      $fixtureEditor = $null
       for ($i=0; $i -lt 100; $i++) {
         Start-Sleep -Milliseconds 200
         $running = @(Get-Process markwriter -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $resolvedApp -and $_.MainWindowHandle })
         foreach ($process in $running) {
+          $fixtureEditor = $process
           # The active document and exact source are flushed by the ordinary UI
           # after opening. This remains observable when WebView2 exposes no
           # document-level UI Automation text patterns to the harness.
@@ -245,6 +294,14 @@ try {
         $active = Read-ActiveFixture $workspace
         if ($active) { Write-Host "Active fixture at $workspace is '$($active.title)' with $($active.content.Length) characters." }
         else { Write-Host "Workspace $workspace present: $(Test-Path -LiteralPath $workspace)" }
+      }
+      if ($fixtureEditor) {
+        Trace-WebView $fixtureEditor
+        $fixtureEditor.CloseMainWindow() | Out-Null
+        if (!$fixtureEditor.WaitForExit(2000)) { $fixtureEditor.Kill(); $fixtureEditor.WaitForExit() }
+        Trace-DirectLaunch $expectedPath $false $true
+        Trace-DirectLaunch $expectedPath $true $true
+        Trace-DirectLaunch $expectedPath $false $false
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
