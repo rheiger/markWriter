@@ -173,12 +173,13 @@ try {
       $webviewProfile = Join-Path $env:LOCALAPPDATA 'com.markwriter.app/EBWebView'
       Write-Host "Default WebView2 data folder present: $(Test-Path -LiteralPath $webviewProfile)"
     }
-    function Trace-DirectLaunch($fixturePath, $forceRuntime, $withFile) {
+    function Trace-DirectLaunch($fixturePath, $forceRuntime, $withFile, $useDefaultProfile = $false) {
       $profileOverride = $env:MARKWRITER_PROFILE_DIR
       $runtimeOverride = $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER
-      $variant = "runtime-$forceRuntime-file-$withFile"
+      $variant = "runtime-$forceRuntime-file-$withFile-default-profile-$useDefaultProfile"
       try {
-        $env:MARKWRITER_PROFILE_DIR = Join-Path $root $variant
+        $probeProfile = if ($useDefaultProfile) { Join-Path $env:LOCALAPPDATA 'com.markwriter.app' } else { Join-Path $root $variant }
+        $env:MARKWRITER_PROFILE_DIR = if ($useDefaultProfile) { $null } else { $probeProfile }
         if (!$forceRuntime) { Remove-Item Env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER -ErrorAction SilentlyContinue }
         $stdout = "$ResultPath.$variant.stdout.log"
         $stderr = "$ResultPath.$variant.stderr.log"
@@ -188,7 +189,7 @@ try {
         }
         if ($withFile) { $params.ArgumentList = ('"{0}"' -f $fixturePath) }
         $direct = Start-Process @params
-        $snapshot = Join-Path $env:MARKWRITER_PROFILE_DIR 'workspace.json'
+        $snapshot = Join-Path $probeProfile 'workspace.json'
         $active = $null
         for ($i=0; $i -lt 50 -and !$direct.HasExited -and !$active; $i++) {
           Start-Sleep -Milliseconds 200
@@ -208,6 +209,48 @@ try {
         }
         $env:MARKWRITER_PROFILE_DIR = $profileOverride
         $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER = $runtimeOverride
+      }
+    }
+    function Trace-ExplorerChild($fixturePath) {
+      $commandFile = Join-Path $root 'markwriter-launch-probe.cmd'
+      $scriptFile = Join-Path $root 'markwriter-launch-probe.ps1'
+      $trace = Join-Path $root 'markwriter-launch-probe.json'
+      $probeData = @{ binary=$resolvedApp; fixture=$fixturePath; trace=$trace; profile=(Join-Path $root 'explorer-child') } | ConvertTo-Json -Compress
+      $inputData = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($probeData))
+      @'
+param([string]$Payload)
+$probe=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Payload)) | ConvertFrom-Json
+$data=@{ workingDirectory=(Get-Location).Path }
+foreach($name in @('USERPROFILE','LOCALAPPDATA','TEMP','TMP','SYSTEMROOT','WEBVIEW2_BROWSER_EXECUTABLE_FOLDER','WEBVIEW2_USER_DATA_FOLDER','__COMPAT_LAYER','MARKWRITER_PROFILE_DIR')) {
+  $data[$name]=[Environment]::GetEnvironmentVariable($name)
+}
+$env:MARKWRITER_PROFILE_DIR=$probe.profile
+$process=Start-Process -FilePath $probe.binary -ArgumentList ('"{0}"' -f $probe.fixture) -WorkingDirectory (Split-Path $probe.binary) -PassThru
+$data.editorPid=$process.Id
+$data | ConvertTo-Json -Compress | Set-Content -LiteralPath $probe.trace
+'@ | Set-Content -LiteralPath $scriptFile -Encoding utf8
+      ('"{0}" -NoProfile -File "{1}" "{2}"' -f (Join-Path $PSHOME 'pwsh.exe'), $scriptFile, $inputData) | Set-Content -LiteralPath $commandFile -Encoding ascii
+      $shellItem = $window.Document.Folder.ParseName('markwriter-launch-probe.cmd')
+      if (!$shellItem) { Write-Host 'Explorer did not resolve its diagnostic script.'; return }
+      $shellItem.InvokeVerb()
+      $process = $null
+      try {
+        for ($i=0; $i -lt 100; $i++) {
+          Start-Sleep -Milliseconds 200
+          if (!$process -and (Test-Path -LiteralPath $trace)) {
+            $receipt = Get-Content -Raw -LiteralPath $trace | ConvertFrom-Json
+            Write-Host "Explorer child launch environment: $(ConvertTo-Json -InputObject $receipt -Compress)"
+            $process = Get-Process -Id $receipt.editorPid -ErrorAction SilentlyContinue
+          }
+          $active = Read-ActiveFixture (Join-Path $root 'explorer-child/workspace.json')
+          if ($active) { Write-Host "Explorer child active '$($active.title)' with $($active.content.Length) characters"; break }
+        }
+        if ($process -and !$process.HasExited) { Trace-WebView $process }
+      } finally {
+        if ($process -and !$process.HasExited) {
+          $process.CloseMainWindow() | Out-Null
+          if (!$process.WaitForExit(2000)) { $process.Kill(); $process.WaitForExit() }
+        }
       }
     }
     function Open-ThroughExplorer($fixture) {
@@ -300,8 +343,8 @@ try {
         $fixtureEditor.CloseMainWindow() | Out-Null
         if (!$fixtureEditor.WaitForExit(2000)) { $fixtureEditor.Kill(); $fixtureEditor.WaitForExit() }
         Trace-DirectLaunch $expectedPath $false $true
-        Trace-DirectLaunch $expectedPath $true $true
-        Trace-DirectLaunch $expectedPath $false $false
+        Trace-DirectLaunch $expectedPath $false $true $true
+        Trace-ExplorerChild $expectedPath
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
