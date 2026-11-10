@@ -27,6 +27,9 @@ public static class PreviewProcessIntegrity {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [StructLayout(LayoutKind.Sequential)]
+  public struct WindowRect { public int Left, Top, Right, Bottom; }
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out WindowRect rect);
   [DllImport("shlwapi.dll", CharSet=CharSet.Unicode, ExactSpelling=true)]
   static extern int AssocQueryStringW(uint flags, uint kind, string association, string verb, StringBuilder buffer, ref uint capacity);
   public static string OpenCommand(string extension) {
@@ -209,10 +212,39 @@ try {
       }
       Get-Process markwriter -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Host "Observed editor PID $($_.Id), path $($_.Path), window $($_.MainWindowTitle)"
+        if ($_.Path -ine $resolvedApp -or !$_.MainWindowHandle) { return }
+        $hwnd = $_.MainWindowHandle
+        try {
+          $element = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+          Write-Host "Editor window class: $($element.Current.ClassName)"
+          $nodes = $element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+          Write-Host "Editor accessibility nodes: $($nodes.Count)"
+          $nodes | Select-Object -First 35 | ForEach-Object {
+            try { Write-Host "$($_.Current.ControlType.ProgrammaticName) $($_.Current.Name)" } catch {}
+          }
+          Add-Type -AssemblyName System.Drawing
+          [PreviewProcessIntegrity]::SetForegroundWindow($hwnd) | Out-Null
+          $bounds = [PreviewProcessIntegrity+WindowRect]::new()
+          if ([PreviewProcessIntegrity]::GetForegroundWindow() -eq $hwnd -and
+              [PreviewProcessIntegrity]::GetWindowRect($hwnd, [ref]$bounds)) {
+            $rect = [Drawing.Rectangle]::FromLTRB($bounds.Left, $bounds.Top, $bounds.Right, $bounds.Bottom)
+            $rect = [Drawing.Rectangle]::Intersect($rect, [System.Windows.Forms.SystemInformation]::VirtualScreen)
+            if ($rect.Width -gt 0 -and $rect.Height -gt 0) {
+              $bitmap = [Drawing.Bitmap]::new($rect.Width, $rect.Height)
+              try {
+                $graphics = [Drawing.Graphics]::FromImage($bitmap)
+                try { $graphics.CopyFromScreen($rect.Location, [Drawing.Point]::Empty, $rect.Size) }
+                finally { $graphics.Dispose() }
+                $bitmap.Save("$ResultPath.app.png", [Drawing.Imaging.ImageFormat]::Png)
+              } finally { $bitmap.Dispose() }
+            }
+          }
+        } catch { Write-Host "Could not inspect the launched editor window: $_" }
       }
       foreach ($workspace in $workspaces) {
         $active = Read-ActiveFixture $workspace
         if ($active) { Write-Host "Active fixture at $workspace is '$($active.title)' with $($active.content.Length) characters." }
+        else { Write-Host "Workspace $workspace present: $(Test-Path -LiteralPath $workspace)" }
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
