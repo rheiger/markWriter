@@ -86,7 +86,14 @@ export const useAppStore = create<AppState>((set, get) => {
     const docs = state.documents.map(doc => doc.id === id ? update(doc) : doc)
     return workspace(docs, state.currentDocument?.id)
   })
-  const add = (doc: Document) => set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
+  const captureBeforeActivating = (id: string) => {
+    const current = get().currentDocument?.id
+    if (activeViewCapture && current !== id && activeViewCapture.id === current) activeViewCapture.capture()
+  }
+  const add = (doc: Document) => {
+    captureBeforeActivating(doc.id)
+    set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
+  }
   const saveSnapshot = (snapshot: Document, path: string, as: boolean): Promise<boolean> => {
     const run = async () => {
       set({ error: null, isLoading: true })
@@ -123,7 +130,10 @@ export const useAppStore = create<AppState>((set, get) => {
     documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig,
     isLoading: false, error: null, pendingClose: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
-    activateDocument: id => set(state => workspace(state.documents, id)),
+    activateDocument: id => {
+      captureBeforeActivating(id)
+      set(state => workspace(state.documents, id))
+    },
     rememberView: (id, patch, sourceViewportAnchor) => set(state => {
       const prior = state.documents.find(doc => doc.id === id)
       if (!prior || (sourceViewportAnchor === undefined || sourceViewportAnchor === prior.sourceViewportAnchor) &&
@@ -212,7 +222,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
       // Discard must still refer to the revision the user reviewed.
       if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
-      if (activeViewCapture?.id === id) activeViewCapture.capture()
+      if (get().currentDocument?.id === id && activeViewCapture?.id === id) activeViewCapture.capture()
       const stateBeforeClose = get()
       const remaining = stateBeforeClose.documents.filter(d => d.id !== id)
       const fileViews = rememberFileView(stateBeforeClose.fileViews, stateBeforeClose.documents.find(d => d.id === id))

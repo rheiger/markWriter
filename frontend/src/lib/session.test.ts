@@ -42,3 +42,10 @@ it('retains navigation for closed files and clean tabs omitted by session restor
     closed,
   ])
 })
+
+it('keeps the last mode when a clean tab was closed before the editor measured its viewport', async () => {
+  const result = await restoreSnapshot({ ...snapshot,
+    documents: [{ ...doc, isDirty: false, mode: 'markdown' }] },
+    false, async () => { throw new Error('Should not read closed files') })
+  expect(result.fileViews).toMatchObject([{ path: '/a.md', mode: 'markdown', viewState: {} }])
+})

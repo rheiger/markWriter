@@ -21,8 +21,11 @@ function validFileView(value: unknown): value is FileView {
 }
 
 export function rememberFileView(views: FileView[], doc: Document | undefined): FileView[] {
-  if (!doc?.path || !doc.viewState) return views
-  return [{ path: doc.path, mode: doc.mode, viewState: doc.viewState, sourceViewportAnchor: doc.sourceViewportAnchor }, ...views.filter(entry => entry.path !== doc.path)].slice(0, fileViewLimit)
+  if (!doc?.path || (!doc.viewState && !doc.mode)) return views
+  const previous = views.find(entry => entry.path === doc.path)
+  return [{ path: doc.path, mode: doc.mode, viewState: doc.viewState ?? previous?.viewState ?? {},
+    sourceViewportAnchor: doc.sourceViewportAnchor ?? previous?.sourceViewportAnchor },
+  ...views.filter(entry => entry.path !== doc.path)].slice(0, fileViewLimit)
 }
 
 export interface SessionSnapshot { version: 1, activeId: string | null, documents: Document[], fileViews: FileView[] }

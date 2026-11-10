@@ -600,6 +600,15 @@ try {
   if (session) {
     const state = await snapshot().catch(() => null)
     if (state) await writeFile(join(artifacts, 'failure-state.json'), JSON.stringify({ document: state.document, config: state.config, error: state.error }, null, 2)).catch(() => {})
+    const viewport = await run(`return {
+      page: { scrollY, innerWidth, innerHeight, pageTop: visualViewport?.pageTop, offsetTop: visualViewport?.offsetTop },
+      boxes: Object.fromEntries(['html', 'body', '#root', '.app', '.toolbar', 'button[role=switch]'].map(selector => {
+        const element = document.querySelector(selector)
+        const rect = element?.getBoundingClientRect()
+        return [selector, { scrollTop: element?.scrollTop, scrollHeight: element?.scrollHeight, top: rect?.top, bottom: rect?.bottom }]
+      })),
+    }`).catch(() => null)
+    if (viewport) await writeFile(join(artifacts, 'failure-viewport.json'), JSON.stringify(viewport, null, 2))
     await writeFile(join(artifacts, 'page.html'), await request('GET', `/session/${session}/source`).catch(() => '')).catch(() => {})
     const screenshot = await request('GET', `/session/${session}/screenshot`).catch(() => null)
     if (screenshot) await writeFile(join(artifacts, 'failure.png'), Buffer.from(screenshot, 'base64'))

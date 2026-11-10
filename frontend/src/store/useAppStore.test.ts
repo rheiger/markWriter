@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
-import { useAppStore, confirmDiscardChanges } from './useAppStore'
+import { useAppStore, confirmDiscardChanges, registerActiveViewCapture } from './useAppStore'
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }))
 const call = vi.mocked(invoke)
@@ -37,6 +37,19 @@ describe('document ownership and file races', () => {
     call.mockResolvedValueOnce({ id: 'first', title: 'First', content: 'New file', path: '/first.md' })
     await state().openDocument('/first.md')
     expect(state().currentDocument?.viewState).toBeUndefined()
+  })
+  it('captures an outgoing viewport before making another tab active', async () => {
+    state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md' })
+    state().activateDocument('one')
+    const unregister = registerActiveViewCapture('one', () => {
+      expect(state().currentDocument?.id).toBe('one')
+      state().rememberView('one', { renderedScroll: 512 })
+    })
+    try {
+      state().activateDocument('two')
+      expect(await state().closeDocument('one')).toBe(true)
+      expect(state().fileViews[0].viewState.renderedScroll).toBe(512)
+    } finally { unregister() }
   })
   it('saves a captured owner while tab switching and newer edits remain dirty', async () => {
     let finish!: (result: unknown) => void
