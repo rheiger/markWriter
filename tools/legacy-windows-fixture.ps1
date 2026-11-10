@@ -1,0 +1,65 @@
+param([Parameter(Mandatory=$true)][ValidateSet('Seed','Verify')][string]$Phase)
+$ErrorActionPreference = 'Stop'
+if (!$env:GITHUB_ACTIONS -or !$env:RUNNER_TEMP) { throw 'This fixture requires a disposable GitHub Actions Windows runner.' }
+$base = 'HKCU:\Software\Classes'
+$iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
+$oldClass = '{A448B833-8E1A-4EA4-BCC4-272134A64E97}'
+$competing = '{9038F78F-5474-4B17-BFC6-8AB25A1702DB}'
+$legacyDir = Join-Path $env:LOCALAPPDATA 'MarkWriter'
+$profile = Join-Path $env:LOCALAPPDATA 'com.markwriter.app'
+$uninstall = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MarkWriter'
+$competingKey = "$base\.markdown\shellex\$iid"
+$appCommand = "$base\Applications\markwriter.exe\shell\open\command"
+
+if ($Phase -eq 'Seed') {
+    if ((Test-Path $legacyDir) -or (Test-Path $uninstall) -or (Test-Path $competingKey) -or (Test-Path $appCommand)) {
+        throw 'Legacy fixture paths already in use.'
+    }
+    if (!(Get-Process explorer -ErrorAction SilentlyContinue)) {
+        Start-Process "$env:WINDIR\explorer.exe"
+    }
+    $fixtures = Join-Path $env:RUNNER_TEMP 'markwriter-2.7.3-upgrade'
+    New-Item -ItemType Directory $fixtures | Out-Null
+    $assets = @{
+        'MarkWriter-2.7.3-windows-x64.exe' = '69922deef2296edbc6445b7414ee69e93bc3f1307114f3c27e83780244e92427'
+        'MarkWriter-2.7.3-windows-x64-explorer-preview.zip' = '1bd5624e6421006244f3072d7d4fcc8186dedb93eaacb42ec9c5a581333dfc06'
+    }
+    foreach ($name in $assets.Keys) {
+        $path = Join-Path $fixtures $name
+        Invoke-WebRequest "https://github.com/rheiger/markWriter/releases/download/v2.7.3/$name" -OutFile $path -MaximumRetryCount 3
+        if ((Get-FileHash -LiteralPath $path).Hash -ine $assets[$name]) { throw "Legacy asset digest mismatch for $name." }
+    }
+    $oldInstaller = Join-Path $fixtures 'MarkWriter-2.7.3-windows-x64.exe'
+    $process = Start-Process -FilePath $oldInstaller -ArgumentList '/S' -Wait -PassThru
+    if ($process.ExitCode -ne 0 -or !(Test-Path "$legacyDir\markwriter.exe") -or !(Test-Path $uninstall)) {
+        throw 'Public v2.7.3 per-user installation failed.'
+    }
+    Expand-Archive "$fixtures/MarkWriter-2.7.3-windows-x64-explorer-preview.zip" "$fixtures/preview"
+    & "$fixtures/preview/install.ps1" -Action Enable -DllPath "$fixtures/preview/MarkWriterPreview.dll"
+    Set-Item -LiteralPath $competingKey -Value $competing
+    New-Item -Path $appCommand -Force | Out-Null
+    Set-Item -LiteralPath $appCommand -Value ('"{0}\markwriter.exe" "%1"' -f $legacyDir)
+    New-Item -ItemType Directory -Force $profile | Out-Null
+    Set-Content -LiteralPath "$legacyDir/unowned.txt" -Value 'user file in old folder'
+    Set-Content -LiteralPath "$profile/upgrade-sentinel.txt" -Value 'preserve user data'
+    return
+}
+
+for ($attempt=0; $attempt -lt 100 -and ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path $uninstall)); $attempt++) {
+    Start-Sleep -Milliseconds 200
+}
+if ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path "$legacyDir/uninstall.exe") -or (Test-Path $uninstall)) {
+    throw 'Setup did not retire the known v2.7.3 user installation.'
+}
+if ((Get-Content "$legacyDir/unowned.txt") -cne 'user file in old folder' -or (Get-Content "$profile/upgrade-sentinel.txt") -cne 'preserve user data') {
+    throw 'Migration changed a non-installer file.'
+}
+if ((Test-Path "$base\CLSID\$oldClass") -or (Test-Path "$base\.md\shellex\$iid")) {
+    throw 'Setup did not retire the legacy per-user preview registration.'
+}
+if ((Get-Item -LiteralPath $competingKey).GetValue('') -ine $competing) { throw 'Competing user handler was changed.' }
+Remove-Item -LiteralPath $competingKey
+if ((Test-Path $appCommand) -and (Get-Item -LiteralPath $appCommand).GetValue('')) {
+    throw 'Old per-user Open With command remains.'
+}
+'Known v2.7.3 user install and preview retired; unrelated file, profile, and competing handler preserved.'

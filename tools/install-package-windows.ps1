@@ -1,6 +1,8 @@
 $ErrorActionPreference='Stop'
 $packageVersion=(Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json).version
 $installer=(Get-Item -LiteralPath "src-tauri/target/release/bundle/nsis/MarkWriter_${packageVersion}_x64-setup.exe").FullName
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Seed
+if($LASTEXITCODE){throw 'Could not prepare the legacy installation fixture'}
 $destination=Join-Path $env:ProgramFiles 'MarkWriter'
 # Exercise the default elevated machine install, without /D.
 $installation=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
@@ -12,6 +14,8 @@ $installedPreview=Join-Path $destination 'MarkWriterPreview.dll'
 if((Get-FileHash -LiteralPath $installedPreview).Hash -ne (Get-FileHash -LiteralPath $builtPreview).Hash){
  throw 'Installed Explorer handler differs from the bundled build.'
 }
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
+if($LASTEXITCODE){throw 'Legacy installation migration failed'}
 $profile=Join-Path $env:RUNNER_TEMP 'markwriter-profile'
 New-Item -ItemType Directory -Force $profile | Out-Null
 icacls $profile /grant "${env:USERNAME}:(OI)(CI)M" | Out-Null

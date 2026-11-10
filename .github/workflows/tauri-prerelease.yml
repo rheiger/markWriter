@@ -137,6 +137,12 @@ jobs:
           plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
       - name: Record package provenance, hashes and tested baseline
         run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
+      - name: Qualify Windows uninstallation and preserve the lifecycle receipt
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./tools/test-windows-uninstall.ps1
+          node tools/shell-preview-assets.mjs explorer release-assets package-acceptance-results/explorer-preview.json
       - name: Retain production packages and provenance
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

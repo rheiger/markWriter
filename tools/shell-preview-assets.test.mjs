@@ -10,7 +10,7 @@ const source = 'a'.repeat(40)
 const version = '2.6.3'
 const sha = data => createHash('sha256').update(data).digest('hex')
 const targets = [
-  ['explorer', 'windows-x64-explorer-preview.zip', 'Windows Server 2025 x64'],
+  ['explorer', 'windows-x64.exe', 'Windows Server 2025 x64'],
   ['sushi', 'ubuntu-26.04-x64-sushi-preview.zip', 'Ubuntu 26.04 x64 / GNOME Sushi'],
   ['dolphin', 'ubuntu-26.04-x64-dolphin-preview.deb', 'Ubuntu 26.04 x64 / KDE Dolphin'],
 ]

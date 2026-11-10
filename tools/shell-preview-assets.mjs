@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { releasePolicy } from './release-policy.mjs'
 
 const suffixes = new Map([
-  ['explorer', 'windows-x64-explorer-preview.zip'],
+  ['explorer', 'windows-x64.exe'],
   ['sushi', 'ubuntu-26.04-x64-sushi-preview.zip'],
   ['dolphin', 'ubuntu-26.04-x64-dolphin-preview.deb'],
 ])

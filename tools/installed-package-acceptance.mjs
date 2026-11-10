@@ -88,11 +88,32 @@ async function themeChoice(name){
  return style
 }
 async function launch(){session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:binary}}}})).sessionId;await request('POST',`/session/${session}/timeouts`,{script:30000});await wait(()=>run('return !!document.querySelector("button[role=switch]")'),'production startup');assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'),'undefined','No bridge in installed package')}
+const viewFixture = join(fixture, 'viewport.md')
+await writeFile(viewFixture, '# Start of viewport fixture\n\n' +
+  Array.from({ length: 160 }, (_, index) => 'Paragraph ' + index + '\n\n').join('') + 'End of viewport fixture\n')
+const renderedScroll = (target = null) => run(
+  'const editor=document.querySelector("[data-active=true] .tiptap");const scroller=editor?.parentElement?.parentElement;' +
+  'if(!editor?.textContent.includes("End of viewport fixture")||!scroller||scroller.scrollHeight-scroller.clientHeight<1400)return null;' +
+  'if(arguments[0]!==null)scroller.scrollTop=arguments[0];return scroller.scrollTop', target)
+async function verifyViewport(firstOpen) {
+ await openDocument(viewFixture, 'viewport.md')
+ await mode(false)
+ await wait(async()=>await renderedScroll()!==null,'rendered viewport fixture has a scrollable layout')
+ if(firstOpen){
+  assert.equal(await renderedScroll(),0,'First native Open starts at the top of the document')
+  await renderedScroll(1200)
+  await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'ordinary rendered document scrolled')
+ } else {
+  await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'reopened native document restores the rendered position')
+ }
+ await closeCurrentDocument()
+}
 const cases=[]
 const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
+ await verifyViewport(true); await verifyViewport(false); cases.push('first Open at top and closed-tab viewport restored')
  if(process.platform==='win32'){
    const rows=ownedDescendants(await processInventory(),driver.pid)
    actualWebviewPaths=[...new Set(rows.filter(p=>p.path?.toLowerCase().endsWith('msedgewebview2.exe')).map(p=>p.path))]
@@ -172,6 +193,7 @@ try{
  // Abruptly end only the installed test process after its real recovery snapshot exists.
  await stopOwnedApplication(driver.pid,binary)
  await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT');await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=math] .katex")'),'recovered offline math')
+ await verifyViewport(false); cases.push('closed-file viewport survives app restart')
  assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'18','Restored source font is active in ordinary UI')
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')

@@ -5,6 +5,8 @@
 !define MW_PREVIEW_LIST "Software\Microsoft\Windows\CurrentVersion\PreviewHandlers"
 !define MW_PROGID "MarkWriter.Markdown"
 !define MW_APPLICATION "Applications\markwriter.exe"
+!define MW_CAPABILITIES "Software\MarkWriter\Capabilities"
+!define MW_REGISTERED_APPS "Software\RegisteredApplications"
 !define MW_PREVIEW_LABEL "MarkWriter Markdown Preview"
 !define MW_CLASS "${MW_CLASSES}\CLSID\${MW_PREVIEW}"
 !define MW_COMMAND "$\"$INSTDIR\markwriter.exe$\" $\"%1$\""
@@ -55,6 +57,11 @@
 !macroend
 
 !macro MW_RegisterExtension ext
+  ReadRegStr $R8 HKLM "${MW_CLASSES}\${ext}" ""
+  ${If} $R8 == ""
+    WriteRegStr HKLM "${MW_CLASSES}\${ext}" "" "${MW_PROGID}"
+  ${EndIf}
+  WriteRegStr HKLM "${MW_CAPABILITIES}\FileAssociations" "${ext}" "${MW_PROGID}"
   WriteRegStr HKLM "${MW_CLASSES}\${ext}\OpenWithProgids" "${MW_PROGID}" ""
   WriteRegStr HKLM "${MW_CLASSES}\${MW_APPLICATION}\SupportedTypes" "${ext}" ""
   ReadRegStr $R8 HKLM "${MW_CLASSES}\SystemFileAssociations\${ext}\shellex\${MW_PREVIEW_IID}" ""
@@ -76,6 +83,9 @@
   WriteRegStr HKLM "${MW_CLASS}\InprocServer32" "" "$INSTDIR\MarkWriterPreview.dll"
   WriteRegStr HKLM "${MW_CLASS}\InprocServer32" "ThreadingModel" "Apartment"
   WriteRegStr HKLM "${MW_PREVIEW_LIST}" "${MW_PREVIEW}" "${MW_PREVIEW_LABEL}"
+  WriteRegStr HKLM "${MW_CAPABILITIES}" "ApplicationName" "MarkWriter"
+  WriteRegStr HKLM "${MW_CAPABILITIES}" "ApplicationDescription" "Markdown editor with offline diagrams"
+  WriteRegStr HKLM "${MW_REGISTERED_APPS}" "MarkWriter" "${MW_CAPABILITIES}"
   !insertmacro MW_RegisterExtension ".md"
   !insertmacro MW_RegisterExtension ".markdown"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
@@ -93,6 +103,8 @@
 !macroend
 
 !macro MW_RemoveExtension ext
+  !insertmacro MW_RemoveValue "${MW_CLASSES}\${ext}" "" "${MW_PROGID}"
+  !insertmacro MW_RemoveValue "${MW_CAPABILITIES}\FileAssociations" "${ext}" "${MW_PROGID}"
   !insertmacro MW_RemoveValue "${MW_CLASSES}\${ext}\OpenWithProgids" "${MW_PROGID}" ""
   !insertmacro MW_RemoveValue "${MW_CLASSES}\${MW_APPLICATION}\SupportedTypes" "${ext}" ""
   !insertmacro MW_RemoveValue "${MW_CLASSES}\SystemFileAssociations\${ext}\shellex\${MW_PREVIEW_IID}" "" "${MW_PREVIEW}"
@@ -112,6 +124,9 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   !insertmacro MW_RemoveExtension ".md"
   !insertmacro MW_RemoveExtension ".markdown"
+  !insertmacro MW_RemoveValue "${MW_REGISTERED_APPS}" "MarkWriter" "${MW_CAPABILITIES}"
+  !insertmacro MW_RemoveValue "${MW_CAPABILITIES}" "ApplicationName" "MarkWriter"
+  !insertmacro MW_RemoveValue "${MW_CAPABILITIES}" "ApplicationDescription" "Markdown editor with offline diagrams"
   !insertmacro MW_RemoveValue "${MW_CLASSES}\${MW_PROGID}\shellex\${MW_PREVIEW_IID}" "" "${MW_PREVIEW}"
   !insertmacro MW_RemoveValue "${MW_CLASSES}\${MW_PROGID}\shell\open\command" "" "${MW_COMMAND}"
   !insertmacro MW_RemoveValue "${MW_CLASSES}\${MW_PROGID}\DefaultIcon" "" "${MW_ICON}"

@@ -4,6 +4,7 @@ param(
   [Parameter(Mandatory=$true)][string]$ResultPath,
   [string]$AppPath,
   [switch]$Diagnostic,
+  [switch]$Bundled,
   [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
   [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
@@ -36,7 +37,7 @@ $dll = (Resolve-Path -LiteralPath $DllPath).Path
 if (!$Diagnostic -and !$AppPath) { throw 'A production acceptance receipt requires AppPath.' }
 if (Test-Path -LiteralPath $ResultPath) { throw 'Result path already exists; refusing stale evidence.' }
 if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL digest does not match the expected packaged asset.' }
-$installer = (Resolve-Path -LiteralPath $InstallerPath).Path
+$installer = if (!$Bundled) { (Resolve-Path -LiteralPath $InstallerPath).Path }
 $clsid='{A448B833-8E1A-4EA4-BCC4-272134A64E97}'
 $iid='{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 if (Test-Path "HKCU:\Software\Classes\CLSID\$clsid") { throw 'Profile already contains the MarkWriter preview class.' }
@@ -67,9 +68,9 @@ $window = $null
 $appProcess = $null
 $cases = [Collections.Generic.List[string]]::new()
 try {
-  & $installer -Action Enable -DllPath $dll
+  if (!$Bundled) { & $installer -Action Enable -DllPath $dll }
   $fixtures = @(
-    @{ Name='Ä-preview.md'; Text="# Explorer evidence`r`nThis is safe <script>inert</script> Grüße 😀"; Expected='Explorer evidence' },
+    @{ Name='Ä Markdown preview.md'; Text="# Explorer evidence`r`nThis is safe <script>inert</script> Grüße 😀"; Expected='Explorer evidence' },
     @{ Name='second.markdown'; Text='# Second selected document'; Expected='Second selected document' },
     @{ Name='large.md'; Text=('# Oversized evidence' + ('x' * 1100000)); Expected='Preview truncated at 1 MiB.' }
   )
@@ -123,7 +124,33 @@ try {
   Select-And-Observe $fixtures[1]; $cases.Add('Explorer markdown extension and selection change')
   $window.Width = $window.Width - 100; $window.Height = $window.Height - 100
   Select-And-Observe $fixtures[0]; $cases.Add('preview survives Explorer resize')
-  if ($resolvedApp) {
+  if ($Bundled) {
+    function Open-ThroughExplorer($fixture) {
+      $item = $window.Document.Folder.ParseName($fixture.Name)
+      if (!$item) { throw 'Explorer file activation fixture missing' }
+      $item.InvokeVerb('open')
+      for ($i=0; $i -lt 100; $i++) {
+        Start-Sleep -Milliseconds 200
+        $running = @(Get-Process markwriter -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $resolvedApp -and $_.MainWindowHandle })
+        foreach ($process in $running) {
+          try {
+            $appRoot = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+            $match = [System.Windows.Automation.PropertyCondition]::new(
+              [System.Windows.Automation.AutomationElement]::NameProperty, $fixture.Expected)
+            if ($appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $match)) { return $process }
+          } catch {}
+        }
+      }
+      throw "Explorer open did not display the document body for $($fixture.Name)"
+    }
+    $appProcess = Open-ThroughExplorer $fixtures[0]
+    if ([PreviewProcessIntegrity]::Rid($appProcess) -ne 8192) { throw 'Explorer started the editor above medium integrity' }
+    $cases.Add('cold Explorer Open verb opens a Unicode Markdown path at medium integrity')
+    $warm = Open-ThroughExplorer $fixtures[1]
+    if ($warm.Id -ne $appProcess.Id) { throw 'Warm shell-open did not reuse the editor process' }
+    $cases.Add('warm Explorer Open verb opens markdown in the running editor')
+    Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
+  } elseif ($resolvedApp) {
     $appProcess = Start-Process -FilePath $resolvedApp -PassThru
     Start-Sleep -Seconds 3
     if ($appProcess.HasExited) { throw 'MarkWriter did not remain open' }
@@ -138,13 +165,13 @@ try {
   $cases.Add('x64 Prevhost loaded tested DLL at low integrity')
   Save-FixtureUIA
   $window.Quit(); $window=$null
-  & $installer -Action Disable -DllPath $dll
+  if (!$Bundled) { & $installer -Action Disable -DllPath $dll }
   $iid='{8895b1c6-b41f-4c1c-a562-0d564250836f}'
   foreach ($ext in @('.md','.markdown')) {
     $key="HKCU:\Software\Classes\$ext\shellex\$iid"
     if ((Test-Path $key) -and (Get-Item $key).GetValue('') -eq '{A448B833-8E1A-4EA4-BCC4-272134A64E97}') { throw 'Registration cleanup failed' }
   }
-  $cases.Add('opt-in registration removed')
+  if (!$Bundled) { $cases.Add('opt-in registration removed') }
   if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Installed DLL changed during acceptance.' }
   $cases.Add('installed DLL matches packaged SHA-256')
 } finally {
@@ -153,7 +180,7 @@ try {
     $window.Quit()
   }
   if ($appProcess -and !$appProcess.HasExited) { $appProcess.CloseMainWindow() | Out-Null; if (!$appProcess.WaitForExit(5000)) { $appProcess.Kill(); $appProcess.WaitForExit() } }
-  & $installer -Action Disable -DllPath $dll
+  if (!$Bundled) { & $installer -Action Disable -DllPath $dll }
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 
