@@ -1,6 +1,6 @@
 //! Per-user half of the NSIS migration. Run from the installed executable at
 //! ordinary privilege, never from the old user-writable installer directory.
-use crate::windows_open::OwnedHandle;
+use crate::windows_open::{require_same_token_user, OwnedHandle};
 use std::{
     fs, io,
     os::windows::{ffi::OsStrExt, fs::MetadataExt},
@@ -10,24 +10,28 @@ use windows::{
     core::{Interface, PCWSTR, PWSTR},
     Win32::{
         Foundation::{
-            GetLastError, ERROR_NOT_ALL_ASSIGNED, E_ACCESSDENIED, E_FAIL, HANDLE, LUID,
-            WAIT_OBJECT_0,
+            GetLastError, ERROR_NOT_ALL_ASSIGNED, ERROR_NO_SUCH_LOGON_SESSION, E_ACCESSDENIED,
+            E_FAIL, HANDLE, LUID, WAIT_OBJECT_0,
         },
         Security::{
-            AdjustTokenPrivileges, DuplicateTokenEx, GetTokenInformation, LookupPrivilegeValueW,
-            SecurityImpersonation, TokenElevation, TokenLinkedToken, TokenPrimary,
-            LUID_AND_ATTRIBUTES, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES,
-            TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION, TOKEN_LINKED_TOKEN,
-            TOKEN_PRIVILEGES, TOKEN_QUERY,
+            AdjustTokenPrivileges, CreateRestrictedToken, CreateWellKnownSid, DuplicateTokenEx,
+            GetTokenInformation, LookupPrivilegeValueW, SecurityImpersonation, SetTokenInformation,
+            TokenElevation, TokenIntegrityLevel, TokenLinkedToken, TokenPrimary,
+            WinBuiltinAdministratorsSid, WinMediumLabelSid, DISABLE_MAX_PRIVILEGE,
+            LUID_AND_ATTRIBUTES, PSID, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID_AND_ATTRIBUTES,
+            TOKEN_ADJUST_DEFAULT, TOKEN_ADJUST_PRIVILEGES, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE,
+            TOKEN_ELEVATION, TOKEN_LINKED_TOKEN, TOKEN_MANDATORY_LABEL, TOKEN_PRIVILEGES,
+            TOKEN_QUERY,
         },
         System::Com::{
             CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
             COINIT_APARTMENTTHREADED, STGM_READ,
         },
         System::Threading::{
-            CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess, OpenProcess,
-            OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW, LOGON_WITH_PROFILE,
-            PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
+            CreateProcessAsUserW, CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess,
+            OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
+            CREATE_PROCESS_LOGON_FLAGS, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+            STARTUPINFOW,
         },
         UI::Shell::{
             IShellLinkW, IsUserAnAdmin, SHChangeNotify, ShellLink, SHCNE_ASSOCCHANGED,
@@ -374,41 +378,132 @@ fn launch_user_cleanup(binary: &Path) -> windows::core::Result<()> {
                 "No interactive Explorer shell was available to setup",
             ));
         }
-        let mut user = open_shell_token(pid).or_else(|error| {
+        let user = open_shell_token(pid).or_else(|error| {
             if error.code() == E_ACCESSDENIED {
                 open_cross_account_shell_token(pid)
             } else {
                 Err(error)
             }
         })?;
-        let mut handle = HANDLE::default();
-        if token_elevated(user.0)? {
+        let no_logon = ERROR_NO_SUCH_LOGON_SESSION.to_hresult();
+        let ordinary = ordinary_shell_token(user.0)
+            .and_then(|ordinary| start_user_cleanup(binary, ordinary.0, false));
+        match ordinary {
+            Err(error) if error.code() == no_logon => {
+                let restricted = restrict_same_account(user.0).map_err(|failure| {
+                    windows::core::Error::new(
+                        failure.code(),
+                        format!("Could not restrict the installer token after {error}: {failure}"),
+                    )
+                })?;
+                start_user_cleanup(binary, restricted.0, true).map_err(|failure| {
+                    windows::core::Error::new(
+                        failure.code(),
+                        format!("Restricted-token cleanup after {error} failed: {failure}"),
+                    )
+                })
+            }
+            result => result,
+        }
+    }
+}
+
+fn ordinary_shell_token(shell: HANDLE) -> windows::core::Result<OwnedHandle> {
+    unsafe {
+        let linked = if token_elevated(shell)? {
             let mut linked = TOKEN_LINKED_TOKEN::default();
             let mut size = 0;
             GetTokenInformation(
-                user.0,
+                shell,
                 TokenLinkedToken,
                 Some((&mut linked as *mut TOKEN_LINKED_TOKEN).cast()),
                 std::mem::size_of::<TOKEN_LINKED_TOKEN>() as u32,
                 &mut size,
             )?;
-            user = OwnedHandle(linked.LinkedToken);
-        }
-        if token_elevated(user.0)? {
+            Some(OwnedHandle(linked.LinkedToken))
+        } else {
+            None
+        };
+        let token = linked.as_ref().map_or(shell, |handle| handle.0);
+        if token_elevated(token)? {
             return Err(windows::core::Error::new(
-                windows::Win32::Foundation::E_ACCESSDENIED,
+                E_ACCESSDENIED,
                 "Could not obtain the ordinary shell token",
             ));
         }
+        let mut handle = HANDLE::default();
         DuplicateTokenEx(
-            user.0,
+            token,
             TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY,
             None,
             SecurityImpersonation,
             TokenPrimary,
             &mut handle,
         )?;
-        let primary = OwnedHandle(handle);
+        Ok(OwnedHandle(handle))
+    }
+}
+
+// With no split logon, only use a restricted version of setup's own token if
+// the interactive Explorer account has the same SID. This also allows
+// CreateProcessAsUserW without borrowing another account's logon session.
+fn restrict_same_account(shell: HANDLE) -> windows::core::Result<OwnedHandle> {
+    unsafe {
+        let mut handle = HANDLE::default();
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_ADJUST_DEFAULT | TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY,
+            &mut handle,
+        )?;
+        let own = OwnedHandle(handle);
+        require_same_token_user(own.0, shell)?;
+        let mut admins = [0usize; 16];
+        let mut admins_size = std::mem::size_of_val(&admins) as u32;
+        let admins_sid = PSID(admins.as_mut_ptr().cast());
+        CreateWellKnownSid(
+            WinBuiltinAdministratorsSid,
+            None,
+            Some(admins_sid),
+            &mut admins_size,
+        )?;
+        CreateRestrictedToken(
+            own.0,
+            DISABLE_MAX_PRIVILEGE,
+            Some(&[SID_AND_ATTRIBUTES {
+                Sid: admins_sid,
+                Attributes: 0,
+            }]),
+            None,
+            None,
+            &mut handle,
+        )?;
+        let token = OwnedHandle(handle);
+        let mut medium = [0usize; 16];
+        let mut medium_size = std::mem::size_of_val(&medium) as u32;
+        let medium_sid = PSID(medium.as_mut_ptr().cast());
+        CreateWellKnownSid(WinMediumLabelSid, None, Some(medium_sid), &mut medium_size)?;
+        let label = TOKEN_MANDATORY_LABEL {
+            Label: SID_AND_ATTRIBUTES {
+                Sid: medium_sid,
+                Attributes: 0x20,
+            }, // SE_GROUP_INTEGRITY
+        };
+        SetTokenInformation(
+            token.0,
+            TokenIntegrityLevel,
+            (&label as *const TOKEN_MANDATORY_LABEL).cast(),
+            std::mem::size_of_val(&label) as u32 + medium_size,
+        )?;
+        Ok(token)
+    }
+}
+
+fn start_user_cleanup(
+    binary: &Path,
+    primary: HANDLE,
+    restricted: bool,
+) -> windows::core::Result<()> {
+    unsafe {
         let program: Vec<_> = binary.as_os_str().encode_wide().chain([0]).collect();
         let mut command: Vec<_> = format!("{} --retire-legacy-install --quiet", quoted(binary))
             .encode_utf16()
@@ -419,17 +514,34 @@ fn launch_user_cleanup(binary: &Path) -> windows::core::Result<()> {
             ..Default::default()
         };
         let mut child = PROCESS_INFORMATION::default();
-        CreateProcessWithTokenW(
-            primary.0,
-            LOGON_WITH_PROFILE,
-            PCWSTR(program.as_ptr()),
-            Some(PWSTR(command.as_mut_ptr())),
-            CREATE_NO_WINDOW,
-            None,
-            PCWSTR::null(),
-            &startup,
-            &mut child,
-        )?;
+        if restricted {
+            CreateProcessAsUserW(
+                Some(primary),
+                PCWSTR(program.as_ptr()),
+                Some(PWSTR(command.as_mut_ptr())),
+                None,
+                None,
+                false,
+                CREATE_NO_WINDOW,
+                None,
+                PCWSTR::null(),
+                &startup,
+                &mut child,
+            )?;
+        } else {
+            // The interactive shell already has its user hive loaded.
+            CreateProcessWithTokenW(
+                primary,
+                CREATE_PROCESS_LOGON_FLAGS(0),
+                PCWSTR(program.as_ptr()),
+                Some(PWSTR(command.as_mut_ptr())),
+                CREATE_NO_WINDOW,
+                None,
+                PCWSTR::null(),
+                &startup,
+                &mut child,
+            )?;
+        }
         let process = OwnedHandle(child.hProcess);
         let _thread = OwnedHandle(child.hThread);
         if WaitForSingleObject(process.0, 20_000) != WAIT_OBJECT_0 {

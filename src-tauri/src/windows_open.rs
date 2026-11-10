@@ -155,18 +155,21 @@ fn process_image(process: HANDLE) -> windows::core::Result<OsString> {
     Ok(OsString::from_wide(&path[..len as usize]))
 }
 
-fn token_user(process: HANDLE) -> windows::core::Result<Vec<usize>> {
+fn open_query_token(process: HANDLE) -> windows::core::Result<OwnedHandle> {
     let mut handle = HANDLE::default();
     unsafe {
         OpenProcessToken(process, TOKEN_QUERY, &mut handle)?;
     }
-    let token = OwnedHandle(handle);
+    Ok(OwnedHandle(handle))
+}
+
+fn token_user(token: HANDLE) -> windows::core::Result<Vec<usize>> {
     // TOKEN_USER and a maximum-length Windows SID fit in 256 aligned bytes.
     let mut data = vec![0usize; 256 / std::mem::size_of::<usize>()];
     let mut needed = 0;
     unsafe {
         GetTokenInformation(
-            token.0,
+            token,
             TokenUser,
             Some(data.as_mut_ptr().cast()),
             256,
@@ -176,26 +179,33 @@ fn token_user(process: HANDLE) -> windows::core::Result<Vec<usize>> {
     Ok(data)
 }
 
+pub(crate) fn require_same_token_user(left: HANDLE, right: HANDLE) -> windows::core::Result<()> {
+    let left_user = token_user(left)?;
+    let right_user = token_user(right)?;
+    unsafe {
+        EqualSid(
+            (*left_user.as_ptr().cast::<TOKEN_USER>()).User.Sid,
+            (*right_user.as_ptr().cast::<TOKEN_USER>()).User.Sid,
+        )
+    }
+}
+
 fn verify_peer(pid: u32) -> io::Result<()> {
     let peer = OwnedHandle(unsafe {
         OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).map_err(io::Error::other)?
     });
     let own = unsafe { GetCurrentProcess() };
-    let own_user = token_user(own).map_err(io::Error::other)?;
-    let peer_user = token_user(peer.0).map_err(io::Error::other)?;
-    unsafe {
-        let own_sid = (*own_user.as_ptr().cast::<TOKEN_USER>()).User.Sid;
-        let peer_sid = (*peer_user.as_ptr().cast::<TOKEN_USER>()).User.Sid;
-        if EqualSid(own_sid, peer_sid).is_err()
-            || !process_image(own)
-                .map_err(io::Error::other)?
-                .eq_ignore_ascii_case(&process_image(peer.0).map_err(io::Error::other)?)
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "Unrecognized MarkWriter launch peer",
-            ));
-        }
+    let own_user = open_query_token(own).map_err(io::Error::other)?;
+    let peer_user = open_query_token(peer.0).map_err(io::Error::other)?;
+    if require_same_token_user(own_user.0, peer_user.0).is_err()
+        || !process_image(own)
+            .map_err(io::Error::other)?
+            .eq_ignore_ascii_case(&process_image(peer.0).map_err(io::Error::other)?)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "Unrecognized MarkWriter launch peer",
+        ));
     }
     Ok(())
 }
