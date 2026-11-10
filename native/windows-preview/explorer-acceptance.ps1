@@ -101,6 +101,7 @@ function Save-FixtureUIA {
 $shell = New-Object -ComObject Shell.Application
 $window = $null
 $appProcess = $null
+$existingPreviewHosts = @(Get-Process prevhost -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 $cases = [Collections.Generic.List[string]]::new()
 try {
   if (!$Bundled) { & $installer -Action Enable -DllPath $dll }
@@ -312,6 +313,14 @@ try {
   if (!$hosts.Count) { throw 'Cannot identify Prevhost with the tested DLL loaded' }
   foreach ($hostProcess in $hosts) { if ([PreviewProcessIntegrity]::Rid($hostProcess) -ne 4096) { throw 'Preview DLL is not hosted at low integrity' } }
   $cases.Add('x64 Prevhost loaded tested DLL at low integrity')
+  if ($Bundled) {
+    # A disposable runner may retain its idle COM server after Explorer closes.
+    # Record only new fixture hosts for the later locked-uninstall check.
+    $ownedHosts = @($hosts | Where-Object { $_.Id -notin $existingPreviewHosts } | ForEach-Object {
+      @{id=$_.Id; session=$_.SessionId; start=$_.StartTime.ToUniversalTime().Ticks}
+    })
+    ConvertTo-Json -InputObject $ownedHosts -Compress | Set-Content -LiteralPath "$ResultPath.hosts.json" -Encoding utf8
+  }
   Save-FixtureUIA
   $window.Quit(); $window=$null
   if (!$Bundled) { & $installer -Action Disable -DllPath $dll }

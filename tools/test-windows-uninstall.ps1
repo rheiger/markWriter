@@ -9,6 +9,7 @@ $iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 $server = "$classes\CLSID\$clsid\InprocServer32"
 $competingKey = "$classes\SystemFileAssociations\.markdown\shellex\$iid"
 $competing = '{9038F78F-5474-4B17-BFC6-8AB25A1702DB}'
+$receipt = 'package-acceptance-results/explorer-preview.json'
 function Invoke-Uninstall {
     (Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru).ExitCode
 }
@@ -24,13 +25,35 @@ try {
     Check-OwnedInstall
 } finally { $lock.Dispose() }
 
+function Release-FixturePreviewHosts {
+    $identityFile = "$receipt.hosts.json"
+    if (!(Test-Path -LiteralPath $identityFile)) { return }
+    $hostImage = Join-Path $env:WINDIR 'System32/prevhost.exe'
+    foreach ($identity in @(Get-Content -Raw -LiteralPath $identityFile | ConvertFrom-Json)) {
+        if (!$identity) { continue }
+        $process = Get-Process -Id $identity.id -ErrorAction SilentlyContinue
+        if (!$process -or $process.Path -ine $hostImage -or $process.SessionId -ne $identity.session -or
+            $process.StartTime.ToUniversalTime().Ticks -ne $identity.start) { continue }
+        if (!($process.Modules | Where-Object { $_.FileName -ieq $dll })) { continue }
+        Write-Host "Releasing idle disposable fixture Preview host PID $($process.Id)."
+        $process.Kill()
+        if (!$process.WaitForExit(5000)) { throw 'Fixture Preview host did not exit.' }
+    }
+}
+
 # A provider registered after MarkWriter must survive its uninstall.
 if ((Get-Item -LiteralPath $competingKey).GetValue('') -ine $clsid) { throw 'Expected own fallback before test.' }
 Set-Item -LiteralPath $competingKey -Value $competing
 try {
     for ($attempt = 0; $attempt -lt 24 -and (Test-Path -LiteralPath $uninstaller); $attempt++) {
         Invoke-Uninstall | Out-Null
-        if (Test-Path -LiteralPath $uninstaller) { Start-Sleep -Seconds 2 }
+        if (Test-Path -LiteralPath $uninstaller) {
+            if ($attempt -eq 0) {
+                Check-OwnedInstall
+                Release-FixturePreviewHosts
+            }
+            Start-Sleep -Seconds 2
+        }
     }
     if ((Test-Path -LiteralPath $uninstaller) -or (Test-Path -LiteralPath $dll) -or
         (Test-Path -LiteralPath $env:MARKWRITER_BINARY) -or (Test-Path -LiteralPath $server)) {
@@ -44,7 +67,6 @@ try {
     if ($openWith -and $null -ne $openWith.GetValue('MarkWriter.Markdown')) {
         throw 'Uninstall left the registered MarkWriter ProgID.'
     }
-    $receipt = 'package-acceptance-results/explorer-preview.json'
     $report = Get-Content -Raw -LiteralPath $receipt | ConvertFrom-Json -AsHashtable
     $report.cases += @(
         'machine setup migrated verified public 2.7.3 per-user binaries and registration',
