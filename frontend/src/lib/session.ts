@@ -1,7 +1,7 @@
 import type { Document } from '../store/useAppStore'
 
 export type FileView = { path: string, mode?: Document['mode'], viewState: NonNullable<Document['viewState']> }
-const viewKeys = new Set(['sourceAnchor', 'sourceHead', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'])
+const viewKeys = new Set(['sourceAnchor', 'sourceHead', 'sourceViewportAnchor', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'])
 const fileViewLimit = 50
 
 function validView(value: unknown): value is FileView['viewState'] {

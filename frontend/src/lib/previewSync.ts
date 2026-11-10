@@ -144,7 +144,7 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
       const element = pane === 'source' ? cm : pv
       const other = pane === 'source' ? 'preview' : 'source'
       // Content anchors include document padding. Interpolate at the same top viewport point.
-      programScroll(other, interpolateAnchors(anchors, element.scrollTop + 16, pane) - 16)
+      programScroll(other, element.scrollTop < .5 ? 0 : interpolateAnchors(anchors, element.scrollTop + 16, pane) - 16)
     }
     draw(map)
   }

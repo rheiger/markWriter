@@ -997,7 +997,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       view.dispatch({ selection: { anchor, head: Math.min(initialViewState.current?.sourceHead ?? anchor, view.state.doc.length) } })
       requestAnimationFrame(() => {
         if (editorViewRef.current !== view) return
-        view.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
+        const viewportAnchor = initialViewState.current?.sourceViewportAnchor
+        if (viewportAnchor === undefined) view.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
+        else view.dispatch({ effects: CodeMirrorView.scrollIntoView(Math.min(viewportAnchor, view.state.doc.length), { y: 'start', yMargin: 16 }) })
       })
       view.focus()
     } catch {}
@@ -1088,7 +1090,14 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const state = useAppStore.getState()
       if (state.currentDocument?.id !== documentId) return
       const patch: NonNullable<import('../store/useAppStore').Document['viewState']> = {}
-      if (sourceView && editorMode === 'markdown') Object.assign(patch, { sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head, sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0 })
+      if (sourceView && editorMode === 'markdown') {
+        const viewportTop = sourceView.scrollDOM.getBoundingClientRect().top + 16 - sourceView.documentTop
+        Object.assign(patch, {
+          sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head,
+          sourceViewportAnchor: sourceView.lineBlockAtHeight(Math.max(0, viewportTop)).from,
+          sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0,
+        })
+      }
       if (tiptap && !tiptap.isDestroyed && editorMode === 'wysiwyg') Object.assign(patch, { renderedAnchor: tiptap.state.selection.anchor, renderedHead: tiptap.state.selection.head, renderedScroll: wysiwygContainerRef.current?.scrollTop ?? 0 })
       state.rememberView(documentId, patch)
     }

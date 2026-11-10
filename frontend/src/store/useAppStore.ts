@@ -21,7 +21,7 @@ export interface Document {
   diskContent?: string
   mode?: 'markdown' | 'wysiwyg'
   revision?: number
-  viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
+  viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceViewportAnchor' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
   savedContent?: string
   lastModified: Date
 }
