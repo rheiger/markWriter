@@ -3,6 +3,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { flushWorkspace, snapshotWorkspace, flushPreferences } from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
+import { rememberFileView, type FileView } from '../lib/session'
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
@@ -40,6 +41,7 @@ export interface AppState {
   // Document state
   currentDocument: Document | null
   recentDocuments: Document[]
+  fileViews: FileView[]
 
   // UI state
   config: AppConfig
@@ -110,7 +112,7 @@ export const useAppStore = create<AppState>((set, get) => {
     return pending
   }
   return {
-    documents: [], currentDocument: null, recentDocuments: [], config: defaultConfig,
+    documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig,
     isLoading: false, error: null, pendingClose: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => set(state => workspace(state.documents, id)),
@@ -168,7 +170,9 @@ export const useAppStore = create<AppState>((set, get) => {
         if (existing) { get().activateDocument(existing.id); return }
         const doc = { id: result.id, title: result.title || 'Untitled', content: result.content || '',
           savedContent: result.content || '', path: result.path, isDirty: false, lastModified: new Date() }
-        add(doc); get().addRecentDocument(doc)
+        const remembered = get().fileViews.find(entry => entry.path === doc.path)
+        const opened = remembered ? { ...doc, mode: remembered.mode, viewState: remembered.viewState } : doc
+        add(opened); get().addRecentDocument(opened)
       } catch (error) { set({ error: errorMessage(error, 'Failed to open document') }) }
     },
     saveDocument: async (id = get().currentDocument?.id) => {
@@ -197,14 +201,16 @@ export const useAppStore = create<AppState>((set, get) => {
       if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
       // Discard must still refer to the revision the user reviewed.
       if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
-      const remaining = get().documents.filter(d => d.id !== id)
-      try { await flushWorkspace(snapshotWorkspace(remaining)) }
+      const stateBeforeClose = get()
+      const remaining = stateBeforeClose.documents.filter(d => d.id !== id)
+      const fileViews = rememberFileView(stateBeforeClose.fileViews, stateBeforeClose.documents.find(d => d.id === id))
+      try { await flushWorkspace(snapshotWorkspace(remaining, fileViews)) }
       catch (error) { set({ error: `Cannot remove recovery copy: ${String(error)}` }); return false }
       if ((get().documents.find(d => d.id === id)?.content !== doc.content && decision === 'discard') || (decision === 'save' && get().documents.find(d => d.id === id)?.isDirty)) { await flushWorkspace(); return false }
       set(state => {
         const index = state.documents.findIndex(d => d.id === id)
         const docs = state.documents.filter(d => d.id !== id)
-        return workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id)
+        return { ...workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id), fileViews }
       })
       return true
       } finally { closing = false }

@@ -13,7 +13,7 @@ beforeEach(() => {
   call.mockReset()
   vi.mocked(save).mockReset()
   call.mockImplementation(async (command, args: any) => command === 'canonical_document_path' ? args.path : {})
-  useAppStore.setState({ documents: [], currentDocument: null, isLoading: false, error: null, pendingClose: null })
+  useAppStore.setState({ documents: [], fileViews: [], currentDocument: null, isLoading: false, error: null, pendingClose: null })
   state().setCurrentDocument({ ...initial })
 })
 describe('document ownership and file races', () => {
@@ -26,6 +26,17 @@ describe('document ownership and file races', () => {
     expect(state().documents).toHaveLength(2)
     expect(state().currentDocument?.content).toBe('Unsaved')
     expect(state().currentDocument?.isDirty).toBe(true)
+  })
+  it('restores navigation by canonical path after a tab is closed', async () => {
+    state().rememberView('one', { renderedScroll: 740, renderedAnchor: 25, renderedHead: 25 })
+    expect(await state().closeDocument('one')).toBe(true)
+    call.mockResolvedValueOnce({ id: 'new-one', title: 'One', content: 'Fresh bytes', path: '/one.md' })
+    await state().openDocument('/alias.md')
+    expect(state().currentDocument).toMatchObject({ id: 'new-one', content: 'Fresh bytes', isDirty: false,
+      viewState: { renderedScroll: 740, renderedAnchor: 25, renderedHead: 25 } })
+    call.mockResolvedValueOnce({ id: 'first', title: 'First', content: 'New file', path: '/first.md' })
+    await state().openDocument('/first.md')
+    expect(state().currentDocument?.viewState).toBeUndefined()
   })
   it('saves a captured owner while tab switching and newer edits remain dirty', async () => {
     let finish!: (result: unknown) => void

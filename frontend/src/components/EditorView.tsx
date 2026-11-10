@@ -150,6 +150,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const isSwitchingModeRef = useRef(false)
   const initialViewState = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.viewState)
   const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
+  const restoredRenderedScroll = useRef(false)
+  const restoredPreviewScroll = useRef(false)
   const sourceNewline = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.content.includes('\r\n') ? '\r\n' : '\n')
   const captureView = useRef<() => void>(() => {})
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
@@ -267,7 +269,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       rememberRenderedSource(editor.getHTML(), lastTiptapSource.current, undoDepth(editor.state))
       const remembered = initialViewState.current
       if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
-      requestAnimationFrame(() => { if (wysiwygContainerRef.current && remembered?.renderedScroll !== undefined) wysiwygContainerRef.current.scrollTop = remembered.renderedScroll })
     },
     onTransaction: ({ editor, transaction, appendedTransactions }) => {
       const journal = renderedHistory.current, previous = journal.depth, next = undoDepth(editor.state)
@@ -362,6 +363,19 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       link: tiptap.isActive('link'),
     }
   }, [tiptap, editorMode])
+  useEffect(() => {
+    if (!active || editorMode !== 'wysiwyg' || !tiptap || restoredRenderedScroll.current) return
+    // Wait for the rendered editor to attach and become measurable. A hidden
+    // tab's scroll box would clamp a saved position to zero.
+    const frame = requestAnimationFrame(() => {
+      const scroller = wysiwygContainerRef.current
+      if (!scroller || useAppStore.getState().currentDocument?.id !== documentId) return
+      scroller.scrollTop = initialViewState.current?.renderedScroll ?? 0
+      restoredRenderedScroll.current = true
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [active, documentId, editorMode, tiptap])
+
   const latestFormatting = useRef(computeFormattingState)
   latestFormatting.current = computeFormattingState
 
@@ -766,6 +780,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const map = renderMappedMarkdown(content, { documentId: documentId ?? '', revision: doc?.revision ?? 0, generation }, config.syntaxHighlighting)
     previewMap.current = map
     container.innerHTML = map.html
+    if (editorMode === 'markdown' && !restoredPreviewScroll.current && previewScrollRef.current) {
+      previewScrollRef.current.scrollTop = initialViewState.current?.previewScroll ?? 0
+      restoredPreviewScroll.current = true
+    }
     syncRef.current?.invalidate()
     const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-type="mermaid"]'))
     const blocks = elements.map((element, index) => ({
@@ -828,7 +846,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
     })
-  }, [isDark, config.syntaxHighlighting, active, documentId])
+  }, [isDark, config.syntaxHighlighting, active, documentId, editorMode])
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview
@@ -954,7 +972,6 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       requestAnimationFrame(() => {
         if (editorViewRef.current !== view) return
         view.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
-        if (previewScrollRef.current) previewScrollRef.current.scrollTop = initialViewState.current?.previewScroll ?? 0
       })
       view.focus()
     } catch {}
@@ -1045,8 +1062,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const state = useAppStore.getState()
       if (state.currentDocument?.id !== documentId) return
       const patch: NonNullable<import('../store/useAppStore').Document['viewState']> = {}
-      if (sourceView) Object.assign(patch, { sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head, sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0 })
-      if (tiptap && !tiptap.isDestroyed) Object.assign(patch, { renderedAnchor: tiptap.state.selection.anchor, renderedHead: tiptap.state.selection.head, renderedScroll: wysiwygContainerRef.current?.scrollTop ?? 0 })
+      if (sourceView && editorMode === 'markdown') Object.assign(patch, { sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head, sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0 })
+      if (tiptap && !tiptap.isDestroyed && editorMode === 'wysiwyg') Object.assign(patch, { renderedAnchor: tiptap.state.selection.anchor, renderedHead: tiptap.state.selection.head, renderedScroll: wysiwygContainerRef.current?.scrollTop ?? 0 })
       state.rememberView(documentId, patch)
     }
     const schedule = () => { if (!frame) frame = requestAnimationFrame(save) }
@@ -1065,7 +1082,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       wys?.removeEventListener('scroll', schedule); preview?.removeEventListener('scroll', schedule)
       tiptap?.off('selectionUpdate', schedule); document.removeEventListener('selectionchange', schedule)
     }
-  }, [sourceView, tiptap, active, documentId])
+  }, [sourceView, tiptap, active, documentId, editorMode])
 
   // Attach after actual lazy engine creation; each active session owns all jobs/listeners.
   useEffect(() => {

@@ -30,3 +30,15 @@ it('validates optional persisted navigation metadata separately from content', (
   expect(parseSession({ version: 1, documents: [document], activeId: 'view' }).documents[0]).toMatchObject(document)
   expect(() => parseSession({ version: 1, documents: [{ ...document, viewState: { sourceHead: -1 } }] })).toThrow(/view state/)
 })
+
+it('retains navigation for closed files and clean tabs omitted by session restore', async () => {
+  const closed = { path: '/closed.md', mode: 'markdown', viewState: { sourceScroll: 250 } }
+  const result = await restoreSnapshot({ ...snapshot, fileViews: [closed],
+    documents: [{ ...doc, isDirty: false, mode: 'wysiwyg', viewState: { renderedScroll: 500 } }] },
+    false, async () => { throw new Error('Should not read closed files') })
+  expect(result.documents).toHaveLength(0)
+  expect(result.fileViews).toEqual([
+    { path: '/a.md', mode: 'wysiwyg', viewState: { renderedScroll: 500 } },
+    closed,
+  ])
+})
