@@ -28,7 +28,7 @@ try {
 function Release-FixturePreviewHosts {
     $identityFile = "$receipt.hosts.json"
     if (!(Test-Path -LiteralPath $identityFile)) { return }
-    $hostImage = Join-Path $env:WINDIR 'System32/prevhost.exe'
+    $hostImage = Join-Path $env:WINDIR 'System32\prevhost.exe'
     foreach ($identity in @(Get-Content -Raw -LiteralPath $identityFile | ConvertFrom-Json)) {
         if (!$identity) { continue }
         $process = Get-Process -Id $identity.id -ErrorAction SilentlyContinue
