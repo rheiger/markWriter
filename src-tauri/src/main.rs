@@ -243,28 +243,6 @@ fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::V
     Ok(serde_json::json!({ "paths": batch.paths, "errors": batch.errors }))
 }
 
-fn create_editor_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
-    // The bundled workers need response policies distinct from the document CSP.
-    for config in &app.config().app.windows {
-        tauri::WebviewWindowBuilder::from_config(app, config)?
-            .on_web_resource_request(|request, response| {
-                let path = request.uri().path();
-                if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) || dot_policy::is_sql_worker(path) {
-                    response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::LOCAL_WORKER_CSP));
-                    response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
-                }
-                if dot_policy::is_dot_worker(path) {
-                    response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
-                    response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
-                    eprintln!("[DOT] worker response CSP: {}", dot_policy::WORKER_CSP);
-                }
-            })
-            .build()?;
-    }
-    println!("[TAURI] Application setup completed");
-    Ok(())
-}
-
 fn main() {
     #[cfg(target_os = "windows")]
     {
@@ -336,21 +314,27 @@ fn main() {
             }
             #[cfg(target_os = "macos")]
             native_menu::install(app.handle())?;
-            #[cfg(not(target_os = "windows"))]
-            create_editor_windows(app.handle())?;
-            #[cfg(target_os = "windows")]
-            {
-                inbox.start(app.handle().clone())?;
-                let handle = app.handle().clone();
-                // Let the ready callback return before Windows starts the
-                // controller. Tauri marshals window creation to its event loop.
-                tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = create_editor_windows(&handle) {
-                        windows_open::show_error(&format!("MarkWriter could not start its WebView2 editor.\n\n{error}"));
-                        handle.exit(1);
-                    }
-                });
+            // Build configured windows here so their production asset responses
+            // receive the worker's own CSP (document meta CSP is insufficient).
+            for config in &app.config().app.windows {
+                tauri::WebviewWindowBuilder::from_config(app, config)?
+                    .on_web_resource_request(|request, response| {
+                        let path = request.uri().path();
+                        if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) || dot_policy::is_sql_worker(path) {
+                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::LOCAL_WORKER_CSP));
+                            response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
+                        }
+                        if dot_policy::is_dot_worker(path) {
+                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
+                            response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
+                            eprintln!("[DOT] worker response CSP: {}", dot_policy::WORKER_CSP);
+                        }
+                    })
+                    .build()?;
             }
+            #[cfg(target_os = "windows")]
+            inbox.start(app.handle().clone())?;
+            println!("[TAURI] Application setup completed");
             Ok(())
         })
         .build(tauri::generate_context!())
