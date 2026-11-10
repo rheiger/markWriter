@@ -1,5 +1,5 @@
-//! Per-user half of the NSIS migration. Run from the installed executable at
-//! ordinary privilege, never from the old user-writable installer directory.
+//! Run migration and Explorer file activation under the interactive user's
+//! ordinary token. The machine installer and its binaries are protected.
 use crate::windows_open::{require_same_token_user, OwnedHandle};
 use std::{
     fs, io,
@@ -34,7 +34,7 @@ use windows::{
         System::SystemServices::SE_GROUP_INTEGRITY,
         System::Threading::{
             CreateProcessAsUserW, CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess,
-            OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
+            GetProcessId, OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
             CREATE_PROCESS_LOGON_FLAGS, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
             STARTUPINFOW,
         },
@@ -42,7 +42,9 @@ use windows::{
             IShellLinkW, IsUserAnAdmin, SHChangeNotify, ShellLink, SHCNE_ASSOCCHANGED,
             SHCNF_IDLIST, SLGP_RAWPATH,
         },
-        UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
+        UI::WindowsAndMessaging::{
+            AllowSetForegroundWindow, GetShellWindow, GetWindowThreadProcessId,
+        },
     },
 };
 use winreg::{
@@ -330,6 +332,60 @@ fn open_shell_token(pid: u32) -> windows::core::Result<OwnedHandle> {
     }
 }
 
+fn shell_pid() -> windows::core::Result<u32> {
+    let mut pid = 0;
+    unsafe {
+        GetWindowThreadProcessId(GetShellWindow(), Some(&mut pid));
+    }
+    if pid == 0 {
+        return Err(windows::core::Error::new(
+            E_FAIL,
+            "No interactive Explorer shell was available",
+        ));
+    }
+    Ok(pid)
+}
+
+// Some Windows shells retain Administrator membership even at medium
+// integrity. Use the same user's ordinary token before starting WebView2.
+pub fn launch_shell_file_as_user(path: &Path) -> io::Result<bool> {
+    if !unsafe { IsUserAnAdmin().as_bool() } {
+        return Ok(false);
+    }
+    let installed = installed_dir()?
+        .ok_or_else(|| io::Error::other("Explorer activation requires the installed executable"))?;
+    let shell =
+        open_shell_token(shell_pid().map_err(io::Error::other)?).map_err(io::Error::other)?;
+    let restricted = restrict_same_account(shell.0).map_err(io::Error::other)?;
+    let binary = installed.join("markwriter.exe");
+    let file: Vec<_> = path.as_os_str().encode_wide().collect();
+    if file
+        .iter()
+        .any(|&word| word == 0 || word == u16::from(b'"'))
+        || file.last() == Some(&u16::from(b'\\'))
+    {
+        return Err(io::Error::other("Invalid Explorer file path"));
+    }
+    let quote = u16::from(b'"');
+    let mut command = Vec::from([quote]);
+    command.extend(binary.as_os_str().encode_wide());
+    command.extend([quote, u16::from(b' '), quote]);
+    command.extend(file);
+    command.extend([quote, 0]);
+    let mut desktop: Vec<_> = r"winsta0\default".encode_utf16().chain([0]).collect();
+    let startup = STARTUPINFOW {
+        cb: std::mem::size_of::<STARTUPINFOW>() as u32,
+        lpDesktop: PWSTR(desktop.as_mut_ptr()),
+        ..Default::default()
+    };
+    let process = start_restricted_process(restricted.0, &binary, &mut command, &startup)
+        .map_err(io::Error::other)?;
+    unsafe {
+        let _ = AllowSetForegroundWindow(GetProcessId(process.0));
+    }
+    Ok(true)
+}
+
 // Over-the-shoulder elevation can make the setup token belong to a different
 // account from Explorer. Enable an already-assigned privilege only while
 // opening that one shell token, then restore its prior state before launch.
@@ -374,42 +430,33 @@ fn open_cross_account_shell_token(pid: u32) -> windows::core::Result<OwnedHandle
 }
 
 fn launch_user_cleanup(binary: &Path) -> windows::core::Result<()> {
-    let mut pid = 0;
-    unsafe {
-        GetWindowThreadProcessId(GetShellWindow(), Some(&mut pid));
-        if pid == 0 {
-            return Err(windows::core::Error::new(
-                E_FAIL,
-                "No interactive Explorer shell was available to setup",
-            ));
+    let pid = shell_pid()?;
+    let user = open_shell_token(pid).or_else(|error| {
+        if error.code() == E_ACCESSDENIED {
+            open_cross_account_shell_token(pid)
+        } else {
+            Err(error)
         }
-        let user = open_shell_token(pid).or_else(|error| {
-            if error.code() == E_ACCESSDENIED {
-                open_cross_account_shell_token(pid)
-            } else {
-                Err(error)
-            }
-        })?;
-        let no_logon = ERROR_NO_SUCH_LOGON_SESSION.to_hresult();
-        let ordinary = ordinary_shell_token(user.0)
-            .and_then(|ordinary| start_user_cleanup(binary, ordinary.0, false));
-        match ordinary {
-            Err(error) if error.code() == no_logon => {
-                let restricted = restrict_same_account(user.0).map_err(|failure| {
-                    windows::core::Error::new(
-                        failure.code(),
-                        format!("Could not restrict the installer token after {error}: {failure}"),
-                    )
-                })?;
-                start_user_cleanup(binary, restricted.0, true).map_err(|failure| {
-                    windows::core::Error::new(
-                        failure.code(),
-                        format!("Restricted-token cleanup after {error} failed: {failure}"),
-                    )
-                })
-            }
-            result => result,
+    })?;
+    let no_logon = ERROR_NO_SUCH_LOGON_SESSION.to_hresult();
+    let ordinary = ordinary_shell_token(user.0)
+        .and_then(|ordinary| start_user_cleanup(binary, ordinary.0, false));
+    match ordinary {
+        Err(error) if error.code() == no_logon => {
+            let restricted = restrict_same_account(user.0).map_err(|failure| {
+                windows::core::Error::new(
+                    failure.code(),
+                    format!("Could not restrict the installer token after {error}: {failure}"),
+                )
+            })?;
+            start_user_cleanup(binary, restricted.0, true).map_err(|failure| {
+                windows::core::Error::new(
+                    failure.code(),
+                    format!("Restricted-token cleanup after {error} failed: {failure}"),
+                )
+            })
         }
+        result => result,
     }
 }
 
@@ -512,7 +559,6 @@ fn start_user_cleanup(
     restricted: bool,
 ) -> windows::core::Result<()> {
     unsafe {
-        let program: Vec<_> = binary.as_os_str().encode_wide().chain([0]).collect();
         let mut command: Vec<_> = format!("{} --retire-legacy-install --quiet", quoted(binary))
             .encode_utf16()
             .chain([0])
@@ -521,22 +567,11 @@ fn start_user_cleanup(
             cb: std::mem::size_of::<STARTUPINFOW>() as u32,
             ..Default::default()
         };
-        let mut child = PROCESS_INFORMATION::default();
-        if restricted {
-            CreateProcessAsUserW(
-                Some(primary),
-                PCWSTR(program.as_ptr()),
-                Some(PWSTR(command.as_mut_ptr())),
-                None,
-                None,
-                false,
-                CREATE_NO_WINDOW,
-                None,
-                PCWSTR::null(),
-                &startup,
-                &mut child,
-            )?;
+        let process = if restricted {
+            start_restricted_process(primary, binary, &mut command, &startup)?
         } else {
+            let program: Vec<_> = binary.as_os_str().encode_wide().chain([0]).collect();
+            let mut child = PROCESS_INFORMATION::default();
             // The interactive shell already has its user hive loaded.
             CreateProcessWithTokenW(
                 primary,
@@ -549,9 +584,9 @@ fn start_user_cleanup(
                 &startup,
                 &mut child,
             )?;
-        }
-        let process = OwnedHandle(child.hProcess);
-        let _thread = OwnedHandle(child.hThread);
+            let _thread = OwnedHandle(child.hThread);
+            OwnedHandle(child.hProcess)
+        };
         if WaitForSingleObject(process.0, 20_000) != WAIT_OBJECT_0 {
             return Err(windows::core::Error::new(
                 windows::Win32::Foundation::E_FAIL,
@@ -568,6 +603,33 @@ fn start_user_cleanup(
         }
     }
     Ok(())
+}
+
+fn start_restricted_process(
+    primary: HANDLE,
+    binary: &Path,
+    command: &mut [u16],
+    startup: &STARTUPINFOW,
+) -> windows::core::Result<OwnedHandle> {
+    let program: Vec<_> = binary.as_os_str().encode_wide().chain([0]).collect();
+    let mut child = PROCESS_INFORMATION::default();
+    unsafe {
+        CreateProcessAsUserW(
+            Some(primary),
+            PCWSTR(program.as_ptr()),
+            Some(PWSTR(command.as_mut_ptr())),
+            None,
+            None,
+            false,
+            CREATE_NO_WINDOW,
+            None,
+            PCWSTR::null(),
+            startup,
+            &mut child,
+        )?;
+    }
+    let _thread = OwnedHandle(child.hThread);
+    Ok(OwnedHandle(child.hProcess))
 }
 
 fn clean_user_install(installed: &Path) -> io::Result<()> {

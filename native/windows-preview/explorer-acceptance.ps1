@@ -39,10 +39,25 @@ public static class PreviewProcessIntegrity {
     return result == 0 ? command.ToString() : String.Format("HRESULT 0x{0:x8}", result);
   }
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+  [DllImport("advapi32.dll", SetLastError=true)] static extern bool DuplicateToken(IntPtr token, int level, out IntPtr duplicate);
+  [DllImport("advapi32.dll", SetLastError=true)] static extern bool CheckTokenMembership(IntPtr token, byte[] sid, out bool member);
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr info, int length, out int needed);
   [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
   [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthority(IntPtr sid, uint index);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+  public static bool AdministratorEnabled(System.Diagnostics.Process p) {
+    if (!OpenProcessToken(p.Handle, 10, out IntPtr token)) throw new System.ComponentModel.Win32Exception();
+    try {
+      if (!DuplicateToken(token, 2, out IntPtr identity)) throw new System.ComponentModel.Win32Exception();
+      try {
+        var group = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null);
+        byte[] sid = new byte[group.BinaryLength];
+        group.GetBinaryForm(sid, 0);
+        if (!CheckTokenMembership(identity, sid, out bool member)) throw new System.ComponentModel.Win32Exception();
+        return member;
+      } finally { CloseHandle(identity); }
+    } finally { CloseHandle(token); }
+  }
   public static int Rid(System.Diagnostics.Process p) {
     IntPtr token; if (!OpenProcessToken(p.Handle, 8, out token)) throw new System.ComponentModel.Win32Exception();
     try { int size; GetTokenInformation(token, 25, IntPtr.Zero, 0, out size); IntPtr buf = Marshal.AllocHGlobal(size);
@@ -266,8 +281,11 @@ try {
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
     $appProcess = Open-ThroughExplorer $fixtures[0]
-    if ([PreviewProcessIntegrity]::Rid($appProcess) -ne 8192) { throw 'Explorer started the editor above medium integrity' }
-    $cases.Add('cold Explorer Open verb opens a Unicode Markdown path at medium integrity')
+    if ([PreviewProcessIntegrity]::Rid($appProcess) -ne 8192 -or
+        [PreviewProcessIntegrity]::AdministratorEnabled($appProcess)) {
+      throw 'Explorer did not start the editor at ordinary user privilege.'
+    }
+    $cases.Add('cold Explorer Open verb opens a Unicode Markdown path at ordinary user privilege')
     $warm = Open-ThroughExplorer $fixtures[1]
     if ($warm.Id -ne $appProcess.Id) { throw 'Warm shell-open did not reuse the editor process' }
     $cases.Add('warm Explorer Open verb opens markdown in the running editor')

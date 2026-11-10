@@ -1,8 +1,15 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{path::{Path, PathBuf}, sync::Mutex};
 
 const LIMIT: usize = 64;
 const MAX_ERROR_CHARS: usize = 512;
 const OVERFLOW: &str = "Additional OS-open errors were omitted. Try smaller selections.";
+
+pub fn is_markdown_path(path: &Path) -> bool {
+    path.is_absolute()
+        && path.extension().and_then(|value| value.to_str()).is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
+        })
+}
 
 #[derive(Default)]
 struct QueueState {
@@ -67,12 +74,7 @@ impl OpenQueue {
             )
         } else {
             paths.iter().find_map(|path| {
-                let ext = path
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default()
-                    .to_ascii_lowercase();
-                if path.is_absolute() && ["md", "markdown"].contains(&ext.as_str()) {
+                if is_markdown_path(path) {
                     None
                 } else {
                     Some(format!(

@@ -245,8 +245,10 @@ fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::V
 
 fn main() {
     #[cfg(target_os = "windows")]
+    let mut windows_args: Vec<_> = std::env::args_os().collect();
+    #[cfg(target_os = "windows")]
     {
-        let args: Vec<_> = std::env::args_os().skip(1).take(3).collect();
+        let args = windows_args.get(1..).unwrap_or_default();
         if args.len() == 1 && args[0] == "--installer-cleanup" {
             if let Err(error) = windows_install::run_installer_cleanup() {
                 eprintln!("Installer could not run ordinary-user cleanup: {error}");
@@ -265,11 +267,30 @@ fn main() {
             }
             return;
         }
+        if args.first().is_some_and(|arg| arg == "--open-from-shell") {
+            let result = match args {
+                [_, file] if os_open::is_markdown_path(std::path::Path::new(file)) => {
+                    windows_install::launch_shell_file_as_user(std::path::Path::new(file))
+                        .map_err(|error| error.to_string())
+                }
+                _ => Err("Explorer must supply one absolute Markdown file path.".into()),
+            };
+            match result {
+                Ok(true) => return,
+                Ok(false) => {
+                    windows_args.remove(1);
+                }
+                Err(error) => {
+                    windows_open::show_error(&format!("MarkWriter could not open this Explorer file.\n\n{error}"));
+                    return;
+                }
+            }
+        }
     }
     println!("[TAURI] Starting MarkWriter application");
 
     #[cfg(target_os = "windows")]
-    let inbox = match windows_open::connect_or_listen() {
+    let inbox = match windows_open::connect_or_listen(&windows_args) {
         Ok(Some(inbox)) => inbox,
         Ok(None) => return,
         Err(error) => {
@@ -307,7 +328,7 @@ fn main() {
             #[cfg(target_os = "windows")]
             {
                 let queue = app.state::<os_open::OpenQueue>();
-                let _ = queue.enqueue_argv(std::env::args_os());
+                let _ = queue.enqueue_argv(windows_args);
                 if let Some(error) = cleanup_error {
                     let _ = queue.reject_batch(&format!("Legacy Windows installation cleanup could not finish: {error}"));
                 }

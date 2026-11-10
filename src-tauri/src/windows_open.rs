@@ -49,7 +49,7 @@ fn pipe_name() -> io::Result<String> {
     ))
 }
 
-pub fn connect_or_listen() -> io::Result<Option<Inbox>> {
+pub fn connect_or_listen(args: &[OsString]) -> io::Result<Option<Inbox>> {
     let name = pipe_name()?;
     let runtime = Builder::new_current_thread().enable_all().build()?;
     let server = runtime.block_on(async {
@@ -61,7 +61,7 @@ pub fn connect_or_listen() -> io::Result<Option<Inbox>> {
             Ok(server) => Ok(Some(server)),
             // First-instance creation on an existing pipe returns access denied.
             Err(error) if error.raw_os_error() == Some(5) => {
-                timeout(REQUEST_TIMEOUT, forward(&name)).await??;
+                timeout(REQUEST_TIMEOUT, forward(&name, args)).await??;
                 Ok(None)
             }
             Err(error) => Err(error),
@@ -70,8 +70,9 @@ pub fn connect_or_listen() -> io::Result<Option<Inbox>> {
     Ok(server.map(|server| Inbox { runtime, server }))
 }
 
-async fn forward(name: &str) -> io::Result<()> {
-    let paths: Vec<_> = std::env::args_os()
+async fn forward(name: &str, args: &[OsString]) -> io::Result<()> {
+    let paths: Vec<_> = args
+        .iter()
         .skip(1)
         .map(|path| path.to_string_lossy().into_owned())
         .collect();

@@ -10,7 +10,7 @@
 !define MW_MACHINE_LOCATION "Software\markwriter\MarkWriter"
 !define MW_PREVIEW_LABEL "MarkWriter Markdown Preview"
 !define MW_CLASS "${MW_CLASSES}\CLSID\${MW_PREVIEW}"
-!define MW_COMMAND "$\"$INSTDIR\markwriter.exe$\" $\"%1$\""
+!define MW_COMMAND "$\"$INSTDIR\markwriter.exe$\" --open-from-shell $\"%1$\""
 !define MW_ICON "$\"$INSTDIR\markwriter.exe$\",0"
 
 !macro MW_Fail message
