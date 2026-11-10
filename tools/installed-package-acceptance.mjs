@@ -108,12 +108,36 @@ async function verifyViewport(firstOpen) {
  }
  await closeCurrentDocument()
 }
+async function verifyWrappedSourceViewport() {
+ const path = join(fixture, 'wrapped-viewport.md')
+ await writeFile(path, Array.from({ length: 900 }, (_, index) => 'wrapped-token-' + index).join(' '))
+ await openDocument(path, 'wrapped-viewport.md')
+ await mode(true)
+ const scroller = (target = null) => run(
+  'const e=document.querySelector("[data-active=true] .cm-scroller");if(!e||e.scrollHeight-e.clientHeight<1200)return null;' +
+  'if(arguments[0]!==null)e.scrollTop=arguments[0];return e.scrollTop', target)
+ await wait(async()=>await scroller()!==null,'one logical source line wraps to a scrollable layout')
+ assert.ok(await scroller()<2,'New wrapped source opens at the top')
+ await scroller(1000)
+ await wait(async()=>Math.abs(await scroller()-1000)<16,'ordinary wrapped source scrolled')
+ await closeCurrentDocument()
+ const record = await wait(async()=>{
+  const snapshot=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'))
+  return snapshot.fileViews?.find(file=>file.path.endsWith('wrapped-viewport.md'))
+ },'closed wrapped-source position persisted')
+ assert.ok(record.sourceViewportAnchor>0,'Wrapped row requires a position inside the logical line')
+ await openDocument(path, 'wrapped-viewport.md')
+ await mode(true)
+ await wait(async()=>Math.abs(await scroller()-record.viewState.sourceScroll)<36,'reopened wrapped source stays at the same reading position')
+ await closeCurrentDocument()
+}
 const cases=[]
 const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
  await verifyViewport(true); await verifyViewport(false); cases.push('first Open at top and closed-tab viewport restored')
+ await verifyWrappedSourceViewport(); cases.push('wrapped Markdown source reopens within the same logical line')
  if(process.platform==='win32'){
    const rows=ownedDescendants(await processInventory(),driver.pid)
    actualWebviewPaths=[...new Set(rows.filter(p=>p.path?.toLowerCase().endsWith('msedgewebview2.exe')).map(p=>p.path))]

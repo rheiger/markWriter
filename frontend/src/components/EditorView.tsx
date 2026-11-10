@@ -1094,8 +1094,13 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const patch: NonNullable<import('../store/useAppStore').Document['viewState']> = {}
       let sourceViewportAnchor: number | undefined
       if (sourceView && editorMode === 'markdown') {
-        const viewportTop = sourceView.scrollDOM.getBoundingClientRect().top + 16 - sourceView.documentTop
-        sourceViewportAnchor = sourceView.lineBlockAtHeight(Math.max(0, viewportTop)).from
+        const box = sourceView.scrollDOM.getBoundingClientRect()
+        const y = box.top + 16
+        // A single logical line can occupy several screens with word wrap on.
+        // Anchor the visible visual row rather than the start of its line.
+        sourceViewportAnchor = sourceView.posAtCoords({
+          x: Math.max(box.left, sourceView.contentDOM.getBoundingClientRect().left) + 20, y,
+        }) ?? sourceView.lineBlockAtHeight(Math.max(0, y - sourceView.documentTop)).from
         Object.assign(patch, {
           sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head,
           sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0,
