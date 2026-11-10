@@ -138,10 +138,17 @@ try {
     if (!$item) { throw 'Explorer could not resolve fixture' }
     $window.Document.SelectItem($item, 29) # select, focus, deselect others, ensure visible
     $observed=$false
+    $uiaError=$null
     for ($attempt=0; $attempt -lt 80 -and !$observed; $attempt++) {
       Start-Sleep -Milliseconds 250
-      $element=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$window.HWND)
-      $all=$element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+      try {
+        $element=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$window.HWND)
+        $all=$element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+      } catch {
+        # Explorer may replace its accessibility provider during activation.
+        $uiaError=$_.Exception.Message
+        continue
+      }
       foreach ($child in $all) {
         try {
           $pattern=$null
@@ -151,7 +158,7 @@ try {
         } catch {}
       }
     }
-    if (!$observed) { throw "Explorer did not expose expected preview text for $($fixture.Name)" }
+    if (!$observed) { throw "Explorer did not expose expected preview text for $($fixture.Name). Last accessibility error: $uiaError" }
     if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $beforeHash -or (Get-Item -LiteralPath $path).LastWriteTimeUtc.Ticks -ne $beforeTime) { throw 'Preview changed source file' }
   }
   try { Select-And-Observe $fixtures[0] } catch { [System.Windows.Forms.SendKeys]::SendWait('%p'); Select-And-Observe $fixtures[0] }
@@ -286,9 +293,11 @@ try {
       throw 'Explorer did not start the editor at ordinary user privilege.'
     }
     $cases.Add('cold Explorer Open verb opens a Unicode Markdown path at ordinary user privilege')
+    Write-Host "Cold Explorer open verified in ordinary editor PID $($appProcess.Id)."
     $warm = Open-ThroughExplorer $fixtures[1]
     if ($warm.Id -ne $appProcess.Id) { throw 'Warm shell-open did not reuse the editor process' }
     $cases.Add('warm Explorer Open verb opens markdown in the running editor')
+    Write-Host "Warm Explorer open reused editor PID $($warm.Id)."
     Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
   } elseif ($resolvedApp) {
     $appProcess = Start-Process -FilePath $resolvedApp -PassThru
