@@ -10,6 +10,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if ($Bundled) {
+  if (!$env:GITHUB_ACTIONS) { throw 'The bundled acceptance fixture requires a disposable GitHub Actions runner.' }
   $AppPath = $env:MARKWRITER_BINARY
   $DllPath = Join-Path (Split-Path -Parent $AppPath) 'MarkWriterPreview.dll'
   $ResultPath = $env:MARKWRITER_PREVIEW_RESULT
@@ -146,6 +147,19 @@ try {
     try { $explorerIntegrity = [PreviewProcessIntegrity]::Rid((Get-Process -Id $explorerPid)) }
     catch { $explorerIntegrity = "not queryable at medium integrity: $_" }
     Write-Host "Fixture Explorer PID $explorerPid, integrity $explorerIntegrity"
+    # Explorer can launch through a desktop process that predates the runner's
+    # profile override. Both possible workspaces belong to this disposable user.
+    $workspaces = @(
+      (Join-Path $env:LOCALAPPDATA 'com.markwriter.app/workspace.json')
+      (Join-Path $env:MARKWRITER_PROFILE_DIR 'workspace.json')
+    )
+    function Read-ActiveFixture($workspace) {
+      if (!(Test-Path -LiteralPath $workspace -PathType Leaf)) { return }
+      try {
+        $snapshot = Get-Content -Raw -LiteralPath $workspace | ConvertFrom-Json
+        $snapshot.documents | Where-Object { $_.id -eq $snapshot.activeId } | Select-Object -First 1
+      } catch { return }
+    }
     function Open-ThroughExplorer($fixture) {
       $item = $window.Document.Folder.ParseName($fixture.Name)
       if (!$item) { throw 'Explorer file activation fixture missing' }
@@ -156,10 +170,20 @@ try {
       if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
       # Enter activates the selected file through the same default verb as double-click.
       [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      $expectedPath = Join-Path $root $fixture.Name
       for ($i=0; $i -lt 100; $i++) {
         Start-Sleep -Milliseconds 200
         $running = @(Get-Process markwriter -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $resolvedApp -and $_.MainWindowHandle })
         foreach ($process in $running) {
+          # The active document and exact source are flushed by the ordinary UI
+          # after opening. This remains observable when WebView2 exposes no
+          # document-level UI Automation text patterns to the harness.
+          foreach ($workspace in $workspaces) {
+            $active = Read-ActiveFixture $workspace
+            if ($active -and $active.title -ceq $fixture.Name -and
+                ($active.path -ieq $expectedPath -or $active.path -ieq "\\?\$expectedPath") -and
+                $active.content -ceq $fixture.Text) { return $process }
+          }
           try {
             $appRoot = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
             $match = [System.Windows.Automation.PropertyCondition]::new(
@@ -185,6 +209,10 @@ try {
       }
       Get-Process markwriter -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Host "Observed editor PID $($_.Id), path $($_.Path), window $($_.MainWindowTitle)"
+      }
+      foreach ($workspace in $workspaces) {
+        $active = Read-ActiveFixture $workspace
+        if ($active) { Write-Host "Active fixture at $workspace is '$($active.title)' with $($active.content.Length) characters." }
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
