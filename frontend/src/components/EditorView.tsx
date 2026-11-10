@@ -805,7 +805,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     previewMap.current = map
     container.innerHTML = map.html
     if (editorMode === 'markdown' && !restoredPreviewScroll.current && previewScrollRef.current) {
-      stopPreviewRestore.current = restoreScroll(previewScrollRef.current, container, initialViewState.current?.previewScroll ?? 0)
+      // Linked panes derive the preview position from the source. Restoring
+      // both pixels independently would feed the preview's scroll back to it.
+      if (!config.syncPreview) stopPreviewRestore.current = restoreScroll(previewScrollRef.current, container, initialViewState.current?.previewScroll ?? 0)
       restoredPreviewScroll.current = true
     }
     syncRef.current?.invalidate()
@@ -870,7 +872,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         }
       }
     })
-  }, [isDark, config.syntaxHighlighting, active, documentId, editorMode])
+  }, [isDark, config.syntaxHighlighting, config.syncPreview, active, documentId, editorMode])
 
   const latestPreview = useRef(updatePreview)
   latestPreview.current = updatePreview

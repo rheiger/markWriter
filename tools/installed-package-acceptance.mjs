@@ -193,10 +193,10 @@ try{
  // Abruptly end only the installed test process after its real recovery snapshot exists.
  await stopOwnedApplication(driver.pid,binary)
  await request('DELETE',`/session/${session}`).catch(()=>{});session=undefined;await launch();await wait(()=>run('return document.body.textContent.includes("Interrupted DOT draft")'),'draft restored in ordinary UI');await mode(true);await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=dot] svg")'),'recovered offline DOT');await wait(()=>run('return !!document.querySelector("[data-active=true] .markwriter-preview [data-type=math] .katex")'),'recovered offline math')
- await verifyViewport(false); cases.push('closed-file viewport survives app restart')
  assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'18','Restored source font is active in ordinary UI')
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
+ await verifyViewport(false); cases.push('closed-file viewport survives app restart')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
  assert.equal(await run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")'),'false','Syntax-off preference restored in ordinary toolbar')
  assert.equal(await run('return document.documentElement.getAttribute("data-theme")'),'dark','Dark preference restored in ordinary UI')

@@ -1,9 +1,10 @@
 //! Forward Explorer launches before constructing a second editor or opening
 //! the workspace. The first pipe handle remains live across every request.
 use std::{
+    ffi::OsString,
     hash::{DefaultHasher, Hash, Hasher},
     io,
-    os::windows::io::AsRawHandle,
+    os::windows::{ffi::OsStringExt, io::AsRawHandle},
     path::PathBuf,
     time::Duration,
 };
@@ -15,8 +16,15 @@ use tokio::{
     time::{sleep, timeout},
 };
 use windows::Win32::{
-    Foundation::HANDLE,
-    System::Pipes::GetNamedPipeServerProcessId,
+    Foundation::{CloseHandle, HANDLE},
+    Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
+    System::{
+        Pipes::{GetNamedPipeClientProcessId, GetNamedPipeServerProcessId},
+        Threading::{
+            GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW,
+            PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+        },
+    },
     UI::WindowsAndMessaging::{AllowSetForegroundWindow, MessageBoxW, MB_ICONERROR},
 };
 
@@ -86,10 +94,11 @@ async fn forward(name: &str) -> io::Result<()> {
     // activation to the receiving app for this request.
     let mut pid = 0;
     unsafe {
-        if GetNamedPipeServerProcessId(HANDLE(client.as_raw_handle()), &mut pid).is_ok() {
-            let _ = AllowSetForegroundWindow(pid);
-        }
+        GetNamedPipeServerProcessId(HANDLE(client.as_raw_handle()), &mut pid)
+            .map_err(io::Error::other)?;
     }
+    verify_peer(pid)?;
+    let _ = unsafe { AllowSetForegroundWindow(pid) };
     client.write_u32(data.len() as u32).await?;
     client.write_all(&data).await?;
     if client.read_u8().await? != 1 {
@@ -124,7 +133,80 @@ impl Inbox {
     }
 }
 
+struct OwnedHandle(HANDLE);
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        let _ = unsafe { CloseHandle(self.0) };
+    }
+}
+
+fn process_image(process: HANDLE) -> windows::core::Result<OsString> {
+    let mut path = vec![0u16; 32768];
+    let mut len = path.len() as u32;
+    unsafe {
+        QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            windows::core::PWSTR(path.as_mut_ptr()),
+            &mut len,
+        )?;
+    }
+    Ok(OsString::from_wide(&path[..len as usize]))
+}
+
+fn token_user(process: HANDLE) -> windows::core::Result<Vec<usize>> {
+    let mut handle = HANDLE::default();
+    unsafe {
+        OpenProcessToken(process, TOKEN_QUERY, &mut handle)?;
+    }
+    let token = OwnedHandle(handle);
+    // TOKEN_USER and a maximum-length Windows SID fit in 256 aligned bytes.
+    let mut data = vec![0usize; 256 / size_of::<usize>()];
+    let mut needed = 0;
+    unsafe {
+        GetTokenInformation(
+            token.0,
+            TokenUser,
+            Some(data.as_mut_ptr().cast()),
+            256,
+            &mut needed,
+        )?;
+    }
+    Ok(data)
+}
+
+fn verify_peer(pid: u32) -> io::Result<()> {
+    let peer = OwnedHandle(unsafe {
+        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).map_err(io::Error::other)?
+    });
+    let own = unsafe { GetCurrentProcess() };
+    let own_user = token_user(own).map_err(io::Error::other)?;
+    let peer_user = token_user(peer.0).map_err(io::Error::other)?;
+    unsafe {
+        let own_sid = (*own_user.as_ptr().cast::<TOKEN_USER>()).User.Sid;
+        let peer_sid = (*peer_user.as_ptr().cast::<TOKEN_USER>()).User.Sid;
+        if EqualSid(own_sid, peer_sid).is_err()
+            || !process_image(own)
+                .map_err(io::Error::other)?
+                .eq_ignore_ascii_case(&process_image(peer.0).map_err(io::Error::other)?)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Unrecognized MarkWriter launch peer",
+            ));
+        }
+    }
+    Ok(())
+}
+
 async fn receive(pipe: &mut NamedPipeServer, app: &AppHandle) -> io::Result<()> {
+    let mut pid = 0;
+    unsafe {
+        GetNamedPipeClientProcessId(HANDLE(pipe.as_raw_handle()), &mut pid)
+            .map_err(io::Error::other)?;
+    }
+    verify_peer(pid)?;
     let len = pipe.read_u32().await? as usize;
     if len > MAX_BYTES {
         return Err(io::Error::other(
