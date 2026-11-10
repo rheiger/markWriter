@@ -59,6 +59,10 @@ jobs:
       - run: npm ci --prefix frontend
       - name: Verify exact versions and publication trigger
         run: node tools/release-metadata.mjs --check
+      - name: Build the bundled Windows preview handler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/stage-windows-preview.ps1
       - name: Quality gates on production source
         run: |
           npm run lint --prefix frontend

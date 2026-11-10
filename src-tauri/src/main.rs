@@ -10,6 +10,8 @@ mod native_menu;
 mod os_open;
 mod update_policy;
 mod sql_import;
+#[cfg(target_os = "windows")]
+mod windows_install;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -240,9 +242,28 @@ fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::V
 }
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    if std::env::args_os().skip(1).eq(["--retire-legacy-install"]) {
+        if let Err(error) = windows_install::retire_legacy_install() {
+            eprintln!("Cannot retire legacy MarkWriter installation: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     println!("[TAURI] Starting MarkWriter application");
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        let _ = app.state::<os_open::OpenQueue>().enqueue_argv(args);
+        let _ = app.emit("os-open-pending", ());
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
         .manage(sql_import::SqlPicker::default())
@@ -266,6 +287,8 @@ fn main() {
             get_document_stats
         ])
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            let _ = app.state::<os_open::OpenQueue>().enqueue_argv(std::env::args_os());
             #[cfg(target_os = "macos")]
             native_menu::install(app.handle())?;
             // Build configured windows here so their production asset responses

@@ -28,9 +28,6 @@
       "signingIdentity": null
     },
     "windows": {
-      "nsis": {
-        "installMode": "currentUser"
-      },
       "webviewInstallMode": {
         "type": "skip"
       }

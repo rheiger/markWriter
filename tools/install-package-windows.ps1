@@ -1,12 +1,17 @@
 $ErrorActionPreference='Stop'
 $packageVersion=(Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json).version
 $installer=(Get-Item -LiteralPath "src-tauri/target/release/bundle/nsis/MarkWriter_${packageVersion}_x64-setup.exe").FullName
-$destination=Join-Path $env:RUNNER_TEMP 'MarkWriter-installed'
-# Current-user NSIS install uses the same normal installer in silent UI automation.
-& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/run-installer-windows.ps1" -Installer $installer -Destination $destination
-if($LASTEXITCODE -ne 0){throw 'NSIS installation failed'}
-$binary=(Get-ChildItem $destination/*.exe | Where-Object Name -notmatch 'uninstall' | Select-Object -First 1).FullName
-if(-not $binary){throw 'Installed executable not found'}
+$destination=Join-Path $env:ProgramFiles 'MarkWriter'
+# Exercise the default elevated machine install, without /D.
+$installation=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+if($installation.ExitCode -ne 0){throw "NSIS installation failed ($($installation.ExitCode))"}
+$binary=Join-Path $destination 'markwriter.exe'
+if(!(Test-Path -LiteralPath $binary -PathType Leaf)){throw 'Default Program Files executable not found'}
+$builtPreview=Join-Path $PSScriptRoot '../src-tauri/windows/MarkWriterPreview.dll'
+$installedPreview=Join-Path $destination 'MarkWriterPreview.dll'
+if((Get-FileHash -LiteralPath $installedPreview).Hash -ne (Get-FileHash -LiteralPath $builtPreview).Hash){
+ throw 'Installed Explorer handler differs from the bundled build.'
+}
 $profile=Join-Path $env:RUNNER_TEMP 'markwriter-profile'
 New-Item -ItemType Directory -Force $profile | Out-Null
 icacls $profile /grant "${env:USERNAME}:(OI)(CI)M" | Out-Null

@@ -11,8 +11,13 @@
 #include <string>
 #include "render.h"
 
+#ifdef MARKWRITER_BUNDLED
+// {8360D352-56CE-4C43-A12E-A73CF9D10214}
+static const CLSID CLSID_MarkWriterPreview = {0x8360d352,0x56ce,0x4c43,{0xa1,0x2e,0xa7,0x3c,0xf9,0xd1,0x02,0x14}};
+#else
 // {A448B833-8E1A-4EA4-BCC4-272134A64E97}
 static const CLSID CLSID_MarkWriterPreview = {0xa448b833,0x8e1a,0x4ea4,{0xbc,0xc4,0x27,0x21,0x34,0xa6,0x4e,0x97}};
+#endif
 static std::atomic<long> objects{0};
 static std::atomic<long> locks{0};
 static HMODULE module;

@@ -37,6 +37,12 @@ fn push_error(state: &mut QueueState, error: &str) {
 }
 
 impl OpenQueue {
+    /// Windows Explorer invokes the executable with absolute paths after argv[0].
+    #[cfg(any(target_os = "windows", test))]
+    pub fn enqueue_argv(&self, args: impl IntoIterator<Item = impl Into<PathBuf>>) -> Result<(), String> {
+        self.enqueue(args.into_iter().skip(1).map(Into::into))
+    }
+
     /// Records a conversion or other batch failure before notifying the frontend.
     pub fn reject_batch(&self, error: &str) -> Result<(), String> {
         let mut state = self
@@ -103,6 +109,19 @@ impl OpenQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_argv_preserves_a_quoted_unicode_path_as_one_argument() {
+        let queue = OpenQueue::default();
+        let first = std::env::temp_dir().join("Grüße 中文 path.markdown");
+        let second = std::env::temp_dir().join("UPPER.MD");
+        queue.enqueue_argv([PathBuf::from("MarkWriter.exe"), first.clone(), second.clone()]).unwrap();
+        assert_eq!(queue.drain().unwrap().paths, vec![
+            first.to_string_lossy().into_owned(), second.to_string_lossy().into_owned(),
+        ]);
+        queue.enqueue_argv(["MarkWriter.exe"]).unwrap();
+        assert!(queue.drain().unwrap().paths.is_empty());
+    }
 
     #[test]
     fn unicode_duplicates_and_errors_survive_until_one_atomic_drain() {
