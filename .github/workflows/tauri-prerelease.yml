@@ -94,16 +94,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/install-package-windows.ps1
+      - name: Exercise the packaged Explorer preview at ordinary user privilege
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/test-windows-preview-package.ps1
       - name: Exercise installed Windows release at ordinary user privilege
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
           exit $LASTEXITCODE
-      - name: Exercise the packaged Explorer preview at ordinary user privilege
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/test-windows-preview-package.ps1
       - name: Install Ubuntu package
         if: runner.os == 'Linux'
         run: |

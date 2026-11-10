@@ -21,9 +21,19 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class PreviewProcessIntegrity {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [DllImport("shlwapi.dll", CharSet=CharSet.Unicode, ExactSpelling=true)]
+  static extern int AssocQueryStringW(uint flags, uint kind, string association, string verb, StringBuilder buffer, ref uint capacity);
+  public static string OpenCommand(string extension) {
+    uint capacity=32768;
+    var command=new StringBuilder((int)capacity);
+    int result=AssocQueryStringW(0, 1, extension, "open", command, ref capacity);
+    return result == 0 ? command.ToString() : String.Format("HRESULT 0x{0:x8}", result);
+  }
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
   [DllImport("advapi32.dll", SetLastError=true)] static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr info, int length, out int needed);
   [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
@@ -131,10 +141,21 @@ try {
   $window.Width = $window.Width - 100; $window.Height = $window.Height - 100
   Select-And-Observe $fixtures[0]; $cases.Add('preview survives Explorer resize')
   if ($Bundled) {
+    [uint32]$explorerPid=0
+    [PreviewProcessIntegrity]::GetWindowThreadProcessId($explorerHwnd, [ref]$explorerPid) | Out-Null
+    try { $explorerIntegrity = [PreviewProcessIntegrity]::Rid((Get-Process -Id $explorerPid)) }
+    catch { $explorerIntegrity = "not queryable at medium integrity: $_" }
+    Write-Host "Fixture Explorer PID $explorerPid, integrity $explorerIntegrity"
     function Open-ThroughExplorer($fixture) {
       $item = $window.Document.Folder.ParseName($fixture.Name)
       if (!$item) { throw 'Explorer file activation fixture missing' }
-      $item.InvokeVerb('open')
+      $ext = [IO.Path]::GetExtension($fixture.Name)
+      Write-Host "Effective $ext Open command: $([PreviewProcessIntegrity]::OpenCommand($ext))"
+      [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
+      $window.Document.SelectItem($item, 29)
+      if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
+      # Enter activates the selected file through the same default verb as double-click.
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
       for ($i=0; $i -lt 100; $i++) {
         Start-Sleep -Milliseconds 200
         $running = @(Get-Process markwriter -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $resolvedApp -and $_.MainWindowHandle })
@@ -144,8 +165,26 @@ try {
             $match = [System.Windows.Automation.PropertyCondition]::new(
               [System.Windows.Automation.AutomationElement]::NameProperty, $fixture.Expected)
             if ($appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $match)) { return $process }
+            $tabMatch = [System.Windows.Automation.PropertyCondition]::new(
+              [System.Windows.Automation.AutomationElement]::NameProperty, $fixture.Name)
+            $tab = $appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $tabMatch)
+            if (!$tab) { continue }
+            $selection = $null
+            if (!$tab.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern,[ref]$selection) -or
+                !$selection.Current.IsSelected) { continue }
+            # Chromium may expose the editor as a single accessible text field.
+            $condition = [System.Windows.Automation.PropertyCondition]::new(
+              [System.Windows.Automation.AutomationElement]::IsTextPatternAvailableProperty, $true)
+            foreach ($node in $appRoot.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)) {
+              $text=$null
+              if ($node.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$text) -and
+                  $text.DocumentRange.GetText(32768).Contains($fixture.Expected)) { return $process }
+            }
           } catch {}
         }
+      }
+      Get-Process markwriter -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Host "Observed editor PID $($_.Id), path $($_.Path), window $($_.MainWindowTitle)"
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
