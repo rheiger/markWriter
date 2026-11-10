@@ -165,8 +165,8 @@ fn retire_legacy_app(user: &RegKey, dir: &Path) -> io::Result<()> {
             &format!("{} {args}", quoted(&binary)),
         )?;
     }
-    remove_value(user, LOCATION, "", &dir.to_string_lossy())?;
     user.delete_subkey_with_flags(UNINSTALL, KEY_WOW64_64KEY)?;
+    remove_value(user, LOCATION, "", &dir.to_string_lossy())?;
     Ok(())
 }
 
@@ -181,9 +181,9 @@ fn retire_legacy_preview(user: &RegKey) -> io::Result<()> {
         || !dll_path
             .file_name()
             .is_some_and(|name| name.eq_ignore_ascii_case("MarkWriterPreview.dll"))
-        || read(user, &class, "").as_deref() != Some(LABEL)
-        || read(user, &class, "AppID").as_deref() != Some(PREVHOST)
-        || read(user, &server, "ThreadingModel").as_deref() != Some("Apartment")
+        || read(user, &class, "").is_some_and(|value| value != LABEL)
+        || read(user, &class, "AppID").is_some_and(|value| value != PREVHOST)
+        || read(user, &server, "ThreadingModel").is_some_and(|value| value != "Apartment")
     {
         return Ok(());
     }

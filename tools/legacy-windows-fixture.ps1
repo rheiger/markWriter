@@ -50,7 +50,9 @@ if ($Phase -eq 'Seed') {
     return
 }
 
-for ($attempt=0; $attempt -lt 100 -and ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path $uninstall)); $attempt++) {
+for ($attempt=0; $attempt -lt 100; $attempt++) {
+    if (!(Test-Path "$legacyDir/markwriter.exe") -and !(Test-Path $uninstall) -and
+        !(Test-Path "$base\CLSID\$oldClass") -and !(Test-Path $obsoleteCommand)) { break }
     Start-Sleep -Milliseconds 200
 }
 if ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path "$legacyDir/uninstall.exe") -or (Test-Path $uninstall)) {

@@ -245,12 +245,19 @@ fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::V
 
 fn main() {
     #[cfg(target_os = "windows")]
-    if std::env::args_os().skip(1).eq(["--retire-legacy-install"]) {
-        if let Err(error) = windows_install::retire_legacy_install() {
-            eprintln!("Cannot retire legacy MarkWriter installation: {error}");
-            std::process::exit(1);
+    {
+        let args: Vec<_> = std::env::args_os().skip(1).take(3).collect();
+        let legacy_cleanup = args.first().is_some_and(|arg| arg == "--retire-legacy-install");
+        let quiet = args.len() == 2 && args[1] == "--quiet";
+        if legacy_cleanup && (args.len() == 1 || quiet) {
+            if let Err(error) = windows_install::retire_legacy_install() {
+                let message = format!("MarkWriter was installed, but legacy cleanup could not finish. Close the old app and its previews before retrying.\n\n{error}");
+                eprintln!("{message}");
+                if !quiet { windows_open::show_error(&message); }
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
     }
     println!("[TAURI] Starting MarkWriter application");
 
@@ -259,7 +266,7 @@ fn main() {
         Ok(Some(inbox)) => inbox,
         Ok(None) => return,
         Err(error) => {
-            windows_open::show_error(&error);
+            windows_open::show_error(&format!("MarkWriter could not open this window or file.\n\n{error}"));
             return;
         }
     };

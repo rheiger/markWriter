@@ -162,7 +162,7 @@ fn token_user(process: HANDLE) -> windows::core::Result<Vec<usize>> {
     }
     let token = OwnedHandle(handle);
     // TOKEN_USER and a maximum-length Windows SID fit in 256 aligned bytes.
-    let mut data = vec![0usize; 256 / size_of::<usize>()];
+    let mut data = vec![0usize; 256 / std::mem::size_of::<usize>()];
     let mut needed = 0;
     unsafe {
         GetTokenInformation(
@@ -233,11 +233,8 @@ async fn receive(pipe: &mut NamedPipeServer, app: &AppHandle) -> io::Result<()> 
     Ok(())
 }
 
-pub fn show_error(error: &io::Error) {
-    let text: Vec<_> = format!("MarkWriter could not open this window or file.\n\n{error}")
-        .encode_utf16()
-        .chain([0])
-        .collect();
+pub fn show_error(message: &str) {
+    let text: Vec<_> = message.encode_utf16().chain([0]).collect();
     unsafe {
         MessageBoxW(
             None,
