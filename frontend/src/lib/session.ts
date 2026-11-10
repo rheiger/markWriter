@@ -1,12 +1,16 @@
 import type { Document } from '../store/useAppStore'
 
-export type FileView = { path: string, mode?: Document['mode'], viewState: NonNullable<Document['viewState']> }
-const viewKeys = new Set(['sourceAnchor', 'sourceHead', 'sourceViewportAnchor', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'])
+export type FileView = { path: string, mode?: Document['mode'], sourceViewportAnchor?: number, viewState: NonNullable<Document['viewState']> }
+const viewKeys = new Set(['sourceAnchor', 'sourceHead', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'])
 const fileViewLimit = 50
 
 function validView(value: unknown): value is FileView['viewState'] {
   return !!value && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([key, number]) =>
     viewKeys.has(key) && typeof number === 'number' && Number.isFinite(number) && number >= 0 && (!/Anchor|Head/.test(key) || Number.isInteger(number)))
+}
+
+function validViewportAnchor(anchor: unknown): anchor is number {
+  return typeof anchor === 'number' && Number.isSafeInteger(anchor) && anchor >= 0
 }
 
 function validFileView(value: unknown): value is FileView {
@@ -18,7 +22,7 @@ function validFileView(value: unknown): value is FileView {
 
 export function rememberFileView(views: FileView[], doc: Document | undefined): FileView[] {
   if (!doc?.path || !doc.viewState) return views
-  return [{ path: doc.path, mode: doc.mode, viewState: doc.viewState }, ...views.filter(entry => entry.path !== doc.path)].slice(0, fileViewLimit)
+  return [{ path: doc.path, mode: doc.mode, viewState: doc.viewState, sourceViewportAnchor: doc.sourceViewportAnchor }, ...views.filter(entry => entry.path !== doc.path)].slice(0, fileViewLimit)
 }
 
 export interface SessionSnapshot { version: 1, activeId: string | null, documents: Document[], fileViews: FileView[] }
@@ -35,9 +39,9 @@ export function parseSession(value: unknown): SessionSnapshot {
     if (ids.has(doc.id) || (doc.path && paths.has(doc.path))) throw new Error('Duplicate recovery document ownership')
     if (doc.viewState !== undefined && !validView(doc.viewState)) throw new Error('Invalid recovery view state')
     ids.add(doc.id); if (doc.path) paths.add(doc.path)
-    return { ...doc, lastModified: new Date(doc.lastModified || Date.now()) }
+    return { ...doc, sourceViewportAnchor: validViewportAnchor(doc.sourceViewportAnchor) ? doc.sourceViewportAnchor : undefined, lastModified: new Date(doc.lastModified || Date.now()) }
   })
-  const fileViews = Array.isArray(record.fileViews) ? record.fileViews.slice(0, fileViewLimit).filter(validFileView).map(({ path, mode, viewState }) => ({ path, mode, viewState })) : []
+  const fileViews = Array.isArray(record.fileViews) ? record.fileViews.slice(0, fileViewLimit).filter(validFileView).map(({ path, mode, viewState, sourceViewportAnchor }) => ({ path, mode, viewState, sourceViewportAnchor: validViewportAnchor(sourceViewportAnchor) ? sourceViewportAnchor : undefined })) : []
   return { version: 1, documents, fileViews, activeId: typeof record.activeId === 'string' ? record.activeId : documents[0]?.id ?? null }
 }
 export async function restoreSnapshot(value: unknown, restoreClean: boolean, read: (path: string) => Promise<{ content: string, path?: string }>) {

@@ -169,7 +169,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const wysiwygContainerRef = useRef<HTMLDivElement>(null)
   const isUpdatingFromMarkdown = useRef(false)
   const isSwitchingModeRef = useRef(false)
-  const initialViewState = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.viewState)
+  const initialDocument = useAppStore.getState().documents.find(doc => doc.id === documentId)
+  const initialViewState = useRef(initialDocument?.viewState)
+  const initialSourceViewport = useRef(initialDocument?.sourceViewportAnchor)
   const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
   const restoredRenderedScroll = useRef(false)
   const restoredPreviewScroll = useRef(false)
@@ -997,7 +999,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       view.dispatch({ selection: { anchor, head: Math.min(initialViewState.current?.sourceHead ?? anchor, view.state.doc.length) } })
       requestAnimationFrame(() => {
         if (editorViewRef.current !== view) return
-        const viewportAnchor = initialViewState.current?.sourceViewportAnchor
+        const viewportAnchor = initialSourceViewport.current
         if (viewportAnchor === undefined) view.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
         else view.dispatch({ effects: CodeMirrorView.scrollIntoView(Math.min(viewportAnchor, view.state.doc.length), { y: 'start', yMargin: 16 }) })
       })
@@ -1090,16 +1092,17 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const state = useAppStore.getState()
       if (state.currentDocument?.id !== documentId) return
       const patch: NonNullable<import('../store/useAppStore').Document['viewState']> = {}
+      let sourceViewportAnchor: number | undefined
       if (sourceView && editorMode === 'markdown') {
         const viewportTop = sourceView.scrollDOM.getBoundingClientRect().top + 16 - sourceView.documentTop
+        sourceViewportAnchor = sourceView.lineBlockAtHeight(Math.max(0, viewportTop)).from
         Object.assign(patch, {
           sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head,
-          sourceViewportAnchor: sourceView.lineBlockAtHeight(Math.max(0, viewportTop)).from,
           sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0,
         })
       }
       if (tiptap && !tiptap.isDestroyed && editorMode === 'wysiwyg') Object.assign(patch, { renderedAnchor: tiptap.state.selection.anchor, renderedHead: tiptap.state.selection.head, renderedScroll: wysiwygContainerRef.current?.scrollTop ?? 0 })
-      state.rememberView(documentId, patch)
+      state.rememberView(documentId, patch, sourceViewportAnchor)
     }
     const schedule = () => { if (!frame) frame = requestAnimationFrame(save) }
     captureView.current = schedule

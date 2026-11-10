@@ -21,7 +21,8 @@ export interface Document {
   diskContent?: string
   mode?: 'markdown' | 'wysiwyg'
   revision?: number
-  viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceViewportAnchor' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
+  viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
+  sourceViewportAnchor?: number
   savedContent?: string
   lastModified: Date
 }
@@ -33,7 +34,7 @@ export interface AppState {
   documents: Document[]
   pendingClose: { id: string, title: string, resolve: (decision: UnsavedDecision) => void } | null
   activateDocument: (id: string) => void
-  rememberView: (id: string, viewState: NonNullable<Document['viewState']>) => void
+  rememberView: (id: string, viewState: NonNullable<Document['viewState']>, sourceViewportAnchor?: number) => void
   reorderDocument: (id: string, index: number) => void
   closeDocument: (id: string) => Promise<boolean>
   saveAll: () => Promise<boolean>
@@ -123,10 +124,12 @@ export const useAppStore = create<AppState>((set, get) => {
     isLoading: false, error: null, pendingClose: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => set(state => workspace(state.documents, id)),
-    rememberView: (id, patch) => set(state => {
+    rememberView: (id, patch, sourceViewportAnchor) => set(state => {
       const prior = state.documents.find(doc => doc.id === id)
-      if (!prior || Object.entries(patch).every(([key, value]) => prior.viewState?.[key as keyof typeof patch] === value)) return state
-      return workspace(state.documents.map(doc => doc.id === id ? { ...doc, viewState: { ...doc.viewState, ...patch } } : doc), state.currentDocument?.id)
+      if (!prior || (sourceViewportAnchor === undefined || sourceViewportAnchor === prior.sourceViewportAnchor) &&
+          Object.entries(patch).every(([key, value]) => prior.viewState?.[key as keyof typeof patch] === value)) return state
+      return workspace(state.documents.map(doc => doc.id === id ? { ...doc, viewState: { ...doc.viewState, ...patch },
+        sourceViewportAnchor: sourceViewportAnchor ?? doc.sourceViewportAnchor } : doc), state.currentDocument?.id)
     }),
     reorderDocument: (id, index) => set(state => {
       const docs = state.documents.filter(d => d.id !== id)
@@ -178,7 +181,8 @@ export const useAppStore = create<AppState>((set, get) => {
         const doc = { id: result.id, title: result.title || 'Untitled', content: result.content || '',
           savedContent: result.content || '', path: result.path, isDirty: false, lastModified: new Date() }
         const remembered = get().fileViews.find(entry => entry.path === doc.path)
-        const opened = remembered ? { ...doc, mode: remembered.mode, viewState: remembered.viewState } : doc
+        const opened = remembered ? { ...doc, mode: remembered.mode, viewState: remembered.viewState,
+          sourceViewportAnchor: remembered.sourceViewportAnchor } : doc
         add(opened); get().addRecentDocument(opened)
       } catch (error) { set({ error: errorMessage(error, 'Failed to open document') }) }
     },
