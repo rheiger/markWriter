@@ -1098,9 +1098,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         const y = box.top + 16
         // A single logical line can occupy several screens with word wrap on.
         // Anchor the visible visual row rather than the start of its line.
-        sourceViewportAnchor = sourceView.posAtCoords({
-          x: Math.max(box.left, sourceView.contentDOM.getBoundingClientRect().left) + 20, y,
-        }) ?? sourceView.lineBlockAtHeight(Math.max(0, y - sourceView.documentTop)).from
+        const row = box.height > 0 && typeof sourceView.root.elementFromPoint === 'function' ?
+          sourceView.posAtCoords({ x: Math.max(box.left, sourceView.contentDOM.getBoundingClientRect().left) + 20, y }) : null
+        sourceViewportAnchor = row ?? sourceView.lineBlockAtHeight(Math.max(0, y - sourceView.documentTop)).from
         Object.assign(patch, {
           sourceAnchor: sourceView.state.selection.main.anchor, sourceHead: sourceView.state.selection.main.head,
           sourceScroll: sourceView.scrollDOM.scrollTop, previewScroll: previewScrollRef.current?.scrollTop ?? 0,

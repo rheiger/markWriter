@@ -133,7 +133,7 @@ impl Inbox {
     }
 }
 
-struct OwnedHandle(HANDLE);
+pub(crate) struct OwnedHandle(pub HANDLE);
 
 impl Drop for OwnedHandle {
     fn drop(&mut self) {

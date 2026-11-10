@@ -28,6 +28,8 @@ npm run frontend:build
 npm run tauri:test
 ```
 
+On Windows x64, run `pwsh -File tools/stage-windows-preview.ps1` from the repository root before native tests or bundles. This step uses CMake and Visual Studio C++ to stage the bundled Explorer handler.
+
 For native development, run `npm run frontend:dev` and, in another terminal, `cd frontend && npm exec tauri dev`. For a native bundle, build the frontend first, then run `cd frontend && npm exec tauri build`. A browser-only server does not provide native file dialogs, storage or menus.
 
 ## Project information

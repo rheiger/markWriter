@@ -108,15 +108,10 @@
   !insertmacro MW_RegisterExtension ".md"
   !insertmacro MW_RegisterExtension ".markdown"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
-  ${If} ${Silent}
-    nsis_tauri_utils::RunAsUser "$INSTDIR\markwriter.exe" "--retire-legacy-install --quiet"
-  ${Else}
-    nsis_tauri_utils::RunAsUser "$INSTDIR\markwriter.exe" "--retire-legacy-install"
-  ${EndIf}
-  Pop $R8
+  ExecWait '$\"$INSTDIR\markwriter.exe$\" --installer-cleanup' $R8
   ${If} $R8 != 0
-    DetailPrint "Legacy cleanup could not start in the interactive Windows account."
-    MessageBox MB_ICONEXCLAMATION|MB_OK "MarkWriter was installed. Legacy cleanup could not start. See the installation guide to retry in the original Windows account." /SD IDOK
+    DetailPrint "Legacy cleanup did not finish in the interactive Windows account (result $R8)."
+    MessageBox MB_ICONEXCLAMATION|MB_OK "MarkWriter was installed. Legacy cleanup could not finish. Start MarkWriter in the original Windows account to retry." /SD IDOK
   ${EndIf}
 !macroend
 

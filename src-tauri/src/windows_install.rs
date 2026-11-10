@@ -1,21 +1,34 @@
 //! Per-user half of the NSIS migration. Run from the installed executable at
 //! ordinary privilege, never from the old user-writable installer directory.
+use crate::windows_open::OwnedHandle;
 use std::{
     fs, io,
     os::windows::{ffi::OsStrExt, fs::MetadataExt},
     path::{Path, PathBuf},
 };
 use windows::{
-    core::{Interface, PCWSTR},
+    core::{Interface, PCWSTR, PWSTR},
     Win32::{
+        Foundation::{HANDLE, WAIT_OBJECT_0},
+        Security::{
+            DuplicateTokenEx, GetTokenInformation, SecurityImpersonation, TokenElevation,
+            TokenLinkedToken, TokenPrimary, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION,
+            TOKEN_LINKED_TOKEN, TOKEN_QUERY,
+        },
         System::Com::{
             CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
             COINIT_APARTMENTTHREADED, STGM_READ,
+        },
+        System::Threading::{
+            CreateProcessWithTokenW, GetExitCodeProcess, OpenProcess, OpenProcessToken,
+            WaitForSingleObject, CREATE_NO_WINDOW, LOGON_WITH_PROFILE, PROCESS_INFORMATION,
+            PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
         },
         UI::Shell::{
             IShellLinkW, IsUserAnAdmin, SHChangeNotify, ShellLink, SHCNE_ASSOCCHANGED,
             SHCNF_IDLIST, SLGP_RAWPATH,
         },
+        UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
     },
 };
 use winreg::{
@@ -26,6 +39,7 @@ use winreg::{
 const LOCATION: &str = r"Software\markwriter\MarkWriter";
 const UNINSTALL: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\MarkWriter";
 const PREVIEW_LIST: &str = r"Software\Microsoft\Windows\CurrentVersion\PreviewHandlers";
+const STALE_MARKWRITE_COMMAND: &str = r"Software\Classes\MarkWrite.Document\shell\open\command";
 const OLD_CLSID: &str = "{A448B833-8E1A-4EA4-BCC4-272134A64E97}";
 const PREVIEW_IID: &str = "{8895b1c6-b41f-4c1c-a562-0d564250836f}";
 const PREVHOST: &str = "{6D2B5079-2F0B-48DD-AB7F-97CEC514D30B}";
@@ -127,10 +141,11 @@ fn retire_legacy_app(user: &RegKey, dir: &Path) -> io::Result<()> {
         ("DisplayIcon", quoted(&binary)),
     ];
     if !older
-        || read(user, LOCATION, "").as_deref() != dir.to_str()
-        || !ownership
-            .iter()
-            .all(|(name, expected)| read(user, UNINSTALL, name).as_ref() == Some(expected))
+        || !read(user, LOCATION, "")
+            .is_some_and(|value| value.eq_ignore_ascii_case(&dir.to_string_lossy()))
+        || !ownership.iter().all(|(name, expected)| {
+            read(user, UNINSTALL, name).is_some_and(|value| value.eq_ignore_ascii_case(expected))
+        })
     {
         return Ok(());
     }
@@ -215,7 +230,7 @@ fn retire_missing_markwrite_association(user: &RegKey, program_files: &Path) -> 
     if !fs::symlink_metadata(&binary).is_err_and(|error| error.kind() == io::ErrorKind::NotFound) {
         return Ok(());
     }
-    let command_key = r"Software\Classes\MarkWrite.Document\shell\open\command";
+    let command_key = STALE_MARKWRITE_COMMAND;
     let command = format!("{} \"%1\"", quoted(&binary));
     if !read(user, command_key, "").is_some_and(|value| value.eq_ignore_ascii_case(&command)) {
         return Ok(());
@@ -264,11 +279,126 @@ pub fn retire_legacy_install() -> io::Result<()> {
     clean_user_install(&installed)
 }
 
+fn token_elevated(token: HANDLE) -> windows::core::Result<bool> {
+    let mut elevation = TOKEN_ELEVATION::default();
+    let mut length = 0;
+    unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            Some((&mut elevation as *mut TOKEN_ELEVATION).cast()),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut length,
+        )?;
+    }
+    Ok(elevation.TokenIsElevated != 0)
+}
+
+// Setup is elevated and may have been started with another account's admin
+// credentials. Only the interactive shell's ordinary token may touch HKCU
+// or legacy files. Start our installed binary with that token and observe
+// its exit before reporting the setup result.
+pub fn run_installer_cleanup() -> io::Result<()> {
+    let install = installed_dir()?
+        .ok_or_else(|| io::Error::other("Legacy cleanup requires the installed executable"))?;
+    if !unsafe { IsUserAnAdmin().as_bool() } {
+        return clean_user_install(&install);
+    }
+    launch_user_cleanup(&install.join("markwriter.exe")).map_err(io::Error::other)
+}
+
+fn launch_user_cleanup(binary: &Path) -> windows::core::Result<()> {
+    let mut pid = 0;
+    unsafe {
+        GetWindowThreadProcessId(GetShellWindow(), Some(&mut pid));
+        let shell = OwnedHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?);
+        let mut handle = HANDLE::default();
+        OpenProcessToken(shell.0, TOKEN_DUPLICATE | TOKEN_QUERY, &mut handle)?;
+        let mut user = OwnedHandle(handle);
+        if token_elevated(user.0)? {
+            let mut linked = TOKEN_LINKED_TOKEN::default();
+            let mut size = 0;
+            GetTokenInformation(
+                user.0,
+                TokenLinkedToken,
+                Some((&mut linked as *mut TOKEN_LINKED_TOKEN).cast()),
+                std::mem::size_of::<TOKEN_LINKED_TOKEN>() as u32,
+                &mut size,
+            )?;
+            user = OwnedHandle(linked.LinkedToken);
+        }
+        if token_elevated(user.0)? {
+            return Err(windows::core::Error::new(
+                windows::Win32::Foundation::E_ACCESSDENIED,
+                "Could not obtain the ordinary shell token",
+            ));
+        }
+        DuplicateTokenEx(
+            user.0,
+            TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY,
+            None,
+            SecurityImpersonation,
+            TokenPrimary,
+            &mut handle,
+        )?;
+        let primary = OwnedHandle(handle);
+        let program: Vec<_> = binary.as_os_str().encode_wide().chain([0]).collect();
+        let mut command: Vec<_> = format!("{} --retire-legacy-install --quiet", quoted(binary))
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let startup = STARTUPINFOW {
+            cb: std::mem::size_of::<STARTUPINFOW>() as u32,
+            ..Default::default()
+        };
+        let mut child = PROCESS_INFORMATION::default();
+        CreateProcessWithTokenW(
+            primary.0,
+            LOGON_WITH_PROFILE,
+            PCWSTR(program.as_ptr()),
+            Some(PWSTR(command.as_mut_ptr())),
+            CREATE_NO_WINDOW,
+            None,
+            PCWSTR::null(),
+            &startup,
+            &mut child,
+        )?;
+        let process = OwnedHandle(child.hProcess);
+        let _thread = OwnedHandle(child.hThread);
+        if WaitForSingleObject(process.0, 20_000) != WAIT_OBJECT_0 {
+            return Err(windows::core::Error::new(
+                windows::Win32::Foundation::E_FAIL,
+                "User cleanup did not finish during setup",
+            ));
+        }
+        let mut exit = 0;
+        GetExitCodeProcess(process.0, &mut exit)?;
+        if exit != 0 {
+            return Err(windows::core::Error::new(
+                windows::Win32::Foundation::E_FAIL,
+                "User cleanup returned an error",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn clean_user_install(installed: &Path) -> io::Result<()> {
     let dir = dirs::data_local_dir()
         .ok_or_else(|| io::Error::other("Local AppData unavailable"))?
         .join("MarkWriter");
     let user = RegKey::predef(HKEY_CURRENT_USER);
+    if read(&user, UNINSTALL, "DisplayVersion").is_none()
+        && read(
+            &user,
+            &format!(r"Software\Classes\CLSID\{OLD_CLSID}\InprocServer32"),
+            "",
+        )
+        .is_none()
+        && read(&user, STALE_MARKWRITE_COMMAND, "").is_none()
+    {
+        return Ok(());
+    }
     let app = retire_legacy_app(&user, &dir);
     let preview = retire_legacy_preview(&user);
     let association = installed.parent().map_or(Ok(()), |parent| {

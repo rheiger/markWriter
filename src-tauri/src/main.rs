@@ -247,6 +247,13 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         let args: Vec<_> = std::env::args_os().skip(1).take(3).collect();
+        if args.len() == 1 && args[0] == "--installer-cleanup" {
+            if let Err(error) = windows_install::run_installer_cleanup() {
+                eprintln!("Installer could not run ordinary-user cleanup: {error}");
+                std::process::exit(error.raw_os_error().unwrap_or(1));
+            }
+            return;
+        }
         let legacy_cleanup = args.first().is_some_and(|arg| arg == "--retire-legacy-install");
         let quiet = args.len() == 2 && args[1] == "--quiet";
         if legacy_cleanup && (args.len() == 1 || quiet) {
