@@ -88,11 +88,71 @@ async function themeChoice(name){
  return style
 }
 async function launch(){session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:binary}}}})).sessionId;await request('POST',`/session/${session}/timeouts`,{script:30000});await wait(()=>run('return !!document.querySelector("button[role=switch]")'),'production startup');assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'),'undefined','No bridge in installed package')}
+const viewFixture = join(fixture, 'viewport.md')
+await writeFile(viewFixture, '# Start of viewport fixture\n\n' +
+  Array.from({ length: 160 }, (_, index) => 'Paragraph ' + index + '\n\n').join('') + 'End of viewport fixture\n')
+const renderedScroll = () => run(
+  'const editor=document.querySelector("[data-active=true] .tiptap");const scroller=editor?.parentElement?.parentElement;' +
+  'if(!editor?.textContent.includes("End of viewport fixture")||!scroller||scroller.scrollHeight-scroller.clientHeight<1400)return null;' +
+  'return scroller.scrollTop')
+let renderedReadingPosition
+async function verifyViewport(firstOpen) {
+ await openDocument(viewFixture, 'viewport.md')
+ await mode(false)
+ await wait(async()=>await renderedScroll()!==null,'rendered viewport fixture has a scrollable layout')
+ if(firstOpen){
+  assert.equal(await renderedScroll(),0,'First native Open starts at the top of the document')
+  // Use native navigation so focus changes and viewport movement match a reader.
+  await click('//*[@data-active="true"]//h1[normalize-space(.)="Start of viewport fixture"]')
+  await request('POST',`/session/${session}/actions`,{actions:[{type:'key',id:'reading',
+    actions:[{type:'keyDown',value:'\uE00F'},{type:'keyUp',value:'\uE00F'}]}]})
+  let prior
+  renderedReadingPosition=await wait(async()=>{
+   const top=await renderedScroll()
+   const settled=top>100&&Math.abs(top-prior)<4
+   prior=top
+   return settled&&top
+  },'ordinary Page Down scroll settled')
+ } else {
+  await wait(async()=>Math.abs(await renderedScroll()-renderedReadingPosition)<4,'reopened native document restores the rendered position')
+ }
+ await closeCurrentDocument()
+ if(firstOpen) await wait(async()=>{
+  const workspace=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'))
+  const record=workspace.fileViews?.find(file=>file.path.endsWith('viewport.md'))
+  return Math.abs(record?.viewState.renderedScroll-renderedReadingPosition)<4
+ },'closed rendered reading position persisted')
+}
+async function verifyWrappedSourceViewport() {
+ const path = join(fixture, 'wrapped-viewport.md')
+ await writeFile(path, Array.from({ length: 900 }, (_, index) => 'wrapped-token-' + index).join(' '))
+ await openDocument(path, 'wrapped-viewport.md')
+ await mode(true)
+ const scroller = (target = null) => run(
+  'const e=document.querySelector("[data-active=true] .cm-scroller");if(!e||e.scrollHeight-e.clientHeight<1200)return null;' +
+  'if(arguments[0]!==null)e.scrollTop=arguments[0];return e.scrollTop', target)
+ await wait(async()=>await scroller()!==null,'one logical source line wraps to a scrollable layout')
+ assert.ok(await scroller()<2,'New wrapped source opens at the top')
+ await scroller(1000)
+ await wait(async()=>Math.abs(await scroller()-1000)<16,'ordinary wrapped source scrolled')
+ await closeCurrentDocument()
+ const record = await wait(async()=>{
+  const snapshot=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'))
+  return snapshot.fileViews?.find(file=>file.path.endsWith('wrapped-viewport.md'))
+ },'closed wrapped-source position persisted')
+ assert.ok(record.sourceViewportAnchor>0,'Wrapped row requires a position inside the logical line')
+ await openDocument(path, 'wrapped-viewport.md')
+ await mode(true)
+ await wait(async()=>Math.abs(await scroller()-record.viewState.sourceScroll)<36,'reopened wrapped source stays at the same reading position')
+ await closeCurrentDocument()
+}
 const cases=[]
 const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
+ await verifyViewport(true); await verifyViewport(false); cases.push('first Open at top and closed-tab viewport restored')
+ await verifyWrappedSourceViewport(); cases.push('wrapped Markdown source reopens within the same logical line')
  if(process.platform==='win32'){
    const rows=ownedDescendants(await processInventory(),driver.pid)
    actualWebviewPaths=[...new Set(rows.filter(p=>p.path?.toLowerCase().endsWith('msedgewebview2.exe')).map(p=>p.path))]
@@ -175,6 +235,7 @@ try{
  assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'18','Restored source font is active in ordinary UI')
  const recovered=join(fixture,'recovered.md');await menu('File','Save As...');await dialog(recovered);await wait(async()=>await readFile(recovered,'utf8').catch(()=>null)===draftSource,'recovered draft saved through real OS dialog byte-identically')
  await mode(false);assert.equal(await run(`return document.querySelector('select[aria-label="Text size"]').value`),'24','Restored rendered font is active in ordinary UI')
+ await verifyViewport(false); cases.push('closed-file viewport survives app restart')
  await click('//button[@role="tab" and contains(.,"saved.md")]');await mode(true);await diagrams();cases.push('tabs, abrupt restart, byte-identical recovered draft Save As and restored UI fonts')
  assert.equal(await run('return document.querySelector("button[aria-label=\\"Syntax highlighting\\"]").getAttribute("aria-pressed")'),'false','Syntax-off preference restored in ordinary toolbar')
  assert.equal(await run('return document.documentElement.getAttribute("data-theme")'),'dark','Dark preference restored in ordinary UI')

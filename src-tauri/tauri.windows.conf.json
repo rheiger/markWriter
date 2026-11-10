@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "resources": {
+      "windows/MarkWriterPreview.dll": "MarkWriterPreview.dll"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  }
+}

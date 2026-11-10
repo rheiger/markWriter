@@ -3,6 +3,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { flushWorkspace, snapshotWorkspace, flushPreferences } from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
+import { rememberFileView, type FileView } from '../lib/session'
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
@@ -21,6 +22,7 @@ export interface Document {
   mode?: 'markdown' | 'wysiwyg'
   revision?: number
   viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
+  sourceViewportAnchor?: number
   savedContent?: string
   lastModified: Date
 }
@@ -32,7 +34,7 @@ export interface AppState {
   documents: Document[]
   pendingClose: { id: string, title: string, resolve: (decision: UnsavedDecision) => void } | null
   activateDocument: (id: string) => void
-  rememberView: (id: string, viewState: NonNullable<Document['viewState']>) => void
+  rememberView: (id: string, viewState: NonNullable<Document['viewState']>, sourceViewportAnchor?: number) => void
   reorderDocument: (id: string, index: number) => void
   closeDocument: (id: string) => Promise<boolean>
   saveAll: () => Promise<boolean>
@@ -40,6 +42,7 @@ export interface AppState {
   // Document state
   currentDocument: Document | null
   recentDocuments: Document[]
+  fileViews: FileView[]
 
   // UI state
   config: AppConfig
@@ -71,12 +74,26 @@ const saving = new Map<string, Promise<boolean>>()
 const destinations = new Map<string, string>()
 let closing = false
 
+let activeViewCapture: { id: string, capture: () => void } | undefined
+export function registerActiveViewCapture(id: string, capture: () => void) {
+  const registration = { id, capture }
+  activeViewCapture = registration
+  return () => { if (activeViewCapture === registration) activeViewCapture = undefined }
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   const replace = (id: string, update: (doc: Document) => Document) => set(state => {
     const docs = state.documents.map(doc => doc.id === id ? update(doc) : doc)
     return workspace(docs, state.currentDocument?.id)
   })
-  const add = (doc: Document) => set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
+  const captureBeforeActivating = (id: string) => {
+    const current = get().currentDocument?.id
+    if (activeViewCapture && current !== id && activeViewCapture.id === current) activeViewCapture.capture()
+  }
+  const add = (doc: Document) => {
+    captureBeforeActivating(doc.id)
+    set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
+  }
   const saveSnapshot = (snapshot: Document, path: string, as: boolean): Promise<boolean> => {
     const run = async () => {
       set({ error: null, isLoading: true })
@@ -110,14 +127,19 @@ export const useAppStore = create<AppState>((set, get) => {
     return pending
   }
   return {
-    documents: [], currentDocument: null, recentDocuments: [], config: defaultConfig,
+    documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig,
     isLoading: false, error: null, pendingClose: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
-    activateDocument: id => set(state => workspace(state.documents, id)),
-    rememberView: (id, patch) => set(state => {
+    activateDocument: id => {
+      captureBeforeActivating(id)
+      set(state => workspace(state.documents, id))
+    },
+    rememberView: (id, patch, sourceViewportAnchor) => set(state => {
       const prior = state.documents.find(doc => doc.id === id)
-      if (!prior || Object.entries(patch).every(([key, value]) => prior.viewState?.[key as keyof typeof patch] === value)) return state
-      return workspace(state.documents.map(doc => doc.id === id ? { ...doc, viewState: { ...doc.viewState, ...patch } } : doc), state.currentDocument?.id)
+      if (!prior || (sourceViewportAnchor === undefined || sourceViewportAnchor === prior.sourceViewportAnchor) &&
+          Object.entries(patch).every(([key, value]) => prior.viewState?.[key as keyof typeof patch] === value)) return state
+      return workspace(state.documents.map(doc => doc.id === id ? { ...doc, viewState: { ...doc.viewState, ...patch },
+        sourceViewportAnchor: sourceViewportAnchor ?? doc.sourceViewportAnchor } : doc), state.currentDocument?.id)
     }),
     reorderDocument: (id, index) => set(state => {
       const docs = state.documents.filter(d => d.id !== id)
@@ -168,7 +190,10 @@ export const useAppStore = create<AppState>((set, get) => {
         if (existing) { get().activateDocument(existing.id); return }
         const doc = { id: result.id, title: result.title || 'Untitled', content: result.content || '',
           savedContent: result.content || '', path: result.path, isDirty: false, lastModified: new Date() }
-        add(doc); get().addRecentDocument(doc)
+        const remembered = get().fileViews.find(entry => entry.path === doc.path)
+        const opened = remembered ? { ...doc, mode: remembered.mode, viewState: remembered.viewState,
+          sourceViewportAnchor: remembered.sourceViewportAnchor } : doc
+        add(opened); get().addRecentDocument(opened)
       } catch (error) { set({ error: errorMessage(error, 'Failed to open document') }) }
     },
     saveDocument: async (id = get().currentDocument?.id) => {
@@ -197,14 +222,17 @@ export const useAppStore = create<AppState>((set, get) => {
       if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
       // Discard must still refer to the revision the user reviewed.
       if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
-      const remaining = get().documents.filter(d => d.id !== id)
-      try { await flushWorkspace(snapshotWorkspace(remaining)) }
+      if (get().currentDocument?.id === id && activeViewCapture?.id === id) activeViewCapture.capture()
+      const stateBeforeClose = get()
+      const remaining = stateBeforeClose.documents.filter(d => d.id !== id)
+      const fileViews = rememberFileView(stateBeforeClose.fileViews, stateBeforeClose.documents.find(d => d.id === id))
+      try { await flushWorkspace(snapshotWorkspace(remaining, fileViews)) }
       catch (error) { set({ error: `Cannot remove recovery copy: ${String(error)}` }); return false }
       if ((get().documents.find(d => d.id === id)?.content !== doc.content && decision === 'discard') || (decision === 'save' && get().documents.find(d => d.id === id)?.isDirty)) { await flushWorkspace(); return false }
       set(state => {
         const index = state.documents.findIndex(d => d.id === id)
         const docs = state.documents.filter(d => d.id !== id)
-        return workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id)
+        return { ...workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id), fileViews }
       })
       return true
       } finally { closing = false }
@@ -249,6 +277,7 @@ export async function confirmDiscardChanges(): Promise<boolean> {
   }
   const safe = () => !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
   if (!safe()) return false
+  activeViewCapture?.capture()
   const restore = useAppStore.getState().documents.flatMap(doc => reviewed.some(d => d.id === doc.id) ?
     (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : []) : [doc])
   try { await flushPreferences(); await flushWorkspace(snapshotWorkspace(restore)) }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.4] - 2026-11-10
+
+- Install Windows x64 MarkWriter under Program Files. Open Markdown files from Explorer in a new or running editor.
+- Install and remove the native Explorer Markdown preview with MarkWriter. Retire recognized old per-user MarkWriter registrations and default-location binaries.
+- Start new files at the top. Restore the last view when a file is reopened or a workspace is restored.
+
 ## [2.7.3](https://github.com/rheiger/markWriter/releases/tag/v2.7.3) — 2026-11-09
 
 - Keep representative long explicit SQL fences highlighted while preserving source and Undo.

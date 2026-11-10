@@ -1,6 +1,34 @@
 import type { Document } from '../store/useAppStore'
 
-export interface SessionSnapshot { version: 1, activeId: string | null, documents: Document[] }
+export type FileView = { path: string, mode?: Document['mode'], sourceViewportAnchor?: number, viewState: NonNullable<Document['viewState']> }
+const viewKeys = new Set(['sourceAnchor', 'sourceHead', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'])
+const fileViewLimit = 50
+
+function validView(value: unknown): value is FileView['viewState'] {
+  return !!value && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([key, number]) =>
+    viewKeys.has(key) && typeof number === 'number' && Number.isFinite(number) && number >= 0 && (!/Anchor|Head/.test(key) || Number.isInteger(number)))
+}
+
+function validViewportAnchor(anchor: unknown): anchor is number {
+  return typeof anchor === 'number' && Number.isSafeInteger(anchor) && anchor >= 0
+}
+
+function validFileView(value: unknown): value is FileView {
+  if (!value || typeof value !== 'object') return false
+  const entry = value as Partial<FileView>
+  return typeof entry.path === 'string' && !!entry.path && entry.path.length <= 32767 && validView(entry.viewState) &&
+    (entry.mode === undefined || entry.mode === 'markdown' || entry.mode === 'wysiwyg')
+}
+
+export function rememberFileView(views: FileView[], doc: Document | undefined): FileView[] {
+  if (!doc?.path || (!doc.viewState && !doc.mode)) return views
+  const previous = views.find(entry => entry.path === doc.path)
+  return [{ path: doc.path, mode: doc.mode, viewState: doc.viewState ?? previous?.viewState ?? {},
+    sourceViewportAnchor: doc.sourceViewportAnchor ?? previous?.sourceViewportAnchor },
+  ...views.filter(entry => entry.path !== doc.path)].slice(0, fileViewLimit)
+}
+
+export interface SessionSnapshot { version: 1, activeId: string | null, documents: Document[], fileViews: FileView[] }
 export function parseSession(value: unknown): SessionSnapshot {
   const record = value as Record<string, unknown> | null
   if (!record || ![0, 1].includes(record.version as number)) throw new Error('Unsupported workspace version')
@@ -12,18 +40,20 @@ export function parseSession(value: unknown): SessionSnapshot {
     if (typeof doc.id !== 'string' || !doc.id || typeof doc.title !== 'string' || typeof doc.content !== 'string' || typeof doc.isDirty !== 'boolean' ||
       (doc.path !== undefined && typeof doc.path !== 'string') || (doc.savedContent !== undefined && typeof doc.savedContent !== 'string') || (doc.mode !== undefined && doc.mode !== 'markdown' && doc.mode !== 'wysiwyg') || (doc.conflictPath !== undefined && typeof doc.conflictPath !== 'string')) throw new Error('Invalid recovery document')
     if (ids.has(doc.id) || (doc.path && paths.has(doc.path))) throw new Error('Duplicate recovery document ownership')
-    if (doc.viewState !== undefined && (!doc.viewState || typeof doc.viewState !== 'object' || Array.isArray(doc.viewState) || Object.entries(doc.viewState).some(([key, value]) => !['sourceAnchor', 'sourceHead', 'sourceScroll', 'previewScroll', 'renderedAnchor', 'renderedHead', 'renderedScroll'].includes(key) || typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (/Anchor|Head/.test(key) && !Number.isInteger(value))))) throw new Error('Invalid recovery view state')
+    if (doc.viewState !== undefined && !validView(doc.viewState)) throw new Error('Invalid recovery view state')
     ids.add(doc.id); if (doc.path) paths.add(doc.path)
-    return { ...doc, lastModified: new Date(doc.lastModified || Date.now()) }
+    return { ...doc, sourceViewportAnchor: validViewportAnchor(doc.sourceViewportAnchor) ? doc.sourceViewportAnchor : undefined, lastModified: new Date(doc.lastModified || Date.now()) }
   })
-  return { version: 1, documents, activeId: typeof record.activeId === 'string' ? record.activeId : documents[0]?.id ?? null }
+  const fileViews = Array.isArray(record.fileViews) ? record.fileViews.slice(0, fileViewLimit).filter(validFileView).map(({ path, mode, viewState, sourceViewportAnchor }) => ({ path, mode, viewState, sourceViewportAnchor: validViewportAnchor(sourceViewportAnchor) ? sourceViewportAnchor : undefined })) : []
+  return { version: 1, documents, fileViews, activeId: typeof record.activeId === 'string' ? record.activeId : documents[0]?.id ?? null }
 }
 export async function restoreSnapshot(value: unknown, restoreClean: boolean, read: (path: string) => Promise<{ content: string, path?: string }>) {
   const parsed = parseSession(value)
   const documents: Document[] = []
   const warnings: string[] = []
+  let fileViews = parsed.fileViews
   for (const doc of parsed.documents) {
-    if (!restoreClean && !doc.isDirty) continue
+    if (!restoreClean && !doc.isDirty) { fileViews = rememberFileView(fileViews, doc); continue }
     if (!doc.path) { documents.push(doc); continue }
     try {
       const disk = await read(doc.path)
@@ -37,5 +67,5 @@ export async function restoreSnapshot(value: unknown, restoreClean: boolean, rea
       warnings.push(`Missing/unreadable file: ${doc.path}. A local recovery copy is open.`)
     }
   }
-  return { documents, warnings, activeId: documents.some(d => d.id === parsed.activeId) ? parsed.activeId : documents[0]?.id ?? null }
+  return { documents, warnings, fileViews, activeId: documents.some(d => d.id === parsed.activeId) ? parsed.activeId : documents[0]?.id ?? null }
 }

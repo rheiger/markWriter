@@ -1,12 +1,34 @@
 $ErrorActionPreference='Stop'
 $packageVersion=(Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json).version
 $installer=(Get-Item -LiteralPath "src-tauri/target/release/bundle/nsis/MarkWriter_${packageVersion}_x64-setup.exe").FullName
-$destination=Join-Path $env:RUNNER_TEMP 'MarkWriter-installed'
-# Current-user NSIS install uses the same normal installer in silent UI automation.
-& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/run-installer-windows.ps1" -Installer $installer -Destination $destination
-if($LASTEXITCODE -ne 0){throw 'NSIS installation failed'}
-$binary=(Get-ChildItem $destination/*.exe | Where-Object Name -notmatch 'uninstall' | Select-Object -First 1).FullName
-if(-not $binary){throw 'Installed executable not found'}
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Seed
+if($LASTEXITCODE){throw 'Could not prepare the legacy installation fixture'}
+$destination=Join-Path $env:ProgramFiles 'MarkWriter'
+# Exercise the default elevated machine install, without /D.
+$installation=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+if($installation.ExitCode -ne 0){throw "NSIS installation failed ($($installation.ExitCode))"}
+$binary=Join-Path $destination 'markwriter.exe'
+if(!(Test-Path -LiteralPath $binary -PathType Leaf)){throw 'Default Program Files executable not found'}
+$builtPreview=Join-Path $PSScriptRoot '../src-tauri/windows/MarkWriterPreview.dll'
+$installedPreview=Join-Path $destination 'MarkWriterPreview.dll'
+if((Get-FileHash -LiteralPath $installedPreview).Hash -ne (Get-FileHash -LiteralPath $builtPreview).Hash){
+ throw 'Installed Explorer handler differs from the bundled build.'
+}
+& $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
+if($LASTEXITCODE){
+ # Diagnose the same elevated helper without masking a failed installer handoff.
+ $cleanupLog=Join-Path $env:RUNNER_TEMP 'markwriter-elevated-cleanup.txt'
+ $diagnostic=Start-Process -FilePath $binary -ArgumentList '--installer-cleanup' -RedirectStandardError $cleanupLog -Wait -PassThru
+ Write-Host "Elevated cleanup retry exit code: $($diagnostic.ExitCode)"
+ Get-Content -LiteralPath $cleanupLog
+ & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$PSScriptRoot/legacy-windows-fixture.ps1" -Phase Verify
+ throw 'Legacy installation migration failed during setup'
+}
+# The same signed-off installer must support an in-place repair.
+$repair=Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+if($repair.ExitCode -ne 0 -or !(Test-Path -LiteralPath "$destination/uninstall.exe")){
+ throw 'Repeated setup did not leave a usable installation and uninstaller.'
+}
 $profile=Join-Path $env:RUNNER_TEMP 'markwriter-profile'
 New-Item -ItemType Directory -Force $profile | Out-Null
 icacls $profile /grant "${env:USERNAME}:(OI)(CI)M" | Out-Null

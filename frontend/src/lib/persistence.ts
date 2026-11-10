@@ -41,8 +41,8 @@ export function watchPreferences() {
 
 let workspaceWrites: Promise<unknown> = Promise.resolve()
 let timer: ReturnType<typeof setTimeout> | undefined
-export function snapshotWorkspace(documents = useAppStore.getState().documents) {
-  return { version: 1, activeId: useAppStore.getState().currentDocument?.id ?? null, documents }
+export function snapshotWorkspace(documents = useAppStore.getState().documents, fileViews = useAppStore.getState().fileViews) {
+  return { version: 1, activeId: useAppStore.getState().currentDocument?.id ?? null, documents, fileViews }
 }
 export async function flushWorkspace(value = snapshotWorkspace()) {
   clearTimeout(timer)
@@ -63,7 +63,7 @@ export async function loadWorkspace() {
     const { restoreSnapshot } = await import('./session')
     const restored = await restoreSnapshot(value, useAppStore.getState().config.restoreSession,
       path => invoke('open_document', { path }))
-    useAppStore.setState({ documents: restored.documents, currentDocument: restored.documents.find(d => d.id === restored.activeId) ?? null })
+    useAppStore.setState({ documents: restored.documents, fileViews: restored.fileViews, currentDocument: restored.documents.find(d => d.id === restored.activeId) ?? null })
     if (restored.warnings.length) useAppStore.getState().setError(restored.warnings.join('\n'))
   } catch (error) {
     try { await retainRejected('workspace') } catch { workspaceBlocked = true }

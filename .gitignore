@@ -151,3 +151,5 @@ native-acceptance-results/
 !frontend/public/THIRD_PARTY_NOTICES.txt
 package-acceptance-results/
 release-assets/
+
+/src-tauri/windows/MarkWriterPreview.dll

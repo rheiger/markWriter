@@ -10,6 +10,10 @@ mod native_menu;
 mod os_open;
 mod update_policy;
 mod sql_import;
+#[cfg(target_os = "windows")]
+mod windows_install;
+#[cfg(target_os = "windows")]
+mod windows_open;
 use std::collections::HashMap;
 use std::io::Write;
 // Menu system temporarily disabled for Tauri 2 compatibility
@@ -240,8 +244,63 @@ fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::V
 }
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    let mut windows_args: Vec<_> = std::env::args_os().collect();
+    #[cfg(target_os = "windows")]
+    {
+        let args = windows_args.get(1..).unwrap_or_default();
+        if args.len() == 1 && args[0] == "--installer-cleanup" {
+            if let Err(error) = windows_install::run_installer_cleanup() {
+                eprintln!("Installer could not run ordinary-user cleanup: {error}");
+                std::process::exit(error.raw_os_error().unwrap_or(1));
+            }
+            return;
+        }
+        let legacy_cleanup = args.first().is_some_and(|arg| arg == "--retire-legacy-install");
+        let quiet = args.len() == 2 && args[1] == "--quiet";
+        if legacy_cleanup && (args.len() == 1 || quiet) {
+            if let Err(error) = windows_install::retire_legacy_install() {
+                let message = format!("MarkWriter was installed, but legacy cleanup could not finish. Close the old app and its previews before retrying.\n\n{error}");
+                eprintln!("{message}");
+                if !quiet { windows_open::show_error(&message); }
+                std::process::exit(1);
+            }
+            return;
+        }
+        if args.first().is_some_and(|arg| arg == "--open-from-shell") {
+            let result = match args {
+                [_, file] if os_open::is_markdown_path(std::path::Path::new(file)) => {
+                    windows_install::launch_shell_file_as_user(std::path::Path::new(file))
+                        .map_err(|error| error.to_string())
+                }
+                _ => Err("Explorer must supply one absolute Markdown file path.".into()),
+            };
+            match result {
+                Ok(true) => return,
+                Ok(false) => {
+                    windows_args.remove(1);
+                }
+                Err(error) => {
+                    windows_open::show_error(&format!("MarkWriter could not open this Explorer file.\n\n{error}"));
+                    return;
+                }
+            }
+        }
+    }
     println!("[TAURI] Starting MarkWriter application");
 
+    #[cfg(target_os = "windows")]
+    let inbox = match windows_open::connect_or_listen(&windows_args) {
+        Ok(Some(inbox)) => inbox,
+        Ok(None) => return,
+        Err(error) => {
+            windows_open::show_error(&format!("MarkWriter could not open this window or file.\n\n{error}"));
+            return;
+        }
+    };
+
+    #[cfg(target_os = "windows")]
+    let cleanup_error = windows_install::retry_legacy_cleanup().err();
     tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
@@ -265,7 +324,15 @@ fn main() {
             show_about_dialog,
             get_document_stats
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            #[cfg(target_os = "windows")]
+            {
+                let queue = app.state::<os_open::OpenQueue>();
+                let _ = queue.enqueue_argv(windows_args);
+                if let Some(error) = cleanup_error {
+                    let _ = queue.reject_batch(&format!("Legacy Windows installation cleanup could not finish: {error}"));
+                }
+            }
             #[cfg(target_os = "macos")]
             native_menu::install(app.handle())?;
             // Build configured windows here so their production asset responses
@@ -286,6 +353,8 @@ fn main() {
                     })
                     .build()?;
             }
+            #[cfg(target_os = "windows")]
+            inbox.start(app.handle().clone())?;
             println!("[TAURI] Application setup completed");
             Ok(())
         })

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 // Explicit reviewed release target. A regular release does not imply trusted OS signing.
-export const releasePolicy = Object.freeze({ version: '2.7.3', publicationAuthorized: true, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.7.3.md' })
+export const releasePolicy = Object.freeze({ version: '2.7.4', publicationAuthorized: true, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.7.4.md' })
 
 export function draftReleaseArgs(version, names) {
   assert.equal(releasePolicy.publicationAuthorized, true, 'Candidate publication requires a separate reviewed release instruction')

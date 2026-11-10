@@ -2059,9 +2059,10 @@ dependencies = [
 
 [[package]]
 name = "markwriter"
-version = "2.7.3"
+version = "2.7.4"
 dependencies = [
  "chrono",
+ "dirs",
  "libc",
  "reqwest",
  "serde",
@@ -2073,6 +2074,8 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+ "windows",
+ "winreg",
 ]
 
 [[package]]

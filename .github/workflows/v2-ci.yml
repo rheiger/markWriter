@@ -87,6 +87,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
       - run: npm ci --prefix frontend
       - run: npm run build --prefix frontend
+      - name: Build the bundled Windows preview handler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/stage-windows-preview.ps1
       - name: Test native code and real file operations
         if: runner.os != 'Windows'
         working-directory: src-tauri

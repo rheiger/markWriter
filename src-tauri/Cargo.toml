@@ -1,6 +1,6 @@
 [package]
 name = "markwriter"
-version = "2.7.3"
+version = "2.7.4"
 description = "A modern Markdown editor built with Tauri"
 authors = ["Richie Eiger <rheiger@users.noreply.github.com>"]
 license = "MIT"
@@ -31,6 +31,11 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+dirs = "6"
+winreg = "0.55"
+windows = { version = "0.61", features = ["Win32_Security", "Win32_Security_AppLocker", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Pipes", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

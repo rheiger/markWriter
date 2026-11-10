@@ -1,6 +1,6 @@
-# Experimental Windows Explorer preview
+# Windows Explorer preview
 
-This component is **not qualified for distribution** until actual Windows Explorer, low-integrity hosting, per-user registration, coexistence, upgrade and rollback have passed. It is not installed by the MarkWriter NSIS installer. No other file types are registered.
+The Windows x64 installer bundles this read-only handler for `.md` and `.markdown`. The installer build uses `-DMARKWRITER_BUNDLED=ON` and registers the machine preview class for low-integrity Prevhost. See the current [installation guide](../../docs/install-2.7.4.md).
 
 On x64 Windows with Visual Studio C++ and CMake:
 
@@ -10,7 +10,7 @@ cmake --build <build-dir> --config Release
 ctest --test-dir <build-dir> -C Release --output-on-failure
 ```
 
-In a disposable, non-elevated user session only, `install.ps1 -Action Enable -DllPath <absolute-path-to-MarkWriterPreview.dll>` opts in. `install.ps1 -Action Disable -DllPath <same-absolute-path>` removes its associations and class if still owned. The DLL must remain at that path while enabled. Any existing per-user extension preview key, preview class, or matching preview-list entry causes enable to fail; re-enable requires disable first. A machine-registered class with the same CLSID is also rejected; machine-level extension providers remain intact but may be shadowed while enabled, depending on Explorer association resolution. Disable removes only unchanged owned values and retains third-party additions. Default application associations are not touched. Do not remove or move the DLL before disabling. Registration uses HKCU and the default x64 Prevhost AppID; it never disables low-integrity isolation. Windows may reject per-user COM registrations in a low-integrity host: this must be tested rather than assumed.
+For regression testing the legacy standalone class in a disposable, non-elevated user session, `install.ps1 -Action Enable -DllPath <absolute-path-to-MarkWriterPreview.dll>` opts in. `install.ps1 -Action Disable -DllPath <same-absolute-path>` removes its associations and class if still owned. The DLL must remain at that path while enabled. Any existing per-user extension preview key, preview class, or matching preview-list entry causes enable to fail; re-enable requires disable first. A machine-registered class with the same CLSID is also rejected; machine-level extension providers remain intact but may be shadowed while enabled, depending on Explorer association resolution. Disable removes only unchanged owned values and retains third-party additions. Default application associations are not touched. Do not remove or move the DLL before disabling. Registration uses HKCU and the default x64 Prevhost AppID; it never disables low-integrity isolation. Windows may reject per-user COM registrations in a low-integrity host: this must be tested rather than assumed.
 
 The renderer reads at most 1 MiB plus one byte from the supplied stream, decodes UTF-8 with replacement, displays a truncation notice, and treats HTML and links as text. It supports basic headings, bold, and inline-code emphasis only; diagrams, images, syntax highlighting, full CommonMark and active content are not supported. Rich Edit displays inert generated RTF, not source HTML. The source stream is only read.
 

@@ -1,6 +1,6 @@
 {
   "productName": "MarkWriter",
-  "version": "2.7.3",
+  "version": "2.7.4",
   "identifier": "com.markwriter.app",
   "build": {
     "devUrl": "http://127.0.0.1:5173",
@@ -28,9 +28,6 @@
       "signingIdentity": null
     },
     "windows": {
-      "nsis": {
-        "installMode": "currentUser"
-      },
       "webviewInstallMode": {
         "type": "skip"
       }

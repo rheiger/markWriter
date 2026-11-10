@@ -1,8 +1,15 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{path::{Path, PathBuf}, sync::Mutex};
 
 const LIMIT: usize = 64;
 const MAX_ERROR_CHARS: usize = 512;
 const OVERFLOW: &str = "Additional OS-open errors were omitted. Try smaller selections.";
+
+pub fn is_markdown_path(path: &Path) -> bool {
+    path.is_absolute()
+        && path.extension().and_then(|value| value.to_str()).is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
+        })
+}
 
 #[derive(Default)]
 struct QueueState {
@@ -37,6 +44,12 @@ fn push_error(state: &mut QueueState, error: &str) {
 }
 
 impl OpenQueue {
+    /// Windows Explorer invokes the executable with absolute paths after argv[0].
+    #[cfg(any(target_os = "windows", test))]
+    pub fn enqueue_argv(&self, args: impl IntoIterator<Item = impl Into<PathBuf>>) -> Result<(), String> {
+        self.enqueue(args.into_iter().skip(1).map(Into::into))
+    }
+
     /// Records a conversion or other batch failure before notifying the frontend.
     pub fn reject_batch(&self, error: &str) -> Result<(), String> {
         let mut state = self
@@ -61,12 +74,7 @@ impl OpenQueue {
             )
         } else {
             paths.iter().find_map(|path| {
-                let ext = path
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default()
-                    .to_ascii_lowercase();
-                if path.is_absolute() && ["md", "markdown"].contains(&ext.as_str()) {
+                if is_markdown_path(path) {
                     None
                 } else {
                     Some(format!(
@@ -103,6 +111,19 @@ impl OpenQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_argv_preserves_a_quoted_unicode_path_as_one_argument() {
+        let queue = OpenQueue::default();
+        let first = std::env::temp_dir().join("Grüße 中文 path.markdown");
+        let second = std::env::temp_dir().join("UPPER.MD");
+        queue.enqueue_argv([PathBuf::from("MarkWriter.exe"), first.clone(), second.clone()]).unwrap();
+        assert_eq!(queue.drain().unwrap().paths, vec![
+            first.to_string_lossy().into_owned(), second.to_string_lossy().into_owned(),
+        ]);
+        queue.enqueue_argv(["MarkWriter.exe"]).unwrap();
+        assert!(queue.drain().unwrap().paths.is_empty());
+    }
 
     #[test]
     fn unicode_duplicates_and_errors_survive_until_one_atomic_drain() {
