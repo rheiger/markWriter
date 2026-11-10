@@ -1,5 +1,12 @@
 param([Parameter(Mandatory=$true)][ValidateSet('Seed','Verify')][string]$Phase)
 $ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class MarkWriterFixtureShell {
+    [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
+}
+'@
 if (!$env:GITHUB_ACTIONS -or !$env:RUNNER_TEMP) { throw 'This fixture requires a disposable GitHub Actions Windows runner.' }
 $base = 'HKCU:\Software\Classes'
 $iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
@@ -16,9 +23,13 @@ if ($Phase -eq 'Seed') {
     if ((Test-Path $legacyDir) -or (Test-Path $uninstall) -or (Test-Path $competingKey) -or (Test-Path $appCommand)) {
         throw 'Legacy fixture paths already in use.'
     }
-    if (!(Get-Process explorer -ErrorAction SilentlyContinue)) {
+    if ([MarkWriterFixtureShell]::GetShellWindow() -eq [IntPtr]::Zero) {
         Start-Process "$env:WINDIR\explorer.exe"
+        for ($attempt=0; $attempt -lt 40 -and [MarkWriterFixtureShell]::GetShellWindow() -eq [IntPtr]::Zero; $attempt++) {
+            Start-Sleep -Milliseconds 250
+        }
     }
+    Write-Host "Interactive shell window available: $([MarkWriterFixtureShell]::GetShellWindow() -ne [IntPtr]::Zero)"
     $fixtures = Join-Path $env:RUNNER_TEMP 'markwriter-2.7.3-upgrade'
     New-Item -ItemType Directory $fixtures | Out-Null
     $assets = @{
@@ -56,6 +67,13 @@ for ($attempt=0; $attempt -lt 100; $attempt++) {
     Start-Sleep -Milliseconds 200
 }
 if ((Test-Path "$legacyDir/markwriter.exe") -or (Test-Path "$legacyDir/uninstall.exe") -or (Test-Path $uninstall)) {
+    # A direct ordinary-user retry supplies diagnostics for a failed setup launch.
+    # The required installer test still fails even if the diagnostic retry succeeds.
+    $candidate = Join-Path $env:ProgramFiles 'MarkWriter/markwriter.exe'
+    $errorLog = Join-Path $env:RUNNER_TEMP 'markwriter-cleanup-error.txt'
+    $diagnostic = Start-Process -FilePath $candidate -ArgumentList '--retire-legacy-install --quiet' -RedirectStandardError $errorLog -Wait -PassThru
+    Write-Host "Direct ordinary cleanup exit code: $($diagnostic.ExitCode)"
+    Get-Content -LiteralPath $errorLog
     throw 'Setup did not retire the known v2.7.3 user installation.'
 }
 if ((Get-Content "$legacyDir/unowned.txt") -cne 'user file in old folder' -or (Get-Content "$profile/upgrade-sentinel.txt") -cne 'preserve user data') {

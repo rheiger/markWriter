@@ -271,6 +271,8 @@ fn main() {
         }
     };
 
+    #[cfg(target_os = "windows")]
+    let cleanup_error = windows_install::retry_legacy_cleanup().err();
     tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
@@ -296,7 +298,13 @@ fn main() {
         ])
         .setup(move |app| {
             #[cfg(target_os = "windows")]
-            let _ = app.state::<os_open::OpenQueue>().enqueue_argv(std::env::args_os());
+            {
+                let queue = app.state::<os_open::OpenQueue>();
+                let _ = queue.enqueue_argv(std::env::args_os());
+                if let Some(error) = cleanup_error {
+                    let _ = queue.reject_batch(&format!("Legacy Windows installation cleanup could not finish: {error}"));
+                }
+            }
             #[cfg(target_os = "macos")]
             native_menu::install(app.handle())?;
             // Build configured windows here so their production asset responses

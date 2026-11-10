@@ -231,21 +231,40 @@ fn retire_missing_markwrite_association(user: &RegKey, program_files: &Path) -> 
     remove_value(user, command_key, "", &command)
 }
 
+fn installed_dir() -> io::Result<Option<PathBuf>> {
+    let machine = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let Some(installed) = read(&machine, LOCATION, "").map(PathBuf::from) else {
+        return Ok(None);
+    };
+    let running = std::env::current_exe()?;
+    Ok(running
+        .as_os_str()
+        .eq_ignore_ascii_case(installed.join("markwriter.exe").as_os_str())
+        .then_some(installed))
+}
+
+pub fn retry_legacy_cleanup() -> io::Result<()> {
+    if unsafe { IsUserAnAdmin().as_bool() } {
+        return Ok(());
+    }
+    if let Some(installed) = installed_dir()? {
+        clean_user_install(&installed)?;
+    }
+    Ok(())
+}
+
 pub fn retire_legacy_install() -> io::Result<()> {
     if unsafe { IsUserAnAdmin().as_bool() } {
         return Err(io::Error::other(
             "Legacy cleanup requires ordinary user privilege",
         ));
     }
-    let machine = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let installed = read(&machine, LOCATION, "")
-        .map(PathBuf::from)
-        .ok_or_else(|| io::Error::other("Machine installation record missing"))?;
-    if !std::env::current_exe()?.eq(&installed.join("markwriter.exe")) {
-        return Err(io::Error::other(
-            "Legacy cleanup requires the installed executable",
-        ));
-    }
+    let installed = installed_dir()?
+        .ok_or_else(|| io::Error::other("Legacy cleanup requires the installed executable"))?;
+    clean_user_install(&installed)
+}
+
+fn clean_user_install(installed: &Path) -> io::Result<()> {
     let dir = dirs::data_local_dir()
         .ok_or_else(|| io::Error::other("Local AppData unavailable"))?
         .join("MarkWriter");
