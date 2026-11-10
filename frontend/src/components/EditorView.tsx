@@ -186,7 +186,8 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const initialViewState = useRef(initialDocument?.viewState)
   const initialSourceViewport = useRef(initialDocument?.sourceViewportAnchor)
   const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
-  const restoredRenderedScroll = useRef(false)
+  const initialRenderedScrollHandled = useRef(false)
+  const respectRenderedInput = () => { initialRenderedScrollHandled.current = true }
   const restoredPreviewScroll = useRef(false)
   const stopPreviewRestore = useRef<() => void>(() => {})
   const sourceNewline = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.content.includes('\r\n') ? '\r\n' : '\n')
@@ -402,15 +403,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     }
   }, [tiptap, editorMode])
   useEffect(() => {
-    if (!active || editorMode !== 'wysiwyg' || !tiptap || !renderedReady || restoredRenderedScroll.current) return
+    if (!active || editorMode !== 'wysiwyg' || !tiptap || !renderedReady || initialRenderedScrollHandled.current) return
     // Wait for the rendered editor to attach and become measurable. A hidden
     // tab's scroll box would clamp a saved position to zero.
     let stop = () => {}
     const frame = requestAnimationFrame(() => {
       const scroller = wysiwygContainerRef.current
-      if (!scroller || useAppStore.getState().currentDocument?.id !== documentId) return
+      if (initialRenderedScrollHandled.current || !scroller || useAppStore.getState().currentDocument?.id !== documentId) return
       stop = restoreScroll(scroller, tiptap.view.dom, initialViewState.current?.renderedScroll ?? 0)
-      restoredRenderedScroll.current = true
+      initialRenderedScrollHandled.current = true
     })
     return () => { cancelAnimationFrame(frame); stop() }
   }, [active, documentId, editorMode, tiptap, renderedReady])
@@ -1364,7 +1365,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           }}>
             WYSIWYG Editor
           </div>
-          <div ref={wysiwygContainerRef} style={{ position: 'relative', flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
+          <div ref={wysiwygContainerRef} onPointerDownCapture={respectRenderedInput} onWheelCapture={respectRenderedInput}
+            onKeyDownCapture={respectRenderedInput} onTouchStartCapture={respectRenderedInput}
+            style={{ position: 'relative', flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-primary)'}}>
             <EditorContent editor={tiptap} />
             {isEmpty && (
               <div style={{

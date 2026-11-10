@@ -91,28 +91,36 @@ async function launch(){session=(await request('POST','/session',{capabilities:{
 const viewFixture = join(fixture, 'viewport.md')
 await writeFile(viewFixture, '# Start of viewport fixture\n\n' +
   Array.from({ length: 160 }, (_, index) => 'Paragraph ' + index + '\n\n').join('') + 'End of viewport fixture\n')
-const renderedScroll = (target = null) => run(
+const renderedScroll = () => run(
   'const editor=document.querySelector("[data-active=true] .tiptap");const scroller=editor?.parentElement?.parentElement;' +
   'if(!editor?.textContent.includes("End of viewport fixture")||!scroller||scroller.scrollHeight-scroller.clientHeight<1400)return null;' +
-  'if(arguments[0]!==null)scroller.scrollTop=arguments[0];return scroller.scrollTop', target)
+  'return scroller.scrollTop')
+let renderedReadingPosition
 async function verifyViewport(firstOpen) {
  await openDocument(viewFixture, 'viewport.md')
  await mode(false)
  await wait(async()=>await renderedScroll()!==null,'rendered viewport fixture has a scrollable layout')
  if(firstOpen){
   assert.equal(await renderedScroll(),0,'First native Open starts at the top of the document')
-  // Begin with a real pointer interaction so the viewport yields to the reader.
+  // Use native navigation so focus changes and viewport movement match a reader.
   await click('//*[@data-active="true"]//h1[normalize-space(.)="Start of viewport fixture"]')
-  await renderedScroll(1200)
-  await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'ordinary rendered document scrolled')
+  await request('POST',`/session/${session}/actions`,{actions:[{type:'key',id:'reading',
+    actions:[{type:'keyDown',value:'\uE00F'},{type:'keyUp',value:'\uE00F'}]}]})
+  let prior
+  renderedReadingPosition=await wait(async()=>{
+   const top=await renderedScroll()
+   const settled=top>100&&Math.abs(top-prior)<4
+   prior=top
+   return settled&&top
+  },'ordinary Page Down scroll settled')
  } else {
-  await wait(async()=>Math.abs(await renderedScroll()-1200)<4,'reopened native document restores the rendered position')
+  await wait(async()=>Math.abs(await renderedScroll()-renderedReadingPosition)<4,'reopened native document restores the rendered position')
  }
  await closeCurrentDocument()
  if(firstOpen) await wait(async()=>{
   const workspace=JSON.parse(await readFile(join(profile,'workspace.json'),'utf8'))
   const record=workspace.fileViews?.find(file=>file.path.endsWith('viewport.md'))
-  return Math.abs(record?.viewState.renderedScroll-1200)<4
+  return Math.abs(record?.viewState.renderedScroll-renderedReadingPosition)<4
  },'closed rendered reading position persisted')
 }
 async function verifyWrappedSourceViewport() {
