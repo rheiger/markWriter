@@ -1,6 +1,6 @@
 # Windows Explorer preview
 
-The Windows x64 installer bundles this read-only handler for `.md` and `.markdown`. The installer build uses `-DMARKWRITER_BUNDLED=ON` and registers the machine preview class for low-integrity Prevhost. See the current [installation guide](../../docs/install-2.7.4.md).
+The Windows x64 installer bundles this read-only handler for `.md` and `.markdown`. The installer build uses `-DMARKWRITER_BUNDLED=ON` and registers the machine preview class for low-integrity Prevhost. See the current [installation guide](../../docs/install-2.7.5.md).
 
 On x64 Windows with Visual Studio C++ and CMake:
 

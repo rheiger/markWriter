@@ -4,7 +4,7 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.7.4](https://github.com/rheiger/markWriter/releases/tag/v2.7.4) fixes Windows Explorer file opening, bundles the Explorer Markdown preview in the Program Files installer, and remembers where you left off in a document. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify SHA256SUMS. The Mac app and extension have ad hoc seals. Windows packages are unsigned. See [installation, removal and rollback](docs/install-2.7.4.md) and [release notes](docs/releases/2.7.4.md).
+[MarkWriter 2.7.5](https://github.com/rheiger/markWriter/releases/tag/v2.7.5) fixes an intermittent Windows Explorer error when reopening a Markdown file in a running editor. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify SHA256SUMS. The Mac app and extension have ad hoc seals. Windows packages are unsigned. See [installation, removal and rollback](docs/install-2.7.5.md) and [release notes](docs/releases/2.7.5.md).
 
 ## Features
 
