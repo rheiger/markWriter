@@ -1,5 +1,5 @@
 //! Forward Explorer launches before constructing a second editor or opening
-//! the workspace. The first pipe handle remains live across every request.
+//! the workspace. A new listener is created before the previous handle is dropped.
 use std::{
     ffi::OsString,
     hash::{DefaultHasher, Hash, Hasher},
@@ -33,6 +33,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Inbox {
     runtime: Runtime,
+    name: String,
     server: NamedPipeServer,
 }
 
@@ -67,7 +68,11 @@ pub fn connect_or_listen(args: &[OsString]) -> io::Result<Option<Inbox>> {
             Err(error) => Err(error),
         }
     })?;
-    Ok(server.map(|server| Inbox { runtime, server }))
+    Ok(server.map(|server| Inbox {
+        runtime,
+        name,
+        server,
+    }))
 }
 
 async fn forward(name: &str, args: &[OsString]) -> io::Result<()> {
@@ -117,18 +122,18 @@ impl Inbox {
             .spawn(move || {
                 let Self {
                     runtime,
-                    mut server,
+                    name,
+                    server,
                 } = self;
-                runtime.block_on(async move {
-                    loop {
-                        if server.connect().await.is_err() {
-                            sleep(Duration::from_millis(100)).await;
-                            continue;
-                        }
-                        let _ = timeout(Duration::from_secs(2), receive(&mut server, &app)).await;
-                        let _ = server.disconnect();
+                runtime.block_on(serve(&name, server, |paths| {
+                    // Validation and queuing stay in the same path used by the cold launch.
+                    let _ = app.state::<crate::os_open::OpenQueue>().enqueue(paths);
+                    let _ = app.emit("os-open-pending", ());
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.set_focus();
                     }
-                });
+                }));
             })?;
         Ok(())
     }
@@ -211,7 +216,33 @@ fn verify_peer(pid: u32) -> io::Result<()> {
     Ok(())
 }
 
-async fn receive(pipe: &mut NamedPipeServer, app: &AppHandle) -> io::Result<()> {
+async fn serve(name: &str, mut listener: NamedPipeServer, mut on_paths: impl FnMut(Vec<PathBuf>)) {
+    loop {
+        let connected = listener.connect().await;
+        let mut client = listener;
+        // Retain ownership of the pipe name while the next listener is created.
+        // Dropping each used handle also discards its buffered and pending reads.
+        listener = loop {
+            match ServerOptions::new()
+                .reject_remote_clients(true)
+                .create(name)
+            {
+                Ok(next) => break next,
+                Err(_) => sleep(Duration::from_millis(100)).await,
+            }
+        };
+        if connected.is_ok() {
+            let _ = timeout(Duration::from_secs(2), receive(&mut client, &mut on_paths)).await;
+        } else {
+            sleep(Duration::from_millis(100)).await;
+        }
+    }
+}
+
+async fn receive(
+    pipe: &mut NamedPipeServer,
+    on_paths: &mut impl FnMut(Vec<PathBuf>),
+) -> io::Result<()> {
     let mut pid = 0;
     unsafe {
         GetNamedPipeClientProcessId(HANDLE(pipe.as_raw_handle()), &mut pid)
@@ -230,16 +261,10 @@ async fn receive(pipe: &mut NamedPipeServer, app: &AppHandle) -> io::Result<()> 
         .into_iter()
         .map(PathBuf::from)
         .collect();
-    // Validation and queuing stay in the same path used by the cold launch.
-    let _ = app.state::<crate::os_open::OpenQueue>().enqueue(paths);
-    let _ = app.emit("os-open-pending", ());
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
+    on_paths(paths);
     pipe.write_u8(1).await?;
-    // DisconnectNamedPipe discards unread output. Let the client consume the
-    // acknowledgement before this persistent server disconnects its instance.
+    // Let the client consume the acknowledgement before closing its end of
+    // the exchange. The listener for the next request is already available.
     let _ = pipe.read_u8().await?;
     Ok(())
 }
@@ -253,5 +278,58 @@ pub fn show_error(message: &str) {
             windows::core::w!("MarkWriter"),
             MB_ICONERROR,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn repeated_launches_do_not_inherit_reads_from_the_previous_client() {
+        let name = format!(r"\\.\pipe\markwriter-reopen-test-{}", std::process::id());
+        let server = ServerOptions::new()
+            .first_pipe_instance(true)
+            .reject_remote_clients(true)
+            .create(&name)
+            .unwrap();
+        let (send, mut received) = mpsc::unbounded_channel();
+        let service_name = name.clone();
+        let service = tokio::spawn(async move {
+            serve(&service_name, server, move |paths| {
+                send.send(paths).unwrap();
+            })
+            .await;
+        });
+
+        let first = r"C:\MarkWriter test\Zürich.md";
+        let frame = serde_json::to_vec(&[first]).unwrap();
+        let mut client = ClientOptions::new().open(&name).unwrap();
+        client.write_u32(frame.len() as u32).await.unwrap();
+        client.write_all(&frame).await.unwrap();
+        assert_eq!(client.read_u8().await.unwrap(), 1);
+        // The final acknowledgement and unread bytes share a kernel write.
+        // A connection's buffered reads must never reach the next client.
+        client.write_all(&[1, 0, 0, 0, 0]).await.unwrap();
+        drop(client);
+        assert_eq!(received.recv().await.unwrap(), [PathBuf::from(first)]);
+        sleep(Duration::from_millis(100)).await;
+
+        for index in 0..24 {
+            let path = PathBuf::from(format!(r"C:\MarkWriter test\Über {index}.markdown"));
+            let args = [
+                OsString::from("markwriter.exe"),
+                path.clone().into_os_string(),
+            ];
+            timeout(Duration::from_secs(3), forward(&name, &args))
+                .await
+                .unwrap_or_else(|error| panic!("Explorer request {index} timed out: {error}"))
+                .unwrap_or_else(|error| panic!("Explorer request {index} failed: {error}"));
+            assert_eq!(received.try_recv().unwrap(), [path]);
+        }
+
+        assert!(received.try_recv().is_err());
+        service.abort();
     }
 }

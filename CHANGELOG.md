@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.7.5] - 2026-11-17
+
+- Fix intermittent named-pipe error 233 when reopening Markdown files from Windows Explorer in a running MarkWriter window.
+
 ## [2.7.4] - 2026-11-10
 
 - Install Windows x64 MarkWriter under Program Files. Open Markdown files from Explorer in a new or running editor.
