@@ -1,5 +1,5 @@
 //! Forward Explorer launches before constructing a second editor or opening
-//! the workspace. The first pipe handle remains live across every request.
+//! the workspace. A new listener is created before the previous handle is dropped.
 use std::{
     ffi::OsString,
     hash::{DefaultHasher, Hash, Hasher},
@@ -33,6 +33,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Inbox {
     runtime: Runtime,
+    name: String,
     server: NamedPipeServer,
 }
 
@@ -67,7 +68,11 @@ pub fn connect_or_listen(args: &[OsString]) -> io::Result<Option<Inbox>> {
             Err(error) => Err(error),
         }
     })?;
-    Ok(server.map(|server| Inbox { runtime, server }))
+    Ok(server.map(|server| Inbox {
+        runtime,
+        name,
+        server,
+    }))
 }
 
 async fn forward(name: &str, args: &[OsString]) -> io::Result<()> {
@@ -115,8 +120,12 @@ impl Inbox {
         std::thread::Builder::new()
             .name("windows-shell-open".into())
             .spawn(move || {
-                let Self { runtime, server } = self;
-                runtime.block_on(serve(server, |paths| {
+                let Self {
+                    runtime,
+                    name,
+                    server,
+                } = self;
+                runtime.block_on(serve(&name, server, |paths| {
                     // Validation and queuing stay in the same path used by the cold launch.
                     let _ = app.state::<crate::os_open::OpenQueue>().enqueue(paths);
                     let _ = app.emit("os-open-pending", ());
@@ -207,14 +216,26 @@ fn verify_peer(pid: u32) -> io::Result<()> {
     Ok(())
 }
 
-async fn serve(mut server: NamedPipeServer, mut on_paths: impl FnMut(Vec<PathBuf>)) {
+async fn serve(name: &str, mut listener: NamedPipeServer, mut on_paths: impl FnMut(Vec<PathBuf>)) {
     loop {
-        if server.connect().await.is_err() {
+        let connected = listener.connect().await;
+        let mut client = listener;
+        // Retain ownership of the pipe name while the next listener is created.
+        // Dropping each used handle also discards its buffered and pending reads.
+        listener = loop {
+            match ServerOptions::new()
+                .reject_remote_clients(true)
+                .create(name)
+            {
+                Ok(next) => break next,
+                Err(_) => sleep(Duration::from_millis(100)).await,
+            }
+        };
+        if connected.is_ok() {
+            let _ = timeout(Duration::from_secs(2), receive(&mut client, &mut on_paths)).await;
+        } else {
             sleep(Duration::from_millis(100)).await;
-            continue;
         }
-        let _ = timeout(Duration::from_secs(2), receive(&mut server, &mut on_paths)).await;
-        let _ = server.disconnect();
     }
 }
 
@@ -242,8 +263,8 @@ async fn receive(
         .collect();
     on_paths(paths);
     pipe.write_u8(1).await?;
-    // DisconnectNamedPipe discards unread output. Let the client consume the
-    // acknowledgement before this persistent server disconnects its instance.
+    // Let the client consume the acknowledgement before closing its end of
+    // the exchange. The listener for the next request is already available.
     let _ = pipe.read_u8().await?;
     Ok(())
 }
@@ -274,9 +295,13 @@ mod tests {
             .create(&name)
             .unwrap();
         let (send, mut received) = mpsc::unbounded_channel();
-        let service = tokio::spawn(serve(server, move |paths| {
-            send.send(paths).unwrap();
-        }));
+        let service_name = name.clone();
+        let service = tokio::spawn(async move {
+            serve(&service_name, server, move |paths| {
+                send.send(paths).unwrap();
+            })
+            .await;
+        });
 
         let first = r"C:\MarkWriter test\Zürich.md";
         let frame = serde_json::to_vec(&[first]).unwrap();

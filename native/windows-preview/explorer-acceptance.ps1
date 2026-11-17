@@ -299,6 +299,26 @@ try {
     if ($warm.Id -ne $appProcess.Id) { throw 'Warm shell-open did not reuse the editor process' }
     $cases.Add('warm Explorer Open verb opens markdown in the running editor')
     Write-Host "Warm Explorer open reused editor PID $($warm.Id)."
+    $reopen = $fixtures[1]
+    for ($cycle = 1; $cycle -le 12; $cycle++) {
+      $editorRoot = [System.Windows.Automation.AutomationElement]::FromHandle($appProcess.MainWindowHandle)
+      $closeName = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Close $($reopen.Name)")
+      $closeTab = $editorRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $closeName)
+      $invoke = $null
+      if (!$closeTab -or !$closeTab.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+        throw "Could not find the close control for Explorer reopen cycle $cycle"
+      }
+      $invoke.Invoke()
+      for ($poll = 0; $poll -lt 50; $poll++) {
+        if (!$editorRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $closeName)) { break }
+        Start-Sleep -Milliseconds 100
+      }
+      if ($poll -eq 50) { throw "Tab did not close before Explorer reopen cycle $cycle" }
+      $reopened = Open-ThroughExplorer $reopen
+      if ($reopened.Id -ne $appProcess.Id) { throw "Explorer reopen cycle $cycle did not reuse the editor" }
+    }
+    $cases.Add('12 Explorer close and reopen cycles reuse the editor and display exact Markdown')
     Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
   } elseif ($resolvedApp) {
     $appProcess = Start-Process -FilePath $resolvedApp -PassThru
