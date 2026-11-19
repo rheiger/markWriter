@@ -12,4 +12,6 @@ MarkWriter is a Rust/Tauri 2, React and TypeScript desktop Markdown editor. The 
 
 ## Development
 
+Before setup or development on a new machine, follow [development environment setup](docs/development-setup.md): inspect first, install only missing prerequisites, verify the baseline, and use an isolated profile with synthetic documents.
+
 Use Node 24+, the pinned frontend lockfile and the Rust version in `src-tauri/Cargo.toml`. Run the frontend tests, lint and build for frontend changes, relevant Rust tests for native changes, and inspect CI workflows for platform/package gates. Keep issues and documentation aligned with evidence and current scope. Existing release notes are historical and should not be rewritten.

@@ -17,20 +17,21 @@ Markdown is canonical. Navigation and view changes preserve its bytes; actual WY
 
 ## Build and develop
 
+Start with [development environment setup](docs/development-setup.md) for machine checks, minimal installation, locked dependencies and an isolated desktop profile. The same guide applies to human developers and AI agents.
+
 Use Node.js 24 or newer, npm 9 or newer, Rust 1.90 or newer and the platform’s Tauri prerequisites. See [CI](.github/workflows/v2-ci.yml) for platform dependencies.
 
 ```sh
-npm install
 npm --prefix frontend ci
 npm run frontend:test
 npm run frontend:lint
 npm run frontend:build
-npm run tauri:test
+(cd src-tauri && cargo test --locked)
 ```
 
 On Windows x64, run `pwsh -File tools/stage-windows-preview.ps1` from the repository root before native tests or bundles. This step uses CMake and Visual Studio C++ to stage the bundled Explorer handler.
 
-For native development, run `npm run frontend:dev` and, in another terminal, `cd frontend && npm exec tauri dev`. For a native bundle, build the frontend first, then run `cd frontend && npm exec tauri build`. A browser-only server does not provide native file dialogs, storage or menus.
+For native development and a debug build without installation, follow the [isolated desktop launch and build instructions](docs/development-setup.md#5-launch-with-isolated-preferences-and-recovery). They use the pinned frontend Tauri CLI without a global CLI installation. A browser-only server does not provide native file dialogs, storage or menus.
 
 ## Project information
 
