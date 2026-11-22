@@ -33,6 +33,14 @@ On Windows x64, run `pwsh -File tools/stage-windows-preview.ps1` from the reposi
 
 For native development and a debug build without installation, follow the [isolated desktop launch and build instructions](docs/development-setup.md#5-launch-with-isolated-preferences-and-recovery). They use the pinned frontend Tauri CLI without a global CLI installation. A browser-only server does not provide native file dialogs, storage or menus.
 
+## How we track work
+
+MarkWriter uses [GitHub Issues](https://github.com/rheiger/markWriter/issues) as its public backlog. One repository keeps reports, implementation, and verification together. The legacy GitHub Project serves as a historical reference.
+
+- Open or update an issue for a bug or feature. Include the affected version and platform, reproduction steps or expected behavior, and any remaining work. Use labels such as `bug`, `enhancement`, and `high priority` to make the backlog easier to scan. Use a milestone when work is committed to a release.
+- Link the issue from the [pull request](https://github.com/rheiger/markWriter/pulls) and record what was tested. Use `Fixes #…` when the PR resolves the full issue. For partial work, link the PR and summarize what remains in the issue.
+- Review [GitHub Actions](https://github.com/rheiger/markWriter/actions) before merging and record shipped changes in the release notes. CI and packaging use GitHub-hosted runners. Record installed-app or physical desktop checks separately when they are needed.
+
 ## Project information
 
 [Changelog](CHANGELOG.md) · [Release notes](docs/releases/) · [Architecture](docs/architecture.md) · [Document ownership](docs/document-ownership.md) · [Preview correspondence](docs/preview-correspondence.md) · [Project guidance](AGENTS.md)
