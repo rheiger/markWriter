@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
-import { readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export async function verifyExternalFiles({ dir, run, click, wait, mode, action, snapshot }) {
   const filename = 'External Grüße.md'
-  const path = join(dir, filename)
-  const replacement = join(dir, 'replacement.tmp')
+  const fixtureRoot = join(dir, 'external-recovery-'.padEnd(93, 'x'))
+  await mkdir(fixtureRoot)
+  const path = join(fixtureRoot, filename)
+  const replacement = join(fixtureRoot, 'replacement.tmp')
   const copy = join(dir, 'External copy.md')
   const initial = '# External Grüße\n\nDisk version A.\n'
   const changed = initial.replace('version A', 'version B')

@@ -40,9 +40,10 @@
 
 .error-message {
   flex: 1;
+  min-width: 0;
   font-size: 0.9rem;
   line-height: 1.4;
-  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .error-close {
