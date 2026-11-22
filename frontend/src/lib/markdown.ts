@@ -6,7 +6,7 @@ import TurndownService from 'turndown'
 // @ts-expect-error plugin has no bundled declarations
 import { gfm } from 'turndown-plugin-gfm'
 import { mapTokens, type MapOwner, type PreviewMap } from './sourceMap'
-import { createCodeHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE } from './codeHighlight'
+import { createCodeHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE, TOML_FALLBACK_NOTICE } from './codeHighlight'
 
 const markdown = new MarkdownIt({ html: false, linkify: true })
 markdown.use(markdownItIns).use(taskLists)
@@ -58,12 +58,15 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   }
   const highlight = env?.highlightCode as ReturnType<typeof createCodeHighlighter> | undefined
   if (notation !== 'mermaid') {
-    let fallback = false
+    let fallback: 'sql' | 'toml' | undefined
     const html = fence(tokens, index, { ...options, highlight: highlight ? (code, language) => {
-      const result = highlight(code, language); fallback = !!result.fallback
+      const result = highlight(code, language)
+      if (result.fallback) fallback = result.language === 'toml' ? 'toml' : 'sql'
       return highlightedHtml(code, result)
     } : null }, env, renderer)
-    return fallback ? html.replace('<pre>', `<pre data-sql-fallback="${SQL_FALLBACK_NOTICE}" title="${SQL_FALLBACK_NOTICE}" aria-description="${SQL_FALLBACK_NOTICE}">`) : html
+    if (!fallback) return html
+    const notice = fallback === 'toml' ? TOML_FALLBACK_NOTICE : SQL_FALLBACK_NOTICE
+    return html.replace('<pre>', `<pre data-${fallback}-fallback="${notice}" title="${notice}" aria-description="${notice}">`)
   }
   const source = markdown.utils.escapeHtml(token.content)
   return `<div data-type="mermaid" data-chart="${source}">${source}</div>\n`
@@ -75,7 +78,7 @@ markdown.renderer.rules.code_block = (tokens, index, _options, env) => {
   return `<pre><code>${highlight ? highlightedHtml(code, highlight(code)) : markdown.utils.escapeHtml(code)}</code></pre>\n`
 }
 export function renderMarkdownHtml(source: string, highlighting = true): string {
-  return markdown.render(source, { source, highlightCode: createCodeHighlighter(highlighting) })
+  return markdown.render(source, { source, highlightCode: createCodeHighlighter(highlighting, 'rendered') })
 }
 
 // Mapping is opt-in and never used by export or the editable document codec.
@@ -108,7 +111,7 @@ for (const type of ['fence', 'code_block']) {
   }
 }
 export function renderMappedMarkdown(source: string, owner: MapOwner, highlighting = true): PreviewMap {
-  const env = { source, highlightCode: createCodeHighlighter(highlighting) }
+  const env = { source, highlightCode: createCodeHighlighter(highlighting, 'rendered') }
   const tokens = markdown.parse(source, env)
   const map = mapTokens(source, tokens, owner, text => markdown.utils.unescapeAll(text))
   map.html = mappedRenderer.render(tokens, markdown.options, env)
