@@ -40,12 +40,12 @@ describe('File Operations', () => {
     ;(useAppStore as any).mockReturnValue(mockStore)
   })
 
-  it('should render file operation buttons', () => {
+  it('exposes accessible names for file operation buttons', () => {
     render(<Toolbar editorViewRef={mockEditorRef} />)
     
-    expect(screen.getByTitle('Open')).toBeInTheDocument()
-    expect(screen.getByTitle('Save')).toBeInTheDocument()
-    expect(screen.getByTitle('Save As')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save As' })).toBeInTheDocument()
   })
 
   it('should handle open file operation', async () => {
