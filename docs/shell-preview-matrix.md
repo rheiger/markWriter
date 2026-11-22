@@ -19,6 +19,9 @@ The type observations below were made with `UTType(filenameExtension:)` on macOS
 | `.h` | `public.c-header`; declared in candidate | Literal source, C grammar. Headers are ambiguous and are not inferred as C++ | Color observed in VM; see record below |
 | `.cpp` | `public.c-plus-plus-source`; declared in candidate | Literal source, C++ grammar | Color observed in VM; see record below |
 | `.js` | `com.netscape.javascript-source`; declared in candidate | Literal source, JavaScript grammar | Color observed in VM; see record below |
+| `.mjs` | `com.netscape.javascript-source` on macOS 27.2.1 (26B131), arm64; shared with `.js` | Literal source, JavaScript grammar | Syntax color in Finder Space on macOS 27.2.1 |
+| `.tsx` | `com.microsoft.typescript` on macOS 27.2.1 (26B131), arm64; preview extension only | Literal source, TypeScript grammar | Syntax color in Finder Space on macOS 27.2.1 |
+| `.ts` | `public.mpeg-2-transport-stream` on macOS 27.2.1 (26B131), arm64; movie type omitted | Declined before reading even if another type declaration routes it here | macOS movie preview and existing Open With handler preserved |
 | `.css` | `public.css`; declared in candidate | Literal source, CSS grammar | Color observed in VM; see record below |
 | Other extensions sharing a declared type | Depends on host | Unsupported extension yields escaped literal text; `.cfg` and `.config` are declined | Not claimed |
 
@@ -37,6 +40,16 @@ On macOS 26.6.2 (25G83), arm64, in a disposable VM, Finder Space selected the bu
 During rapid selection, JavaScript and CSS previews appeared plain and the extension logged a `renderer busy` fallback. The log omits the filename for that event. A fresh isolated JavaScript preview showed colors.
 
 After upgrading to the sealed app at source head `c902f0f8a7fb40327a3150ea52447cbed39b19b5`, Finder selected a separately sealed test provider cloned from v2.7.2 with a distinct ID and a narrow `public.yaml` registration. The selected process ran from the test bundle and showed plain literal YAML. After exact-path removal of that test provider, the candidate stayed registered and showed the same YAML with syntax colors in light and dark appearances. A simple block/list sample took the formatted route with colors in dark appearance. After restoring v2.7.2 at the original path, Finder again showed plain literal YAML. The input fixture checksums matched throughout.
+
+## Finder TSX and JavaScript modules
+
+On macOS 27.2.1 (26B131), arm64, XCTest exercised Finder Space on synthetic files from an isolated test folder. The installed test DMG used the published 2.8.2 editor host and the rebuilt 2.9.1 Quick Look extension. The app and extension passed strict ad hoc seal checks after extraction. The editor's Mach-O code section matched the published app. The extension was built from the #90 runtime changes against main at `27c661fab45cb6e3efcfa310a86db91adef00ad9`. The test DMG SHA-256 was `46de8ca6a8062af3997db8bd56717208b2ae3ee0b65fa84ef010c592da7e4c14`, and the extension executable SHA-256 was `a8b92f0382b0af10ef2f0ee284e6969991425ce06322231f1a54264ffa4cb450`.
+
+Finder showed TypeScript and JavaScript syntax color for `.tsx` and `.mjs` in Light and Dark, with literal markup, Unicode and a unique final comment visible. The Dark checks passed with the editor both open and closed. Renderer completion events came from the installed `com.markwriter.app.quicklook` extension executable under the isolated app path. Rapid selection ended on the correct third file. Invalid UTF-8 and a 1,140,000-byte file displayed the expected notices. Finder showed its generic card for the unknown suffix. Dark appearance was restored.
+
+The competing fixture extension served `.tsx` while MarkWriter served `.mjs`; each reply matched the exact executable path in the logs. The competing provider also served `.tsx` after the candidate was removed. Same-path replacement of the published 2.8.2 app with the candidate enabled both highlighted previews. Rolling back to 2.8.2 restored plain `.tsx` and the literal-text notice for `.mjs`. Both test extensions were unregistered during cleanup. All 25 fixture checksums matched.
+
+The default Open With application stayed the same for `.tsx`, `.mjs` and `.ts` through registration, coexistence, replacement, rollback and removal. Finder kept macOS movie preview for a synthetic MPEG transport stream. `.tsx` coverage is established on this host, where LaunchServices already declares `com.microsoft.typescript`. Hosts with a different type mapping and the final PI package remain to be qualified.
 
 ## Remaining Finder acceptance
 

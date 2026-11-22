@@ -144,7 +144,8 @@ describe('standalone Finder language markers', () => {
   it.each([
     ['c', 'int main(void) { return 42; }'],
     ['cpp', 'int main() { return 42; }'],
-    ['javascript', 'const answer = 42;'],
+    ['javascript', 'export const answer = "Grüße & 日本語";'],
+    ['typescript', 'export const Badge = (label: string) => <span>{label}</span>;'],
     ['css', 'body { color: red; }'],
     ['yaml', 'defaults: &base {enabled: true}\ncopy: *base\nscript: "<script>&"'],
   ])('enriches escaped %s text without changing or executing it', async (language, source) => {
