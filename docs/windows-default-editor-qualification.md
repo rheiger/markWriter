@@ -6,20 +6,20 @@ Stage the following files together in a directory writable by the test account i
 
 - `tools/test-windows-offline-rollback.ps1`
 - `MarkWriter-2.8.2-windows-x64.exe` and its published Windows manifest renamed to `manifest-2.8.2.json`
-- `MarkWriter-2.9.2-windows-x64.exe` and its matching Windows manifest renamed to `manifest-2.9.2.json`
+- `MarkWriter-<candidate>-windows-x64.exe` and its matching Windows manifest renamed to `manifest-<candidate>.json`. Replace `<candidate>` with the exact integrated candidate version.
 
-Close any existing MarkWriter windows and the Explorer Preview pane inside the guest. In ordinary Windows PowerShell inside the guest, change into the staging directory. Run the following command once for each phase, replacing `Prepare` with the phase name below. Approve UAC from the guest console for install, uninstall, and the synthetic fixture operations.
+Close any existing MarkWriter windows and the Explorer Preview pane inside the guest. In ordinary Windows PowerShell inside the guest, change into the staging directory. Run the following command once for each phase, replacing `Prepare` with the phase name below and `2.9.2` with the candidate version. Use the same version for every phase. It must be a numeric `major.minor.patch` version newer than 2.8.2. Approve UAC from the guest console for install, uninstall, and the synthetic fixture operations.
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\test-windows-offline-rollback.ps1 -ConfirmOfflineGuest -Phase Prepare
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\test-windows-offline-rollback.ps1 -ConfirmOfflineGuest -CandidateVersion 2.9.2 -Phase Prepare
 
 | Phase | Guest console action |
 | --- | --- |
 | Prepare | Qualify the installed 2.8.2 package or install it over an older copy. In the app opened by the helper, check the version in About. Type the short draft printed by the helper in an empty unsaved document. Keep the app window open and return to the PowerShell prompt. A failed first Prepare can be retried after closing the synthetic editor. The helper archives the failed first receipt before retrying. The helper verifies the isolated workspace and stops that exact test process so the dirty draft remains on disk. |
-| Baseline | Choose a competing text editor for `.md` in **Settings → Apps → Default apps**. Then double-click the named synthetic fixture in Explorer and report the actual editor and eight-character code. |
+| Baseline | Choose a competing text editor for `.md` in **Settings → Apps → Default apps**. Then double-click the named synthetic fixture in Explorer. Enter the eight-character code from the editor. At the next prompt, enter the app name shown in Default apps and confirm it is the app that displayed the fixture. |
 | Upgrade | Install the candidate, verify the draft in the reopened isolated app, then open the named fixture from Explorer and type the code only if the baseline editor displays it. A failed observation can resume from the same verified candidate. |
 | Remove | Approve the uninstall prompts. The helper holds its own read handle on the candidate preview DLL for the first attempt and releases it before retrying. Open the named Explorer fixture after each attempt and enter the code if the baseline editor displays it. |
 | Rollback | Reinstall 2.8.2, repeat the normal Explorer Open and confirm the isolated draft. Observe the Preview pane separately and report the heading it displays for the saved fixture. |
 
 The helper reads the current and legacy per-user choice locations and checks the effective Windows Shell ProgID before and after each ordinary Explorer Open. If the guest has no independent preview registration, it adds a synthetic current-user `.markdown` preview value so preservation can be checked separately from the actual `.md` preview. The synthetic value is a registry fixture. It has no implementing preview process. Restoring the guest checkpoint removes test state.
 
-Collect `state/receipt.json` from the staging directory before reverting. The receipt contains synthetic file hashes, the package and source identifiers, the competing editor and its ProgID, and per-phase observations. It omits the protected registry hash and personal profile contents. Stop on a failed phase and collect its receipt and the console error before retrying from a clean checkpoint. The hosted installed-package lifecycle is a separate verification path.
+Collect `state/receipt.json` from the staging directory before reverting. The receipt contains synthetic file hashes, the package and source identifiers, the competing editor and its ProgID, and per-phase observations. It omits the protected registry hash and personal profile contents. Stop on a failed phase and collect its receipt and the console error before retrying from a clean checkpoint. Keep earlier qualification receipts for their original packages. Start the integrated repeat from a clean guest checkpoint with a fresh staging directory. The hosted installed-package lifecycle is a separate verification path.

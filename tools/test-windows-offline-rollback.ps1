@@ -1,8 +1,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('Prepare','Baseline','Upgrade','Remove','Rollback')][string]$Phase,
+    [Parameter(Mandatory)][ValidatePattern('\A(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){2}\z')][string]$CandidateVersion,
     [switch]$ConfirmOfflineGuest
 )
+
+$baseline = '2.8.2'
+if ([version]$CandidateVersion -le [version]$baseline) {
+    throw "The candidate must be newer than the $baseline rollback baseline."
+}
 
 $ErrorActionPreference = 'Stop'
 $machine = Get-CimInstance Win32_ComputerSystem
@@ -19,8 +25,6 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) 
     throw 'Run from ordinary, non-elevated PowerShell in the signed-in guest desktop.'
 }
 
-$baseline = '2.8.2'
-$candidate = '2.9.2'
 $statePath = Join-Path $PSScriptRoot 'state'
 $receiptPath = Join-Path $statePath 'receipt.json'
 $profile = Join-Path $statePath 'profile'
@@ -201,13 +205,8 @@ function Observe-ExplorerOpen($State, $Label) {
     Start-Process explorer.exe -ArgumentList ('"{0}"' -f $fixture)
     Write-Host "In Explorer, double-click $Label-89.md normally. Check which editor opened the file."
     $editor = $State.editor
-    if (!$editor) {
-        $editor = (Read-Host 'Name of the editor that actually displayed the file').Trim()
-        if (!$editor -or $editor -match 'MarkWriter|Open With') {
-            throw 'Expected an independent editor to display the fixture.'
-        }
-    } else {
-        Write-Host 'Only enter the code if the same editor as at Baseline displayed the fixture.'
+    if ($editor) {
+        Write-Host "Only enter the code if $editor displayed the fixture."
     }
     $matchedCode = $false
     for ($attempt = 1; $attempt -le 3; $attempt++) {
@@ -219,6 +218,12 @@ function Observe-ExplorerOpen($State, $Label) {
     }
     if (!$matchedCode -or (Get-Hash $file) -ne $hash) {
         throw 'The competing editor did not display the exact unchanged fixture.'
+    }
+    if (!$editor) {
+        $editor = (Read-Host 'Type the app name shown in Default apps that displayed this file').Trim()
+        if (!$editor -or $editor -match 'MarkWriter|Open With|\A[0-9a-f]{8}\z') {
+            throw 'Enter the competing app name shown in Windows Settings.'
+        }
     }
     $after = Read-MarkdownChoice
     if ($after.ProgId -cne $choice.ProgId -or $after.Hash -cne $choice.Hash -or $after.Source -cne $choice.Source -or
@@ -253,10 +258,13 @@ if ($Phase -eq 'Prepare') {
     $package = Read-Package $baseline
     New-Item -ItemType Directory -Path $statePath, $fixture, $profile | Out-Null
     $state = @{ schemaVersion = 1; phase = ''; os = $os.Caption; build = $os.BuildNumber; architecture = 'x64'
-                passed = $false; operations = @(); editor = $null; editorProgId = $null }
+                candidateVersion = $CandidateVersion; passed = $false; operations = @(); editor = $null; editorProgId = $null }
 } else {
     $state = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     if ($state.phase -cne $expectedPrevious[$Phase]) { throw "Expected the previous phase to be $($expectedPrevious[$Phase])." }
+    if ($state.candidateVersion -cne $CandidateVersion) {
+        throw 'Use the candidate version recorded by Prepare. Start from the guest checkpoint to test a different candidate.'
+    }
 }
 
 try {
@@ -276,7 +284,7 @@ try {
             Observe-ExplorerOpen $state 'baseline'
         }
         Upgrade {
-            $package = Read-Package $candidate
+            $package = Read-Package $CandidateVersion
             if ($state.candidate) {
                 Assert-MarkWriterClosed
                 Assert-Installed $package
@@ -291,7 +299,7 @@ try {
                 Assert-PreservedFiles $state
                 $state | Add-Member -NotePropertyName candidate -NotePropertyValue (Package-Receipt $package)
             }
-            Exercise-Recovery $candidate
+            Exercise-Recovery $CandidateVersion
             $state.workspaceSha256 = Get-Hash $workspace
             Assert-PreviewAssociations $state
             Observe-ExplorerOpen $state 'upgraded'
