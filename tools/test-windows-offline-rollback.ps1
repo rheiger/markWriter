@@ -36,7 +36,7 @@ $unowned = Join-Path $install 'markwriter-89-unowned.txt'
 $clsid = '{8360D352-56CE-4C43-A12E-A73CF9D10214}'
 $iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 $server = "HKLM:\Software\Classes\CLSID\$clsid\InprocServer32"
-$draft = '# MarkWriter 89 isolated recovery draft'
+$draft = 'mw89draft'
 
 function Get-Hash($Path) {
     (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -91,7 +91,9 @@ function Install-Package($Package) {
 function Assert-DraftOnDisk {
     $snapshot = Get-Content -LiteralPath $workspace -Raw | ConvertFrom-Json
     $active = $snapshot.documents | Where-Object id -eq $snapshot.activeId
-    if (!$active.isDirty -or $active.content -cne $draft) { throw 'The isolated workspace has no matching active dirty draft.' }
+    if (!$active.isDirty -or ([string]$active.content).TrimEnd([char[]]@([char]13, [char]10)) -cne $draft) {
+        throw 'The isolated workspace has no matching active dirty draft.'
+    }
 }
 function Exercise-Recovery($Version, [switch]$Seed) {
     Assert-MarkWriterClosed
@@ -102,7 +104,7 @@ function Exercise-Recovery($Version, [switch]$Seed) {
 
     Write-Host "In the isolated MarkWriter window confirm About shows $Version, then close About."
     if ($Seed) {
-        Write-Host "Create a new unsaved document in Markdown source mode containing exactly this line, then wait two seconds:"
+        Write-Host "In the empty editor, type the short draft shown below, then wait two seconds:"
     } else {
         Write-Host 'Confirm the active recovered document still contains exactly this line and shows as unsaved:'
     }
@@ -153,7 +155,7 @@ function Observe-ExplorerOpen($State, $Label) {
     if ($State.editorProgId -and $choice.ProgId -cne $State.editorProgId) { throw 'The selected editor ProgID changed.' }
 
     $file = Join-Path $fixture "$Label-89.md"
-    $sentinel = [guid]::NewGuid().ToString('N')
+    $sentinel = [guid]::NewGuid().ToString('N').Substring(0, 8)
     [IO.File]::WriteAllText($file, "# MarkWriter 89 $Label" + [Environment]::NewLine + $sentinel)
     $hash = Get-Hash $file
     Start-Process explorer.exe -ArgumentList ('"{0}"' -f $fixture)
@@ -162,7 +164,7 @@ function Observe-ExplorerOpen($State, $Label) {
     if (!$editor -or $editor -match 'MarkWriter|Open With' -or ($State.editor -and $editor -ine $State.editor)) {
         throw 'Expected the same independent editor to display the fixture.'
     }
-    if ((Read-Host 'Paste the second line displayed by that editor') -cne $sentinel -or (Get-Hash $file) -ne $hash) {
+    if ((Read-Host 'Type the eight-character code shown in the editor') -cne $sentinel -or (Get-Hash $file) -ne $hash) {
         throw 'The competing editor did not display the exact unchanged fixture.'
     }
     $after = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md\UserChoice'
@@ -184,7 +186,16 @@ function Package-Receipt($Package) {
 
 $expectedPrevious = @{ Baseline = 'Prepare'; Upgrade = 'Baseline'; Remove = 'Upgrade'; Rollback = 'Remove' }
 if ($Phase -eq 'Prepare') {
-    if (Test-Path -LiteralPath $statePath) { throw 'This test directory already contains state. Keep its evidence and use a fresh guest checkpoint for a new run.' }
+    if (Test-Path -LiteralPath $statePath) {
+        Assert-MarkWriterClosed
+        $previous = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+        if ($previous.failurePhase -cne 'Prepare' -or $previous.phase) {
+            throw 'Existing state is not a failed first Prepare. Preserve it and use the guest checkpoint for a clean restart.'
+        }
+        $archive = 'state-prepare-failed-' + [guid]::NewGuid().ToString('N')
+        Rename-Item -LiteralPath $statePath -NewName $archive
+        Write-Host "Preserved the failed Prepare receipt in $archive."
+    }
     $package = Read-Package $baseline
     New-Item -ItemType Directory -Path $statePath, $fixture, $profile | Out-Null
     $state = @{ schemaVersion = 1; phase = ''; os = $os.Caption; build = $os.BuildNumber; architecture = 'x64'

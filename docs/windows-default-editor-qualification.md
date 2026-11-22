@@ -14,10 +14,10 @@ Close any existing MarkWriter windows and the Explorer Preview pane inside the g
 
 | Phase | Guest console action |
 | --- | --- |
-| Prepare | Qualify the installed 2.8.2 package or install it over an older copy. In the app opened by the helper, check the version in About. Create a new unsaved document and switch to Markdown source mode. Enter the exact draft printed by the helper. Keep the app window open and return to the PowerShell prompt. The helper verifies the isolated workspace and stops that exact test process so the dirty draft remains on disk. |
-| Baseline | Choose a competing text editor for `.md` in **Settings → Apps → Default apps**. Then double-click the named synthetic fixture in Explorer and report the actual editor and second line. |
+| Prepare | Qualify the installed 2.8.2 package or install it over an older copy. In the app opened by the helper, check the version in About. Type the short draft printed by the helper in an empty unsaved document. Keep the app window open and return to the PowerShell prompt. A failed first Prepare can be retried after closing the synthetic editor. The helper archives the failed first receipt before retrying. The helper verifies the isolated workspace and stops that exact test process so the dirty draft remains on disk. |
+| Baseline | Choose a competing text editor for `.md` in **Settings → Apps → Default apps**. Then double-click the named synthetic fixture in Explorer and report the actual editor and eight-character code. |
 | Upgrade | Install the candidate, verify the draft in the reopened isolated app, then open the named fixture from Explorer. |
-| Remove | Approve the uninstall prompts. The helper holds its own read handle on the candidate preview DLL for the first attempt and releases it before retrying. Open the named Explorer fixture after each attempt and report its editor and second line. |
+| Remove | Approve the uninstall prompts. The helper holds its own read handle on the candidate preview DLL for the first attempt and releases it before retrying. Open the named Explorer fixture after each attempt and report its editor and eight-character code. |
 | Rollback | Reinstall 2.8.2, repeat the normal Explorer Open and confirm the isolated draft. Observe the Preview pane separately and report the heading it displays for the saved fixture. |
 
 The helper reads the protected user choice before and after each ordinary Explorer Open. If the guest has no independent preview registration, it adds a synthetic current-user `.markdown` preview value so preservation can be checked separately from the actual `.md` preview. The synthetic value is a registry fixture. It has no implementing preview process. Restoring the guest checkpoint removes test state.
