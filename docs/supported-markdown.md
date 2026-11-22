@@ -6,6 +6,10 @@ MarkWriter supports common Markdown and GFM tables, tasks, fenced code, Mermaid 
 
 Find and Replace is scoped to the current document. Source mode searches Markdown, including folded content; rendered mode searches editable text and excludes opaque diagram interiors. See [regular-expression search](regex-search.md) for syntax, limits and replacement behavior. The source and rendered editor fonts are independent display settings.
 
+### Explicit Java, Perl, AWK and CMake fences
+
+Use `java`, `perl` (or `pl`), `awk` or `cmake` as the fence label to highlight these languages in both editors, Preview and offline HTML export. Labels are case-insensitive. The standard limit is 4,096 UTF-16 code units per fence and 2,048 per line, with a shared 16,384-unit budget for ordinary fences. `sed` and fences that exceed these limits remain readable as plain text.
+
 ### Large explicit SQL fences
 
 Both editors, Preview and HTML export can highlight one explicitly labeled SQL fence up to 131,072 UTF-16 code units. Explicit SQL shares that budget across the document. Each line can contain up to 2,048 UTF-16 code units and each fence can produce up to 24,576 styled spans. The highlighter considers at most 64 code blocks per document pass. If a bound is exceeded, the affected SQL remains readable as literal source with a highlighting notice. Source bytes and edit history stay with the document.

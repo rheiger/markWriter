@@ -195,10 +195,10 @@ try{
  // hiding later languages. No test bridge, editor commands or store calls.
  const syntaxSource=await readFile(join(root,'tools/fixtures/code-highlighting-alpha3.md'),'utf8')
  const syntaxBlocks=codeFixtureCases(syntaxSource)
- assert.equal(syntaxBlocks.length,26,'All requested language/alias/plain/detection fixture cases')
+ assert.equal(syntaxBlocks.length,31,'All requested language/alias/plain/detection fixture cases')
  await syntaxHighlighting(true,'toolbar')
  for(const [index,block] of syntaxBlocks.entries()){
-  const info=block[1],code=block[2],highlighted=!['plaintext','unknown'].includes(info)&&!(info===''&&code==='x = 1')
+  const info=block[1],code=block[2],highlighted=!['plaintext','unknown','sed'].includes(info)&&!(info===''&&code==='x = 1')
   const title=`code-case-${String(index+1).padStart(2,'0')}.md`,path=join(fixture,title)
   await writeFile(path,block[0]+'\n');await openDocument(path,title)
   await codePresentation(code,highlighted,true,'installed source/Preview '+(info||'automatic')+' case '+(index+1))
@@ -206,7 +206,7 @@ try{
   alpha3CodeCases.push({index:index+1,info,highlighted,source:true,preview:true,rendered:true})
   await closeCurrentDocument()
  }
- cases.push('ordinary OS Open of26 code fixtures,19 language variants, aliases/plain/unknown/detection, both editors and Preview')
+ cases.push('ordinary OS Open of 31 code fixtures, 23 language variants, aliases/plain/unknown/detection, both editors and Preview')
  const syntaxOriginal=join(fixture,'syntax-original.md'),syntaxCycled=join(fixture,'syntax-view-cycles.md')
  await writeFile(syntaxOriginal,syntaxSource);await openDocument(syntaxOriginal,'syntax-original.md');await mode(true)
  await wait(()=>run('return !!document.querySelector("[data-active=true] .cm-content [class*=hljs-]")'),'highlighted installed source')

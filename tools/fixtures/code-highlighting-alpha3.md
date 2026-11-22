@@ -185,3 +185,36 @@ app: main.o util.o
 #import <Foundation/Foundation.h>
 int main(void) { @autoreleasepool { NSLog(@"hello"); } return 0; }
 ```
+
+## Java
+
+```java
+public class Example { String text = "世界😀<tag>&"; }
+```
+
+## Perl alias
+
+```pl
+my $message = "Welt";
+print $message;
+```
+
+## AWK
+
+```awk
+BEGIN { print "example"; }
+$1 ~ /test/ { print $0; }
+```
+
+## CMake
+
+```cmake
+cmake_minimum_required(VERSION 3.24)
+message(STATUS "example")
+```
+
+## Unsupported sed
+
+```sed
+s/example/replacement/g
+```
