@@ -2,6 +2,7 @@ import { verifyRegex } from './regex-acceptance.mjs'
 // Real desktop WebView + production store/IPC acceptance. Node 24; no npm packages.
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
+import { verifyExternalFiles } from './external-file-acceptance.mjs'
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
 import { tomlEditorFixture } from './toml-fixtures.mjs'
@@ -517,6 +518,8 @@ try {
   assert.equal((await snapshot()).document.content, controlsAfterEdit)
   await theme('Dark')
   alpha3Cases.push('native HTML export captures syntax preference and embeds escaped static token CSS')
+  const externalFiles = await verifyExternalFiles({ dir: fixtureDir, run, click, wait: waitFor, mode, action, snapshot })
+  alpha3Cases.push(...externalFiles.cases)
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   await mode('Markdown')
@@ -536,6 +539,24 @@ try {
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
   const restored = await snapshot()
+  const conflict = externalFiles.restart
+  const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
+  assert.equal(recoveredFile.path, undefined)
+  assert.equal(recoveredFile.content, conflict.recovery)
+  assert.equal(recoveredFile.isDirty, true)
+  assert.deepEqual(await readFile(conflict.path), Buffer.from(conflict.external))
+  alpha3Cases.push('external conflict restart retains draft and disk bytes independently')
+  await writeFile(join(artifacts, 'external-file-evidence.json'), JSON.stringify({ platform: process.platform,
+    cases: externalFiles.cases, detection: externalFiles.detection, restartConflict: true },null,2))
+  await waitFor(async () => {
+    if ((await snapshot()).error) {
+      if (await run("return !!document.querySelector('button[aria-label=\"Close error\"]')")) {
+        await click('//button[@aria-label="Close error"]')
+      }
+      return false
+    }
+    return true
+  }, 'external conflict recovery report acknowledged')
   assert.equal(restored.config.fontSize,18)
   assert.equal(restored.config.syncPreview,true)
   assert.equal(restored.config.wrapContinuation,true)

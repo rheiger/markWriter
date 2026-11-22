@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
-import { useAppStore, confirmDiscardChanges, registerActiveViewCapture } from './useAppStore'
+import { flushWorkspace, watchWorkspace } from '../lib/persistence'
+import { useAppStore, confirmDiscardChanges, registerActiveViewCapture, saveCopyWithDialog, watchOpenDocuments } from './useAppStore'
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }))
+const desktop = vi.hoisted(() => ({ active: false }))
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => desktop.active }))
 const call = vi.mocked(invoke)
-const initial = { id: 'one', title: 'One', content: '# Before', path: '/one.md', isDirty: false, lastModified: new Date() }
+const initial = { id: 'one', title: 'One', content: '# Before', savedContent: '# Before', path: '/one.md', isDirty: false, lastModified: new Date() }
 const state = () => useAppStore.getState()
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => {
+  desktop.active = false
   call.mockReset()
   vi.mocked(save).mockReset()
   call.mockImplementation(async (command, args: any) => command === 'canonical_document_path' ? args.path : {})
-  useAppStore.setState({ documents: [], fileViews: [], currentDocument: null, isLoading: false, error: null, pendingClose: null })
+  useAppStore.setState({ documents: [], fileViews: [], currentDocument: null, isLoading: false, error: null, pendingClose: null, pendingDiskReload: null })
   state().setCurrentDocument({ ...initial })
 })
 describe('document ownership and file races', () => {
@@ -148,5 +151,180 @@ describe('document ownership and file races', () => {
     const close = state().closeDocument('one'); state().pendingClose!.resolve('discard')
     expect(await close).toBe(true)
     expect(state().documents.map(d => d.id)).toEqual(['two'])
+  })
+})
+
+describe('external file changes', () => {
+  it('reports a background tab change without altering either editor buffer', async () => {
+    state().updateDocumentContent('Unsaved original')
+    state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md', content: 'Other' })
+    call.mockResolvedValueOnce('changed')
+    await state().refreshDocumentDisk('one')
+    expect(call).toHaveBeenCalledWith('monitor_document_disk', { path: '/one.md', expected: '# Before' })
+    expect(state().currentDocument).toMatchObject({ id: 'two', content: 'Other' })
+    expect(state().documents[0]).toMatchObject({ id: 'one', content: 'Unsaved original', diskIssue: 'changed', isDirty: true })
+    call.mockResolvedValueOnce('missing')
+    await state().refreshDocumentDisk('one')
+    expect(state().documents[0].diskIssue).toBe('missing')
+    call.mockResolvedValueOnce('unchanged')
+    await state().refreshDocumentDisk('one')
+    expect(state().documents[0].diskIssue).toBeUndefined()
+    expect(state().documents[0].content).toBe('Unsaved original')
+  })
+
+  it('stops scheduled reads after close, cycles through owners, and skips transient work on unmount', async () => {
+    vi.useFakeTimers()
+    state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md' })
+    let finish!: (result: unknown) => void
+    call.mockImplementation(async (command, args: any) =>
+      command !== 'monitor_document_disk' ? {} : args.path === '/one.md' ? 'unchanged' : new Promise(resolve => { finish = resolve }))
+    const stop = watchOpenDocuments()
+    try {
+      await vi.advanceTimersByTimeAsync(500)
+      expect(call).toHaveBeenNthCalledWith(1, 'monitor_document_disk', { path: '/one.md', expected: '# Before' })
+      expect(await state().closeDocument('one')).toBe(true)
+      await vi.advanceTimersByTimeAsync(500)
+      expect(call).toHaveBeenNthCalledWith(2, 'monitor_document_disk', { path: '/two.md', expected: '# Before' })
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(call).toHaveBeenCalledTimes(2)
+      stop()
+      finish('changed')
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(call).toHaveBeenCalledTimes(2)
+      expect(state().currentDocument?.diskIssue).toBeUndefined()
+    } finally { stop(); vi.useRealTimers() }
+  })
+
+  it('guards native Save As through a picker alias to the owned filename', async () => {
+    state().updateDocumentContent('Draft')
+    call.mockImplementation(async (command, args: any) => {
+      if (command === 'canonical_document_path') {
+        expect(args.ownedPaths).toEqual(['/one.md'])
+        return '/one.md'
+      }
+      if (command === 'save_document') throw { diskState: 'changed' }
+      return {}
+    })
+    expect(await state().saveDocumentAs('/alias/one.md')).toBe(false)
+    expect(call).toHaveBeenCalledWith('save_document', { id: 'one', path: '/one.md', expected: '# Before', content: 'Draft' })
+    expect(call).not.toHaveBeenCalledWith('save_document_as', expect.anything())
+    expect(state().currentDocument).toMatchObject({ diskIssue: 'changed', isDirty: true, content: 'Draft', savedContent: '# Before' })
+  })
+
+  it('uses the guarded save for Save All and the Save actions in Close and Quit', async () => {
+    state().updateDocumentContent('Draft')
+    call.mockRejectedValue({ diskState: 'missing' })
+    expect(await state().saveAll()).toBe(false)
+    const close = state().closeDocument('one')
+    state().pendingClose!.resolve('save')
+    expect(await close).toBe(false)
+    const quit = confirmDiscardChanges()
+    state().pendingClose!.resolve('save')
+    expect(await quit).toBe(false)
+    expect(call.mock.calls.map(([command]) => command)).toEqual(['save_document', 'save_document', 'save_document'])
+    expect(state().currentDocument).toMatchObject({ diskIssue: 'missing', isDirty: true, content: 'Draft' })
+  })
+
+  it('reports a rejected disk read result and preserves explicitly confirmed drafts on failure', async () => {
+    state().updateDocumentContent('Draft')
+    const doc = state().currentDocument!
+    call.mockRejectedValueOnce('unreadable')
+    expect(await state().reloadDocument(doc)).toBe(false)
+    expect(call).not.toHaveBeenCalled()
+    expect(await state().reloadDocument(doc, true)).toBe(false)
+    expect(state().currentDocument).toMatchObject({ diskIssue: 'unreadable', content: 'Draft', isDirty: true })
+  })
+
+  it('re-reads at explicit reload and invalidates an old confirmation after a newer edit', async () => {
+    state().updateDocumentContent('Discarded draft')
+    const captured = state().currentDocument!
+    let finish!: (result: string) => void
+    call.mockImplementationOnce(async () => new Promise(resolve => { finish = resolve }))
+    const loading = state().reloadDocument(captured, true)
+    state().updateDocumentContent('Newer draft')
+    finish('First disk content')
+    expect(await loading).toBe(false)
+    expect(state().currentDocument?.content).toBe('Newer draft')
+    call.mockResolvedValueOnce('Latest disk content')
+    expect(await state().reloadDocument(state().currentDocument!, true)).toBe(true)
+    expect(state().currentDocument).toMatchObject({ id: 'one', path: '/one.md', content: 'Latest disk content',
+      savedContent: 'Latest disk content', reloadCount: 1, isDirty: false })
+    expect(state().currentDocument?.diskIssue).toBeUndefined()
+  })
+
+  it('commits the approved reload in memory before writing recovery and rejects old engine callbacks', async () => {
+    desktop.active = true
+    state().updateDocumentContent('Draft before reload')
+    let rejected!: (reason: string) => void
+    call.mockImplementation(async command => {
+      if (command === 'read_document_disk') return 'Fresh disk content'
+      if (command === 'save_workspace') return new Promise((_, reject) => { rejected = reject })
+      return {}
+    })
+    const pending = state().reloadDocument(state().currentDocument!, true)
+    await tick()
+    expect(state().currentDocument).toMatchObject({ content: 'Fresh disk content', reloadCount: 1, isDirty: false })
+    state().updateDocumentContent('Stale editor callback', 'one', 0)
+    expect(state().currentDocument?.content).toBe('Fresh disk content')
+    state().updateDocumentContent('Edit on the new baseline', 'one', 1)
+    rejected('Disk full')
+    expect(await pending).toBe(true)
+    expect(state().currentDocument).toMatchObject({ content: 'Edit on the new baseline', isDirty: true })
+    expect(state().error).toContain('recovery storage could not be updated')
+  })
+
+  it('does not postpone dirty recovery writes for disk-status-only updates', async () => {
+    desktop.active = true
+    vi.useFakeTimers()
+    call.mockImplementation(async command => command === 'monitor_document_disk' ? 'changed' : {})
+    const stop = watchWorkspace()
+    try {
+      state().updateDocumentContent('Persist this draft')
+      await vi.advanceTimersByTimeAsync(300)
+      await state().refreshDocumentDisk('one')
+      await vi.advanceTimersByTimeAsync(100)
+      expect(call).toHaveBeenCalledWith('save_workspace', {
+        value: expect.objectContaining({ documents: [expect.objectContaining({ content: 'Persist this draft' })] }),
+      })
+      const persisted = call.mock.calls.find(([command]) => command === 'save_workspace')?.[1] as { value: { documents: object[] } }
+      expect(persisted.value.documents[0]).not.toHaveProperty('diskIssue')
+    } finally { stop(); await flushWorkspace(); vi.useRealTimers() }
+  })
+
+  it('ignores an earlier scan that completes after its owner has saved', async () => {
+    let finish!: (result: string) => void
+    call.mockImplementationOnce(async () => new Promise(resolve => { finish = resolve }))
+    const monitor = state().refreshDocumentDisk('one')
+    await state().saveDocument()
+    finish('missing')
+    await monitor
+    expect(state().currentDocument?.diskIssue).toBeUndefined()
+  })
+
+  it('uses the latest saved baseline for queued same-path writes', async () => {
+    let finish!: (result: unknown) => void
+    call.mockImplementationOnce(async () => new Promise(resolve => { finish = resolve }))
+    state().updateDocumentContent('First edit')
+    const first = state().saveDocument()
+    state().updateDocumentContent('Second edit')
+    const second = state().saveDocument()
+    finish({ path: '/one.md' })
+    expect(await first).toBe(true)
+    expect(await second).toBe(true)
+    expect(call).toHaveBeenLastCalledWith('save_document', { id: 'one', path: '/one.md', expected: 'First edit', content: 'Second edit' })
+    expect(state().currentDocument).toMatchObject({ savedContent: 'Second edit', isDirty: false })
+  })
+
+  it('declines an owned copy path and preserves the original ownership and dirty state', async () => {
+    state().updateDocumentContent('Draft')
+    const doc = state().currentDocument!
+    vi.mocked(save).mockResolvedValueOnce(null)
+    expect(await saveCopyWithDialog(doc)).toBe(false)
+    expect(call).not.toHaveBeenCalled()
+    expect(await state().saveDocumentCopy(doc, '/one.md')).toBe(false)
+    expect(call).not.toHaveBeenCalledWith('save_document_copy', expect.anything())
+    expect(await state().saveDocumentCopy(doc, '/copy.md')).toBe(true)
+    expect(call).toHaveBeenCalledWith('save_document_copy', { path: '/copy.md', content: 'Draft' })
+    expect(state().currentDocument).toMatchObject({ id: 'one', path: '/one.md', content: 'Draft', isDirty: true })
   })
 })
