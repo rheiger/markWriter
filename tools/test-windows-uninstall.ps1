@@ -80,3 +80,6 @@ try {
         Remove-Item -LiteralPath $competingKey
     }
 }
+
+# Continue on the same disposable host after the legacy installation cycle.
+& "$PSScriptRoot/test-windows-rollback.ps1"
