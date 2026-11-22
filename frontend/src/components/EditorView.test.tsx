@@ -987,6 +987,47 @@ describe('large SQL preview scheduling', () => {
   }, 15000)
 })
 
+it('cancels a pending large TOML Preview when switching tabs and renders the edited revision on return', async () => {
+  useAppStore.setState({ documents: [], currentDocument: null, error: null })
+  const code = Array.from({ length: 115 }, (_, n) => `row_${n} = "${'x'.repeat(1000)}"\n`).join('')
+  const source = '```toml\n' + code + 'initial_marker = true\n```\n'
+  const { ref, container } = await mount(source)
+  await markdown(ref)
+  const activePreview = () => container.querySelector('[data-active="true"] .markwriter-preview')
+  const keys = () => Array.from(activePreview()?.querySelectorAll('.hljs-attr') ?? [], node => node.textContent)
+  await waitFor(() => expect(keys()).toContain('initial_marker'))
+  expect(ref.current!.getMarkdown()).toBe(source)
+
+  const position = source.indexOf('initial_marker')
+  const nextSource = source.replace('initial_marker', 'pending_marker')
+  const renderer = await import('../lib/markdown')
+  const render = vi.spyOn(renderer, 'renderMappedMarkdown')
+  try {
+    const view = ref.current!.getEditorView()!
+    vi.useFakeTimers()
+    act(() => {
+      view.dispatch({ changes: { from: position, to: position + 'initial_marker'.length, insert: 'pending_marker' } })
+      useAppStore.getState().setCurrentDocument({
+        id: 'other-toml', title: 'Other', content: 'Active tab text', isDirty: false, lastModified: new Date(),
+      })
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+    expect(render.mock.calls.some(([content]) => content === nextSource)).toBe(false)
+  } finally {
+    vi.useRealTimers()
+    render.mockRestore()
+  }
+  await markdown(ref)
+  await waitFor(() => expect(activePreview()?.textContent).toContain('Active tab text'))
+  expect(activePreview()?.textContent).not.toContain('pending_marker')
+  expect(useAppStore.getState().documents.find(doc => doc.id === 'doc-1')?.content).toBe(nextSource)
+
+  act(() => useAppStore.getState().activateDocument('doc-1'))
+  await markdown(ref)
+  await waitFor(() => expect(keys()).toContain('pending_marker'))
+  expect(ref.current!.getMarkdown()).toBe(nextSource)
+}, 15000)
+
 describe('rendered Undo canonical source', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
   it.each(['\n', '\r\n'])('restores exact bytes and clean state after a rendered SQL edit (newline %j)', async newline => {
