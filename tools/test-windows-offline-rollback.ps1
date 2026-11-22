@@ -151,11 +151,46 @@ function Assert-PreservedFiles($State) {
         throw 'The synthetic saved file or isolated workspace changed during the package operation.'
     }
 }
+function Read-MarkdownChoice {
+    $root = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md'
+    $latest = Get-ItemProperty -LiteralPath "$root\UserChoiceLatest\ProgId" -ErrorAction SilentlyContinue
+    $protected = Get-ItemProperty -LiteralPath "$root\UserChoiceLatest" -ErrorAction SilentlyContinue
+    $legacy = Get-ItemProperty -LiteralPath "$root\UserChoice" -ErrorAction SilentlyContinue
+    $progId = $latest.ProgId
+    if (!$progId) { $progId = Read-DefaultValue "$root\UserChoiceLatest\ProgId" }
+    if (!$progId) { $progId = $protected.ProgId }
+    if ($progId) {
+        $hash = if ($latest.Hash) { $latest.Hash } elseif ($protected.Hash) { $protected.Hash }
+        return @{ ProgId = $progId; Hash = $hash; Source = 'UserChoiceLatest' }
+    }
+    if ($legacy.ProgId -and $legacy.Hash) {
+        return @{ ProgId = $legacy.ProgId; Hash = $legacy.Hash; Source = 'UserChoice' }
+    }
+}
+function Read-EffectiveMarkdownProgId {
+    if (!('MarkWriter89Shell' -as [type])) {
+        Add-Type @'
+using System.Runtime.InteropServices;
+using System.Text;
+public static class MarkWriter89Shell {
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    public static extern int AssocQueryStringW(uint flags, uint kind, string association, string extra, StringBuilder result, ref uint length);
+}
+'@
+    }
+    [uint32]$length = 32768
+    $result = [Text.StringBuilder]::new([int]$length)
+    # ASSOCSTR_PROGID, with flags 0 to include the user's effective choice.
+    $status = [MarkWriter89Shell]::AssocQueryStringW(0, 20, '.md', $null, $result, [ref]$length)
+    if ($status -ne 0) { throw ('Windows Shell could not resolve .md (HRESULT 0x{0:x8}).' -f $status) }
+    $result.ToString()
+}
 function Observe-ExplorerOpen($State, $Label) {
-    $choice = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md\UserChoice' -ErrorAction SilentlyContinue
-    if (!$choice.ProgId -or !$choice.Hash -or $choice.ProgId -match 'MarkWriter|OpenWith') {
-        $current = if ($choice.ProgId) { $choice.ProgId } else { '(no explicit .md choice)' }
-        throw "Select a competing editor for .md through Settings > Apps > Default apps. Current choice: $current"
+    $choice = Read-MarkdownChoice
+    $effective = Read-EffectiveMarkdownProgId
+    if (!$choice.ProgId -or $choice.ProgId -match 'MarkWriter|OpenWith' -or $choice.ProgId -ine $effective) {
+        $explicit = if ($choice.ProgId) { $choice.ProgId } else { '(no explicit .md choice found)' }
+        throw "Expected the Settings choice to match the effective .md association. Recorded choice: $explicit; Shell: $effective."
     }
     if ($State.editorProgId -and $choice.ProgId -cne $State.editorProgId) { throw 'The selected editor ProgID changed.' }
 
@@ -172,11 +207,12 @@ function Observe-ExplorerOpen($State, $Label) {
     if ((Read-Host 'Type the eight-character code shown in the editor') -cne $sentinel -or (Get-Hash $file) -ne $hash) {
         throw 'The competing editor did not display the exact unchanged fixture.'
     }
-    $after = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md\UserChoice'
-    if ($after.ProgId -cne $choice.ProgId -or $after.Hash -cne $choice.Hash) { throw 'Explorer opening changed the user choice.' }
+    $after = Read-MarkdownChoice
+    if ($after.ProgId -cne $choice.ProgId -or $after.Hash -cne $choice.Hash -or $after.Source -cne $choice.Source -or
+        (Read-EffectiveMarkdownProgId) -ine $effective) { throw 'Explorer opening changed the user choice.' }
     if (!$State.editor) { $State.editor = $editor; $State.editorProgId = $choice.ProgId }
     $State.operations += @{ phase = $Label; editor = $editor; progId = $choice.ProgId
-                            explorerDisplayedExactFixture = $true; fixtureSha256 = $hash }
+                            explorerDisplayedExactFixture = $true; fixtureSha256 = $hash; choiceSource = $choice.Source }
 }
 function Save-Receipt($State) {
     $temp = "$receiptPath.tmp"
