@@ -126,6 +126,10 @@ function Read-PreviewAssociations {
     }
 }
 function Initialize-PreviewFixture($State) {
+    if ($State.PSObject.Properties['competingPreviewRegistrations']) {
+        Assert-PreviewAssociations $State
+        return
+    }
     if (!(Read-PreviewAssociations)) {
         $key = "HKCU:\Software\Classes\SystemFileAssociations\.markdown\shellex\$iid"
         if (Test-Path -LiteralPath $key) { throw 'A preview registration occupies the synthetic fixture slot.' }
@@ -150,7 +154,8 @@ function Assert-PreservedFiles($State) {
 function Observe-ExplorerOpen($State, $Label) {
     $choice = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md\UserChoice' -ErrorAction SilentlyContinue
     if (!$choice.ProgId -or !$choice.Hash -or $choice.ProgId -match 'MarkWriter|OpenWith') {
-        throw 'Select a competing editor for .md through Settings > Apps > Default apps first.'
+        $current = if ($choice.ProgId) { $choice.ProgId } else { '(no explicit .md choice)' }
+        throw "Select a competing editor for .md through Settings > Apps > Default apps. Current choice: $current"
     }
     if ($State.editorProgId -and $choice.ProgId -cne $State.editorProgId) { throw 'The selected editor ProgID changed.' }
 
@@ -293,6 +298,7 @@ try {
         }
     }
     $state.phase = $Phase
+    if ($state.PSObject.Properties['failurePhase']) { $state.PSObject.Properties.Remove('failurePhase') }
     Save-Receipt $state
     Write-Host "Recorded $Phase in $receiptPath."
 } catch {
