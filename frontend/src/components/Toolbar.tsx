@@ -243,13 +243,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
     <div className="toolbar">
       {/* File Operations */}
       <div className="toolbar-section">
-        <button className="toolbar-btn" onClick={handleOpen} title="Open">
+        <button className="toolbar-btn" onClick={handleOpen} aria-label="Open" title="Open">
           📁
         </button>
-        <button className="toolbar-btn" onClick={handleSave} title="Save">
+        <button className="toolbar-btn" onClick={handleSave} aria-label="Save" title="Save">
           💾
         </button>
-        <button className="toolbar-btn" onClick={handleSaveAs} title="Save As">
+        <button className="toolbar-btn" onClick={handleSaveAs} aria-label="Save As" title="Save As">
           💾✏️
         </button>
       </div>
