@@ -200,9 +200,14 @@ function Observe-ExplorerOpen($State, $Label) {
     $hash = Get-Hash $file
     Start-Process explorer.exe -ArgumentList ('"{0}"' -f $fixture)
     Write-Host "In Explorer, double-click $Label-89.md normally. Check which editor opened the file."
-    $editor = Read-Host 'Name of the editor that actually displayed the file'
-    if (!$editor -or $editor -match 'MarkWriter|Open With' -or ($State.editor -and $editor -ine $State.editor)) {
-        throw 'Expected the same independent editor to display the fixture.'
+    $editor = $State.editor
+    if (!$editor) {
+        $editor = (Read-Host 'Name of the editor that actually displayed the file').Trim()
+        if (!$editor -or $editor -match 'MarkWriter|Open With') {
+            throw 'Expected an independent editor to display the fixture.'
+        }
+    } else {
+        Write-Host 'Only enter the code if the same editor as at Baseline displayed the fixture.'
     }
     if ((Read-Host 'Type the eight-character code shown in the editor') -cne $sentinel -or (Get-Hash $file) -ne $hash) {
         throw 'The competing editor did not display the exact unchanged fixture.'
@@ -264,9 +269,20 @@ try {
         }
         Upgrade {
             $package = Read-Package $candidate
-            Install-Package $package
-            Assert-PreservedFiles $state
-            $state | Add-Member -NotePropertyName candidate -NotePropertyValue (Package-Receipt $package)
+            if ($state.candidate) {
+                Assert-MarkWriterClosed
+                Assert-Installed $package
+                if ($state.failurePhase -cne 'Upgrade' -or $state.candidate.installerSha256 -ne $package.installerSha256 -or
+                    $state.candidate.executableSha256 -ne $package.executableSha256 -or
+                    $state.candidate.installedPreviewSha256 -ne (Get-Hash $preview)) {
+                    throw 'The recorded upgrade cannot safely be resumed.'
+                }
+                Assert-PreservedFiles $state
+            } else {
+                Install-Package $package
+                Assert-PreservedFiles $state
+                $state | Add-Member -NotePropertyName candidate -NotePropertyValue (Package-Receipt $package)
+            }
             Exercise-Recovery $candidate
             $state.workspaceSha256 = Get-Hash $workspace
             Assert-PreviewAssociations $state
