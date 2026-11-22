@@ -97,7 +97,35 @@ describe('large TOML in Preview and HTML export', () => {
     expect(createCodeHighlighter(true)(code, 'toml').ranges).toEqual([])
   })
 
-  it('keeps complete source at the size boundary and visibly falls back beyond content, line and span limits', async () => {
+  it('highlights at most 4096 TOML lines without dropping text from denser blocks', async () => {
+    const atLimit = '# dense row\n'.repeat(4095) + 'line_limit_marker = true\n'
+    const aboveLimit = atLimit + '# final unstyled row\n'
+    for (const doc of await renderedToml(tomlFence(atLimit))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(atLimit)
+      expect(block.querySelector('.hljs-attr')?.textContent).toBe('line_limit_marker')
+      expect(block.hasAttribute('data-toml-fallback')).toBe(false)
+    }
+    for (const doc of await renderedToml(tomlFence(aboveLimit))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(aboveLimit)
+      expect(block.querySelector('.hljs-attr')).toBeNull()
+      expect(block.hasAttribute('data-toml-fallback')).toBe(true)
+    }
+  })
+
+  it('uses a bounded preflight for syntax-heavy TOML with only a few lines', async () => {
+    const punctuation = ('# ' + '[,]'.repeat(600) + '\n').repeat(5)
+    const code = punctuation + 'final_dense_toml = true\n'
+    for (const doc of await renderedToml(tomlFence(code))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(code)
+      expect(block.querySelector('[class*="hljs-"]')).toBeNull()
+      expect(block.hasAttribute('data-toml-fallback')).toBe(true)
+    }
+  })
+
+  it('keeps complete source at the size boundary and visibly falls back beyond size and line-length limits', async () => {
     const padding = Array.from({ length: 127 }, () => '#'.padEnd(1023, 'x') + '\n').join('')
     const fenceLimit = 128 * 1024
     const tail = 'boundary_marker = true\n'
@@ -114,10 +142,11 @@ describe('large TOML in Preview and HTML export', () => {
     const rejected = [
       atLimit.replace('#x', '#xx'),
       `text = "${'x'.repeat(2048)}"\n`,
-      'a = 1\n'.repeat(6500),
     ]
     for (const doc of await renderedToml(rejected.map(tomlFence).join(''))) {
-      for (const [index, block] of [...doc.querySelectorAll('pre')].entries()) {
+      const blocks = [...doc.querySelectorAll('pre')]
+      expect(blocks).toHaveLength(rejected.length)
+      for (const [index, block] of blocks.entries()) {
         expect(block.querySelector('code')?.textContent).toBe(rejected[index])
         expect(block.querySelector('.hljs-attr')).toBeNull()
         expect(block.hasAttribute('data-toml-fallback')).toBe(true)

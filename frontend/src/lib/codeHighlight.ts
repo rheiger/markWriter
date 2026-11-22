@@ -37,6 +37,8 @@ export const CODE_LIMIT = 4 * 1024
 export const LONG_CODE_LIMIT = 16 * 1024
 export const SQL_CODE_LIMIT = 128 * 1024
 const RENDERED_TOML_LIMIT = 128 * 1024
+const RENDERED_TOML_LINE_LIMIT = 4096
+const RENDERED_TOML_MARKER_LIMIT = 8192
 const RENDERED_TOML_SPAN_LIMIT = 12 * 1024
 export const AUTO_LIMIT = 2 * 1024
 const LINE_LIMIT = 2 * 1024
@@ -78,8 +80,21 @@ function codeLanguage(info: string) {
   return Object.hasOwn(aliases, word) ? aliases[word] : word
 }
 const longerGrammar = (language: string) => language === 'python' || language === 'json' || language === 'toml'
-function linesWithinLimit(code: string) {
-  return !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
+function linesWithinLimit(code: string, maxLines?: number) {
+  const lines = code.split(/\r\n?|\n/, maxLines === undefined ? undefined : maxLines + 2)
+  const count = lines.length - Number(lines[lines.length - 1] === '')
+  return (maxLines === undefined || count <= maxLines) && !lines.some(line => line.length > LINE_LIMIT)
+}
+
+function renderedTomlMarkerCount(code: string, limit: number): number | null {
+  // Count possible grammar matches before Lowlight builds its token tree.
+  // This also counts punctuation and words inside quoted values and comments.
+  const marker = /[[\]{},="'#;$]|\b(?:\d|true\b|false\b|on\b|off\b|yes\b|no\b)/gi
+  let count = 0
+  while (marker.test(code)) {
+    if (++count > limit) return null
+  }
+  return count
 }
 function eligible(code: string, language: string, longer = longerGrammar(language)) {
   const limit = language === 'sql' ? SQL_CODE_LIMIT : longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
@@ -128,15 +143,20 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
 export function createCodeHighlighter(enabled: boolean, surface: 'editor' | 'rendered' = 'editor') {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
   let sqlRemaining = SQL_CODE_LIMIT
-  let tomlRemaining = RENDERED_TOML_LIMIT, tomlSpansRemaining = RENDERED_TOML_SPAN_LIMIT
+  let tomlRemaining = RENDERED_TOML_LIMIT
+  let tomlMarkersRemaining = RENDERED_TOML_MARKER_LIMIT, tomlSpansRemaining = RENDERED_TOML_SPAN_LIMIT
   return (code: string, info = ''): CodeHighlight => {
     const language = codeLanguage(info), longer = longerGrammar(language)
     if (!enabled) return plain
     blocks--
     if (surface === 'rendered' && language === 'toml') {
       if (!code.length) return plain
-      if (blocks < 0 || code.length > tomlRemaining || !tomlSpansRemaining || !linesWithinLimit(code)) return tomlFallback
+      if (blocks < 0 || code.length > tomlRemaining || !tomlSpansRemaining ||
+          !linesWithinLimit(code, RENDERED_TOML_LINE_LIMIT)) return tomlFallback
+      const markers = renderedTomlMarkerCount(code, tomlMarkersRemaining)
+      if (markers === null) return tomlFallback
       tomlRemaining -= code.length
+      tomlMarkersRemaining -= markers
       const result = highlightEligibleCode(code, language, RENDERED_TOML_SPAN_LIMIT, tomlFallback)
       if (result.ranges.length > tomlSpansRemaining) return tomlFallback
       tomlSpansRemaining -= result.ranges.length
