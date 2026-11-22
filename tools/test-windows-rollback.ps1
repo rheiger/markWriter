@@ -63,7 +63,7 @@ $server = "$machine\CLSID\$clsid\InprocServer32"
 $competingKey = "$machine\SystemFileAssociations\.markdown\shellex\$iid"
 $competing = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'
 $editorKey = "$user\.markdown"
-$editorId = 'MarkWriter.RollbackFixtureEditor.' + [guid]::NewGuid().ToString('N')
+$editorId = 'MW.Rollback.' + [guid]::NewGuid().ToString('N').Substring(0, 16)
 $editorClass = "$user\$editorId"
 $editorCommand = '"{0}\System32\notepad.exe" "%1"' -f $env:WINDIR
 $editorClassOwned = $false
@@ -152,7 +152,7 @@ try {
     $savedHash = Get-Sha256 $document
     $receipt.savedDocumentSha256 = $savedHash
 
-    if ((Read-DefaultValue $editorKey) -or (Test-Path -LiteralPath $editorClass) -or (Read-DefaultValue $competingKey) -ine $clsid) {
+    if ($null -ne (Read-DefaultValue $editorKey) -or (Test-Path -LiteralPath $editorClass) -or (Read-DefaultValue $competingKey) -ine $clsid) {
         throw 'The competing editor and preview fixture needs an unoccupied disposable registration.'
     }
     New-Item -Path "$editorClass\shell\open\command" -Force | Out-Null
