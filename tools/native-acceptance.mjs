@@ -540,8 +540,11 @@ try {
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
   await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error?.includes("External changes:")'),
     'external conflict recovery report')
-  await click('//button[@aria-label="Close error"]')
-  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report acknowledged')
+  await waitFor(() => run(`const message = document.querySelector('.error-toast.visible .error-message');
+    const bounds = message?.getBoundingClientRect();
+    return !!bounds && bounds.left >= 0 && bounds.right <= innerWidth && message.textContent.includes('External changes:');`),
+    'visible external conflict recovery report')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report expired')
   const restored = await snapshot()
   const conflict = externalFiles.restart
   const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
