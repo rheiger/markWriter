@@ -32,6 +32,15 @@ export function tomlEditorFixture() {
   return { blocks, source }
 }
 
+export function tomlLargeRenderedFixture() {
+  const marker = 'large_toml_start', finalMarker = 'large_toml_final'
+  const code = tomlDocument(125, 910, 'large_toml')
+  return {
+    blocks: [{ language: 'toml', marker, finalMarker, code }],
+    source: '# Large TOML rendering\n\n```toml\n' + code + '\n```\n',
+  }
+}
+
 export function tomlStandaloneFixture() {
   return tomlDocument(125, 820, 'standalone_toml')
 }

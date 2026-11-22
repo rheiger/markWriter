@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createHtmlExport } from './htmlExport'
+import { renderMappedMarkdown } from './markdown'
 import { LONG_CODE_LIMIT, createCodeHighlighter, createQuickLookHighlighter, highlightCode, highlightedHtml } from './codeHighlight'
 
 const toml = `# Example configuration
@@ -63,5 +65,96 @@ describe('explicit TOML highlighting', () => {
     expect(highlightCode(toml, 'plaintext').ranges).toEqual([])
     expect(highlightCode('x'.repeat(LONG_CODE_LIMIT + 1), 'toml').ranges).toEqual([])
     expect(highlightCode(toml).language).not.toBe('toml')
+  })
+})
+
+function tomlFence(code: string) {
+  return '```toml\n' + code + '```\n'
+}
+
+async function renderedToml(source: string, highlighting = true) {
+  const owner = { documentId: 'toml', revision: 1, generation: 1 }
+  const preview = renderMappedMarkdown(source, owner, highlighting).html
+  const exported = await createHtmlExport(source, 'toml:1:export', highlighting)
+  return [preview, exported].map(html => new DOMParser().parseFromString(html, 'text/html'))
+}
+
+describe('large TOML in Preview and HTML export', () => {
+  it('highlights more than 110 KiB through the final key and preserves every code character', async () => {
+    const value = 'Zürich 日本語 & <configured>'.repeat(8)
+    const code = Array.from({ length: 600 }, (_, index) => `key_${index} = "${value}"\n`).join('') +
+      'final_large_toml = true\n'
+    expect(new TextEncoder().encode(code).length).toBeGreaterThan(110 * 1024)
+    expect(code.length).toBeLessThan(128 * 1024)
+
+    const source = tomlFence(code)
+    for (const doc of await renderedToml(source)) {
+      expect(doc.querySelector('pre code')?.textContent).toBe(code)
+      expect([...doc.querySelectorAll('.hljs-attr')].map(node => node.textContent)).toContain('final_large_toml')
+      expect(doc.querySelector('pre[data-toml-fallback]')).toBeNull()
+      expect(doc.querySelector('script')).toBeNull()
+    }
+    expect(createCodeHighlighter(true)(code, 'toml').ranges).toEqual([])
+  })
+
+  it('highlights at most 4096 TOML lines without dropping text from denser blocks', async () => {
+    const atLimit = '# dense row\n'.repeat(4095) + 'line_limit_marker = true\n'
+    const aboveLimit = atLimit + '# final unstyled row\n'
+    for (const doc of await renderedToml(tomlFence(atLimit))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(atLimit)
+      expect(block.querySelector('.hljs-attr')?.textContent).toBe('line_limit_marker')
+      expect(block.hasAttribute('data-toml-fallback')).toBe(false)
+    }
+    for (const doc of await renderedToml(tomlFence(aboveLimit))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(aboveLimit)
+      expect(block.querySelector('.hljs-attr')).toBeNull()
+      expect(block.hasAttribute('data-toml-fallback')).toBe(true)
+    }
+  })
+
+  it('uses a bounded preflight for syntax-heavy TOML with only a few lines', async () => {
+    const punctuation = ('# ' + '[,]'.repeat(600) + '\n').repeat(5)
+    const code = punctuation + 'final_dense_toml = true\n'
+    for (const doc of await renderedToml(tomlFence(code))) {
+      const block = doc.querySelector('pre')!
+      expect(block.querySelector('code')?.textContent).toBe(code)
+      expect(block.querySelector('[class*="hljs-"]')).toBeNull()
+      expect(block.hasAttribute('data-toml-fallback')).toBe(true)
+    }
+  })
+
+  it('keeps complete source at the size boundary and visibly falls back beyond size and line-length limits', async () => {
+    const padding = Array.from({ length: 127 }, () => '#'.padEnd(1023, 'x') + '\n').join('')
+    const fenceLimit = 128 * 1024
+    const tail = 'boundary_marker = true\n'
+    const atLimit = padding + '#'.padEnd(fenceLimit - padding.length - tail.length - 1, 'x') + '\n' + tail
+    expect(atLimit.length).toBe(fenceLimit)
+    for (const doc of await renderedToml(tomlFence(atLimit) + tomlFence('over_document_budget = true\n'))) {
+      const [large, remainder] = Array.from(doc.querySelectorAll('pre'))
+      expect(large.querySelector('code')?.textContent).toBe(atLimit)
+      expect([...large.querySelectorAll('.hljs-attr')].map(node => node.textContent)).toContain('boundary_marker')
+      expect(remainder.querySelector('code')?.textContent).toBe('over_document_budget = true\n')
+      expect(remainder.hasAttribute('data-toml-fallback')).toBe(true)
+    }
+
+    const rejected = [
+      atLimit.replace('#x', '#xx'),
+      `text = "${'x'.repeat(2048)}"\n`,
+    ]
+    for (const doc of await renderedToml(rejected.map(tomlFence).join(''))) {
+      const blocks = [...doc.querySelectorAll('pre')]
+      expect(blocks).toHaveLength(rejected.length)
+      for (const [index, block] of blocks.entries()) {
+        expect(block.querySelector('code')?.textContent).toBe(rejected[index])
+        expect(block.querySelector('.hljs-attr')).toBeNull()
+        expect(block.hasAttribute('data-toml-fallback')).toBe(true)
+      }
+    }
+    for (const doc of await renderedToml(tomlFence(rejected[1]), false)) {
+      expect(doc.querySelector('pre code')?.textContent).toBe(rejected[1])
+      expect(doc.querySelector('pre[data-toml-fallback]')).toBeNull()
+    }
   })
 })

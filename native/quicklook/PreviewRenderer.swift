@@ -64,7 +64,8 @@ enum PreviewRenderer {
         // Headers are ambiguous; treat .h as C without inferring its contents.
         case "h": return source(text, language: "c")
         case "cpp": return source(text, language: "cpp")
-        case "js": return source(text, language: "javascript")
+        case "js", "mjs": return source(text, language: "javascript")
+        case "tsx": return source(text, language: "typescript")
         case "css": return source(text, language: "css")
         case "sh", "bash": return source(text, language: "bash")
         case "py": return source(text, language: "python")
@@ -75,6 +76,12 @@ enum PreviewRenderer {
             return source(text, language: "makefile")
         default: return literal(text, notice: "Unsupported file type; showing literal text.")
         }
+    }
+
+    static func declinesExtension(_ ext: String) -> Bool {
+        // Installed apps may give these suffixes a UTType this extension handles.
+        // Leave generic configuration files and ambiguous transport streams alone.
+        ["cfg", "config", "ts"].contains(ext.lowercased())
     }
 
     static func isMarkdown(_ ext: String) -> Bool {

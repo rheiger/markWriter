@@ -36,6 +36,10 @@ export const CODE_LIMIT = 4 * 1024
 // Keep the conservative cap for other grammars (notably C++), and never enlarge auto work.
 export const LONG_CODE_LIMIT = 16 * 1024
 export const SQL_CODE_LIMIT = 128 * 1024
+const RENDERED_TOML_LIMIT = 128 * 1024
+const RENDERED_TOML_LINE_LIMIT = 4096
+const RENDERED_TOML_MARKER_LIMIT = 8192
+const RENDERED_TOML_SPAN_LIMIT = 12 * 1024
 export const AUTO_LIMIT = 2 * 1024
 const LINE_LIMIT = 2 * 1024
 const DOCUMENT_LIMIT = 16 * 1024
@@ -44,8 +48,10 @@ const SPAN_LIMIT = 4096
 export interface CodeRange { from: number; to: number; className: string }
 export interface CodeHighlight { language: string | null; ranges: readonly CodeRange[]; fallback?: boolean }
 export const SQL_FALLBACK_NOTICE = 'SQL highlighting unavailable for this block; the original text is preserved.'
+export const TOML_FALLBACK_NOTICE = 'TOML highlighting unavailable for this block; the original text is preserved.'
 const plain: CodeHighlight = { language: null, ranges: [] }
 const sqlFallback: CodeHighlight = { ...plain, fallback: true }
+const tomlFallback: CodeHighlight = { language: 'toml', ranges: [], fallback: true }
 const cache = new Map<string, CodeHighlight>()
 let cacheSize = 0
 
@@ -74,11 +80,27 @@ function codeLanguage(info: string) {
   return Object.hasOwn(aliases, word) ? aliases[word] : word
 }
 const longerGrammar = (language: string) => language === 'python' || language === 'json' || language === 'toml'
+function linesWithinLimit(code: string, maxLines?: number) {
+  const lines = code.split(/\r\n?|\n/, maxLines === undefined ? undefined : maxLines + 2)
+  const count = lines.length - Number(lines[lines.length - 1] === '')
+  return (maxLines === undefined || count <= maxLines) && !lines.some(line => line.length > LINE_LIMIT)
+}
+
+function renderedTomlMarkerCount(code: string, limit: number): number | null {
+  // Count possible grammar matches before Lowlight builds its token tree.
+  // This also counts punctuation and words inside quoted values and comments.
+  const marker = /[[\]{},="'#;$]|\b(?:\d|true\b|false\b|on\b|off\b|yes\b|no\b)/gi
+  let count = 0
+  while (marker.test(code)) {
+    if (++count > limit) return null
+  }
+  return count
+}
 function eligible(code: string, language: string, longer = longerGrammar(language)) {
   const limit = language === 'sql' ? SQL_CODE_LIMIT : longer ? LONG_CODE_LIMIT : language ? CODE_LIMIT : AUTO_LIMIT
   return code.length > 0 && code.length <= limit &&
     (!language || lowlight.registered(language)) &&
-    !code.split(/\r\n?|\n/).some(line => line.length > LINE_LIMIT)
+    linesWithinLimit(code)
 }
 
 export function highlightCode(code: string, info = ''): CodeHighlight {
@@ -87,8 +109,9 @@ export function highlightCode(code: string, info = ''): CodeHighlight {
   return highlightEligibleCode(code, language, language === 'sql' ? 24 * 1024 : SPAN_LIMIT)
 }
 
-function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_LIMIT): CodeHighlight {
-  const key = spanLimit + '\0' + language + '\0' + code
+function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_LIMIT,
+  fallback = language === 'sql' ? sqlFallback : plain): CodeHighlight {
+  const key = spanLimit + '\0' + language + '\0' + (fallback.language ?? '') + '\0' + code
   const cached = cache.get(key)
   if (cached) { cache.delete(key); cache.set(key, cached); return cached }
   let result: CodeHighlight = plain
@@ -105,9 +128,9 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
     }
     if (tree) {
       const ranges = rangesFor(tree, spanLimit)
-      result = ranges === null && language === 'sql' ? sqlFallback : { language: String(tree.data?.language ?? language), ranges: ranges ?? [] }
+      result = ranges === null && fallback.fallback ? fallback : { language: String(tree.data?.language ?? language), ranges: ranges ?? [] }
     }
-  } catch { result = language === 'sql' ? sqlFallback : plain /* Keep all source as plain text. */ }
+  } catch { result = fallback /* Keep all source as plain text. */ }
   cache.set(key, result); cacheSize += key.length
   while (cache.size > 128 || cacheSize > 512 * 1024) {
     const oldest = cache.keys().next().value!
@@ -117,13 +140,29 @@ function highlightEligibleCode(code: string, language: string, spanLimit = SPAN_
 }
 
 // New budget per document render/rebuild, including cache hits. No document writes.
-export function createCodeHighlighter(enabled: boolean) {
+export function createCodeHighlighter(enabled: boolean, surface: 'editor' | 'rendered' = 'editor') {
   let remaining = DOCUMENT_LIMIT, longerRemaining = LONG_DOCUMENT_LIMIT, blocks = 64, automatic = 4
   let sqlRemaining = SQL_CODE_LIMIT
+  let tomlRemaining = RENDERED_TOML_LIMIT
+  let tomlMarkersRemaining = RENDERED_TOML_MARKER_LIMIT, tomlSpansRemaining = RENDERED_TOML_SPAN_LIMIT
   return (code: string, info = ''): CodeHighlight => {
     const language = codeLanguage(info), longer = longerGrammar(language)
     if (!enabled) return plain
-    if (--blocks < 0 || !eligible(code, language, longer) ||
+    blocks--
+    if (surface === 'rendered' && language === 'toml') {
+      if (!code.length) return plain
+      if (blocks < 0 || code.length > tomlRemaining || !tomlSpansRemaining ||
+          !linesWithinLimit(code, RENDERED_TOML_LINE_LIMIT)) return tomlFallback
+      const markers = renderedTomlMarkerCount(code, tomlMarkersRemaining)
+      if (markers === null) return tomlFallback
+      tomlRemaining -= code.length
+      tomlMarkersRemaining -= markers
+      const result = highlightEligibleCode(code, language, RENDERED_TOML_SPAN_LIMIT, tomlFallback)
+      if (result.ranges.length > tomlSpansRemaining) return tomlFallback
+      tomlSpansRemaining -= result.ranges.length
+      return result
+    }
+    if (blocks < 0 || !eligible(code, language, longer) ||
       code.length > (language === 'sql' ? sqlRemaining : longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return language === 'sql' && code.length ? sqlFallback : plain
     if (language === 'sql') sqlRemaining -= code.length
     else if (longer) longerRemaining -= code.length
