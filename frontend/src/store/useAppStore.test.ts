@@ -291,13 +291,16 @@ describe('external file changes', () => {
     } finally { stop(); await flushWorkspace(); vi.useRealTimers() }
   })
 
-  it('ignores an earlier scan that completes after its owner has saved', async () => {
+  it('waits for an in-flight scan to release the path before saving and ignores its earlier status', async () => {
     let finish!: (result: string) => void
     call.mockImplementationOnce(async () => new Promise(resolve => { finish = resolve }))
     const monitor = state().refreshDocumentDisk('one')
-    await state().saveDocument()
+    const write = state().saveDocument()
+    await tick()
+    expect(call).not.toHaveBeenCalledWith('save_document', expect.anything())
     finish('missing')
     await monitor
+    expect(await write).toBe(true)
     expect(state().currentDocument?.diskIssue).toBeUndefined()
   })
 

@@ -93,6 +93,7 @@ function workspace(documents: Document[], activeId?: string | null) {
   return { documents, currentDocument: documents.find(doc => doc.id === activeId) ?? null }
 }
 const saving = new Map<string, Promise<boolean>>()
+const checking = new Map<string, Promise<unknown>>()
 const destinations = new Map<string, string>()
 const reloading = new Set<string>()
 const monitorCharacterLimit = 1024 * 1024
@@ -142,6 +143,10 @@ export const useAppStore = create<AppState>((set, get) => {
       let reserved = false
       let guarded: Document | undefined
       try {
+        // A Windows replacement can fail while a previous scan still holds
+        // the target open, even with normal read sharing.
+        const scan = checking.get(snapshot.id)
+        if (scan) await scan.catch(() => {})
         const owner = find(snapshot.id)
         if (!owner || owner.path !== snapshot.path || owner.reloadCount !== snapshot.reloadCount || reloading.has(snapshot.id)) {
           throw new Error('The document changed while preparing to save. Review it and try again.')
@@ -279,14 +284,16 @@ export const useAppStore = create<AppState>((set, get) => {
     saveToPath: (doc, path) => saveSnapshot(doc, path, false),
     refreshDocumentDisk: async (id, stopped = () => false) => {
       const captured = find(id)
-      if (!captured?.path || saving.has(id) || reloading.has(id)) return
+      if (!captured?.path || saving.has(id) || reloading.has(id) || checking.has(id)) return
       const expected = baseline(captured)
+      const scan = Promise.resolve().then(() => expected === undefined ? 'unreadable' : invoke('monitor_document_disk', {
+        path: captured.path, expected: expected.length <= monitorCharacterLimit ? expected : null,
+      }))
+      checking.set(id, scan)
       let result: unknown
-      try {
-        result = expected === undefined ? 'unreadable' : await invoke('monitor_document_disk', {
-          path: captured.path, expected: expected.length <= monitorCharacterLimit ? expected : null,
-        })
-      } catch { result = 'unreadable' }
+      try { result = await scan }
+      catch { result = 'unreadable' }
+      finally { checking.delete(id) }
       if (stopped() || saving.has(id) || reloading.has(id)) return
       if (result === 'tooLarge' && captured.diskIssue === 'changed') return
       setDiskIssue(captured, result === 'unchanged' ? undefined : isDiskIssue(result) ? result : 'unreadable')

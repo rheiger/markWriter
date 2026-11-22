@@ -362,16 +362,24 @@ mod tests {
     }
 
     #[test]
-    fn detects_path_replacement_even_if_open_handle_retains_original_bytes() {
+    fn detects_replacement_when_the_path_is_reopened() {
         let fixture = tempfile::tempdir().unwrap();
         let path = fixture.path().join("external.md");
         fs::write(&path, "old through handle").unwrap();
-        let mut open = regular_file(&path).unwrap();
+        let open = regular_file(&path).unwrap();
         let stamp = file_stamp(&open).unwrap();
+
+        // MoveFileExW cannot always replace an open target, even when the
+        // reader allows delete sharing. On Windows verify after releasing it.
+        #[cfg(windows)]
+        drop(open);
         write(&path, "new through path  ", None).unwrap();
-        let mut original = String::new();
-        open.read_to_string(&mut original).unwrap();
-        assert_eq!(original, "old through handle");
+        #[cfg(unix)]
+        {
+            let mut original = String::new();
+            (&open).read_to_string(&mut original).unwrap();
+            assert_eq!(original, "old through handle");
+        }
         assert!(!still_current(&path, &stamp).unwrap());
     }
 
