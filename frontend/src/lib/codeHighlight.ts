@@ -19,12 +19,16 @@ import css from 'highlight.js/lib/languages/css'
 import swift from 'highlight.js/lib/languages/swift'
 import makefile from 'highlight.js/lib/languages/makefile'
 import toml from 'highlight.js/lib/languages/ini'
+import java from 'highlight.js/lib/languages/java'
+import perl from 'highlight.js/lib/languages/perl'
+import awk from 'highlight.js/lib/languages/awk'
+import cmake from 'highlight.js/lib/languages/cmake'
 
 // Local, pinned grammars only. lowlight's public AST API preserves UTF-16 text offsets:
 // https://github.com/wooorm/lowlight#lowlightHighlightlanguage-value-options
 const grammars = { c, cpp, csharp, objectivec, sql, bash, rust, python, go, yaml, json, xml, javascript, typescript, dockerfile, css, swift, makefile }
-// TOML is explicit-only: do not add it to the automatic candidate set.
-const lowlight = createLowlight({ ...grammars, toml })
+// Keep opt-in grammars out of the automatic candidate set.
+const lowlight = createLowlight({ ...grammars, toml, java, perl, awk, cmake })
 const aliases: Record<string, string> = {
   'c++': 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', 'c#': 'csharp', cs: 'csharp',
   'objective-c': 'objectivec', objc: 'objectivec', 'obj-c': 'objectivec', m: 'objectivec', mm: 'objectivec',

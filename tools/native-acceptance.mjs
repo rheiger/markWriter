@@ -359,11 +359,11 @@ try {
   // virtualized DOM. Both real engines and native I/O run without lexer mocks.
   const syntaxFixture = await readFile(join(root, 'tools', 'fixtures', 'code-highlighting-alpha3.md'), 'utf8')
   const codeCases = codeFixtureCases(syntaxFixture)
-  assert.equal(codeCases.length, 26)
+  assert.equal(codeCases.length, 31)
   await syntax(true)
   for (const [index, match] of codeCases.entries()) {
     const [, info, code] = match, text = `# Native code ${index + 1}\n\n${match[0]}\n`
-    const highlighted = !['plaintext', 'unknown'].includes(info) && code !== 'x = 1'
+    const highlighted = !['plaintext', 'unknown', 'sed'].includes(info) && code !== 'x = 1'
     const path = join(fixtureDir, `code-${index + 1}.md`)
     await writeFile(path, text)
     const id = (await action('open', path)).document.id
@@ -380,7 +380,7 @@ try {
     alpha3Evidence.languages.push({ info: info || '(unlabeled)', highlighted, code, sourcePreserved: true })
     await action('close', id)
   }
-  alpha3Cases.push('all19 supported language variants in real CodeMirror, Preview and Tiptap with byte-identical native saves', 'native alias/plain/unknown/convincing-auto/ambiguous-auto and escaped Unicode code')
+  alpha3Cases.push('all 23 supported language variants in real CodeMirror, Preview and Tiptap with byte-identical native saves', 'native alias/plain/unknown/convincing-auto/ambiguous-auto and escaped Unicode code')
 
   const controlsSource = '# Alpha3 view controls\n\nBefore paragraph.\n\n```js\nconst value = "😀<script>window.__codeExecuted = true</script>";\n```\n\n```mermaid\nflowchart LR\n A --> B\n```\n\n```dot\ndigraph { a -> b }\n```\n'
   const controlsPath = join(fixtureDir, 'alpha3-controls.md')
