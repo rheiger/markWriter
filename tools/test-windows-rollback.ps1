@@ -16,11 +16,18 @@ public static class LifecycleAssociation {
     public static extern int AssocQueryStringW(uint flags, uint kind, string association, string verb, StringBuilder buffer, ref uint capacity);
 }
 '@
-    [uint32]$capacity = 32768
-    $value = [Text.StringBuilder]::new([int]$capacity)
-    $result = [LifecycleAssociation]::AssocQueryStringW(0, 1, $Association, 'open', $value, [ref]$capacity)
-    if ($result -ne 0) { throw ("Could not query effective Markdown default (HRESULT 0x{0:x8})." -f $result) }
-    Set-Content -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT -Value $value.ToString()
+    function Read-OpenCommand([uint32]$Flags) {
+        [uint32]$capacity = 32768
+        $value = [Text.StringBuilder]::new([int]$capacity)
+        $result = [LifecycleAssociation]::AssocQueryStringW($Flags, 1, $Association, 'open', $value, [ref]$capacity)
+        if ($result -ne 0) { return ('HRESULT 0x{0:x8}' -f $result) }
+        $value.ToString()
+    }
+    @{
+        effective = Read-OpenCommand 0
+        # ASSOCF_PER_MACHINE_ONLY bypasses per-user association lookup.
+        perMachine = Read-OpenCommand 0x00008000
+    } | ConvertTo-Json -Compress | Set-Content -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT
     return
 }
 
@@ -102,18 +109,25 @@ function Invoke-Recovery($Mode, $Version, $Label) {
     if (!$evidence.passed -or $evidence.version -cne $Version) { throw 'Recovery evidence version or status differs.' }
     $receipt.operations.Add(@{ phase = $Label; recovery = $evidence })
 }
-function Read-EffectiveOpenCommand($Association) {
+function Read-OpenCommands($Association) {
     & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File $PSCommandPath -ObserveEditor -Association $Association
     if ($LASTEXITCODE -ne 0) { throw "Could not observe the effective Open command for $Association." }
-    (Get-Content -Raw -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT).Trim()
+    Get-Content -Raw -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT | ConvertFrom-Json
 }
 function Assert-CompetingEditor($Phase) {
     if ((Read-DefaultValue $editorKey) -cne $editorId -or (Read-DefaultValue $competingKey) -ine $competing) {
         throw 'Package operation changed the competing editor or preview registration.'
     }
-    $effective = Read-EffectiveOpenCommand '.markdown'
-    if ($effective -ine $editorCommand) { throw "Expected the fixture's competing editor to remain effective, observed $effective." }
-    $receipt.operations.Add(@{ phase = $Phase; effectiveEditor = $effective; syntheticCompetingPreviewRegistration = $competing })
+    $commands = Read-OpenCommands '.markdown'
+    # Windows may show its chooser for a machine default on an extension without
+    # a user choice. Record actual shell resolution alongside registry assertions.
+    $receipt.operations.Add(@{
+        phase = $Phase
+        openCommands = $commands
+        registeredEditorWasEffective = $commands.effective -ieq $editorCommand
+        registeredEditorMatchedMachineResolver = $commands.perMachine -ieq $editorCommand
+        syntheticCompetingPreviewRegistration = $competing
+    })
 }
 function Remove-EditorFixture {
     if ($script:editorDefaultOwned -and (Read-DefaultValue $editorKey) -ceq $editorId) {
@@ -155,8 +169,8 @@ try {
     }
     # A registered Windows editor has a real executable and a Shell-resolvable
     # ProgID. Use it as the machine-wide fallback for the disposable profile.
-    $editorCommand = Read-EffectiveOpenCommand $editorId
-    if (!$editorCommand -or $editorCommand -match 'OpenWith\.exe|markwriter\.exe') {
+    $editorCommand = (Read-OpenCommands $editorId).effective
+    if (!$editorCommand -or $editorCommand -match '^HRESULT |OpenWith\.exe|markwriter\.exe') {
         throw "The Windows text-editor class does not resolve to an independent editor: $editorCommand"
     }
     $receipt.competingEditor = @{ layer = 'machine-wide default association'; progId = $editorId; command = $editorCommand }
