@@ -545,7 +545,7 @@ try {
   const restored = await snapshot()
   const conflict = externalFiles.restart
   const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
-  assert.equal(recoveredFile.path, undefined)
+  assert.equal(recoveredFile.path ?? null, null)
   assert.equal(recoveredFile.content, conflict.recovery)
   assert.equal(recoveredFile.isDirty, true)
   assert.deepEqual(await readFile(conflict.path), Buffer.from(conflict.external))
