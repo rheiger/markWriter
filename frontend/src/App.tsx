@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useAppStore, useTheme, confirmDiscardChanges } from './store/useAppStore'
+import { useAppStore, useTheme, confirmDiscardChanges, watchOpenDocuments } from './store/useAppStore'
 import { EditorView, EditorViewRef, EditorMode } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
 import { Toolbar } from './components/Toolbar'
@@ -12,7 +12,7 @@ import { listen } from '@tauri-apps/api/event'
 import { openOsBatch, type OsOpenBatch } from './lib/osOpen'
 import './App.css'
 import { loadPreferences, watchPreferences, loadWorkspace, watchWorkspace } from './lib/persistence'
-import { DocumentTabs, UnsavedDialog, RecoveryNotice } from './components/DocumentTabs'
+import { DocumentTabs, UnsavedDialog, RecoveryNotice, ExternalChangeNotice } from './components/DocumentTabs'
 
 const App: React.FC = () => {
   const { currentDocument, isLoading, error, createNewDocument, config } = useAppStore()
@@ -51,6 +51,7 @@ const App: React.FC = () => {
 
   useEffect(() => { if (ready) return watchPreferences() }, [ready])
   useEffect(() => { if (ready) return watchWorkspace() }, [ready])
+  useEffect(() => { if (ready && isTauri()) return watchOpenDocuments() }, [ready])
 
   useEffect(() => {
     if (!isTauri()) return
@@ -107,6 +108,7 @@ const App: React.FC = () => {
 
       <DocumentTabs />
       <RecoveryNotice />
+      <ExternalChangeNotice />
       <main className="app-main">
         {isLoading && <LoadingSpinner />}
         <EditorView ref={editorViewRef} onModeChange={setEditorMode} />

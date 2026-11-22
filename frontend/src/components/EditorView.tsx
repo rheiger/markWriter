@@ -73,7 +73,7 @@ function synchronizeRendered(editor: Editor, source: string) {
 
 export type EditorMode = 'markdown' | 'wysiwyg'
 interface EditorViewProps { onModeChange?: (mode: EditorMode) => void }
-interface DocumentEditorProps extends EditorViewProps { documentId?: string, active: boolean }
+interface DocumentEditorProps extends EditorViewProps { documentId?: string, active: boolean, reloadCount?: number }
 
 export interface EditorViewRef {
   setMode: (mode: EditorMode) => void
@@ -162,7 +162,7 @@ function restoreScroll(scroller: HTMLElement, content: HTMLElement, top: number)
   return stop
 }
 
-const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active }, ref) => {
+const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeChange, documentId, active, reloadCount = 0 }, ref) => {
   const preferences = useRef(new Compartment())
   const highlighting = useRef(new Compartment())
   const editorRef = useRef<HTMLDivElement>(null)
@@ -197,7 +197,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const currentDocument = useAppStore(state => state.documents.find(doc => doc.id === documentId) ?? null)
   const config = useAppStore(state => state.config)
   const isDark = useResolvedDark(config.theme)
-  const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId), [documentId])
+  const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId, reloadCount), [documentId, reloadCount])
   const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
   const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
@@ -1402,7 +1402,7 @@ export const EditorView = forwardRef<EditorViewRef, EditorViewProps>((props, ref
   if (!documents.length) return <DocumentEditor active ref={ref} {...props} />
   return <>{documents.map(doc => <div key={doc.id} data-active={doc.id === id} data-document-id={doc.id} hidden={doc.id !== id}
     style={{ display: doc.id === id ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-    <DocumentEditor documentId={doc.id} active={doc.id === id} ref={doc.id === id ? ref : undefined} {...props} />
+    <DocumentEditor key={doc.reloadCount ?? 0} reloadCount={doc.reloadCount} documentId={doc.id} active={doc.id === id} ref={doc.id === id ? ref : undefined} {...props} />
   </div>)}</>
 })
 EditorView.displayName = 'EditorView'

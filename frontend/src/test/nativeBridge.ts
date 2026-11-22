@@ -47,6 +47,10 @@ export function installNativeBridge() {
       open: (path: string) => useAppStore.getState().openDocument(path),
       save: () => useAppStore.getState().saveDocument(),
       saveAs: (path: string) => useAppStore.getState().saveDocumentAs(path),
+      saveCopy: (path: string) => {
+        const state = useAppStore.getState()
+        return state.currentDocument && state.saveDocumentCopy(state.currentDocument, path)
+      },
       exportHtml: (path: string) => useAppStore.getState().exportDocument(path, 'html'),
     },
   })
