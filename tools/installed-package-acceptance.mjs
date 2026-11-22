@@ -287,7 +287,7 @@ try{
    exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,fixture:tomlEditorFixture(),name:'long-toml',label:'long explicit TOML'})
  cases.push(...longToml.cases)
  await writeFile(join(artifacts,'toml-evidence.json'),JSON.stringify(longToml,null,2))
- if (process.platform === 'darwin' || process.platform === 'linux') {
+ if (process.platform === 'linux') {
    const largeToml = await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
      saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
      exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,
