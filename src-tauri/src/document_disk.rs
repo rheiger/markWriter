@@ -66,7 +66,7 @@ fn no_follow_read() -> OpenOptions {
     options
 }
 
-fn regular_file(path: &Path) -> io::Result<File> {
+pub(crate) fn regular_file(path: &Path) -> io::Result<File> {
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.is_file() || is_reparse_point(&metadata) {
         return Err(io::Error::other("Expected a regular file"));

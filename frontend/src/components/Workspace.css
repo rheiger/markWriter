@@ -9,7 +9,8 @@
 .workspace-dialog h2 { margin-top: 0; font-size: 20px; }
 .workspace-dialog button, .workspace-dialog select, .workspace-dialog input { color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 7px 10px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.settings-fields { display: grid; gap: 12px; }
+.settings-fields { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.settings-profile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-fields label { display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 14px; }
 .settings-fields input:not([type=checkbox]) { width: 240px; max-width: 50vw; }
 .settings-fields input[type=checkbox] { margin-right: auto; }
