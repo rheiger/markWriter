@@ -4,7 +4,7 @@ Download the MarkWriter 2.8.2 package for your system. Before installing, compar
 
 ## macOS on Apple silicon
 
-Mount `MarkWriter-2.8.2-macos-arm64.dmg` and copy `MarkWriter.app` to Applications. Eject the image and open the copied app. Before replacing an installed copy, verify the app and bundled Quick Look extension with `codesign --verify --deep --strict` on the copied app path. The package uses ad hoc integrity seals and has no Developer ID signature or Apple notarization.
+Mount `MarkWriter-2.8.2-macos-arm64.dmg` and copy `MarkWriter.app` to a staging folder. Eject the image, then run `codesign --verify --deep --strict` with the path to the staged app. The package uses ad hoc integrity seals and has no Developer ID signature or Apple notarization. For a fresh install, move the verified app to Applications and open it. When replacing an older copy, use the upgrade and rollback procedure below before moving the verified app into place.
 
 Use the exact installed version and absolute app path when running the macOS removal tool. Keep its backup and transaction record for rollback. Quit the selected app and close its Finder previews before removing or restoring it. See the [macOS upgrade and rollback procedure](https://github.com/rheiger/markWriter/blob/v2.7.5/docs/install-2.7.5.md#macos-on-apple-silicon) for the exact-path workflow and Finder registration checks.
 
