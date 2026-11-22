@@ -13,9 +13,9 @@ export function parseSettingsProfile(value: unknown): AppConfig {
   if (!isRecord(value.config)) throw new Error('Invalid settings profile config.')
   if (Object.keys(value).length !== 3) throw new Error('Unexpected settings profile fields.')
   for (const key of Object.keys(value.config)) {
-    if (!Object.prototype.hasOwnProperty.call(defaultConfig, key)) throw new Error(`Unknown setting: ${key}`)
+    if (!Object.prototype.hasOwnProperty.call(defaultConfig, key)) throw new Error('The settings profile contains an unknown setting.')
   }
-  return parsePreferences({ version: 1, config: value.config })
+  return parsePreferences({ version: 1, config: { ...defaultConfig, ...value.config } })
 }
 
 export function encodeSettingsProfile(draft: AppConfig) {

@@ -20,11 +20,11 @@ describe('portable settings profiles', () => {
     expect(() => parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: null })).toThrow(/config/)
     expect(() => parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { theme: ['dark'] } })).toThrow(/theme/)
     expect(() => parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { wordWrap: 'yes' } })).toThrow(/wordWrap/)
-    expect(() => parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { path: '/local/draft.md' } })).toThrow(/setting: path/)
+    expect(() => parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { path: '/local/draft.md' } })).toThrow(/unknown setting/)
   })
 
   it('uses normal defaults for omitted settings', () => {
-    expect(parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { theme: 'light' } }))
-      .toEqual({ ...defaultConfig, theme: 'light' })
+    expect(parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { theme: 'light', fontSize: 21 } }))
+      .toEqual({ ...defaultConfig, theme: 'light', fontSize: 21 })
   })
 })
