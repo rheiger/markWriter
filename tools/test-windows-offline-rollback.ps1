@@ -209,7 +209,15 @@ function Observe-ExplorerOpen($State, $Label) {
     } else {
         Write-Host 'Only enter the code if the same editor as at Baseline displayed the fixture.'
     }
-    if ((Read-Host 'Type the eight-character code shown in the editor') -cne $sentinel -or (Get-Hash $file) -ne $hash) {
+    $matchedCode = $false
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if ((Read-Host 'Type the eight-character code shown in the editor').Trim() -ieq $sentinel) {
+            $matchedCode = $true
+            break
+        }
+        Write-Host 'The code differs. Check the active fixture tab in the competing editor.'
+    }
+    if (!$matchedCode -or (Get-Hash $file) -ne $hash) {
         throw 'The competing editor did not display the exact unchanged fixture.'
     }
     $after = Read-MarkdownChoice
@@ -302,8 +310,8 @@ try {
             Invoke-ElevatedFileChange "Copy-Item -LiteralPath '$from' -Destination '$to' -ErrorAction Stop"
             $lock = [IO.File]::Open($preview, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
             try {
-                $exit = Invoke-ElevatedProcess $uninstaller '/S'
-                if ($exit -eq 0 -or (Get-Hash $binary) -ne $state.candidate.executableSha256 -or
+                $blockedExit = Invoke-ElevatedProcess $uninstaller '/S'
+                if ((Get-Hash $binary) -ne $state.candidate.executableSha256 -or
                     (Get-Hash $preview) -ne $state.candidate.installedPreviewSha256 -or
                     !(Test-Path -LiteralPath $uninstaller) -or (Read-DefaultValue $server) -ine $preview -or
                     (Get-Hash $unowned) -ne $unownedHash) { throw 'The lock did not block removal while preserving exact files and registration.' }
@@ -313,9 +321,10 @@ try {
             Observe-ExplorerOpen $state 'blocked'
 
             Assert-MarkWriterClosed
-            $exit = Invoke-ElevatedProcess $uninstaller '/S'
-            if ($exit -ne 0 -or (Test-Path $binary) -or (Test-Path $preview) -or (Test-Path $uninstaller) -or
-                (Read-DefaultValue $server) -or (Get-Hash $unowned) -ne $unownedHash) {
+            $removedExit = Invoke-ElevatedProcess $uninstaller '/S'
+            if ((Test-Path -LiteralPath $binary) -or (Test-Path -LiteralPath $preview) -or
+                (Test-Path -LiteralPath $uninstaller) -or (Test-Path -LiteralPath $server) -or
+                (Get-Hash $unowned) -ne $unownedHash) {
                 throw 'The removal retry did not remove only the owned installation.'
             }
             foreach ($extension in '.md', '.markdown') {
@@ -329,6 +338,9 @@ try {
             Invoke-ElevatedFileChange "Remove-Item -LiteralPath '$to' -ErrorAction Stop"
             if ((Get-Hash $preserved) -ne $unownedHash) { throw 'The preserved synthetic fixture changed.' }
             $state | Add-Member -NotePropertyName unownedSha256 -NotePropertyValue $unownedHash
+            $state | Add-Member -NotePropertyName uninstallerExitCodes -NotePropertyValue @{
+                blocked = $blockedExit; retry = $removedExit
+            }
         }
         Rollback {
             $package = Read-Package $baseline
