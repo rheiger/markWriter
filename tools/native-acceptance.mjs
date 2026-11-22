@@ -540,10 +540,15 @@ try {
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
   await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error?.includes("External changes:")'),
     'external conflict recovery report')
-  await waitFor(() => run(`const message = document.querySelector('.error-toast.visible .error-message');
-    const bounds = message?.getBoundingClientRect();
-    return !!bounds && bounds.left >= 0 && bounds.right <= innerWidth && message.textContent.includes('External changes:');`),
-    'visible external conflict recovery report')
+  await waitFor(() => run(`const toast = document.querySelector('.error-toast.visible');
+    const message = toast?.querySelector('.error-message');
+    const close = toast?.querySelector('.error-close');
+    const outer = toast?.getBoundingClientRect();
+    if (!outer || !message?.textContent.includes('External changes:') || !close) return false;
+    return outer.left >= 0 && outer.right <= innerWidth && [message, close].every(element => {
+      const bounds = element.getBoundingClientRect();
+      return bounds.width > 0 && bounds.left >= outer.left && bounds.right <= outer.right;
+    });`), 'visible long-path recovery report and close control')
   await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report expired')
   const restored = await snapshot()
   const conflict = externalFiles.restart
