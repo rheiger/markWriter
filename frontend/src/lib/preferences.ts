@@ -29,7 +29,7 @@ export function parsePreferences(value: unknown): AppConfig {
     const field = config[key]
     if (field === undefined) continue
     let valid = typeof field === typeof defaultConfig[key]
-    if (key === 'theme') valid = ['light', 'dark', 'system'].includes(String(field))
+    if (key === 'theme') valid = typeof field === 'string' && ['light', 'dark', 'system'].includes(field)
     if (key === 'fontSize' || key === 'renderedFontSize') valid = Number.isInteger(field) && Number(field) >= 10 && Number(field) <= 32
     if (key === 'tabWidth') valid = [2, 4, 8].includes(Number(field)) && typeof field === 'number'
     if (key === 'renderedLineHeight') valid = typeof field === 'number' && Number.isFinite(field) && field >= 1 && field <= 2.5

@@ -11,6 +11,7 @@ mod native_menu;
 mod os_open;
 mod update_policy;
 mod sql_import;
+mod settings_profile;
 #[cfg(target_os = "windows")]
 mod windows_install;
 #[cfg(target_os = "windows")]
@@ -282,6 +283,7 @@ fn main() {
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
         .manage(sql_import::SqlPicker::default())
+        .manage(settings_profile::SettingsProfilePicker::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -289,6 +291,8 @@ fn main() {
             update_policy::check_updates,
             take_os_open,
             sql_import::pick_sql_source,
+            settings_profile::import_settings_profile,
+            settings_profile::export_settings_profile,
             retain_rejected_storage,
             load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
