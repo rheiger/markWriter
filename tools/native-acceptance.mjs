@@ -538,6 +538,10 @@ try {
   session = restarted.sessionId
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error?.includes("External changes:")'),
+    'external conflict recovery report')
+  await click('//button[@aria-label="Close error"]')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report acknowledged')
   const restored = await snapshot()
   const conflict = externalFiles.restart
   const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
@@ -548,15 +552,6 @@ try {
   alpha3Cases.push('external conflict restart retains draft and disk bytes independently')
   await writeFile(join(artifacts, 'external-file-evidence.json'), JSON.stringify({ platform: process.platform,
     cases: externalFiles.cases, detection: externalFiles.detection, restartConflict: true },null,2))
-  await waitFor(async () => {
-    if ((await snapshot()).error) {
-      if (await run("return !!document.querySelector('button[aria-label=\"Close error\"]')")) {
-        await click('//button[@aria-label="Close error"]')
-      }
-      return false
-    }
-    return true
-  }, 'external conflict recovery report acknowledged')
   assert.equal(restored.config.fontSize,18)
   assert.equal(restored.config.syncPreview,true)
   assert.equal(restored.config.wrapContinuation,true)
