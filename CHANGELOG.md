@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.8.2](https://github.com/rheiger/markWriter/releases/tag/v2.8.2) — 2026-11-22
+
+- Detect external changes in open local Markdown files. Reload explicitly or save a separate copy. Save checks the original file before replacing it. [#82](https://github.com/rheiger/markWriter/issues/82)
+- Document the Windows x64 machine-wide upgrade and manual rollback to 2.7.5. [#84](https://github.com/rheiger/markWriter/issues/84)
+
 ## [2.7.5] - 2026-11-17
 
 - Fix intermittent named-pipe error 233 when reopening Markdown files from Windows Explorer in a running MarkWriter window.
