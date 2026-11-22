@@ -112,8 +112,14 @@ function Assert-CompetingEditor($Phase) {
         throw 'Package operation changed the competing editor or preview registration.'
     }
     $effective = Read-EffectiveOpenCommand '.markdown'
-    if ($effective -ine $editorCommand) { throw "Expected the fixture's competing editor to remain effective, observed $effective." }
-    $receipt.operations.Add(@{ phase = $Phase; effectiveEditor = $effective; syntheticCompetingPreviewRegistration = $competing })
+    # Windows may show its chooser for a machine default on an extension without
+    # a user choice. Record actual shell resolution alongside registry assertions.
+    $receipt.operations.Add(@{
+        phase = $Phase
+        effectiveOpenCommand = $effective
+        registeredEditorWasEffective = $effective -ieq $editorCommand
+        syntheticCompetingPreviewRegistration = $competing
+    })
 }
 function Remove-EditorFixture {
     if ($script:editorDefaultOwned -and (Read-DefaultValue $editorKey) -ceq $editorId) {
