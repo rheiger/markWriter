@@ -112,6 +112,21 @@ for (ext, language) in [("h", "c"), ("cpp", "cpp"), ("js", "javascript"), ("css"
     let page = PreviewRenderer.render(data: Data("<tag>& final_sentinel".utf8), extension: ext)
     check(page.contains("data-language=\"\(language)\"") && page.contains("&lt;tag&gt;&amp; final_sentinel"), "\(ext) source is escaped and requests \(language)")
 }
+
+for (ext, language, source) in [
+    ("TSX", "typescript", "export const label = <span>Grüße & 日本語</span>;"),
+    ("mjs", "javascript", #"export const label = "<span>Grüße & 日本語</span>";"#)
+] {
+    let page = PreviewRenderer.render(data: Data(source.utf8), extension: ext)
+    check(page.contains("data-language=\"\(language)\"") &&
+        page.contains("&lt;span&gt;Grüße &amp; 日本語&lt;/span&gt;"), "\(ext) source is escaped and requests \(language)")
+    check(PreviewRenderer.render(data: Data([0xff]), extension: ext).contains("UTF-8"), "\(ext) invalid UTF-8 notice")
+    check(PreviewRenderer.render(data: Data(repeating: 65, count: PreviewRenderer.limit + 1), extension: ext).contains("1 MiB"),
+        "\(ext) oversized input notice")
+}
+check(PreviewRenderer.declinesExtension("TS"), "transport stream suffix is declined even when Finder routes it to MarkWriter")
+check(!PreviewRenderer.declinesExtension("tsx") && !PreviewRenderer.declinesExtension("mjs"), "accepted script suffixes are not declined")
+
 for ext in ["yml", "yaml"] {
     let page = PreviewRenderer.render(data: Data("base: &anchor [<value>]\ncopy: *anchor".utf8), extension: ext)
     check(page.contains("Literal text") && page.contains("data-language=\"yaml\"") && page.contains("&amp;anchor [&lt;value&gt;]") && page.contains("*anchor"), "\(ext) literal fallback remains escaped and eligible for highlighting")
