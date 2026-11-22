@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.2](https://github.com/rheiger/markWriter/releases/tag/v2.11.2)
+
+- Import and export portable JSON profiles in Settings. [#99](https://github.com/rheiger/markWriter/issues/99)
+- Highlight explicit Java, Perl, AWK and CMake fences offline. [#98](https://github.com/rheiger/markWriter/issues/98)
+- Preview TSX and MJS source in Finder and highlight larger TOML fences in Preview and HTML export. [#90](https://github.com/rheiger/markWriter/issues/90) · [#94](https://github.com/rheiger/markWriter/issues/94)
+
+[Release notes](docs/releases/2.11.2.md) · [Installation and rollback](docs/install-2.11.2.md)
+
 ## [2.8.2](https://github.com/rheiger/markWriter/releases/tag/v2.8.2) — 2026-11-22
 
 - Detect external changes in open local Markdown files. Reload explicitly or save a separate copy. Save checks the original file before replacing it. [#82](https://github.com/rheiger/markWriter/issues/82)

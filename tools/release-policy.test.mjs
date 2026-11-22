@@ -2,13 +2,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
 
-test('only the approved 2.8.2 version can be staged as the regular Latest release', () => {
-  assert.equal(releasePolicy.version, '2.8.2')
-  assert.deepEqual(draftReleaseArgs('2.8.2', ['SHA256SUMS']), [
-    'release', 'create', 'v2.8.2', 'release-assets/SHA256SUMS',
+test('only the approved 2.11.2 version can be staged as the regular Latest release', () => {
+  assert.equal(releasePolicy.version, '2.11.2')
+  assert.deepEqual(draftReleaseArgs('2.11.2', ['SHA256SUMS']), [
+    'release', 'create', 'v2.11.2', 'release-assets/SHA256SUMS',
     '--verify-tag', '--draft', '--prerelease=false', '--latest=true',
-    '--title', 'MarkWriter v2.8.2', '--notes-file', 'docs/releases/2.8.2.md',
+    '--title', 'MarkWriter v2.11.2', '--notes-file', 'docs/releases/2.11.2.md',
   ])
   assert.throws(() => draftReleaseArgs('2.7.5', ['SHA256SUMS']), /reviewed release version/)
-  assert.throws(() => draftReleaseArgs('2.8.2', ['../SHA256SUMS']), /Flat release asset names/)
+  assert.throws(() => draftReleaseArgs('2.11.2', ['../SHA256SUMS']), /Flat release asset names/)
 })
