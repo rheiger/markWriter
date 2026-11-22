@@ -61,11 +61,14 @@ $clsid = '{8360D352-56CE-4C43-A12E-A73CF9D10214}'
 $iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 $server = "$machine\CLSID\$clsid\InprocServer32"
 $competingKey = "$machine\SystemFileAssociations\.markdown\shellex\$iid"
-$competing = '{9038F78F-5474-4B17-BFC6-8AB25A1702DB}'
+$competing = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'
 $editorKey = "$user\.markdown"
-$editorId = 'MarkWriter.RollbackFixtureEditor'
+$editorId = 'MarkWriter.RollbackFixtureEditor.' + [guid]::NewGuid().ToString('N')
 $editorClass = "$user\$editorId"
 $editorCommand = '"{0}\System32\notepad.exe" "%1"' -f $env:WINDIR
+$editorClassOwned = $false
+$editorDefaultOwned = $false
+$previewFallbackOwned = $false
 $os = Get-CimInstance Win32_OperatingSystem
 $receipt = [ordered]@{
     passed = $false
@@ -73,7 +76,7 @@ $receipt = [ordered]@{
     source = $env:GITHUB_SHA
     previous = @{ version = $baseVersion; assetSha256 = $basePackageHash; executableSha256 = $baseBinaryHash; previewSha256 = $basePreviewHash }
     candidate = @{ version = $candidateVersion; assetSha256 = $candidateManifest.asset.sha256; executableSha256 = $candidateManifest.binaryInspection.sha256 }
-    previewProvider = @{ clsid = $clsid; server = $preview; competingFallbackClsid = $competing }
+    previewProvider = @{ clsid = $clsid; server = $preview; syntheticCompetingFallbackClsid = $competing }
     operations = [Collections.Generic.List[object]]::new()
 }
 
@@ -109,17 +112,22 @@ function Assert-CompetingEditor($Phase) {
     & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File $PSCommandPath -ObserveEditor
     if ($LASTEXITCODE -ne 0) { throw 'Could not observe the effective default editor.' }
     $effective = (Get-Content -Raw -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT).Trim()
-    if ($effective -cne $editorCommand) { throw "Expected the fixture's competing editor to remain the effective default, observed $effective." }
-    $receipt.operations.Add(@{ phase = $Phase; effectiveEditor = $effective; competingPreview = $competing })
+    if ($effective -ine $editorCommand) { throw "Expected the fixture's competing editor to remain the effective default, observed $effective." }
+    $receipt.operations.Add(@{ phase = $Phase; effectiveEditor = $effective; syntheticCompetingPreviewRegistration = $competing })
 }
 function Remove-EditorFixture {
-    if ((Read-DefaultValue $editorKey) -ceq $editorId) {
+    if ($script:editorDefaultOwned -and (Read-DefaultValue $editorKey) -ceq $editorId) {
         (Get-Item -LiteralPath $editorKey).DeleteValue('', $false)
+        [LifecycleShellChange]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
     }
-    if ((Read-DefaultValue "$editorClass\shell\open\command") -ceq $editorCommand) {
-        Remove-Item -LiteralPath $editorClass -Recurse
+    $script:editorDefaultOwned = $false
+    if ($script:editorClassOwned) {
+        $registered = Read-DefaultValue "$editorClass\shell\open\command"
+        if (!$registered -or $registered -ceq $editorCommand) {
+            Remove-Item -LiteralPath $editorClass -Recurse
+        }
     }
-    [LifecycleShellChange]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+    $script:editorClassOwned = $false
 }
 
 Add-Type @'
@@ -148,10 +156,13 @@ try {
         throw 'The competing editor and preview fixture needs an unoccupied disposable registration.'
     }
     New-Item -Path "$editorClass\shell\open\command" -Force | Out-Null
+    $editorClassOwned = $true
     Set-Item -LiteralPath "$editorClass\shell\open\command" -Value $editorCommand
     if (!(Test-Path -LiteralPath $editorKey)) { New-Item -Path $editorKey | Out-Null }
     Set-Item -LiteralPath $editorKey -Value $editorId
+    $editorDefaultOwned = $true
     Set-Item -LiteralPath $competingKey -Value $competing
+    $previewFallbackOwned = $true
     [LifecycleShellChange]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
     Assert-CompetingEditor 'seed competing associations before upgrade'
 
@@ -204,8 +215,9 @@ try {
     # Exercise MarkWriter's intended default and provider separately after
     # preserving the competing registrations through the full transaction.
     Remove-EditorFixture
-    if ((Read-DefaultValue $competingKey) -ieq $competing) {
+    if ($previewFallbackOwned -and (Read-DefaultValue $competingKey) -ieq $competing) {
         Set-Item -LiteralPath $competingKey -Value $clsid
+        $previewFallbackOwned = $false
     }
     $env:MARKWRITER_PREVIEW_RESULT = Join-Path $artifacts 'windows-rollback-explorer.json'
     & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -ExpectedSha256 $basePreviewHash
@@ -223,5 +235,11 @@ try {
 } finally {
     $receipt | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $receiptPath -Encoding utf8
     Remove-EditorFixture
-    if ((Read-DefaultValue $competingKey) -ieq $competing) { Remove-Item -LiteralPath $competingKey }
+    if ($previewFallbackOwned -and (Read-DefaultValue $competingKey) -ieq $competing) {
+        if ((Read-DefaultValue $server) -ieq $preview) {
+            Set-Item -LiteralPath $competingKey -Value $clsid
+        } else {
+            Remove-Item -LiteralPath $competingKey
+        }
+    }
 }
