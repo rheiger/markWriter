@@ -28,6 +28,21 @@ public static class PreviewProcessIntegrity {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
   [StructLayout(LayoutKind.Sequential)]
+  struct GuiThreadInfo {
+    public uint Size, Flags;
+    public IntPtr Active, Focus, Capture, MenuOwner, MoveSize, Caret;
+    public WindowRect CaretRect;
+  }
+  [DllImport("user32.dll", SetLastError=true)] static extern bool GetGUIThreadInfo(uint thread, ref GuiThreadInfo info);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder name, int capacity);
+  public static string ForegroundFocus() {
+    var info = new GuiThreadInfo { Size = (uint)Marshal.SizeOf<GuiThreadInfo>() };
+    if (!GetGUIThreadInfo(0, ref info)) return "Unavailable";
+    var name = new StringBuilder(256);
+    GetClassName(info.Focus, name, name.Capacity);
+    return String.Format("0x{0:x} {1}", info.Focus.ToInt64(), name);
+  }
+  [StructLayout(LayoutKind.Sequential)]
   public struct WindowRect { public int Left, Top, Right, Bottom; }
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out WindowRect rect);
   [DllImport("shlwapi.dll", CharSet=CharSet.Unicode, ExactSpelling=true)]
@@ -196,17 +211,62 @@ try {
       $webviewProfile = Join-Path $env:LOCALAPPDATA 'com.markwriter.app/EBWebView'
       Write-Host "Default WebView2 data folder present: $(Test-Path -LiteralPath $webviewProfile)"
     }
-    function Open-ThroughExplorer($fixture) {
+    $traceRollbackOpen = $env:MARKWRITER_TRACE_ROLLBACK_OPEN -eq 'true'
+    function Write-ActivationTrace($fixture, $method, $stage, [hashtable]$details = @{}) {
+      $details.utc = [DateTime]::UtcNow.ToString('o')
+      $details.fixture = $fixture.Name
+      $details.method = $method
+      $details.stage = $stage
+      $traceLine = $details | ConvertTo-Json -Compress -Depth 5
+      Add-Content -LiteralPath "$ResultPath.activations.jsonl" -Value $traceLine -Encoding utf8
+      Write-Host "Explorer activation $traceLine"
+    }
+    function Observe-ExplorerSelection($expectedPath) {
+      $selection = @{ expectedPath = $expectedPath; explorerHwnd = $explorerHwnd.ToInt64() }
+      try {
+        $selected = $window.Document.SelectedItems()
+        $selection.paths = @(for ($index = 0; $index -lt [Math]::Min($selected.Count, 4); $index++) {
+          [string]$selected.Item($index).Path
+        })
+        $selection.count = $selected.Count
+        $selection.exactSelection = $selected.Count -eq 1 -and $selection.paths[0] -ieq $expectedPath
+      } catch {
+        $selection.error = $_.Exception.Message
+      }
+      $selection.foregroundHwnd = [PreviewProcessIntegrity]::GetForegroundWindow().ToInt64()
+      $selection.focus = [PreviewProcessIntegrity]::ForegroundFocus()
+      return $selection
+    }
+    function Open-ThroughExplorer($fixture, [switch]$Trace, [switch]$Compare, [switch]$ExplicitOpen) {
       $item = $window.Document.Folder.ParseName($fixture.Name)
       if (!$item) { throw 'Explorer file activation fixture missing' }
       $ext = [IO.Path]::GetExtension($fixture.Name)
       Write-Host "Effective $ext Open command: $([PreviewProcessIntegrity]::OpenCommand($ext))"
       [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
       $window.Document.SelectItem($item, 29)
-      if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
-      # Enter activates the selected file through the same default verb as double-click.
-      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
       $expectedPath = Join-Path $root $fixture.Name
+      $method = if ($ExplicitOpen) { 'explicit-open' } else { 'keyboard' }
+      if ($Trace) {
+        Write-ActivationTrace $fixture $method 'selection' (Observe-ExplorerSelection $expectedPath)
+      }
+      if (!$ExplicitOpen -and [PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) {
+        throw 'Explorer was not foreground for file activation'
+      }
+      $dispatchStarted = [DateTime]::UtcNow.ToString('o')
+      if ($ExplicitOpen) {
+        # A diagnostic control that exercises the same shell registration without
+        # relying on Explorer keyboard focus or the currently selected item.
+        $shell.ShellExecute($expectedPath, '', $root, 'open', 1)
+      } else {
+        # Enter activates the selected file through the same default verb as double-click.
+        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      }
+      if ($Trace) {
+        Write-ActivationTrace $fixture $method 'dispatched' @{
+          dispatchStarted = $dispatchStarted
+          foregroundHwnd = [PreviewProcessIntegrity]::GetForegroundWindow().ToInt64()
+        }
+      }
       $fixtureEditor = $null
       for ($i=0; $i -lt 100; $i++) {
         Start-Sleep -Milliseconds 200
@@ -220,13 +280,19 @@ try {
             $active = Read-ActiveFixture $workspace
             if ($active -and $active.title -ceq $fixture.Name -and
                 ($active.path -ieq $expectedPath -or $active.path -ieq "\\?\$expectedPath") -and
-                $active.content -ceq $fixture.Text) { return $process }
+                $active.content -ceq $fixture.Text) {
+              if ($Trace) { Write-ActivationTrace $fixture $method 'opened' @{ editorPid = $process.Id; evidence = 'workspace' } }
+              return $process
+            }
           }
           try {
             $appRoot = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
             $match = [System.Windows.Automation.PropertyCondition]::new(
               [System.Windows.Automation.AutomationElement]::NameProperty, $fixture.Expected)
-            if ($appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $match)) { return $process }
+            if ($appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $match)) {
+              if ($Trace) { Write-ActivationTrace $fixture $method 'opened' @{ editorPid = $process.Id; evidence = 'UI Automation name' } }
+              return $process
+            }
             $tabMatch = [System.Windows.Automation.PropertyCondition]::new(
               [System.Windows.Automation.AutomationElement]::NameProperty, $fixture.Name)
             $tab = $appRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $tabMatch)
@@ -240,11 +306,27 @@ try {
             foreach ($node in $appRoot.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)) {
               $text=$null
               if ($node.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$text) -and
-                  $text.DocumentRange.GetText(32768).Contains($fixture.Expected)) { return $process }
+                  $text.DocumentRange.GetText(32768).Contains($fixture.Expected)) {
+                if ($Trace) { Write-ActivationTrace $fixture $method 'opened' @{ editorPid = $process.Id; evidence = 'UI Automation text' } }
+                return $process
+              }
             }
           } catch {}
         }
       }
+      if ($Trace) {
+        $workspaceState = @(foreach ($workspace in $workspaces) {
+          $active = Read-ActiveFixture $workspace
+          if ($active) {
+            @{ workspace = $workspace; title = $active.title; path = $active.path; contentLength = $active.content.Length }
+          }
+        })
+        Write-ActivationTrace $fixture $method 'timed-out' @{
+          editorPid = $fixtureEditor.Id
+          workspaces = $workspaceState
+        }
+      }
+      if ($ExplicitOpen) { return }
       Get-Process markwriter -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Host "Observed editor PID $($_.Id), path $($_.Path), window $($_.MainWindowTitle)"
         if ($_.Path -ine $resolvedApp -or !$_.MainWindowHandle) { return }
@@ -281,6 +363,17 @@ try {
         if ($active) { Write-Host "Active fixture at $workspace is '$($active.title)' with $($active.content.Length) characters." }
         else { Write-Host "Workspace $workspace present: $(Test-Path -LiteralPath $workspace)" }
       }
+      if ($Compare -and $fixtureEditor) {
+        try {
+          $comparison = Open-ThroughExplorer $fixture -Trace -ExplicitOpen
+          Write-ActivationTrace $fixture $method 'comparison' @{
+            explicitOpenPassed = [bool]$comparison
+            reusedEditor = $comparison.Id -eq $fixtureEditor.Id
+          }
+        } catch {
+          Write-ActivationTrace $fixture $method 'comparison' @{ explicitOpenPassed = $false; error = $_.Exception.Message }
+        }
+      }
       if ($fixtureEditor) {
         Trace-WebView $fixtureEditor
         $fixtureEditor.CloseMainWindow() | Out-Null
@@ -288,14 +381,14 @@ try {
       }
       throw "Explorer open did not display the document body for $($fixture.Name)"
     }
-    $appProcess = Open-ThroughExplorer $fixtures[0]
+    $appProcess = Open-ThroughExplorer $fixtures[0] -Trace:$traceRollbackOpen
     if ([PreviewProcessIntegrity]::Rid($appProcess) -ne 8192 -or
         [PreviewProcessIntegrity]::AdministratorEnabled($appProcess)) {
       throw 'Explorer did not start the editor at ordinary user privilege.'
     }
     $cases.Add('cold Explorer Open verb opens a Unicode Markdown path at ordinary user privilege')
     Write-Host "Cold Explorer open verified in ordinary editor PID $($appProcess.Id)."
-    $warm = Open-ThroughExplorer $fixtures[1]
+    $warm = Open-ThroughExplorer $fixtures[1] -Trace:$traceRollbackOpen -Compare:$traceRollbackOpen
     if ($warm.Id -ne $appProcess.Id) { throw 'Warm shell-open did not reuse the editor process' }
     $cases.Add('warm Explorer Open verb opens markdown in the running editor')
     Write-Host "Warm Explorer open reused editor PID $($warm.Id)."

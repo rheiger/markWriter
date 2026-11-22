@@ -235,8 +235,44 @@ try {
         $previewFallbackOwned = $false
     }
     $env:MARKWRITER_PREVIEW_RESULT = Join-Path $artifacts 'windows-rollback-explorer.json'
-    & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -ExpectedSha256 $basePreviewHash
-    if ($LASTEXITCODE -ne 0) { throw 'Rolled-back package failed its ordinary Explorer fixture.' }
+    $processTrace = $null
+    $previousTrace = $env:MARKWRITER_TRACE_ROLLBACK_OPEN
+    try {
+        if ($env:GITHUB_REF -ceq 'refs/heads/codex/hosted-windows-rollback-diagnostic') {
+            $env:MARKWRITER_TRACE_ROLLBACK_OPEN = 'true'
+            try {
+                $processTrace = 'MarkWriterRollbackProcessStart'
+                Register-CimIndicationEvent -Query "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName = 'markwriter.exe'" -SourceIdentifier $processTrace | Out-Null
+            } catch {
+                Write-Warning "Process-start observation was unavailable: $_"
+                $processTrace = $null
+            }
+        }
+        & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -ExpectedSha256 $basePreviewHash
+        $explorerExit = $LASTEXITCODE
+    } finally {
+        $env:MARKWRITER_TRACE_ROLLBACK_OPEN = $previousTrace
+        if ($processTrace) {
+            try {
+                $starts = @(Get-Event -SourceIdentifier $processTrace -ErrorAction SilentlyContinue | ForEach-Object {
+                    $start = $_.SourceEventArgs.NewEvent
+                    @{
+                        utc = [DateTime]::FromFileTimeUtc([long]$start.TIME_CREATED).ToString('o')
+                        pid = $start.ProcessID
+                        parentPid = $start.ParentProcessID
+                        session = $start.SessionID
+                    }
+                })
+                ConvertTo-Json -InputObject $starts | Set-Content -LiteralPath "$env:MARKWRITER_PREVIEW_RESULT.process-starts.json" -Encoding utf8
+            } catch {
+                Write-Warning "Could not collect process-start observation: $_"
+            } finally {
+                Unregister-Event -SourceIdentifier $processTrace
+                Remove-Event -SourceIdentifier $processTrace -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    if ($explorerExit -ne 0) { throw 'Rolled-back package failed its ordinary Explorer fixture.' }
     $receipt.rolledBackExplorer = Get-Content -Raw -LiteralPath $env:MARKWRITER_PREVIEW_RESULT | ConvertFrom-Json
     if (!$receipt.rolledBackExplorer.passed -or (Get-Sha256 $document) -ne $savedHash) { throw 'Explorer result or saved Markdown preservation failed after rollback.' }
     $receipt.passed = $true
