@@ -1,4 +1,4 @@
-param([switch]$ObserveEditor)
+param([switch]$ObserveEditor, [string]$Association = '.markdown')
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or !$env:RUNNER_TEMP -or !$IsWindows) {
     throw 'This test requires a disposable hosted Windows runner.'
@@ -18,7 +18,7 @@ public static class LifecycleAssociation {
 '@
     [uint32]$capacity = 32768
     $value = [Text.StringBuilder]::new([int]$capacity)
-    $result = [LifecycleAssociation]::AssocQueryStringW(0, 1, '.markdown', 'open', $value, [ref]$capacity)
+    $result = [LifecycleAssociation]::AssocQueryStringW(0, 1, $Association, 'open', $value, [ref]$capacity)
     if ($result -ne 0) { throw ("Could not query effective Markdown default (HRESULT 0x{0:x8})." -f $result) }
     Set-Content -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT -Value $value.ToString()
     return
@@ -56,17 +56,13 @@ $workspace = Join-Path $env:MARKWRITER_PROFILE_DIR 'workspace.json'
 $env:MARKWRITER_LIFECYCLE_DOCUMENT = $document
 $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT = Join-Path $state 'association.txt'
 $machine = 'HKLM:\Software\Classes'
-$user = 'HKCU:\Software\Classes'
 $clsid = '{8360D352-56CE-4C43-A12E-A73CF9D10214}'
 $iid = '{8895b1c6-b41f-4c1c-a562-0d564250836f}'
 $server = "$machine\CLSID\$clsid\InprocServer32"
 $competingKey = "$machine\SystemFileAssociations\.markdown\shellex\$iid"
 $competing = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'
-$editorKey = "$user\.markdown"
-$editorId = 'MW.Rollback.' + [guid]::NewGuid().ToString('N').Substring(0, 16)
-$editorClass = "$user\$editorId"
-$editorCommand = '"{0}\System32\notepad.exe" "%1"' -f $env:WINDIR
-$editorClassOwned = $false
+$editorKey = "$machine\.markdown"
+$markwriterEditor = 'MarkWriter.Markdown'
 $editorDefaultOwned = $false
 $previewFallbackOwned = $false
 $os = Get-CimInstance Win32_OperatingSystem
@@ -106,28 +102,29 @@ function Invoke-Recovery($Mode, $Version, $Label) {
     if (!$evidence.passed -or $evidence.version -cne $Version) { throw 'Recovery evidence version or status differs.' }
     $receipt.operations.Add(@{ phase = $Label; recovery = $evidence })
 }
+function Read-EffectiveOpenCommand($Association) {
+    & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File $PSCommandPath -ObserveEditor -Association $Association
+    if ($LASTEXITCODE -ne 0) { throw "Could not observe the effective Open command for $Association." }
+    (Get-Content -Raw -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT).Trim()
+}
 function Assert-CompetingEditor($Phase) {
-    if ((Read-DefaultValue $editorKey) -cne $editorId -or (Read-DefaultValue "$editorClass\shell\open\command") -cne $editorCommand -or
-        (Read-DefaultValue $competingKey) -ine $competing) { throw 'Package operation changed the competing editor or preview registration.' }
-    & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File $PSCommandPath -ObserveEditor
-    if ($LASTEXITCODE -ne 0) { throw 'Could not observe the effective default editor.' }
-    $effective = (Get-Content -Raw -LiteralPath $env:MARKWRITER_LIFECYCLE_ASSOCIATION_RESULT).Trim()
-    if ($effective -ine $editorCommand) { throw "Expected the fixture's competing editor to remain the effective default, observed $effective." }
+    if ((Read-DefaultValue $editorKey) -cne $editorId -or (Read-DefaultValue $competingKey) -ine $competing) {
+        throw 'Package operation changed the competing editor or preview registration.'
+    }
+    $effective = Read-EffectiveOpenCommand '.markdown'
+    if ($effective -ine $editorCommand) { throw "Expected the fixture's competing editor to remain effective, observed $effective." }
     $receipt.operations.Add(@{ phase = $Phase; effectiveEditor = $effective; syntheticCompetingPreviewRegistration = $competing })
 }
 function Remove-EditorFixture {
     if ($script:editorDefaultOwned -and (Read-DefaultValue $editorKey) -ceq $editorId) {
-        (Get-Item -LiteralPath $editorKey).DeleteValue('', $false)
+        if ((Read-DefaultValue $server) -ieq $preview) {
+            Set-Item -LiteralPath $editorKey -Value $markwriterEditor
+        } else {
+            (Get-Item -LiteralPath $editorKey).DeleteValue('', $false)
+        }
         [LifecycleShellChange]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
     }
     $script:editorDefaultOwned = $false
-    if ($script:editorClassOwned) {
-        $registered = Read-DefaultValue "$editorClass\shell\open\command"
-        if (!$registered -or $registered -ceq $editorCommand) {
-            Remove-Item -LiteralPath $editorClass -Recurse
-        }
-    }
-    $script:editorClassOwned = $false
 }
 
 Add-Type @'
@@ -152,13 +149,17 @@ try {
     $savedHash = Get-Sha256 $document
     $receipt.savedDocumentSha256 = $savedHash
 
-    if ($null -ne (Read-DefaultValue $editorKey) -or (Test-Path -LiteralPath $editorClass) -or (Read-DefaultValue $competingKey) -ine $clsid) {
-        throw 'The competing editor and preview fixture needs an unoccupied disposable registration.'
+    $editorId = Read-DefaultValue "$machine\.txt"
+    if (!$editorId -or (Read-DefaultValue $editorKey) -cne $markwriterEditor -or (Read-DefaultValue $competingKey) -ine $clsid) {
+        throw 'Expected a Windows text-editor ProgID and the two MarkWriter fallback registration values.'
     }
-    New-Item -Path "$editorClass\shell\open\command" -Force | Out-Null
-    $editorClassOwned = $true
-    Set-Item -LiteralPath "$editorClass\shell\open\command" -Value $editorCommand
-    if (!(Test-Path -LiteralPath $editorKey)) { New-Item -Path $editorKey | Out-Null }
+    # A registered Windows editor has a real executable and a Shell-resolvable
+    # ProgID. Use it as the machine-wide fallback for the disposable profile.
+    $editorCommand = Read-EffectiveOpenCommand $editorId
+    if (!$editorCommand -or $editorCommand -match 'OpenWith\.exe|markwriter\.exe') {
+        throw "The Windows text-editor class does not resolve to an independent editor: $editorCommand"
+    }
+    $receipt.competingEditor = @{ layer = 'machine-wide default association'; progId = $editorId; command = $editorCommand }
     Set-Item -LiteralPath $editorKey -Value $editorId
     $editorDefaultOwned = $true
     Set-Item -LiteralPath $competingKey -Value $competing
