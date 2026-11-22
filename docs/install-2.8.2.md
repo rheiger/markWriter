@@ -12,7 +12,14 @@ Use the exact installed version and absolute app path when running the macOS rem
 
 Close MarkWriter and the Explorer Preview pane. Run the verified Windows x64 installer and approve elevation. The standard machine-wide installation uses `%ProgramFiles%\MarkWriter`.
 
-To remove the app, use **Settings → Apps → Installed apps → MarkWriter → Uninstall** and leave the application data deletion option unchecked to keep your profile. If Explorer still holds the preview DLL open, close previews and sign out and back in before retrying. For a manual rollback, reinstall the verified 2.7.5 Windows x64 installer after removing the new version. Check the installed version, open a known saved document and check that any recovery draft is available.
+### Manual rollback to the 2.7.5 machine-wide installation
+
+1. Close MarkWriter and the File Explorer Preview pane. Open **Settings → Apps → Installed apps → MarkWriter → Uninstall**. Leave the application data deletion option unchecked. If the uninstaller reports that the preview DLL is still in use, sign out and back in before retrying.
+2. If unrelated files remain in `%ProgramFiles%\MarkWriter`, move them to a safe location before reinstalling. Keep the originals of your Markdown files and your profile in place.
+3. Download the [2.7.5 Windows x64 installer](https://github.com/rheiger/markWriter/releases/tag/v2.7.5), verify it against that release's `SHA256SUMS`, and run it. Launch MarkWriter from Start and confirm 2.7.5 in **About MarkWriter**. Open a known saved document and check that any recovery draft is available.
+4. In File Explorer, choose **Open with → MarkWriter** or check the Preview pane if you use the bundled preview. Windows chooses the effective editor and preview provider from your existing associations.
+
+The Windows packages and bundled preview DLL are unsigned.
 
 ## Ubuntu 26.04 x64
 
