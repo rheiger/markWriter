@@ -10,6 +10,21 @@ function errorMessage(error: unknown, fallback: string): string {
   return typeof error === 'string' && error ? error : fallback
 }
 
+export type DiskIssue = 'changed' | 'missing' | 'unreadable' | 'tooLarge'
+
+function isDiskIssue(value: unknown): value is DiskIssue {
+  return value === 'changed' || value === 'missing' || value === 'unreadable' || value === 'tooLarge'
+}
+
+export function diskIssueMessage(issue: DiskIssue): string {
+  switch (issue) {
+    case 'changed': return 'The file changed on disk.'
+    case 'missing': return 'The file is missing or was renamed.'
+    case 'unreadable': return 'The file could not be read.'
+    case 'tooLarge': return 'Automatic change detection is unavailable for files larger than 1 MiB.'
+  }
+}
+
 // Types for our application state
 export interface Document {
   id: string
@@ -19,6 +34,9 @@ export interface Document {
   isDirty: boolean
   conflictPath?: string
   diskContent?: string
+  diskIssue?: DiskIssue
+  diskRevision?: number
+  reloadCount?: number
   mode?: 'markdown' | 'wysiwyg'
   revision?: number
   viewState?: Partial<Record<'sourceAnchor' | 'sourceHead' | 'sourceScroll' | 'previewScroll' | 'renderedAnchor' | 'renderedHead' | 'renderedScroll', number>>
@@ -33,12 +51,16 @@ import { type AppConfig, defaultConfig, parsePreferences } from '../lib/preferen
 export interface AppState {
   documents: Document[]
   pendingClose: { id: string, title: string, resolve: (decision: UnsavedDecision) => void } | null
+  pendingDiskReload: { document: Document, loading: boolean } | null
   activateDocument: (id: string) => void
   rememberView: (id: string, viewState: NonNullable<Document['viewState']>, sourceViewportAnchor?: number) => void
   reorderDocument: (id: string, index: number) => void
   closeDocument: (id: string) => Promise<boolean>
   saveAll: () => Promise<boolean>
   saveToPath: (doc: Document, path: string) => Promise<boolean>
+  refreshDocumentDisk: (id: string, stopped?: () => boolean) => Promise<void>
+  reloadDocument: (document: Document, discardEdits?: boolean) => Promise<boolean>
+  saveDocumentCopy: (document: Document, path: string) => Promise<boolean>
   // Document state
   currentDocument: Document | null
   recentDocuments: Document[]
@@ -51,7 +73,7 @@ export interface AppState {
 
   // Actions
   setCurrentDocument: (doc: Document | null) => void
-  updateDocumentContent: (content: string, id?: string) => void
+  updateDocumentContent: (content: string, id?: string, reloadCount?: number) => void
   setDocumentDirty: (dirty: boolean) => void
   addRecentDocument: (doc: Document) => void
   updateConfig: (config: Partial<AppConfig>) => void
@@ -71,7 +93,19 @@ function workspace(documents: Document[], activeId?: string | null) {
   return { documents, currentDocument: documents.find(doc => doc.id === activeId) ?? null }
 }
 const saving = new Map<string, Promise<boolean>>()
+const checking = new Map<string, Promise<unknown>>()
 const destinations = new Map<string, string>()
+const reloading = new Set<string>()
+const monitorCharacterLimit = 1024 * 1024
+
+function baseline(doc: Document) {
+  return doc.savedContent ?? (doc.isDirty ? undefined : doc.content)
+}
+
+function sameDiskOwner(captured: Document, latest: Document | undefined): latest is Document {
+  return latest !== undefined && latest.path === captured.path && latest.diskRevision === captured.diskRevision &&
+    baseline(latest) === baseline(captured)
+}
 let closing = false
 
 let activeViewCapture: { id: string, capture: () => void } | undefined
@@ -94,29 +128,71 @@ export const useAppStore = create<AppState>((set, get) => {
     captureBeforeActivating(doc.id)
     set(state => workspace([...state.documents.filter(d => d.id !== doc.id), doc], doc.id))
   }
+  const find = (id: string) => get().documents.find(doc => doc.id === id)
+  const setDiskIssue = (captured: Document, diskIssue: DiskIssue | undefined, invalidate = false) => {
+    const latest = find(captured.id)
+    if (!sameDiskOwner(captured, latest) || (latest.diskIssue === diskIssue && !invalidate)) return
+    replace(captured.id, doc => ({ ...doc, diskIssue,
+      diskRevision: invalidate ? (doc.diskRevision ?? 0) + 1 : doc.diskRevision,
+    }))
+  }
   const saveSnapshot = (snapshot: Document, path: string, as: boolean): Promise<boolean> => {
     const run = async () => {
       set({ error: null, isLoading: true })
       let canonical = path
+      let reserved = false
+      let guarded: Document | undefined
       try {
-        canonical = await invoke<string>('canonical_document_path', { path }) || path
-        if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical) ||
-            (destinations.has(canonical) && destinations.get(canonical) !== snapshot.id)) {
+        // A Windows replacement can fail while a previous scan still holds
+        // the target open, even with normal read sharing.
+        const scan = checking.get(snapshot.id)
+        if (scan) await scan.catch(() => {})
+        const owner = find(snapshot.id)
+        if (!owner || owner.path !== snapshot.path || owner.reloadCount !== snapshot.reloadCount || reloading.has(snapshot.id)) {
+          throw new Error('The document changed while preparing to save. Review it and try again.')
+        }
+        // Resolve the parent first for Save As so a symlink replacing the
+        // owned filename cannot silently turn it into an unguarded new destination.
+        if (as && path !== owner.path) {
+          const ownedPaths = get().documents.flatMap(doc => doc.path ? [doc.path] : [])
+          canonical = await invoke<string>('canonical_document_path', { path, ownedPaths }) || path
+        }
+        const latestOwner = find(snapshot.id)
+        if (!latestOwner || latestOwner.path !== owner.path || latestOwner.reloadCount !== owner.reloadCount) {
+          throw new Error('The document changed while preparing to save. Review it and try again.')
+        }
+        if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical) || destinations.has(canonical)) {
           throw new Error('That file is already owned by another open tab. Activate that tab instead.')
         }
+        const expected = canonical === owner.path ? baseline(owner) : undefined
+        if (canonical === owner.path && expected === undefined) {
+          guarded = owner
+          throw { diskState: 'unreadable' }
+        }
         destinations.set(canonical, snapshot.id)
-        const result = await invoke<{path?: string, title?: string}>(as ? 'save_document_as' : 'save_document', {
-          id: snapshot.id, content: snapshot.content, path: canonical,
+        reserved = true
+        guarded = expected === undefined ? undefined : owner
+        const result = await invoke<{path?: string, title?: string}>(guarded ? 'save_document' : 'save_document_as', {
+          id: snapshot.id, content: snapshot.content, path: canonical, ...(guarded ? { expected } : {}),
         })
-        if (get().documents.some(d => d.id !== snapshot.id && d.path === canonical)) throw new Error('Destination ownership changed while saving. The written file is retained; this buffer remains open.')
-        replace(snapshot.id, latest => !as && latest.path !== snapshot.path ? latest : ({ ...latest, path: result?.path || canonical,
+        if (get().documents.some(doc => doc.id !== snapshot.id && doc.path === canonical)) {
+          throw new Error('Destination ownership changed while saving. The written file is retained and this buffer remains open.')
+        }
+        replace(snapshot.id, latest => latest.path !== owner.path ? latest : ({ ...latest, path: result?.path || canonical,
           title: result?.title || canonical.split(/[\\/]/).pop() || 'Untitled',
-          conflictPath: undefined, diskContent: undefined, savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
+          conflictPath: undefined, diskContent: undefined, diskIssue: undefined, diskRevision: (latest.diskRevision ?? 0) + 1,
+          savedContent: snapshot.content, isDirty: latest.content !== snapshot.content,
         }))
         return true
-      } catch (error) { set({ error: errorMessage(error, 'Failed to save document') }); return false }
-      finally {
-        if (destinations.get(canonical) === snapshot.id) destinations.delete(canonical)
+      } catch (error) {
+        const diskState = (error as { diskState?: unknown } | null)?.diskState
+        if (guarded && isDiskIssue(diskState)) {
+          setDiskIssue(guarded, diskState, true)
+          set({ error: `Save stopped. ${diskIssueMessage(diskState)} Reload the file or save your edits to a new path.` })
+        } else set({ error: errorMessage(error, 'Failed to save document') })
+        return false
+      } finally {
+        if (reserved) destinations.delete(canonical)
         set({ isLoading: false })
       }
     }
@@ -128,7 +204,7 @@ export const useAppStore = create<AppState>((set, get) => {
   }
   return {
     documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig,
-    isLoading: false, error: null, pendingClose: null,
+    isLoading: false, error: null, pendingClose: null, pendingDiskReload: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => {
       captureBeforeActivating(id)
@@ -147,8 +223,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (doc) docs.splice(Math.max(0, Math.min(index, docs.length)), 0, doc)
       return workspace(docs, state.currentDocument?.id)
     }),
-    updateDocumentContent: (content, id = get().currentDocument?.id) => {
-      if (!id) return
+    updateDocumentContent: (content, id = get().currentDocument?.id, reloadCount) => {
+      if (!id || (reloadCount !== undefined && (find(id)?.reloadCount ?? 0) !== reloadCount)) return
       replace(id, doc => doc.content === content ? doc : ({ ...doc, content,
         savedContent: doc.savedContent ?? (doc.isDirty ? undefined : doc.content),
         revision: (doc.revision ?? 0) + 1,
@@ -206,13 +282,83 @@ export const useAppStore = create<AppState>((set, get) => {
       return doc ? saveSnapshot(doc, path, true) : false
     },
     saveToPath: (doc, path) => saveSnapshot(doc, path, false),
+    refreshDocumentDisk: async (id, stopped = () => false) => {
+      const captured = find(id)
+      if (!captured?.path || saving.has(id) || reloading.has(id) || checking.has(id)) return
+      const expected = baseline(captured)
+      const scan = Promise.resolve().then(() => expected === undefined ? 'unreadable' : invoke('monitor_document_disk', {
+        path: captured.path, expected: expected.length <= monitorCharacterLimit ? expected : null,
+      }))
+      checking.set(id, scan)
+      let result: unknown
+      try { result = await scan }
+      catch { result = 'unreadable' }
+      finally { checking.delete(id) }
+      if (stopped() || saving.has(id) || reloading.has(id)) return
+      if (result === 'tooLarge' && captured.diskIssue === 'changed') return
+      setDiskIssue(captured, result === 'unchanged' ? undefined : isDiskIssue(result) ? result : 'unreadable')
+    },
+    reloadDocument: async (captured, discardEdits = false) => {
+      const id = captured.id
+      const eligible = (latest: Document | undefined) => sameDiskOwner(captured, latest) &&
+        latest.revision === captured.revision && latest.content === captured.content && (!latest.isDirty || discardEdits) &&
+        !saving.has(id) && !closing
+      if (!captured.path || reloading.has(id) || !eligible(find(id))) {
+        set({ error: 'The document changed while preparing to reload. Review it and try again.' })
+        return false
+      }
+      reloading.add(id)
+      try {
+        let content: string
+        try { content = await invoke<string>('read_document_disk', { path: captured.path }) }
+        catch (error) {
+          const issue = isDiskIssue(error) ? error : 'unreadable'
+          setDiskIssue(captured, issue, true)
+          set({ error: `Reload stopped. ${diskIssueMessage(issue)}` })
+          return false
+        }
+        if (!eligible(find(id))) {
+          set({ error: 'The document changed while reloading. Review it and try again.' })
+          return false
+        }
+        // Commit the reviewed revision in memory before replacing its persisted
+        // recovery copy. A failed, stale, or interrupted read keeps the draft.
+        replace(id, doc => ({ ...doc, content, savedContent: content, isDirty: false,
+          diskIssue: undefined, diskRevision: (doc.diskRevision ?? 0) + 1, revision: (doc.revision ?? 0) + 1,
+          reloadCount: (doc.reloadCount ?? 0) + 1, viewState: undefined, sourceViewportAnchor: undefined,
+          lastModified: new Date(),
+        }))
+        set({ error: null })
+        try { await flushWorkspace() }
+        catch (error) { set({ error: `Reloaded the file, but recovery storage could not be updated: ${String(error)}` }) }
+        return true
+      } finally { reloading.delete(id) }
+    },
+    saveDocumentCopy: async (captured, path) => {
+      let canonical = path
+      let reserved = false
+      try {
+        canonical = await invoke<string>('canonical_document_path', { path, preserveLeaf: true }) || path
+        if (get().documents.some(doc => doc.path === canonical) || destinations.has(canonical)) {
+          throw new Error('Choose a new path for the copy. That path already belongs to an open document.')
+        }
+        destinations.set(canonical, captured.id)
+        reserved = true
+        await invoke('save_document_copy', { path: canonical, content: captured.content })
+        set({ error: null })
+        return true
+      } catch (error) {
+        set({ error: errorMessage(error, 'Failed to save a copy') })
+        return false
+      } finally { if (reserved) destinations.delete(canonical) }
+    },
     saveAll: async () => {
       const docs = get().documents.filter(d => d.isDirty)
       for (const doc of docs) if (!await saveWithDialog(doc)) return false
       return !get().documents.some(d => d.isDirty)
     },
     closeDocument: async id => {
-      if (closing) return false
+      if (closing || get().pendingDiskReload || reloading.has(id)) return false
       closing = true
       try {
       const doc = get().documents.find(d => d.id === id)
@@ -262,9 +408,38 @@ export async function saveWithDialog(doc: Document, as = false): Promise<boolean
   return as || !doc.path ? useAppStore.getState().saveDocumentAs(path, doc.id, doc) : useAppStore.getState().saveToPath(doc, path)
 }
 
+export async function saveCopyWithDialog(doc: Document): Promise<boolean> {
+  try {
+    const path = await save({ title: 'Save a Copy', filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
+    return !!path && await useAppStore.getState().saveDocumentCopy(doc, path)
+  } catch (error) {
+    useAppStore.getState().setError(errorMessage(error, 'Could not choose a destination for the copy'))
+    return false
+  }
+}
+
+// Serialize background reads and cycle through both active and inactive owners.
+export function watchOpenDocuments() {
+  let stopped = false
+  let timer: ReturnType<typeof setTimeout>
+  let nextId: string | undefined
+  const check = async () => {
+    const documents = useAppStore.getState().documents.filter(doc => doc.path)
+    const index = Math.max(0, documents.findIndex(doc => doc.id === nextId))
+    const doc = documents[index]
+    if (doc) {
+      nextId = documents[(index + 1) % documents.length].id
+      await useAppStore.getState().refreshDocumentDisk(doc.id, () => stopped)
+    }
+    if (!stopped) timer = setTimeout(check, 500)
+  }
+  timer = setTimeout(check, 500)
+  return () => { stopped = true; clearTimeout(timer) }
+}
+
 // Quit collects choices first: Cancel never closes any tab or discards any draft.
 export async function confirmDiscardChanges(): Promise<boolean> {
-  if (closing) return false
+  if (closing || useAppStore.getState().pendingDiskReload || reloading.size) return false
   closing = true
   try {
   const reviewed: Document[] = []

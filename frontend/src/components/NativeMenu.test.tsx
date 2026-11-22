@@ -30,7 +30,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new Event('close')) }
   Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn() })
   const a = doc('a')
-  useAppStore.setState({ documents: [a], currentDocument: a, pendingClose: null })
+  useAppStore.setState({ documents: [a], currentDocument: a, pendingClose: null, pendingDiskReload: null })
 })
 afterEach(() => {
   cleanup()
@@ -74,6 +74,26 @@ describe('native Mac menu dispatch', () => {
     act(() => { send('undo'); send('erd') })
     expect(document.execCommand).toHaveBeenCalledWith('undo')
     expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('invalidates native clipboard and editing command generations across reload confirmation', async () => {
+    const insert = vi.fn()
+    render(<MenuBar editorViewRef={{ current: { insertMarkdown: insert } as unknown as EditorViewRef }} editorMode="markdown" />)
+    await act(async () => {})
+    const oldGeneration = latestGeneration()
+    act(() => {
+      useAppStore.setState({ pendingDiskReload: { document: doc('a'), loading: false } })
+      send('erd', oldGeneration)
+    })
+    const modalGeneration = latestGeneration()
+    act(() => send('erd', modalGeneration))
+    act(() => {
+      useAppStore.setState({ pendingDiskReload: null })
+      send('erd', modalGeneration)
+    })
+    expect(insert).not.toHaveBeenCalled()
+    act(() => send('erd'))
+    expect(insert).toHaveBeenCalledOnce()
   })
 
   it('uses the screen menu while About and Help still open and close', async () => {

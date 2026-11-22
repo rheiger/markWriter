@@ -1,5 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, type Document } from '../store/useAppStore'
 import { parsePreferences, type AppConfig } from './preferences'
 
 let preferencesBlocked = false
@@ -41,8 +41,13 @@ export function watchPreferences() {
 
 let workspaceWrites: Promise<unknown> = Promise.resolve()
 let timer: ReturnType<typeof setTimeout> | undefined
+function recoveryDocument({ diskIssue: _diskIssue, diskRevision: _diskRevision, reloadCount: _reloadCount, ...doc }: Document) {
+  return doc
+}
+
 export function snapshotWorkspace(documents = useAppStore.getState().documents, fileViews = useAppStore.getState().fileViews) {
-  return { version: 1, activeId: useAppStore.getState().currentDocument?.id ?? null, documents, fileViews }
+  const recoveryDocuments = documents.map(recoveryDocument)
+  return { version: 1, activeId: useAppStore.getState().currentDocument?.id ?? null, documents: recoveryDocuments, fileViews }
 }
 export async function flushWorkspace(value = snapshotWorkspace()) {
   clearTimeout(timer)
@@ -70,9 +75,19 @@ export async function loadWorkspace() {
     useAppStore.getState().setError(`Workspace could not be restored; rejected storage is retained. ${String(error)}`)
   }
 }
+function sameRecoveryDocument(doc: Document, previous: Document): boolean {
+  if (doc === previous) return true
+  const currentFields = Object.entries(recoveryDocument(doc))
+  const prior = recoveryDocument(previous)
+  return currentFields.length === Object.keys(prior).length &&
+    currentFields.every(([key, value]) => prior[key as keyof typeof prior] === value)
+}
+
 export function watchWorkspace() {
   return useAppStore.subscribe((state, prior) => {
-    if (state.documents === prior.documents && state.currentDocument === prior.currentDocument) return
+    if (state.currentDocument?.id === prior.currentDocument?.id && state.fileViews === prior.fileViews &&
+        (state.documents === prior.documents || (state.documents.length === prior.documents.length &&
+          state.documents.every((doc, index) => sameRecoveryDocument(doc, prior.documents[index]))))) return
     clearTimeout(timer)
     timer = setTimeout(() => { void flushWorkspace().catch(error => useAppStore.getState().setError(`Recovery could not be saved: ${String(error)}`)) }, 400)
   })

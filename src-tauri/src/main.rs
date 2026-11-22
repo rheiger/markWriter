@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, Emitter};
 mod persistence;
+mod document_disk;
 mod dot_policy;
 mod storage_profile;
 mod native_menu;
@@ -15,7 +16,8 @@ mod windows_install;
 #[cfg(target_os = "windows")]
 mod windows_open;
 use std::collections::HashMap;
-use std::io::Write;
+use std::path::Path;
+use document_disk::{DiskState, SaveError};
 // Menu system temporarily disabled for Tauri 2 compatibility
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -80,15 +82,30 @@ async fn create_document() -> Result<Document, String> {
     Ok(doc)
 }
 
-// Resolve existing aliases and normalize new destinations through their real parent.
+// Resolve aliases normally, or normalize just the parent for an already-owned name.
 #[tauri::command]
-fn canonical_document_path(path: String) -> Result<String, String> {
-    let path = std::path::Path::new(&path);
-    let canonical = if path.exists() { std::fs::canonicalize(path) } else {
-        let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
-        std::fs::canonicalize(parent).map(|p| p.join(path.file_name().unwrap_or_default()))
-    }.map_err(|e| format!("Cannot resolve document path: {}", e))?;
-    Ok(canonical.to_string_lossy().into_owned())
+fn canonical_document_path(path: String, preserve_leaf: Option<bool>, owned_paths: Option<Vec<String>>) -> Result<String, String> {
+    let path = Path::new(&path);
+    let resolved = match owned_paths {
+        Some(owners) => document_disk::save_as_path(path, &owners),
+        None => document_disk::canonical_path(path, preserve_leaf.unwrap_or(false)),
+    };
+    resolved.map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| format!("Cannot resolve document path: {error}"))
+}
+
+#[tauri::command]
+async fn monitor_document_disk(path: String, expected: Option<String>) -> DiskState {
+    tauri::async_runtime::spawn_blocking(move || document_disk::monitor(Path::new(&path), expected.as_deref()))
+        .await
+        .unwrap_or(DiskState::Unreadable)
+}
+
+#[tauri::command]
+async fn read_document_disk(path: String) -> Result<String, DiskState> {
+    tauri::async_runtime::spawn_blocking(move || document_disk::read_current(Path::new(&path)))
+        .await
+        .map_err(|_| DiskState::Unreadable)?
 }
 
 // Open document from file path
@@ -97,7 +114,7 @@ async fn open_document(path: Option<String>) -> Result<Document, String> {
     println!("[TAURI] Opening document, path: {:?}", path);
 
     if let Some(file_path) = path {
-        let file_path = canonical_document_path(file_path)?;
+        let file_path = canonical_document_path(file_path, None, None)?;
         match std::fs::read_to_string(&file_path) {
             Ok(content) => {
                 let title = std::path::Path::new(&file_path)
@@ -129,68 +146,25 @@ async fn open_document(path: Option<String>) -> Result<Document, String> {
     }
 }
 
-// Write in the destination directory and replace only after a complete, flushed write.
-fn write_document(path: &str, content: &str) -> std::io::Result<()> {
-    let destination = std::path::Path::new(path);
-    let parent = destination.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
-    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
-    if let Ok(metadata) = std::fs::metadata(destination) {
-        temporary.as_file().set_permissions(metadata.permissions())?;
-    }
-    temporary.write_all(content.as_bytes())?;
-    temporary.as_file().sync_all()?;
-    temporary.persist(destination).map_err(|error| error.error)?;
-    Ok(())
+// Save to an owned path only if the on-disk bytes still match its saved baseline.
+#[tauri::command]
+async fn save_document(_id: String, content: String, path: String, expected: String) -> Result<HashMap<String, String>, SaveError> {
+    document_disk::write(Path::new(&path), &content, Some(&expected))?;
+    Ok(HashMap::from([("path".to_string(), path)]))
 }
 
-// Save document to existing path
+// Save As may overwrite an existing destination chosen through the native dialog;
+// an already-owned path is always sent through save_document instead.
 #[tauri::command]
-async fn save_document(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
-    println!("[TAURI] Save document called with content length: {} to path: {}", content.len(), path);
-
-    match write_document(&path, &content) {
-        Ok(_) => {
-            let mut response = HashMap::new();
-            response.insert("status".to_string(), "saved".to_string());
-            response.insert("path".to_string(), path.clone());
-            println!("[TAURI] Document saved successfully to: {}", path);
-            Ok(response)
-        }
-        Err(e) => {
-            let error_msg = format!("Failed to save file: {}", e);
-            println!("[TAURI] Error: {}", error_msg);
-            Err(error_msg)
-        }
-    }
+async fn save_document_as(_id: String, content: String, path: String) -> Result<HashMap<String, String>, SaveError> {
+    document_disk::write(Path::new(&path), &content, None)?;
+    Ok(HashMap::from([("path".to_string(), path)]))
 }
 
-// Save document to new path
 #[tauri::command]
-async fn save_document_as(_id: String, content: String, path: String) -> Result<HashMap<String, String>, String> {
-    println!("[TAURI] Save document as: {}", path);
-
-    match write_document(&path, &content) {
-        Ok(_) => {
-            let title = std::path::Path::new(&path)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("Untitled")
-                .to_string();
-
-            let mut response = HashMap::new();
-            response.insert("path".to_string(), path.clone());
-            response.insert("title".to_string(), title);
-            response.insert("status".to_string(), "saved".to_string());
-
-            println!("[TAURI] Successfully saved as: {}", path);
-            Ok(response)
-        }
-        Err(e) => {
-            let error_msg = format!("Failed to save file: {}", e);
-            println!("[TAURI] Error: {}", error_msg);
-            Err(error_msg)
-        }
-    }
+async fn save_document_copy(content: String, path: String) -> Result<(), String> {
+    document_disk::write_copy(Path::new(&path), &content)
+        .map_err(|error| format!("Could not save a copy to a new file: {error}"))
 }
 
 // HTML is rendered by the same frontend parser as Preview, with inline diagram SVG.
@@ -199,7 +173,10 @@ async fn export_document(path: String, format: String, html: String) -> Result<(
     if format != "html" {
         return Err(format!("Unsupported export format: {}", format));
     }
-    write_document(&path, &html).map_err(|error| format!("Failed to export HTML: {}", error))
+    document_disk::write(Path::new(&path), &html, None).map_err(|error| match error {
+        SaveError::Io(message) => message,
+        SaveError::Conflict { .. } => "Could not export HTML".into(),
+    })
 }
 
 // Quit application
@@ -319,6 +296,9 @@ fn main() {
             open_document,
             save_document,
             save_document_as,
+            save_document_copy,
+            monitor_document_disk,
+            read_document_disk,
             export_document,
             quit_app,
             show_about_dialog,
@@ -398,7 +378,7 @@ mod tests {
         let reopened = open_document(Some(original.clone())).await.unwrap();
         assert_eq!(reopened.content, source);
         let edited = format!("{}\nEdited", source);
-        save_document(doc.id.clone(), edited.clone(), original.clone()).await.unwrap();
+        save_document(doc.id.clone(), edited.clone(), original.clone(), source.into()).await.unwrap();
         assert_eq!(open_document(Some(original)).await.unwrap().content, edited);
         save_document_as(doc.id, edited.clone(), copy.clone()).await.unwrap();
         assert_eq!(open_document(Some(copy)).await.unwrap().content, edited);

@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useRef, useState } from 'react'
+import { diskIssueMessage, saveCopyWithDialog, useAppStore, type Document } from '../store/useAppStore'
 import { Modal } from './Modal'
 import './Workspace.css'
 
@@ -25,6 +25,8 @@ export function DocumentTabs() {
           }
         }}>
         {doc.isDirty && <span aria-label="Unsaved">● </span>}
+        {doc.diskIssue && <span role="img" aria-label={doc.diskIssue === 'tooLarge' ? 'Disk check unavailable' : 'External file change'}
+          title={diskIssueMessage(doc.diskIssue)}>⚠ </span>}
         {documents.some(other => other.id !== doc.id && other.title === doc.title) ? doc.path || doc.title : doc.title}
       </button>
       <button aria-label={`Close ${doc.title}`} title="Close tab" onClick={() => void closeDocument(doc.id)}>×</button>
@@ -57,4 +59,41 @@ export function RecoveryNotice() {
       useAppStore.setState({ documents, currentDocument: documents.find(d => d.id === state.currentDocument?.id) ?? null })
     }}>Keep recovery copy</button>
   </div>
+}
+
+export function ExternalChangeNotice() {
+  const doc = useAppStore(state => state.currentDocument)
+  const busy = useAppStore(state => state.isLoading)
+  const pending = useAppStore(state => state.pendingDiskReload)
+  const [copied, setCopied] = useState<Document>()
+  const cancel = () => useAppStore.setState({ pendingDiskReload: null })
+  const reload = async (document: Document, discardEdits: boolean) => {
+    useAppStore.setState({ pendingDiskReload: { document, loading: true } })
+    try { await useAppStore.getState().reloadDocument(document, discardEdits) }
+    finally { cancel() }
+  }
+  return <>
+    {doc?.diskIssue && <div className="recovery-notice external-change">
+      <span role="status">{diskIssueMessage(doc.diskIssue)}{copied?.id === doc.id && copied.revision === doc.revision && ' Copy saved.'}</span>
+      <button disabled={busy || doc.diskIssue === 'missing' || doc.diskIssue === 'unreadable'} onClick={() => {
+        if (doc.isDirty) useAppStore.setState({ pendingDiskReload: { document: doc, loading: false } })
+        else void reload(doc, false)
+      }}>Reload from Disk</button>
+      <button disabled={busy} onClick={async () => {
+        setCopied(undefined)
+        if (await saveCopyWithDialog(doc)) setCopied(doc)
+      }}>Save a Copy…</button>
+    </div>}
+    {pending && (pending.loading ?
+      <Modal title="Reloading from Disk" onClose={() => {}}>
+        <p role="status">Reading “{pending.document.title}”…</p>
+      </Modal> :
+      <Modal title="Discard unsaved edits?" onClose={cancel}>
+        <p>Reload “{pending.document.title}” from disk and discard your unsaved edits?</p>
+        <div className="dialog-actions">
+          <button autoFocus onClick={cancel}>Cancel</button>
+          <button onClick={() => void reload(pending.document, true)}>Discard and Reload</button>
+        </div>
+      </Modal>)}
+  </>
 }

@@ -2,6 +2,7 @@ import { verifyRegex } from './regex-acceptance.mjs'
 // Real desktop WebView + production store/IPC acceptance. Node 24; no npm packages.
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
+import { verifyExternalFiles } from './external-file-acceptance.mjs'
 import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
 import { tomlEditorFixture } from './toml-fixtures.mjs'
@@ -517,6 +518,8 @@ try {
   assert.equal((await snapshot()).document.content, controlsAfterEdit)
   await theme('Dark')
   alpha3Cases.push('native HTML export captures syntax preference and embeds escaped static token CSS')
+  const externalFiles = await verifyExternalFiles({ dir: fixtureDir, run, click, wait: waitFor, mode, action, snapshot })
+  alpha3Cases.push(...externalFiles.cases)
   // Keep previous recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   await mode('Markdown')
@@ -535,7 +538,28 @@ try {
   session = restarted.sessionId
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error?.includes("External changes:")'),
+    'external conflict recovery report')
+  await waitFor(() => run(`const toast = document.querySelector('.error-toast.visible');
+    const message = toast?.querySelector('.error-message');
+    const close = toast?.querySelector('.error-close');
+    const outer = toast?.getBoundingClientRect();
+    if (!outer || !message?.textContent.includes('External changes:') || !close) return false;
+    return outer.left >= 0 && outer.right <= innerWidth && [message, close].every(element => {
+      const bounds = element.getBoundingClientRect();
+      return bounds.width > 0 && bounds.left >= outer.left && bounds.right <= outer.right;
+    });`), 'visible long-path recovery report and close control')
+  await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report expired')
   const restored = await snapshot()
+  const conflict = externalFiles.restart
+  const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
+  assert.equal(recoveredFile.path ?? null, null)
+  assert.equal(recoveredFile.content, conflict.recovery)
+  assert.equal(recoveredFile.isDirty, true)
+  assert.deepEqual(await readFile(conflict.path), Buffer.from(conflict.external))
+  alpha3Cases.push('external conflict restart retains draft and disk bytes independently')
+  await writeFile(join(artifacts, 'external-file-evidence.json'), JSON.stringify({ platform: process.platform,
+    cases: externalFiles.cases, detection: externalFiles.detection, restartConflict: true },null,2))
   assert.equal(restored.config.fontSize,18)
   assert.equal(restored.config.syncPreview,true)
   assert.equal(restored.config.wrapContinuation,true)

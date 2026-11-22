@@ -32,6 +32,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
     saveDocument,
     saveDocumentAs,
     exportDocument,
+    pendingClose,
+    pendingDiskReload,
   } = useAppStore()
   const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
   const defaultTextSize = editorMode === 'markdown' ? 14 : 16
@@ -59,14 +61,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
   const menuIdentity = useRef({ key: '', generation: 0 })
-  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!sqlTarget || !!useAppStore.getState().pendingClose
+  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
   const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
   if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
   const generation = menuIdentity.current.generation
   const renderedOwner = useRef(currentDocument)
   renderedOwner.current = currentDocument
   useEffect(() => useAppStore.subscribe((state, previous) => {
-    if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose) {
+    if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose || state.pendingDiskReload !== previous.pendingDiskReload) {
       ownerEpoch.current++
       menuIdentity.current = { key: '', generation: menuIdentity.current.generation + 1 }
     }
@@ -513,7 +515,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       const current = useAppStore.getState().currentDocument
       const owner = renderedOwner.current
       if (current?.id !== owner?.id || current?.revision !== owner?.revision) return
-      if (!acceptsNativeCommand(event.payload, menuIdentity.current.generation, !fieldEdit && !!document.querySelector('dialog[open]'))) return
+      if (!acceptsNativeCommand(event.payload, menuIdentity.current.generation, !fieldEdit &&
+        (!!useAppStore.getState().pendingDiskReload || !!document.querySelector('dialog[open]')))) return
       nativeActions.current(event.payload.action)
     }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => useAppStore.getState().setError(String(error)))
     return () => { disposed = true; stop?.() }
