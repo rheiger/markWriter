@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core'
 import type { EditorViewRef } from './EditorView'
+import { defaultConfig } from '../lib/preferences'
 import { MenuBar } from './MenuBar'
 import { useAppStore, type Document } from '../store/useAppStore'
 
@@ -24,7 +25,7 @@ const latestGeneration = () => {
 const send = (action: string, generation = latestGeneration()) => native.listener?.({ payload: { action, generation } })
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.mocked(invoke).mockReset().mockResolvedValue(null)
   Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Macintosh)' })
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new Event('close')) }
@@ -109,4 +110,38 @@ describe('native Mac menu dispatch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+})
+
+it('announces an update without taking focus or touching the active document', async () => {
+  let finish!: (value: unknown) => void
+  vi.mocked(invoke).mockImplementation(command => command === 'check_updates'
+    ? new Promise(resolve => { finish = resolve })
+    : Promise.resolve(null))
+  const source = { ...doc('draft', 3), isDirty: true }
+  useAppStore.setState({ documents: [source], currentDocument: source, config: { ...defaultConfig } })
+  render(<><MenuBar /><textarea aria-label="Editor fixture" defaultValue={source.content} /></>)
+  const editor = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Editor fixture' })
+  editor.focus()
+  editor.setSelectionRange(1, 3)
+  await act(async () => {})
+  const url = 'https://github.com/rheiger/markWriter/releases/tag/v2.13.1'
+  await act(async () => finish({
+    kind: 'available', version: '2.13.1', currentVersion: '2.12.2', releasePageUrl: url,
+    installer: { kind: 'unavailable', reason: 'missingInstaller' },
+  }))
+  expect(screen.getByRole('status')).toHaveTextContent('MarkWriter 2.13.1 is available.')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(editor).toHaveFocus()
+  expect(editor.selectionStart).toBe(1)
+  expect(editor.selectionEnd).toBe(3)
+  expect(useAppStore.getState().currentDocument).toBe(source)
+
+  fireEvent.click(screen.getByRole('button', { name: 'View update' }))
+  expect(screen.getByRole('dialog', { name: 'Check for Updates' })).toBeVisible()
+  expect(vi.mocked(invoke).mock.calls.filter(([name]) => name === 'check_updates')).toHaveLength(1)
+  fireEvent.click(screen.getByRole('button', { name: 'Open release page' }))
+  await act(async () => {})
+  expect(invoke).toHaveBeenCalledWith('open_update_link', { version: '2.13.1', url })
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('button', { name: 'View update' })).toBeNull()
 })

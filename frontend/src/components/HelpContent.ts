@@ -61,7 +61,9 @@ export const helpTopics: HelpTopic[] = [
   },
   {
     id: 'settings', title: 'Appearance and settings', blocks: [
-      { kind: 'paragraph', text: 'On macOS, menus appear in the screen menu bar; About, Settings and Check for Updates are in the application menu. On Windows and Linux, Check for Updates is in Help. Checks discover stable GitHub releases on demand; in-app installation and automatic checks are not available.' },
+      { kind: 'paragraph', text: 'On macOS, menus appear in the screen menu bar; About, Settings and Check for Updates are in the application menu. On Windows and Linux, Check for Updates is in Help. Manual checks look for stable releases on GitHub.' },
+      { kind: 'paragraph', text: 'MarkWriter checks for stable updates when it starts and every 24 hours while it runs. An update notice leaves focus in the editor. Turn off Check for updates automatically in Settings to stop background checks. You can still check from the menu.' },
+      { kind: 'paragraph', text: 'Open installer download sends the link for your platform to your default browser. If release matching is unavailable, open the release page. Follow the release instructions to install the update.' },
       { kind: 'paragraph', text: 'Choose Auto, Light or Dark in the View menu or Settings. Auto follows the system appearance.' },
       { kind: 'paragraph', text: 'Settings has independent source and rendered font families and text sizes. The source font is used in the Markdown editor; the rendered font is used for the rendered view and Preview. View → Zoom adjusts the active editor’s text size.' },
       { kind: 'paragraph', text: 'Settings also controls source tab width, wrapping, continuation markers, Preview synchronization and default folding. Changing a view or preference does not itself edit the document.' },

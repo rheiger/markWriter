@@ -10,12 +10,16 @@ import { mermaidErdTemplate, dotTemplate, mathTemplate } from '../lib/templates'
 import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 import { HelpDialog } from './HelpDialog'
-import { UpdateDialog, type UpdateCheckResult } from './UpdateDialog'
+import { UpdateDialog } from './UpdateDialog'
+import { useUpdateChecks, type AvailableUpdate, type UpdateCheckResult } from '../lib/useUpdateChecks'
 import { SqlImportDialog } from './SqlImportDialog'
 import { convertSqlInWorker } from '../lib/sqlDdlClient'
 import type { SqlDialect } from '../lib/sqlDdl'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
-const checkUpdates = () => invoke<UpdateCheckResult>('check_updates')
+const discoverUpdates = () => isTauri()
+  ? invoke<UpdateCheckResult>('check_updates')
+  : Promise.resolve<UpdateCheckResult>({ kind: 'unsupported', reason: 'Open the desktop app to check for updates.' })
+const openUpdateLink = (version: string, url: string) => invoke<void>('open_update_link', { version, url })
 
 interface MenuBarProps {
   editorMode?: EditorMode
@@ -53,7 +57,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   }, [activeMenu])
 
   const [helpOpen, setHelpOpen] = useState(false)
-  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState<true | AvailableUpdate | null>(null)
+  const { check, notice, markSeen, dismissNotice } = useUpdateChecks(isTauri() && config.automaticUpdateChecks, discoverUpdates)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
@@ -61,7 +66,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
   const menuIdentity = useRef({ key: '', generation: 0 })
-  const modal = helpOpen || aboutOpen || settingsOpen || updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
+  const modal = helpOpen || aboutOpen || settingsOpen || !!updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
   const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
   if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
   const generation = menuIdentity.current.generation
@@ -528,7 +533,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       .catch(error => useAppStore.getState().setError(String(error)))
   }, [generation, currentDocument, modal, editorMode, config.syntaxHighlighting, theme])
 
-  return (
+  const menuBar = (
     <div className={nativeMac ? 'native-menu-host' : 'menu-bar'}>
       {sqlTarget && <SqlImportDialog onSelectFile={loadSqlImport} onInsert={appendSqlImport} onClose={() => setSqlTarget(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
@@ -743,7 +748,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       </div>
 
       </>}
-      {updatesOpen && <UpdateDialog check={checkUpdates} onClose={() => setUpdatesOpen(false)} />}
+      {updatesOpen && <UpdateDialog check={check} initialUpdate={updatesOpen === true ? undefined : updatesOpen}
+        onAvailable={markSeen} openLink={openUpdateLink} onClose={() => {
+          if (updatesOpen !== true) markSeen(updatesOpen)
+          setUpdatesOpen(null)
+        }} />}
       {helpOpen && <HelpDialog returnFocusRef={helpRef} onClose={() => { setHelpOpen(false); helpRef.current?.focus() }} />}
       {aboutOpen && <AboutDialog onClose={() => { setAboutOpen(false); helpRef.current?.focus() }} />}
 
@@ -766,5 +775,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
       )}
       </>}
     </div>
+  )
+  return (
+    <>
+      {menuBar}
+      <div className={notice ? 'update-notice' : undefined}>
+        <span role="status">{notice && 'MarkWriter ' + notice.version + ' is available.'}</span>
+        {notice && <>
+          <button type="button" onClick={() => setUpdatesOpen(notice)}>View update</button>
+          <button type="button" onClick={dismissNotice}>Dismiss</button>
+        </>}
+      </div>
+    </>
   )
 }

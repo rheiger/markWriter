@@ -18,9 +18,11 @@ it('Cancel and Reset do not commit a dialog draft; Apply persists separate value
   render(<SettingsDialog onClose={close} />)
   fireEvent.change(screen.getByLabelText('Source text size'), { target: { value: '20' } })
   fireEvent.change(screen.getByLabelText('Rendered text size'), { target: { value: '24' } })
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Check for updates automatically' }))
+  expect(useAppStore.getState().config.automaticUpdateChecks).toBe(true)
   fireEvent.click(screen.getByText('Apply'))
-  await waitFor(() => expect(useAppStore.getState().config).toMatchObject({ fontSize: 20, renderedFontSize: 24 }))
-  expect(invoke).toHaveBeenCalledWith('save_preferences', expect.objectContaining({ value: { version: 1, config: expect.objectContaining({ fontSize: 20, renderedFontSize: 24 }) } }))
+  await waitFor(() => expect(useAppStore.getState().config).toMatchObject({ fontSize: 20, renderedFontSize: 24, automaticUpdateChecks: false }))
+  expect(invoke).toHaveBeenCalledWith('save_preferences', expect.objectContaining({ value: { version: 1, config: expect.objectContaining({ fontSize: 20, renderedFontSize: 24, automaticUpdateChecks: false }) } }))
 })
 it('storage failure leaves current preferences intact and dialog retryable', async () => {
   vi.mocked(invoke).mockRejectedValueOnce('Read only')
