@@ -1,30 +1,45 @@
-import { StateField, type EditorState } from '@codemirror/state'
+import { StateEffect, StateField, type EditorState } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
-import { Decoration, EditorView } from '@codemirror/view'
+import { Decoration, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { CodeBlock, type CodeBlockOptions } from '@tiptap/extension-code-block'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration as PMDecoration, DecorationSet } from '@tiptap/pm/view'
-import { createCodeHighlighter, SQL_FALLBACK_NOTICE } from './codeHighlight'
+import { codeLanguage, createCodeHighlighter, LONG_CODE_LIMIT, SQL_FALLBACK_NOTICE, TOML_FALLBACK_NOTICE } from './codeHighlight'
 
-const fallbackAttributes = { 'data-sql-fallback': SQL_FALLBACK_NOTICE, title: SQL_FALLBACK_NOTICE, 'aria-description': SQL_FALLBACK_NOTICE }
+function fallbackAttributes(language: string | null) {
+  const notice = language === 'toml' ? TOML_FALLBACK_NOTICE : SQL_FALLBACK_NOTICE
+  return { [language === 'toml' ? 'data-toml-fallback' : 'data-sql-fallback']: notice, title: notice, 'aria-description': notice }
+}
 
-// Public CodeMirror StateField/Decoration contracts: installed @codemirror/{state,view}/dist/index.d.ts.
-function sourceDecorations(state: EditorState) {
+const refreshSourceToml = StateEffect.define<undefined>()
+const SOURCE_TOML_SETTLE_MS = 100
+
+// Keep synchronous decorations for other languages and small TOML fences.
+// Once a large TOML fence is deferred, later TOML fences must wait for the
+// same pass so they are admitted against the real document budget.
+function sourceDecorations(state: EditorState, deferLargeToml: boolean) {
   const highlight = createCodeHighlighter(true), decorations: ReturnType<Decoration['range']>[] = []
+  let pendingToml = false
   syntaxTree(state).iterate({ enter({ node }) {
     if (node.name !== 'FencedCode' && node.name !== 'CodeBlock') return
-    let code = '', info = ''
+    const label = node.getChild('CodeInfo')
+    const info = label ? state.sliceDoc(label.from, label.to) : ''
+    if (deferLargeToml && (pendingToml || node.to - node.from > LONG_CODE_LIMIT) && codeLanguage(info) === 'toml') {
+      pendingToml = true
+      highlight('', info) // Count the skipped fence in the common block budget.
+      return false
+    }
+    let code = ''
     const chunks: { from: number; to: number; offset: number }[] = []
     for (let child = node.firstChild; child; child = child.nextSibling) {
-      if (child.name === 'CodeInfo') info = state.sliceDoc(child.from, child.to)
       if (child.name === 'CodeText') {
         chunks.push({ from: child.from, to: child.to, offset: code.length })
         code += state.sliceDoc(child.from, child.to)
       }
     }
     const result = highlight(code, info)
-    if (result.fallback) decorations.push(Decoration.line({ attributes: fallbackAttributes }).range(state.doc.lineAt(node.from).from))
+    if (result.fallback) decorations.push(Decoration.line({ attributes: fallbackAttributes(result.language) }).range(state.doc.lineAt(node.from).from))
     let chunkIndex = 0
     for (const token of result.ranges) {
       while (chunkIndex < chunks.length && chunks[chunkIndex].offset + chunks[chunkIndex].to - chunks[chunkIndex].from <= token.from) chunkIndex++
@@ -36,12 +51,42 @@ function sourceDecorations(state: EditorState) {
     }
     return false
   } })
-  return Decoration.set(decorations, true)
+  return { decorations: Decoration.set(decorations, true), pendingToml }
 }
+
+class SourceTomlRefresh {
+  private timer: ReturnType<typeof setTimeout> | undefined
+
+  constructor(view: EditorView) { this.schedule(view) }
+
+  update({ view, startState, state }: ViewUpdate) {
+    if (startState.field(sourceCodeHighlighting, false) !== state.field(sourceCodeHighlighting, false)) this.schedule(view)
+  }
+
+  destroy() { clearTimeout(this.timer) }
+
+  private schedule(view: EditorView) {
+    clearTimeout(this.timer)
+    const pending = view.state.field(sourceCodeHighlighting, false)
+    if (!pending?.pendingToml) return
+    this.timer = setTimeout(() => {
+      if (view.state.field(sourceCodeHighlighting, false) !== pending) return
+      if (view.composing) this.schedule(view)
+      else view.dispatch({ effects: refreshSourceToml.of(undefined) })
+    }, SOURCE_TOML_SETTLE_MS)
+  }
+}
+
+const sourceTomlRefresh = ViewPlugin.fromClass(SourceTomlRefresh)
+
 export const sourceCodeHighlighting = StateField.define({
-  create: sourceDecorations,
-  update: (value, tr) => tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? sourceDecorations(tr.state) : value,
-  provide: field => EditorView.decorations.from(field),
+  create: state => sourceDecorations(state, true),
+  update(value, tr) {
+    if (tr.effects.some(effect => effect.is(refreshSourceToml))) return sourceDecorations(tr.state, false)
+    if (tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state)) return sourceDecorations(tr.state, true)
+    return value
+  },
+  provide: field => [EditorView.decorations.from(field, value => value.decorations), sourceTomlRefresh],
 })
 
 export const codeHighlightKey = new PluginKey<{ enabled: boolean; decorations: DecorationSet }>('markwriter-code-highlighting')
@@ -50,7 +95,7 @@ function renderedDecorations(doc: PMNode, enabled: boolean) {
   doc.descendants((node, pos) => {
     if (node.type.name !== 'codeBlock') return true
     const result = highlight(node.textContent, node.attrs.language ?? '')
-    if (result.fallback) decorations.push(PMDecoration.node(pos, pos + node.nodeSize, fallbackAttributes))
+    if (result.fallback) decorations.push(PMDecoration.node(pos, pos + node.nodeSize, fallbackAttributes(result.language)))
     for (const token of result.ranges) {
       decorations.push(PMDecoration.inline(pos + 1 + token.from, pos + 1 + token.to, { class: token.className }))
     }

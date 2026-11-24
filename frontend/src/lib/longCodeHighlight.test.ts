@@ -35,7 +35,7 @@ describe('long explicit Python and JSON highlighting', () => {
     let state = EditorState.create({ doc: source, extensions: [markdown(), sourceCodeHighlighting] })
     ensureSyntaxTree(state, source.length, 1000)
     state = state.update({}).state
-    const marks = state.field(sourceCodeHighlighting)
+    const marks = state.field(sourceCodeHighlighting).decorations
     let offset = 0
     for (const [language, code] of blocks) {
       const from = source.indexOf(`\`\`\`${language}\n`, offset), to = from + language.length + 4 + code.length

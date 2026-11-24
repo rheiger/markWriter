@@ -22,7 +22,7 @@ describe('explicit technical code fences', () => {
     const state = EditorState.create({ doc: source, extensions: [markdown(), sourceCodeHighlighting] })
     const keywordStart = source.indexOf(keyword, source.indexOf('\n'))
     let sourceKeyword = false
-    state.field(sourceCodeHighlighting).between(keywordStart, keywordStart + keyword.length, (from, to, decoration) => {
+    state.field(sourceCodeHighlighting).decorations.between(keywordStart, keywordStart + keyword.length, (from, to, decoration) => {
       if (decoration.spec.class === 'hljs-keyword' && state.sliceDoc(from, to) === keyword) sourceKeyword = true
     })
     expect(sourceKeyword).toBe(true)

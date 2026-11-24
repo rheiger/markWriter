@@ -291,7 +291,7 @@ try{
    const largeToml = await verifyLongCode({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,close:closeCurrentDocument,
      saveAs:async path=>{await menu('File','Save As...');await dialog(path)},
      exportHtml:async path=>{await menu('File','Export as HTML...');await dialog(path)},wait,syntax:syntaxHighlighting,request,session,
-     fixture:tomlLargeRenderedFixture(),name:'large-toml',label:'large explicit TOML',previewOnly:true})
+     fixture:tomlLargeRenderedFixture(),name:'large-toml',label:'large explicit TOML',verifyUndo:true})
    cases.push(...largeToml.cases)
    await writeFile(join(artifacts,'large-toml-evidence.json'),JSON.stringify(largeToml,null,2))
  }
