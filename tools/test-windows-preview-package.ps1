@@ -36,7 +36,7 @@ try {
     & tracerpt.exe $tracePath -o $traceXml -of XML -summary (Join-Path $traceDir 'summary.txt') -y | Out-Host
     if ($LASTEXITCODE) { throw 'Could not decode Explorer dispatch evidence.' }
     $trace = [xml](Get-Content -Raw -LiteralPath $traceXml)
-    $events = $trace.Events.Event | Where-Object { $_.RenderingInfo.EventName -eq 'Process' -and $_.System.Opcode -eq '1' }
+    $events = $trace.SelectNodes("//*[local-name()='Event'][*[local-name()='System']/*[local-name()='Opcode']='1' and *[local-name()='RenderingInfo']/*[local-name()='EventName']='Process']")
     function Read-FixtureDispatch($observation) {
         $start = [DateTimeOffset]::Parse($observation.startedAtUtc).UtcDateTime
         $end = [DateTimeOffset]::Parse($observation.endedAtUtc).UtcDateTime
