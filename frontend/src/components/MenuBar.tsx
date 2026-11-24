@@ -24,9 +24,10 @@ const openUpdateLink = (version: string, url: string) => invoke<void>('open_upda
 interface MenuBarProps {
   editorMode?: EditorMode
   editorViewRef?: React.RefObject<EditorViewRef>
+  openButtonRef?: React.RefObject<HTMLButtonElement>
 }
 
-export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'wysiwyg' }) => {
+export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, editorMode = 'wysiwyg' }) => {
   const {
     currentDocument,
     config,
@@ -62,6 +63,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
+  const updateNoticeRef = useRef<HTMLDivElement>(null)
+  const focusAfterUpdate = () => {
+    if (currentDocument && editorViewRef?.current) editorViewRef.current.focus()
+    else (openButtonRef?.current ?? helpRef.current)?.focus({ preventScroll: true })
+  }
+  const dismissUpdateNotice = () => {
+    if (updateNoticeRef.current?.contains(document.activeElement)) focusAfterUpdate()
+    dismissNotice()
+  }
   const [sqlTarget, setSqlTarget] = useState<ReturnType<typeof clipboardTarget>>(null)
   const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
@@ -749,7 +759,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
 
       </>}
       {updatesOpen && <UpdateDialog check={check} initialUpdate={updatesOpen === true ? undefined : updatesOpen}
-        onAvailable={markSeen} openLink={openUpdateLink} onClose={() => {
+        onAvailable={markSeen} openLink={openUpdateLink} fallbackFocus={focusAfterUpdate} onClose={() => {
           if (updatesOpen !== true) markSeen(updatesOpen)
           setUpdatesOpen(null)
         }} />}
@@ -779,11 +789,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, editorMode = 'w
   return (
     <>
       {menuBar}
-      <div className={notice ? 'update-notice' : undefined}>
+      <div ref={updateNoticeRef} className={notice ? 'update-notice' : undefined}>
         <span role="status">{notice && 'MarkWriter ' + notice.version + ' is available.'}</span>
         {notice && <>
           <button type="button" onClick={() => setUpdatesOpen(notice)}>View update</button>
-          <button type="button" onClick={dismissNotice}>Dismiss</button>
+          <button type="button" onClick={dismissUpdateNotice}>Dismiss</button>
         </>}
       </div>
     </>

@@ -4,12 +4,13 @@ import { Modal } from './Modal'
 
 type State = { kind: 'checking' } | UpdateCheckResult | { kind: 'error' }
 
-export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onClose }: {
+export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onClose, fallbackFocus }: {
   check: () => Promise<UpdateCheckResult>
   initialUpdate?: AvailableUpdate
   onAvailable?: (update: AvailableUpdate) => void
   openLink: (version: string, url: string) => Promise<void>
   onClose: () => void
+  fallbackFocus?: () => void
 }) {
   const [state, setState] = useState<State>(initialUpdate ?? { kind: 'checking' })
   const [opening, setOpening] = useState(false)
@@ -41,7 +42,7 @@ export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onCl
     }
   }
 
-  return <Modal title="Check for Updates" onClose={onClose}>
+  return <Modal title="Check for Updates" onClose={onClose} fallbackFocus={fallbackFocus}>
     <div role="status" aria-live="polite">
       {state.kind === 'checking' && <p>Checking for updates…</p>}
       {state.kind === 'current' && <p>Version {state.version} is up to date.</p>}

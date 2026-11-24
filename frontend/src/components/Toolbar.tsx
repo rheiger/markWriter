@@ -8,9 +8,10 @@ import { TablePicker } from './TablePicker'
 interface ToolbarProps {
   editorMode?: EditorMode
   editorViewRef?: React.RefObject<EditorViewRef>
+  openButtonRef?: React.RefObject<HTMLButtonElement>
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'wysiwyg' }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, editorMode = 'wysiwyg' }) => {
   const {
     currentDocument,
     config,
@@ -243,7 +244,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, editorMode = 'w
     <div className="toolbar">
       {/* File Operations */}
       <div className="toolbar-section">
-        <button className="toolbar-btn" onClick={handleOpen} aria-label="Open" title="Open">
+        <button ref={openButtonRef} className="toolbar-btn" onClick={handleOpen} aria-label="Open" title="Open">
           📁
         </button>
         <button className="toolbar-btn" onClick={handleSave} aria-label="Save" title="Save">
