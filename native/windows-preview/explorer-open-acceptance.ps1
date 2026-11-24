@@ -80,8 +80,10 @@ function Test-ExplorerDocumentOpening($targets, $other) {
 
   Switch-AwayFromDraft
   $batch = Invoke-ExplorerOpen $targets
+  $batch.dirtyOwnerActivated = $false
   $null = Wait-ExplorerWorkspace {
     param($snapshot)
+    if ($snapshot.activeId -eq $draftId) { $batch.dirtyOwnerActivated = $true }
     foreach ($file in $newFiles) { if (!(Find-OpenedFixture $snapshot $file)) { return $false } }
     return $true
   } 'all new files in the multi-selection reaching the editor' $true
@@ -93,6 +95,7 @@ function Test-ExplorerDocumentOpening($targets, $other) {
     $snapshot.documents.id -contains $draftId
   } 'workspace after Explorer multi-selection'
   $batch.endedAtUtc = [DateTime]::UtcNow.ToString('o')
+  if ($after.activeId -eq $draftId) { $batch.dirtyOwnerActivated = $true }
   Confirm-DirtyOwner $after
   Confirm-SameEditor
   $batch.opened = @(foreach ($file in $newFiles) {

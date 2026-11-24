@@ -5,10 +5,12 @@ param(
   [string]$AppPath,
   [switch]$Diagnostic,
   [switch]$Bundled,
+  [switch]$QualifyDocumentOpening,
   [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
   [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
 $ErrorActionPreference = 'Stop'
+if ($QualifyDocumentOpening -and !$Bundled) { throw 'Document opening qualification requires a bundled installation.' }
 if ($Bundled) {
   if (!$env:GITHUB_ACTIONS) { throw 'The bundled acceptance fixture requires a disposable GitHub Actions runner.' }
   $AppPath = $env:MARKWRITER_BINARY
@@ -110,7 +112,7 @@ try {
     @{ Name='Ö second document.markdown'; Text='# Second selected document'; Expected='Second selected document' },
     @{ Name='large.md'; Text=('# Oversized evidence' + ('x' * 1100000)); Expected='Preview truncated at 1 MiB.' }
   )
-  if ($Bundled) {
+  if ($QualifyDocumentOpening) {
     $fixtures += @(
       @{ Name='Ä unsaved draft.md'; Text='# Draft evidence'; Expected='Draft evidence' },
       @{ Name='B second file.md'; Text='# Batch second'; Expected='Batch second' },
@@ -227,7 +229,13 @@ try {
     function Open-ThroughExplorer($fixture) {
       $ext = [IO.Path]::GetExtension($fixture.Name)
       Write-Host "Effective $ext Open command: $([PreviewProcessIntegrity]::OpenCommand($ext))"
-      Invoke-ExplorerOpen @($fixture) | Out-Null
+      $item = $window.Document.Folder.ParseName($fixture.Name)
+      if (!$item) { throw 'Explorer file activation fixture missing' }
+      [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
+      $window.Document.SelectItem($item, 29)
+      if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
+      # Enter activates the selected file through the same default verb as double-click.
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
       $expectedPath = Join-Path $root $fixture.Name
       $fixtureEditor = $null
       for ($i=0; $i -lt 100; $i++) {
@@ -341,9 +349,11 @@ try {
       if ($reopened.Id -ne $appProcess.Id) { throw "Explorer reopen cycle $cycle did not reuse the editor" }
     }
     $cases.Add('12 Explorer close and reopen cycles reuse the editor and display exact Markdown')
-    . (Join-Path $PSScriptRoot 'explorer-open-acceptance.ps1')
-    $fileOpening = Test-ExplorerDocumentOpening $fixtures[3..5] $reopen
-    $cases.Add('Explorer duplicate activation preserves a dirty document and its Undo history')
+    if ($QualifyDocumentOpening) {
+      . (Join-Path $PSScriptRoot 'explorer-open-acceptance.ps1')
+      $fileOpening = Test-ExplorerDocumentOpening $fixtures[3..5] $reopen
+      $cases.Add('Explorer duplicate activation preserves a dirty document and its Undo history')
+    }
     Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
   } elseif ($resolvedApp) {
     $appProcess = Start-Process -FilePath $resolvedApp -PassThru
@@ -390,5 +400,7 @@ try {
 if (Test-Path -LiteralPath $root) { throw 'Fixture cleanup failed' }
 if ($Diagnostic) { Write-Host 'DIAGNOSTIC ONLY: Explorer and cleanup checks passed; no acceptance receipt written.'; return }
 $os = Get-CimInstance Win32_OperatingSystem
-# Bundled proof also requires the wrapper to match shell dispatch to the editor state.
-@{passed=!$Bundled; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray()); fileOpening=$fileOpening} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8
+$receipt = @{passed=!$QualifyDocumentOpening; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray())}
+# The package wrapper matches shell dispatch to the editor state before marking this extended receipt passed.
+if ($QualifyDocumentOpening) { $receipt.fileOpening = $fileOpening }
+$receipt | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ResultPath -Encoding UTF8

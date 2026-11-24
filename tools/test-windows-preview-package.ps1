@@ -24,7 +24,7 @@ try {
     & logman.exe start $traceName -p 'Windows Kernel Trace' '(process)' -o $tracePath -ets | Out-Host
     if ($LASTEXITCODE) { throw 'Could not start Explorer dispatch evidence collection.' }
     try {
-        & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -ExpectedSha256 $expected
+        & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -QualifyDocumentOpening -ExpectedSha256 $expected
         $fixtureExit = $LASTEXITCODE
     } finally {
         & logman.exe stop $traceName -ets | Out-Host
@@ -68,15 +68,24 @@ try {
     $missing = @($opening.batch.selected | Where-Object { !$opening.batch.dispatched.ContainsKey($_) })
     $notOpened = @($opening.batch.dispatched.Keys | Where-Object { $_ -ne $dirtyName -and $_ -notin $opened })
     $missingTrace = @($opened | Where-Object { !$opening.batch.dispatched.ContainsKey($_) })
+    if ($opening.batch.dirtyOwnerActivated -and !$opening.batch.dispatched.ContainsKey($dirtyName)) {
+        $missingTrace += $dirtyName
+    }
+    $opening.batch.dirtyDispatchStatus = if (!$opening.batch.dispatched.ContainsKey($dirtyName)) { 'notDispatched' }
+        elseif ($opening.batch.dirtyOwnerActivated) { 'activated' } else { 'activationUnobserved' }
     $opening.batch.notDispatched = $missing
     $opening.batch.dispatchedWithoutDocument = $notOpened
     $opening.batch.openedWithoutDispatch = $missingTrace
     $opening.batch.status = if ($notOpened.Count -or $missingTrace.Count) { 'dispatchMismatch' }
-        elseif ($missing.Count) { 'shellSelectionLimit' } else { 'passed' }
+        elseif ($missing.Count) { 'shellSelectionLimit' }
+        elseif ($opening.batch.dirtyDispatchStatus -eq 'activationUnobserved') { 'dirtyActivationUnobserved' } else { 'passed' }
     $report.passed = $opening.batch.status -ne 'dispatchMismatch'
-    $report.cases += if ($report.passed -and !$missing.Count) { 'Explorer multi-selection opened the dispatched files in the same editor' }
-        elseif ($report.passed) { 'Explorer multi-selection dispatch limit recorded separately from editor behavior' }
-        else { 'Explorer dispatch and editor document evidence did not match' }
+    $report.cases += switch ($opening.batch.status) {
+        'passed' { 'Explorer multi-selection activated or opened the dispatched files in the same editor' }
+        'shellSelectionLimit' { 'Explorer multi-selection dispatch limit recorded separately from editor behavior' }
+        'dirtyActivationUnobserved' { 'Explorer multi-selection delivered the new files and preserved the dirty owner; its separate activation was unobserved' }
+        'dispatchMismatch' { 'Explorer dispatch and editor document evidence did not match' }
+    }
 } finally {
     Remove-Item -LiteralPath $traceDir -Recurse -Force
 }
