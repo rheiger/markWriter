@@ -185,3 +185,26 @@ it.each([
   expect(noticeFocused ? fallback : elsewhere).toHaveFocus()
   expect(editorFocus).toHaveBeenCalledTimes(noticeFocused && hasDocument ? 1 : 0)
 })
+
+it('restores focus after the keyboard update command removes its menu item', async () => {
+  Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Windows NT 10.0)' })
+  vi.mocked(invoke).mockImplementation(async command =>
+    command === 'check_updates' ? { kind: 'current', version: '2.12.2' } : null)
+  useAppStore.setState({ config: { ...defaultConfig, automaticUpdateChecks: false } })
+  const focus = vi.fn(() => screen.getByRole('textbox', { name: 'Editor fixture' }).focus())
+  render(<><MenuBar editorViewRef={{ current: { focus } as unknown as EditorViewRef }} />
+    <textarea aria-label="Editor fixture" /></>)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Help', exact: true }))
+  const check = screen.getByRole('button', { name: 'Check for Updates…' })
+  check.focus()
+  fireEvent.click(check)
+  expect(check.isConnected).toBe(false)
+  expect(await screen.findByText('Version 2.12.2 is up to date.')).toBeVisible()
+  const dialog = screen.getByRole('dialog', { name: 'Check for Updates' })
+  screen.getByRole('button', { name: 'Close' }).focus()
+  fireEvent(dialog, new Event('cancel', { cancelable: true }))
+
+  expect(screen.getByRole('textbox', { name: 'Editor fixture' })).toHaveFocus()
+  expect(focus).toHaveBeenCalledOnce()
+})

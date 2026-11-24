@@ -14,7 +14,7 @@ export function Modal({ title, onClose, fallbackFocus, children }: {
     const previous = document.activeElement as HTMLElement | null
     ref.current?.showModal()
     return () => {
-      if (previous?.isConnected) previous.focus({ preventScroll: true })
+      if (previous?.isConnected && previous !== document.body) previous.focus({ preventScroll: true })
       else if (document.activeElement === document.body) focusIfTriggerGone.current?.()
     }
   }, [])
