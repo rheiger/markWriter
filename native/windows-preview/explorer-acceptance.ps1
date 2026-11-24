@@ -5,10 +5,12 @@ param(
   [string]$AppPath,
   [switch]$Diagnostic,
   [switch]$Bundled,
+  [switch]$QualifyDocumentOpening,
   [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
   [string]$InstallerPath = (Join-Path $PSScriptRoot 'install.ps1')
 )
 $ErrorActionPreference = 'Stop'
+if ($QualifyDocumentOpening -and !$Bundled) { throw 'Document opening qualification requires a bundled installation.' }
 if ($Bundled) {
   if (!$env:GITHUB_ACTIONS) { throw 'The bundled acceptance fixture requires a disposable GitHub Actions runner.' }
   $AppPath = $env:MARKWRITER_BINARY
@@ -110,6 +112,13 @@ try {
     @{ Name='Ö second document.markdown'; Text='# Second selected document'; Expected='Second selected document' },
     @{ Name='large.md'; Text=('# Oversized evidence' + ('x' * 1100000)); Expected='Preview truncated at 1 MiB.' }
   )
+  if ($QualifyDocumentOpening) {
+    $fixtures += @(
+      @{ Name='Ä unsaved draft.md'; Text='# Draft evidence'; Expected='Draft evidence' },
+      @{ Name='B second file.md'; Text='# Batch second'; Expected='Batch second' },
+      @{ Name='Ç third file.md'; Text='# Batch third'; Expected='Batch third' }
+    )
+  }
   foreach ($f in $fixtures) { [IO.File]::WriteAllText((Join-Path $root $f.Name), $f.Text, [Text.UTF8Encoding]::new($false)) }
   # Start Explorer explicitly: a hosted runner may have no desktop shell to
   # receive Shell.Application.Open. The temporary fixture path is quoted.
@@ -179,12 +188,52 @@ try {
       (Join-Path $env:LOCALAPPDATA 'com.markwriter.app/workspace.json')
       (Join-Path $env:MARKWRITER_PROFILE_DIR 'workspace.json')
     )
-    function Read-ActiveFixture($workspace) {
+    function Read-FixtureWorkspace($workspace) {
       if (!(Test-Path -LiteralPath $workspace -PathType Leaf)) { return }
       try {
-        $snapshot = Get-Content -Raw -LiteralPath $workspace | ConvertFrom-Json
-        $snapshot.documents | Where-Object { $_.id -eq $snapshot.activeId } | Select-Object -First 1
+        Get-Content -Raw -LiteralPath $workspace | ConvertFrom-Json
       } catch { return }
+    }
+    function Read-ActiveFixture($workspace) {
+      $snapshot = Read-FixtureWorkspace $workspace
+      $snapshot.documents | Where-Object { $_.id -eq $snapshot.activeId } | Select-Object -First 1
+    }
+    function Invoke-ExplorerOpen($targets) {
+      [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
+      # Explorer resolves the temp folder to its own path spelling. Match
+      # selected items against those resolved paths, including any long names.
+      $paths = @(for ($i=0; $i -lt $targets.Count; $i++) {
+        $item = $window.Document.Folder.ParseName($targets[$i].Name)
+        if (!$item -or !$item.Path) { throw 'Explorer file activation fixture missing' }
+        $selectFlags = if ($i -eq 0) { 29 } else { 1 } # retain the first item while adding to the selection
+        $window.Document.SelectItem($item, $selectFlags) | Out-Null
+        $item.Path
+      })
+      if ($targets.Count -gt 1) {
+        # FolderView selection updates asynchronously; query the final selection
+        # before sending Enter. Single-file controls are confirmed by the trace.
+        $matched = $false
+        for ($attempt=0; $attempt -lt 30; $attempt++) {
+          $selection = $window.Document.SelectedItems()
+          $selected = @($selection | ForEach-Object { $_.Path })
+          if ($selected.Count -eq $paths.Count -and !(Compare-Object $paths $selected)) {
+            $paths = $selected
+            $matched = $true
+            break
+          }
+          Start-Sleep -Milliseconds 100
+        }
+        if (!$matched) {
+          $actualNames = @($selected | ForEach-Object { [IO.Path]::GetFileName($_) })
+          throw ('Explorer selection differed from the requested fixtures. Selected: {0}; expected: {1}.' -f ($actualNames -join ', '), ($targets.Name -join ', '))
+        }
+        Write-Host ("Verified Explorer selected all {0} fixture files." -f $paths.Count)
+      }
+      if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
+      $startedAt = [DateTime]::UtcNow
+      # Enter activates Explorer's default verb for the actual current selection.
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      @{ paths = $paths; startedAtUtc = $startedAt.ToString('o') }
     }
     function Trace-WebView($editor) {
       try {
@@ -197,10 +246,10 @@ try {
       Write-Host "Default WebView2 data folder present: $(Test-Path -LiteralPath $webviewProfile)"
     }
     function Open-ThroughExplorer($fixture) {
-      $item = $window.Document.Folder.ParseName($fixture.Name)
-      if (!$item) { throw 'Explorer file activation fixture missing' }
       $ext = [IO.Path]::GetExtension($fixture.Name)
       Write-Host "Effective $ext Open command: $([PreviewProcessIntegrity]::OpenCommand($ext))"
+      $item = $window.Document.Folder.ParseName($fixture.Name)
+      if (!$item) { throw 'Explorer file activation fixture missing' }
       [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
       $window.Document.SelectItem($item, 29)
       if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
@@ -319,6 +368,11 @@ try {
       if ($reopened.Id -ne $appProcess.Id) { throw "Explorer reopen cycle $cycle did not reuse the editor" }
     }
     $cases.Add('12 Explorer close and reopen cycles reuse the editor and display exact Markdown')
+    if ($QualifyDocumentOpening) {
+      . (Join-Path $PSScriptRoot 'explorer-open-acceptance.ps1')
+      $fileOpening = Test-ExplorerDocumentOpening $fixtures[3..5] $reopen
+      $cases.Add('Explorer duplicate activation preserves a dirty document and its Undo history')
+    }
     Select-And-Observe $fixtures[1]; $cases.Add('Explorer preview with MarkWriter open')
   } elseif ($resolvedApp) {
     $appProcess = Start-Process -FilePath $resolvedApp -PassThru
@@ -365,4 +419,7 @@ try {
 if (Test-Path -LiteralPath $root) { throw 'Fixture cleanup failed' }
 if ($Diagnostic) { Write-Host 'DIAGNOSTIC ONLY: Explorer and cleanup checks passed; no acceptance receipt written.'; return }
 $os = Get-CimInstance Win32_OperatingSystem
-@{passed=$true; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray())} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8
+$receipt = @{passed=!$QualifyDocumentOpening; baseline=("{0} build {1}, {2}" -f $os.Caption,$os.BuildNumber,$os.OSArchitecture); cases=@($cases.ToArray())}
+# The package wrapper matches shell dispatch to the editor state before marking this extended receipt passed.
+if ($QualifyDocumentOpening) { $receipt.fileOpening = $fileOpening }
+$receipt | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ResultPath -Encoding UTF8
