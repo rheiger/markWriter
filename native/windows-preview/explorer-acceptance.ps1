@@ -200,13 +200,15 @@ try {
     }
     function Invoke-ExplorerOpen($targets) {
       [PreviewProcessIntegrity]::SetForegroundWindow($explorerHwnd) | Out-Null
-      for ($i=0; $i -lt $targets.Count; $i++) {
+      # Explorer resolves the temp folder to its own path spelling. Match
+      # selected items against those resolved paths, including any long names.
+      $paths = @(for ($i=0; $i -lt $targets.Count; $i++) {
         $item = $window.Document.Folder.ParseName($targets[$i].Name)
-        if (!$item) { throw 'Explorer file activation fixture missing' }
+        if (!$item -or !$item.Path) { throw 'Explorer file activation fixture missing' }
         $selectFlags = if ($i -eq 0) { 29 } else { 1 } # retain the first item while adding to the selection
-        $window.Document.SelectItem($item, $selectFlags)
-      }
-      $paths = @($targets | ForEach-Object { Join-Path $root $_.Name })
+        $window.Document.SelectItem($item, $selectFlags) | Out-Null
+        $item.Path
+      })
       if ($targets.Count -gt 1) {
         # FolderView selection updates asynchronously; query the final selection
         # before sending Enter. Single-file controls are confirmed by the trace.
@@ -215,6 +217,7 @@ try {
           $selection = $window.Document.SelectedItems()
           $selected = @($selection | ForEach-Object { $_.Path })
           if ($selected.Count -eq $paths.Count -and !(Compare-Object $paths $selected)) {
+            $paths = $selected
             $matched = $true
             break
           }
@@ -224,6 +227,7 @@ try {
           $actualNames = @($selected | ForEach-Object { [IO.Path]::GetFileName($_) })
           throw ('Explorer selection differed from the requested fixtures. Selected: {0}; expected: {1}.' -f ($actualNames -join ', '), ($targets.Name -join ', '))
         }
+        Write-Host ("Verified Explorer selected all {0} fixture files." -f $paths.Count)
       }
       if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
       $startedAt = [DateTime]::UtcNow

@@ -58,13 +58,18 @@ try {
             $fields = @{}
             foreach ($field in $event.EventData.Data) { $fields[$field.Name] = [string]$field.'#text' }
             if ([IO.Path]::GetFileName($fields.ImageFileName) -ine 'markwriter.exe' -or !$fields.CommandLine) { continue }
-            if (!$fields.CommandLine.Contains(' --open-from-shell ', [StringComparison]::OrdinalIgnoreCase)) { continue }
-            foreach ($file in $observation.paths) {
-                if ($fields.CommandLine.Contains(('"{0}"' -f $file), [StringComparison]::OrdinalIgnoreCase)) {
-                    $name = [IO.Path]::GetFileName($file)
-                    if (!$dispatch.ContainsKey($name)) { $dispatch[$name] = @() }
-                    $dispatch[$name] += @{ processId = [int]$fields.ProcessID; parentProcessId = [int]$fields.ParentId }
-                }
+            if ($fields.CommandLine -notmatch '\s--open-from-shell\s+"([^"]+)"\s*$') { continue }
+            $dispatchedPath = $Matches[1]
+            $name = [IO.Path]::GetFileName($dispatchedPath)
+            $folder = [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($dispatchedPath))
+            # The per-run fixture folder name is unique. Matching it and the
+            # filename accommodates alternate spellings of parent path segments.
+            $matchedFixture = $observation.paths | Where-Object {
+                [IO.Path]::GetFileName($_) -ieq $name -and [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($_)) -ieq $folder
+            }
+            if ($matchedFixture) {
+                if (!$dispatch.ContainsKey($name)) { $dispatch[$name] = @() }
+                $dispatch[$name] += @{ processId = [int]$fields.ProcessID; parentProcessId = [int]$fields.ParentId }
             }
         }
         $observation.selected = @($observation.paths | ForEach-Object { [IO.Path]::GetFileName($_) })
