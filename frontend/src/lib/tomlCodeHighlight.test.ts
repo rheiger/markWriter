@@ -57,7 +57,7 @@ describe('explicit TOML highlighting', () => {
     const documentHighlight = createCodeHighlighter(true)
     expect(documentHighlight(long, 'toml').ranges.length).toBeGreaterThan(0)
     expect(documentHighlight(long, 'toml').ranges.length).toBeGreaterThan(0)
-    expect(documentHighlight(long, 'toml').ranges).toEqual([])
+    expect(documentHighlight(long, 'toml').ranges.length).toBeGreaterThan(0)
   })
 
   it('does not expand automatic detection or explicit unknown/plain handling and retains size bounds', () => {
@@ -94,7 +94,7 @@ describe('large TOML in Preview and HTML export', () => {
       expect(doc.querySelector('pre[data-toml-fallback]')).toBeNull()
       expect(doc.querySelector('script')).toBeNull()
     }
-    expect(createCodeHighlighter(true)(code, 'toml').ranges).toEqual([])
+    expect(classesAt(code, createCodeHighlighter(true)(code, 'toml'), 'final_large_toml')).toContain('hljs-attr')
   })
 
   it('highlights at most 4096 TOML lines without dropping text from denser blocks', async () => {

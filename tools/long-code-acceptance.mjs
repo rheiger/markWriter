@@ -30,9 +30,9 @@ export function longCodeFixture() {
   return {blocks,source:'# Long explicit code regression\n\n'+blocks.map(({language,code},n)=>`## Block ${n+1}\n\n\`\`\`${language}\n${code}\n\`\`\``).join('\n\n')+'\n'}
 }
 
-export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,close,saveAs,exportHtml,wait,syntax,request,session,fixture=longCodeFixture(),name='long-code',label='long Python/JSON',verifyUndo=false,previewOnly=false}) {
+export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,close,saveAs,exportHtml,wait,syntax,request,session,fixture=longCodeFixture(),name='long-code',label='long Python/JSON',verifyUndo=false}) {
   const {blocks,source}=fixture,cases=[]
-  const modes=previewOnly?[true]:[false,true]
+  const modes=[false,true]
   const path=join(dir,name+'.md'),saved=join(dir,name+'-saved.md')
   await writeFile(path,source);await open(path,basename(path));await syntax(true,'toolbar')
   const expected=blocks.map(block=>block.code+'\n')
@@ -51,7 +51,7 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
     const elapsedMs=Math.round(performance.now()-started)
     const counts=await run(`return [...document.querySelectorAll('[data-active=true] '+arguments[0]+' pre>code')].map(n=>n.querySelectorAll('[class*=hljs-]').length)`,base)
     evidence.blocks.push({surface:markdown?'Preview':'Tiptap',counts,elapsedMs})
-    if(markdown && !previewOnly) {
+    if(markdown) {
       // CodeMirror virtualizes long documents. Navigate to every unique marker
       // with the actual Find UI before inspecting its visible decorated line.
       for(const marker of blocks.flatMap(block=>[block.marker,block.finalMarker].filter(Boolean))) {
@@ -67,14 +67,14 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
     }
     await writeFile(join(artifacts,`${name}-${markdown?'source':'rendered'}.png`),Buffer.from(await request('GET',`/session/${session}/screenshot`),'base64'))
   }
-  cases.push(label+(previewOnly?' highlights in Preview':' highlights in real CodeMirror, Preview and Tiptap'))
+  cases.push(label+' highlights in real CodeMirror, Preview and Tiptap')
   for(const enabled of [true,false]) {
     await syntax(enabled,'toolbar')
     for(const markdown of modes) {
       await mode(markdown)
       const base=markdown?'.markwriter-preview':'.tiptap'
       await wait(()=>run(`const nodes=[...document.querySelectorAll('[data-active=true] '+arguments[0]+' pre>code')];return nodes.length===arguments[1].length&&nodes.every((n,i)=>n.textContent===arguments[1][i]&&!!n.querySelector('[class*=hljs-]')===arguments[2])`,base,expected,enabled),'long-code '+(enabled?'enabled':'disabled')+' presentation retains exact code')
-      if(markdown && !enabled && !previewOnly)assert.equal(await run(`return document.querySelectorAll('[data-active=true] .cm-content [class*=hljs-]').length`),0,'Long-code source syntax disabled')
+      if(markdown && !enabled)assert.equal(await run(`return document.querySelectorAll('[data-active=true] .cm-content [class*=hljs-]').length`),0,'Long-code source syntax disabled')
     }
     const started=performance.now()
     const exported=join(dir,`${name}-${enabled?'on':'off'}.html`);await exportHtml(exported)
@@ -87,16 +87,12 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
     if(enabled)assert.ok(check.final.every(Boolean),'Export highlights each final sentinel')
     evidence.blocks.push({surface:enabled?'export-on':'export-off',counts:check.tokens,elapsedMs})
   }
-  cases.push(label+(previewOnly?' Preview':' both-editor')+' syntax toggle and static HTML export honor preference without changing text')
+  cases.push(label+' both-editor syntax toggle and static HTML export honor preference without changing text')
   await saveExact(saved,'long-code view-only exact native Save As')
   await syntax(true,'menu')
-  if (previewOnly) {
-    cases.push(label+' view-only native Save As preserves original bytes')
-  } else {
-    await mode(false);await mode(true)
-    const savedAgain=join(dir,name+'-cycle-saved.md');await saveExact(savedAgain,'long-code toggle/mode cycles preserve canonical saved bytes')
-    cases.push(label+' view-only native Save As and repeated mode/toggle cycles preserve original bytes')
-  }
+  await mode(false);await mode(true)
+  const savedAgain=join(dir,name+'-cycle-saved.md');await saveExact(savedAgain,'long-code toggle/mode cycles preserve canonical saved bytes')
+  cases.push(label+' view-only native Save As and repeated mode/toggle cycles preserve original bytes')
   if(verifyUndo) {
     const marker=finalMarkers[0]
     assert.ok(marker,'Undo probe requires a unique final marker')
@@ -105,15 +101,15 @@ export async function verifyLongCode({dir,artifacts,run,click,menu,mode,open,clo
       const surface=markdown?'source':'rendered'
       await mode(markdown)
       await menu('Edit','Replace...')
-      await wait(()=>run('return document.querySelectorAll("[role=search] textarea").length===2'),'large SQL Replace opened')
+      await wait(()=>run('return document.querySelectorAll("[role=search] textarea").length===2'),label+' Replace opened')
       await run(`for(const [index,text] of arguments[0].entries()){const field=document.querySelectorAll('[role=search] textarea')[index];Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,text);field.dispatchEvent(new Event('input',{bubbles:true}))}`,[marker,changed])
-      await wait(()=>run('return document.querySelector("[role=search] output")?.textContent.includes("1 match")'),'unique large SQL Undo probe')
+      await wait(()=>run('return document.querySelector("[role=search] output")?.textContent.includes("1 match")'),'unique '+label+' Undo probe')
       await click('//button[normalize-space(.)="Replace All"]')
       await click('//button[normalize-space(.)="Close Find"]')
-      await wait(()=>run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'large SQL edit becomes dirty')
-      await wait(()=>run(`const code=document.querySelector('[data-active=true] '+arguments[0]+' pre>code');return code?.textContent.includes(arguments[1])`,markdown?'.markwriter-preview':'.tiptap',changed),'large SQL '+surface+' replacement visible')
+      await wait(()=>run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),label+' edit becomes dirty')
+      await wait(()=>run(`const code=document.querySelector('[data-active=true] '+arguments[0]+' pre>code');return code?.textContent.includes(arguments[1])`,markdown?'.markwriter-preview':'.tiptap',changed),label+' '+surface+' replacement visible')
       await menu('Edit','Undo')
-      await wait(()=>run('return !document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'one large SQL Undo restores clean '+surface+' document')
+      await wait(()=>run('return !document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")'),'one '+label+' Undo restores clean '+surface+' document')
       await saveExact(join(dir,name+'-undo-'+surface+'.md'),label+' one Undo in '+surface)
     }
     cases.push(label+' one Undo restores exact native saved bytes in both modes')

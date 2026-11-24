@@ -52,7 +52,7 @@ describe('bounded larger SQL fences', () => {
     let state = EditorState.create({doc:source, extensions:[markdown(), history(), sourceCodeHighlighting]})
     ensureSyntaxTree(state, source.length, 5000); state = state.update({}).state
     const end = source.lastIndexOf('AS final_sentinel')
-    let found = false; state.field(sourceCodeHighlighting).between(end, end+2, () => { found = true })
+    let found = false; state.field(sourceCodeHighlighting).decorations.between(end, end+2, () => { found = true })
     expect(found).toBe(true)
     const changed = state.update({changes:{from:end,insert:'x'}, userEvent:'input'}).state
     let restored = changed; expect(undo({state:changed, dispatch:tr => { restored = tr.state }})).toBe(true)
@@ -114,7 +114,7 @@ it('explains SQL fallback on both editors, Preview, and export without changing 
   let state = EditorState.create({doc:source,extensions:[markdown(),sourceCodeHighlighting]})
   ensureSyntaxTree(state,source.length,1000); state=state.update({}).state
   let explained = false
-  state.field(sourceCodeHighlighting).between(0,source.length,(_from,_to,value) => {
+  state.field(sourceCodeHighlighting).decorations.between(0,source.length,(_from,_to,value) => {
     if (value.spec.attributes?.['aria-description']) explained = true
   })
   expect(explained).toBe(true)
