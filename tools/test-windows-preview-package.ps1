@@ -1,4 +1,7 @@
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows') {
+    throw 'Explorer process tracing requires a disposable GitHub-hosted Windows runner.'
+}
 $root = (Resolve-Path "$PSScriptRoot/..").Path
 $installed = Split-Path -Parent $env:MARKWRITER_BINARY
 $dll = Join-Path $installed 'MarkWriterPreview.dll'
@@ -19,9 +22,13 @@ $traceDir = Join-Path $env:RUNNER_TEMP ('markwriter-explorer-' + [guid]::NewGuid
 New-Item -ItemType Directory -Path $traceDir | Out-Null
 $tracePath = Join-Path $traceDir 'process.etl'
 $traceXml = Join-Path $traceDir 'process.xml'
+$traceSummary = Join-Path $traceDir 'summary.txt'
+$traceMaxMiB = 16
 try {
     # The classic Process provider supplies command lines for short-lived shells.
-    & logman.exe start $traceName -p 'Windows Kernel Trace' '(process)' -o $tracePath -ets | Out-Host
+    & logman.exe query $traceName -ets *> $null
+    if (!$LASTEXITCODE) { throw 'The NT Kernel Logger is already in use.' }
+    & logman.exe start $traceName -p 'Windows Kernel Trace' '(process)' -f bin -max $traceMaxMiB -o $tracePath -ets | Out-Host
     if ($LASTEXITCODE) { throw 'Could not start Explorer dispatch evidence collection.' }
     try {
         & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -File "$root/native/windows-preview/explorer-acceptance.ps1" -Bundled -QualifyDocumentOpening -ExpectedSha256 $expected
@@ -33,8 +40,12 @@ try {
     if ($fixtureExit) { throw 'Installed Explorer acceptance failed.' }
     $report = Get-Content -Raw -LiteralPath $result | ConvertFrom-Json -AsHashtable -DateKind String
     $opening = $report.fileOpening
-    & tracerpt.exe $tracePath -o $traceXml -of XML -summary (Join-Path $traceDir 'summary.txt') -y | Out-Host
+    if ((Get-Item -LiteralPath $tracePath).Length -ge ($traceMaxMiB * 1MB)) { throw 'Explorer dispatch trace reached its size limit.' }
+    & tracerpt.exe $tracePath -o $traceXml -of XML -summary $traceSummary -y | Out-Host
     if ($LASTEXITCODE) { throw 'Could not decode Explorer dispatch evidence.' }
+    if ((Get-Content -Raw -LiteralPath $traceSummary) -notmatch '(?im)^Total[ \t]+Events[ \t]+Lost[ \t]+0[ \t\r]*$') {
+        throw 'Explorer process trace is missing a confirmed zero-loss count.'
+    }
     $trace = [xml](Get-Content -Raw -LiteralPath $traceXml)
     $events = $trace.SelectNodes("//*[local-name()='Event'][*[local-name()='System']/*[local-name()='Opcode']='1' and *[local-name()='RenderingInfo']/*[local-name()='EventName']='Process']")
     function Read-FixtureDispatch($observation) {
@@ -62,8 +73,12 @@ try {
     }
     Read-FixtureDispatch $opening.control
     Read-FixtureDispatch $opening.batch
+    Read-FixtureDispatch $opening.closingControl
     $dirtyName = $opening.control.selected[0]
-    if (!$opening.control.dispatched.ContainsKey($dirtyName)) { throw 'Process trace missed the known single-file Explorer dispatch.' }
+    if (!$opening.control.dispatched.ContainsKey($dirtyName) -or !$opening.closingControl.dispatched.ContainsKey($dirtyName)) {
+        throw 'Process trace missed a single-file Explorer dispatch bracketing the multi-selection.'
+    }
+    $opening.traceEventsLost = 0
     $opened = @($opening.batch.opened | ForEach-Object { $_.name })
     $missing = @($opening.batch.selected | Where-Object { !$opening.batch.dispatched.ContainsKey($_) })
     $notOpened = @($opening.batch.dispatched.Keys | Where-Object { $_ -ne $dirtyName -and $_ -notin $opened })

@@ -107,11 +107,11 @@ function Test-ExplorerDocumentOpening($targets, $other) {
     @{ name = $file.Name; id = $matches[0].id }
   })
 
-  if ($after.activeId -ne $draftId) {
-    Invoke-ExplorerOpen @($draft) | Out-Null
-    $after = Wait-ExplorerWorkspace { param($snapshot) $snapshot.activeId -eq $draftId } 'return to the dirty tab after multi-selection'
-    Confirm-DirtyOwner $after
-  }
+  Switch-AwayFromDraft
+  $closingControl = Invoke-ExplorerOpen @($draft)
+  $after = Wait-ExplorerWorkspace { param($snapshot) $snapshot.activeId -eq $draftId } 'return to the dirty tab after multi-selection'
+  $closingControl.endedAtUtc = [DateTime]::UtcNow.ToString('o')
+  Confirm-DirtyOwner $after
   Use-EditorKeys '^z'
   $undone = Wait-ExplorerWorkspace {
     param($snapshot)
@@ -123,5 +123,5 @@ function Test-ExplorerDocumentOpening($targets, $other) {
     if ((Get-FileHash -LiteralPath (Join-Path $root $target.Name)).Hash -cne $hashes[$target.Name]) { throw 'Explorer activation or Undo changed a source file' }
   }
   @{ editorPid = $appProcess.Id; explorerPid = $explorerPid; draftId = $draftId; draftRevision = $revision;
-     undoRevision = (Get-ActiveDocument $undone).revision; sourceSha256 = $hashes; control = $control; batch = $batch }
+     undoRevision = (Get-ActiveDocument $undone).revision; sourceSha256 = $hashes; control = $control; batch = $batch; closingControl = $closingControl }
 }
