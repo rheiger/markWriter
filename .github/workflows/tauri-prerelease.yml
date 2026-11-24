@@ -1,175 +1,123 @@
-name: Tauri production packages
+name: Isolated PI 2.12 macOS qualification
 on:
-  pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
-  push:
-    branches: [main]
-    tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
+    inputs:
+      package_run:
+        description: Exact-source production package run
+        required: true
+        type: string
+      source:
+        description: Exact integrated source commit
+        required: true
+        type: string
 permissions:
   contents: read
-concurrency:
-  group: tauri-packages-${{ github.ref }}
-  cancel-in-progress: false
+  actions: read
+
 jobs:
-  package:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-26
-            platform: macos-arm64
-            bundles: dmg
-          - os: ubuntu-26.04
-            platform: ubuntu-26.04-x64
-            bundles: deb
-          - os: windows-2025
-            platform: windows-x64
-            bundles: nsis
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 55
-    defaults:
-      run:
-        shell: bash
+  seal-and-test-macos:
+    runs-on: macos-26
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source }}
+          path: release-source
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24.22.2'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install Linux build and ordinary desktop UI dependencies
-        if: runner.os == 'Linux'
-        run: bash tools/setup-linux-packages.sh package
-      - name: Select verified Rust toolchain
+      - name: Verify the source and seal the hosted package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_RUN: ${{ inputs.package_run }}
+          SOURCE_COMMIT: ${{ inputs.source }}
         run: |
-          rustup toolchain install 1.90.0 --profile minimal
-          rustup default 1.90.0
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          [[ "$PACKAGE_RUN" =~ ^[0-9]+$ && "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C release-source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" --jq .head_sha)" = "$SOURCE_COMMIT"
+          version="$(node -p "require('./release-source/src-tauri/tauri.conf.json').version")"
+          [[ "$version" =~ ^2\.12\.[0-9]+$ ]]
+          work="$(mktemp -d /private/tmp/markwriter-pi212-release.XXXXXX)"
+          echo "QUALIFICATION_DIR=$work" >>"$GITHUB_ENV"
+          echo "QUALIFICATION_VERSION=$version" >>"$GITHUB_ENV"
+          gh run download "$PACKAGE_RUN" --name package-macos-arm64 --dir "$work"
+          mv "$work/MarkWriter-$version-macos-arm64.dmg" "$work/hosted.dmg"
+          git -C release-source archive HEAD >"$work/source.tar.gz"
+          cp -a .github/pi212-qualification/. "$work/"
+          (cd "$work" && bash seal-macos.sh "$version" "$SOURCE_COMMIT" | tee seal.log)
+      - name: Verify installed startup and native Open through the final DMG
+        run: |
+          set -euo pipefail
+          cd "$QUALIFICATION_DIR"
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          export MARKWRITER_PROFILE_DIR="$(mktemp -d "$PWD/offline-profile.XXXXXX")"
+          sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' "$PWD/sealed-app/MarkWriter.app/Contents/MacOS/markwriter" >offline-launch.log 2>&1 &
+          test_pid=$!
+          trap 'kill "$test_pid" >/dev/null 2>&1 || true' EXIT
+          started=false
+          for attempt in {1..300}; do
+            kill -0 "$test_pid" 2>/dev/null || break
+            if grep -Fq '[TAURI] Creating new document' offline-launch.log; then started=true; break; fi
+            sleep 0.1
+          done
+          test "$started" = true
+          kill "$test_pid"
+          wait "$test_pid" || true
+          trap - EXIT
+          unset MARKWRITER_PROFILE_DIR
+          # This disposable GitHub-hosted runner permits its automation user to run XCTest.
+          sudo /usr/sbin/DevToolsSecurity -enable
+          sudo /usr/sbin/dseditgroup -o edit -a "$(id -un)" -t user _developer
+          mkdir open-fixtures open-profile
+          printf '# Native Open dialog\n\nSealed PI 2.12 fixture — Grüße 日本語\n' >open-fixtures/Acceptance.md
+          expected_fixture=$(shasum -a 256 open-fixtures/Acceptance.md)
+          sed -i '' "s|/private/tmp/markwriter-282-open.IVBVyr|$PWD/sealed-app|g; s|Sealed 2.8.2 fixture|Sealed PI 2.12 fixture|g" ui/MarkWriterUITests.swift
+          xcodebuild test -project ui/MarkWriterUI.xcodeproj -scheme MarkWriterUITests -destination 'platform=macOS,arch=arm64' -derivedDataPath "$PWD/derived-data" -parallel-testing-enabled NO -resultBundlePath "$PWD/native-open.xcresult" -only-testing:MarkWriterUITests/MarkWriterUITests/testSealedNativeOpenDialog >native-open.log 2>&1 || {
+            xcrun xcresulttool export attachments --path "$PWD/native-open.xcresult" --output-path "$PWD/diagnostic-screens" || true
+            tail -120 native-open.log
+            exit 1
+          }
+          grep -F '** TEST SUCCEEDED **' native-open.log
+          test "$(shasum -a 256 open-fixtures/Acceptance.md)" = "$expected_fixture"
+          python3 - <<'PYVERIFY'
+          import json
+          from pathlib import Path
+          fixture = Path("open-fixtures/Acceptance.md").resolve()
+          workspace = json.loads(Path("open-profile/workspace.json").read_text())
+          assert any(
+              doc.get("path") and Path(doc["path"]).resolve() == fixture
+              and doc["content"] == fixture.read_text()
+              and doc["isDirty"] is False
+              for doc in workspace["documents"]
+          ), workspace
+          print("PASS: native Open panel selected Unicode fixture and preserved original bytes and clean state")
+          PYVERIFY
+          echo "PASS: native Open panel selected Unicode fixture and preserved original bytes and clean state" >>native-open.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: success()
         with:
+          name: macos-sealed-qualification
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
-      - run: npm ci --prefix frontend
-      - name: Verify exact versions and publication trigger
-        run: node tools/release-metadata.mjs --check
-      - name: Build the bundled Windows preview handler
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/stage-windows-preview.ps1
-      - name: Quality gates on production source
-        run: |
-          npm run lint --prefix frontend
-          npm run typecheck --prefix frontend
-          npm test --prefix frontend
-          node --test tools/*.test.mjs
-          npm audit --prefix frontend --audit-level=low
-          cargo test --locked --manifest-path src-tauri/Cargo.toml
-      - name: Build ordinary production frontend
-        run: npm run build --prefix frontend
-      - name: Verify production bridge exclusion and license assets
-        run: node tools/release-metadata.mjs --check-frontend
-      - name: Build production installation package
-        working-directory: src-tauri
-        env:
-          # Candidate packages deliberately perform no OS signing.
-          CI: true
-        run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles ${{ matrix.bundles }}
-      - name: Install external native test driver
-        if: runner.os != 'macOS'
-        run: cargo install tauri-driver --version 2.1.0 --locked
-      - name: Set up matching Windows WebView2 driver
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./tools/setup-edge-driver.ps1
-          ./tools/setup-windows-acceptance.ps1
-      - name: Install Windows package and block internet for its WebView
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/install-package-windows.ps1
-      - name: Exercise the packaged Explorer preview at ordinary user privilege
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/test-windows-preview-package.ps1
-      - name: Exercise installed Windows release at ordinary user privilege
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
-          exit $LASTEXITCODE
-      - name: Install Ubuntu package
-        if: runner.os == 'Linux'
-        run: |
-          package_version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          sudo dpkg -i "src-tauri/target/release/bundle/deb/MarkWriter_${package_version}_amd64.deb"
-          test -x /usr/bin/markwriter
-          echo "MARKWRITER_BINARY=/usr/bin/markwriter" >> "$GITHUB_ENV"
-          echo "MARKWRITER_PROFILE_DIR=$RUNNER_TEMP/markwriter-profile" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/markwriter-profile"
-      - name: Exercise installed Ubuntu release in a network namespace without external routes
-        if: runner.os == 'Linux'
-        run: |
-          sudo --preserve-env=MARKWRITER_BINARY,MARKWRITER_PROFILE_DIR,PATH,GITHUB_SHA,ImageOS,ImageVersion unshare --net bash tools/package-test-linux.sh
-        env:
-          GDK_BACKEND: x11
-      - name: Verify DMG contents and installation
-        if: runner.os == 'macOS'
-        run: bash tools/install-package-macos.sh
-      - name: Verify Quick Look renderers and unsigned package staging
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p package-acceptance-results/quicklook-staging
-          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
-            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
-            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-staging/renderer-tests.log
-          installed_dir=$(node -p "require('./package-acceptance-results/result.json').installed")
-          tools/package-quicklook-macos.sh stage \
-            "$installed_dir/MarkWriter.app" \
-            "$RUNNER_TEMP/markwriter-quicklook-stage" | tee package-acceptance-results/quicklook-staging/build.log
-          extension="$RUNNER_TEMP/markwriter-quicklook-stage/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex"
-          plutil -extract NSExtension xml1 -o package-acceptance-results/quicklook-staging/extension-metadata.plist "$extension/Contents/Info.plist"
-      - name: Record package provenance, hashes and tested baseline
-        run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
-      - name: Qualify Windows uninstallation and preserve the lifecycle receipt
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./tools/test-windows-uninstall.ps1
-          node tools/shell-preview-assets.mjs explorer release-assets package-acceptance-results/explorer-preview.json
-      - name: Retain production packages and provenance
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: package-${{ matrix.platform }}
-          path: release-assets/
-          retention-days: 14
+            ${{ env.QUALIFICATION_DIR }}/MarkWriter-${{ env.QUALIFICATION_VERSION }}-macos-arm64.dmg
+            ${{ env.QUALIFICATION_DIR }}/seal.log
+            ${{ env.QUALIFICATION_DIR }}/sealed-sha256.txt
+            ${{ env.QUALIFICATION_DIR }}/macos-version.txt
+            ${{ env.QUALIFICATION_DIR }}/offline-launch.log
+            ${{ env.QUALIFICATION_DIR }}/native-open.log
           if-no-files-found: error
-      - name: Retain installed application evidence
-        if: always() && hashFiles('package-acceptance-results/**') != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: failure() && env.QUALIFICATION_DIR != ''
         with:
-          name: installed-${{ matrix.platform }}
-          path: package-acceptance-results/
-          retention-days: 14
-      - name: Retain failed Windows installer for isolated reproduction
-        if: failure() && runner.os == 'Windows' && github.ref_type != 'tag'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: diagnostic-windows-installer
-          path: src-tauri/target/release/bundle/nsis/*-setup.exe
-          retention-days: 3
-          if-no-files-found: ignore
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && steps.cache.outputs.cache-hit != 'true'
-        with:
+          name: macos-qualification-diagnostic
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
+            ${{ env.QUALIFICATION_DIR }}/seal.log
+            ${{ env.QUALIFICATION_DIR }}/offline-launch.log
+            ${{ env.QUALIFICATION_DIR }}/native-open.log
+            ${{ env.QUALIFICATION_DIR }}/diagnostic-screens/
+          if-no-files-found: warn
