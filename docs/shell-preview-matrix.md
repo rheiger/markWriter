@@ -56,3 +56,24 @@ The default Open With application stayed the same for `.tsx`, `.mjs` and `.ts` t
 Use an isolated test account or VM and the ordinary staged, ad hoc sealed candidate, then a separate coexistence setup with a competing provider. Do not reset global Quick Look services or change an existing user's preferences. Record OS/build/architecture, candidate app and extension paths, versions, hashes and seal verification, plus the registered and selected provider identity/path for each type. Test Finder Space with the app both closed and open. Observe selection separately from MarkWriter's own rendering when another provider wins.
 
 Use synthetic `.h`, `.cpp`, `.js`, `.css`, `.yml`, `.yaml` fixtures with distinctive keywords, a final sentinel, Unicode and escaped `<`, `>` and `&`; include YAML block and flow/anchor/alias forms. Record formatter notice, exact visible content, syntax color and light/dark appearance separately. Include an unknown extension, invalid UTF-8, a file over 1 MiB, selection changes and before/after source hashes. Check actual WebKit enrichment and fallback independently; record timeouts/errors without treating absence of color as proof of provider selection. Repeat after isolated upgrade and rollback, and retain evidence for provider coexistence and the exact candidate bytes. The Swift unit suite and metadata lint are not Finder acceptance.
+
+## PI 2.13 Finder qualification
+
+Finder Space was exercised on an isolated UTM VM running macOS 27.2.1 (26B131), arm64. The staged QA DMG combines the host from the integrated [#119 packaging run](https://github.com/rheiger/markWriter/actions/runs/45386138603) with the Quick Look extension rebuilt from the same source tree, `5413349980258e4978ef19130157ce76bdff7a25`. Both the app and extension passed strict ad hoc seal verification. The app's Mach-O text section matched the hosted artifact. The QA DMG SHA-256 was `9db526b978238093990da1157ef9ae00d917944da0a2ebdb02f96f14103bd370`. The test bundle reports 2.12.2. Qualification of the final 2.13 release bytes is separate. [#115](https://github.com/rheiger/markWriter/issues/115)
+
+| Fixture | Observed in the floating Finder Quick Look window |
+| --- | --- |
+| Compact JSON | Indented nested object, syntax colors, and final Unicode value with literal angle brackets and ampersand |
+| JSONL and NDJSON | Separate records, an invalid second-record notice, and a colored final valid record |
+| Element-only XML | Indented elements, formatter notice, syntax colors, and final value |
+| Mixed-content XML | Colored literal source with the fallback notice, final value, and literal entity spelling |
+| Block YAML and YML | Formatted mapping and list, syntax colors, and final value |
+| Flow YAML and YML with anchors and aliases | Colored literal source, fallback notice, preserved anchors and aliases, and final value |
+| Markdown | Rendered heading and table with the final value |
+| JSON over 1 MiB | Preview limit notice |
+
+Light appearance covered all eleven fixtures with MarkWriter closed. Dark appearance covered compact JSON, NDJSON, mixed-content XML, and both formatted and literal YAML cases for each YAML suffix while the staged MarkWriter process ran with an isolated profile. Renderer completion logs identified the exact staged extension executable for the rendered cases. The oversized file showed the native limit notice.
+
+With the separate YAML-only competitor registered, Finder selected the MarkWriter QA extension for fresh block YAML and flow YML fixtures. Both effective editor lists matched. The supplemental competitor-only checks continued to report the baseline MarkWriter executable after its test registration was removed. Selection of the competing provider itself remains unverified on this VM.
+
+The published v2.12.2 baseline was restored at the same path and passed strict verification. Its restored extension hash matched the original. Finder then rendered fresh compact JSON and Markdown fixtures through that baseline. After cleanup, the two test registrations were absent and the original Light appearance and effective editor list were restored. All eleven original fixtures kept their SHA-256 digests, byte sizes, and nanosecond modification times.
