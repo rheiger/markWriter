@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.12.2
+
+- Highlight large explicit TOML fences in both live editors. [#104](https://github.com/rheiger/markWriter/issues/104)
+- Give actionable recovery instructions when SQL import rejects input containing NUL characters. [#105](https://github.com/rheiger/markWriter/issues/105)
+
+[Release notes](docs/releases/2.12.2.md) · [Installation and rollback](docs/install-2.12.2.md)
+
 ## [2.11.2](https://github.com/rheiger/markWriter/releases/tag/v2.11.2)
 
 - Import and export portable JSON profiles in Settings. [#99](https://github.com/rheiger/markWriter/issues/99)

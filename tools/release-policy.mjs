@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
-// Explicitly authorized stable release. The macOS seal checks bundle integrity.
-export const releasePolicy = Object.freeze({ version: '2.11.2', publicationAuthorized: true, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.11.2.md' })
+// Package candidate. Release staging requires separate publication authorization.
+export const releasePolicy = Object.freeze({ version: '2.12.2', publicationAuthorized: false, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.12.2.md' })
 
 export function draftReleaseArgs(version, names) {
   assert.equal(releasePolicy.publicationAuthorized, true, 'Candidate publication requires a separate reviewed release instruction')
