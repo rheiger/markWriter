@@ -289,6 +289,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             native_menu::sync_native_menu,
             update_policy::check_updates,
+            update_policy::open_update_link,
             take_os_open,
             sql_import::pick_sql_source,
             settings_profile::import_settings_profile,

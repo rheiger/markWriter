@@ -2063,6 +2063,7 @@ version = "2.12.2"
 dependencies = [
  "chrono",
  "dirs",
+ "gio",
  "libc",
  "reqwest",
  "serde",
