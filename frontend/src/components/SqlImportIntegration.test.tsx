@@ -94,6 +94,22 @@ describe('SQL import through the application', () => {
     expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
   })
 
+  it('explains how to recover from BOM-less UTF-16 without editing the destination', async () => {
+    const decoded = Buffer.from(sql, 'utf16le').toString('utf8')
+    vi.mocked(invoke).mockImplementation(async command => command === 'pick_sql_source' ? decoded : null)
+    render(<App />)
+    const revision = useAppStore.getState().currentDocument?.revision
+    openImport()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/NUL.*Re-save a copy as UTF-8/i)
+    expect(screen.queryByRole('textbox', { name: 'DBML preview' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: /^Undo / }))
+    const current = useAppStore.getState().currentDocument
+    expect(current).toMatchObject({ content: original, isDirty: false })
+    expect(current?.revision).toBe(revision)
+  })
+
   it('does not append after the destination changes while validation is pending', async () => {
     let finish!: (svg: string) => void
     const pending = new Promise<string>(resolve => { finish = resolve })
