@@ -1,12 +1,22 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import './Workspace.css'
 
-export function Modal({ title, onClose, children }: { title: string, onClose: () => void, children: ReactNode }) {
+export function Modal({ title, onClose, fallbackFocus, children }: {
+  title: string
+  onClose: () => void
+  fallbackFocus?: () => void
+  children: ReactNode
+}) {
   const ref = useRef<HTMLDialogElement>(null)
+  const focusIfTriggerGone = useRef(fallbackFocus)
+  focusIfTriggerGone.current = fallbackFocus
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     ref.current?.showModal()
-    return () => previous?.focus({ preventScroll: true })
+    return () => {
+      if (previous?.isConnected && previous !== document.body) previous.focus({ preventScroll: true })
+      else if (document.activeElement === document.body) focusIfTriggerGone.current?.()
+    }
   }, [])
   return <dialog ref={ref} className="workspace-dialog" aria-label={title} onCancel={event => { event.preventDefault(); onClose() }}
     onKeyDown={event => {

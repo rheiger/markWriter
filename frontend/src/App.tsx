@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const { currentDocument, isLoading, error, createNewDocument, config } = useAppStore()
   const { theme } = useTheme()
   const editorViewRef = useRef<EditorViewRef>(null)
+  const openButtonRef = useRef<HTMLButtonElement>(null)
 
   const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg')
   useEffect(() => {
@@ -103,8 +104,8 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      <MenuBar editorViewRef={editorViewRef} editorMode={editorMode} />
-      <Toolbar editorViewRef={editorViewRef} editorMode={editorMode} />
+      <MenuBar editorViewRef={editorViewRef} editorMode={editorMode} openButtonRef={openButtonRef} />
+      <Toolbar editorViewRef={editorViewRef} editorMode={editorMode} openButtonRef={openButtonRef} />
 
       <DocumentTabs />
       <RecoveryNotice />

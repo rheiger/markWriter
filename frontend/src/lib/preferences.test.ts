@@ -24,3 +24,9 @@ it('migrates synchronization and continuation defaults and validates their boole
   expect(parsePreferences({ version: 1, config: { syncPreview: false, wrapContinuation: false } })).toMatchObject({ syncPreview: false, wrapContinuation: false })
   expect(() => parsePreferences({ config: { syncPreview: 'yes' } })).toThrow(/syncPreview/)
 })
+
+it('defaults older profiles to automatic updates and validates the persisted opt-out', () => {
+  expect(parsePreferences({ version: 1, config: {} }).automaticUpdateChecks).toBe(true)
+  expect(parsePreferences({ version: 1, config: { automaticUpdateChecks: false } }).automaticUpdateChecks).toBe(false)
+  expect(() => parsePreferences({ version: 1, config: { automaticUpdateChecks: 'false' } })).toThrow(/automaticUpdateChecks/)
+})

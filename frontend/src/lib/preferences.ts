@@ -12,11 +12,13 @@ export interface AppConfig {
   syncPreview: boolean
   collapseSource: boolean
   restoreSession: boolean
+  automaticUpdateChecks: boolean
 }
 export const defaultConfig: AppConfig = {
   theme: 'system', syntaxHighlighting: true, fontSize: 14, fontFamily: 'Monaco, Menlo, Consolas, monospace',
   renderedFontSize: 16, renderedFontFamily: 'system-ui, sans-serif', renderedLineHeight: 1.6,
   tabWidth: 4, wordWrap: true, wrapContinuation: true, syncPreview: true, collapseSource: true, restoreSession: true,
+  automaticUpdateChecks: true,
 }
 export function parsePreferences(value: unknown): AppConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid preferences')

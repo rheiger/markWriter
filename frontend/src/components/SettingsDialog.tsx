@@ -68,6 +68,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <label><input type="checkbox" checked={draft.wrapContinuation} onChange={e => field('wrapContinuation', e.target.checked)} />Show soft-wrap continuation markers</label>
       <label><input type="checkbox" checked={draft.collapseSource} onChange={e => field('collapseSource', e.target.checked)} />Collapse diagram and embedded-image source by default</label>
       <label><input type="checkbox" checked={draft.restoreSession} onChange={e => field('restoreSession', e.target.checked)} />Restore tabs on startup</label>
+      {isTauri() && <label><input type="checkbox" checked={draft.automaticUpdateChecks}
+        onChange={e => field('automaticUpdateChecks', e.target.checked)} />Check for updates automatically</label>}
     </fieldset>
     <p className="settings-note">Recovery copies stay on this device. Original files are written only when you save.</p>
     {isTauri() && <div className="settings-profile-actions">
