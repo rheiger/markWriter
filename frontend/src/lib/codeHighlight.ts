@@ -153,7 +153,7 @@ export function createCodeHighlighter(enabled: boolean, surface: 'editor' | 'ren
   const tomlSpanLimit = surface === 'editor' ? EDITOR_TOML_SPAN_LIMIT : TOML_SPAN_LIMIT
   let tomlSpansRemaining = tomlSpanLimit
   return (code: string, info = ''): CodeHighlight => {
-    const language = codeLanguage(info), longer = longerGrammar(language)
+    const language = codeLanguage(info)
     if (!enabled) return plain
     blocks--
     if (language === 'toml') {
@@ -169,6 +169,7 @@ export function createCodeHighlighter(enabled: boolean, surface: 'editor' | 'ren
       tomlSpansRemaining -= result.ranges.length
       return result
     }
+    const longer = longerGrammar(language)
     if (blocks < 0 || !eligible(code, language, longer) ||
       code.length > (language === 'sql' ? sqlRemaining : longer ? longerRemaining : remaining) || (!language && --automatic < 0)) return language === 'sql' && code.length ? sqlFallback : plain
     if (language === 'sql') sqlRemaining -= code.length
