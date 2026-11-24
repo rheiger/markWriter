@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.13.3
+
+- Check for stable releases in the background and open the matching installer download in your browser. [#110](https://github.com/rheiger/markWriter/issues/110)
+- Extend installed Explorer and Finder preview qualification. [#116](https://github.com/rheiger/markWriter/issues/116) · [#115](https://github.com/rheiger/markWriter/issues/115)
+
+[Release notes](docs/releases/2.13.3.md) · [Installation and rollback](docs/install-2.13.3.md)
+
 ## 2.12.2
 
 - Highlight large explicit TOML fences in both live editors. [#104](https://github.com/rheiger/markWriter/issues/104)
