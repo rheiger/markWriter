@@ -206,10 +206,25 @@ try {
         $selectFlags = if ($i -eq 0) { 29 } else { 1 } # retain the first item while adding to the selection
         $window.Document.SelectItem($item, $selectFlags)
       }
-      $selection = $window.Document.SelectedItems()
-      $paths = @(for ($i=0; $i -lt $selection.Count; $i++) { $selection.Item($i).Path })
-      $expected = @($targets | ForEach-Object { Join-Path $root $_.Name })
-      if ($paths.Count -ne $expected.Count -or (Compare-Object $expected $paths)) { throw 'Explorer did not select exactly the requested files' }
+      $paths = @($targets | ForEach-Object { Join-Path $root $_.Name })
+      if ($targets.Count -gt 1) {
+        # FolderView selection updates asynchronously; query the final selection
+        # before sending Enter. Single-file controls are confirmed by the trace.
+        $matched = $false
+        for ($attempt=0; $attempt -lt 30; $attempt++) {
+          $selection = $window.Document.SelectedItems()
+          $selected = @($selection | ForEach-Object { $_.Path })
+          if ($selected.Count -eq $paths.Count -and !(Compare-Object $paths $selected)) {
+            $matched = $true
+            break
+          }
+          Start-Sleep -Milliseconds 100
+        }
+        if (!$matched) {
+          $actualNames = @($selected | ForEach-Object { [IO.Path]::GetFileName($_) })
+          throw ('Explorer selection differed from the requested fixtures. Selected: {0}; expected: {1}.' -f ($actualNames -join ', '), ($targets.Name -join ', '))
+        }
+      }
       if ([PreviewProcessIntegrity]::GetForegroundWindow() -ne $explorerHwnd) { throw 'Explorer was not foreground for file activation' }
       $startedAt = [DateTime]::UtcNow
       # Enter activates Explorer's default verb for the actual current selection.
