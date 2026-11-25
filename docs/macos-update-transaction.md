@@ -1,87 +1,134 @@
 # Qualify same-path macOS replacement and rollback
 
-The qualification target is Apple silicon macOS with two user-owned copies of
-MarkWriter on the same local volume. The installed app's immediate parent must
-belong to the current user. A private staging directory beside that app holds
-the second bundle and the transaction journal. The tool runs at ordinary user
-privilege and requires filesystem support for Darwin's atomic swap.
-[Apple volume support for swap renaming](https://developer.apple.com/documentation/foundation/urlresourcevalues/volumesupportsswaprenaming)
+The qualification target is Apple silicon macOS, at ordinary user privilege, on
+a volume that supports Darwin's atomic swap. Use a disposable VM or an isolated
+desktop account with no personal documents. The trial changes registrations for
+its own synthetic installation and its competing copy. It launches the ordinary
+MarkWriter binary with a separate preferences and recovery profile and outbound IP
+denied. [Apple volume support for swap renaming](https://developer.apple.com/documentation/foundation/urlresourcevalues/volumesupportsswaprenaming)
 
-Use an isolated account or disposable VM, synthetic documents and a temporary
-`MARKWRITER_PROFILE_DIR`. Before staging an update package, authenticate its
-exact release, version, platform and bytes outside this tool. The bundle and
-nested Quick Look ad hoc seals verify local integrity. Trust in the delivery
-channel comes from the signed artifact policy tracked in
-[#59](https://github.com/rheiger/markWriter/issues/59).
+## Run the installed-app trial
 
-## Prepare a disposable A/B pair
+Obtain an earlier build and a newer candidate from independently authenticated
+artifacts. Retain the release versions, provenance, and hashes of the exact
+artifacts. Extract the app copies outside your regular installation. Both must
+have a strict whole-app seal and a sealed bundled Quick Look extension. Ad hoc
+seals establish local bundle integrity. Authenticate the distribution separately
+through the update artifact trust policy. The regular hosted package candidate
+does not have a whole-app seal. [Update artifact trust](update-artifact-trust.md)
 
-1. Make a private directory at a canonical absolute path on the target volume.
-   Copy the earlier authenticated build to `MarkWriter.app` in that directory.
-   Use a copy independent of any app already installed on the machine.
-2. Create `.MarkWriter.app.update` beside `MarkWriter.app` with mode `0700`.
-   Copy the newer authenticated build into it as `staged.app`. Keep the staging
-   bundle unregistered. Keep this directory and its contents private to the
-   current account throughout the transaction.
-3. Start the earlier build with the isolated profile. Open a saved synthetic
-   Markdown document, leave a second synthetic draft in recovery, and record
-   their state. Quit the selected editor and close its Finder previews. Keep
-   both apps closed while the transaction runs.
+Run the tool from the checkout, using absolute canonical paths and the actual
+versions. Use the second path for the newer build being qualified.
 
-Run the dry run and inspect the exact paths and versions. Replace the path and
-versions here with the prepared pair:
+```sh
+python3 tools/qualify-update-markwriter-macos.py \
+  --prior 2.13.3 '/absolute/path/baseline/MarkWriter.app' \
+  --candidate 2.14.3 '/absolute/path/candidate/MarkWriter.app'
+```
+
+The tool creates a fresh user-owned directory under `/private/tmp`. It verifies
+both bundles, the exact app and extension versions, the strict nested seals, and
+the arm64 app and extension executables. It uses separate copies for the
+installed app, the private staging slot and the competing provider. Follow the
+editor and Finder prompts for each stage.
+
+| Stage | Automatic checks | Operator evidence |
+| --- | --- | --- |
+| Baseline A | Strict seals, selected registration, saved fixture and active untitled dirty draft in the isolated workspace | About shows A. Open the supplied saved fixture and type the synthetic draft. Use Finder Space on the fresh Markdown fixture. |
+| Upgrade B | Simulated interruption after the atomic exchange, dry-run inspection, retry, repeated apply, B at the original path, A in staging, competing path retained, and unchanged document, workspace and preferences bytes during the transaction | About shows B. Confirm the saved tab and dirty draft reopened, then exercise the B Finder fixture. |
+| Rollback A | Same interruption, retry, repeat, data and path checks for the inverse swap. B remains parked and unregistered. | About shows A. Confirm the saved tab and dirty draft reopened again, then exercise the rollback Finder fixture. |
+
+The runner closes only the editor process it started after validating the dirty
+workspace. This preserves the synthetic draft for the next launch without
+selecting Save or Discard. The interrupted transaction uses the real swap and
+stops before re-registration. This exercises restart of the transaction at that
+boundary. The test does not simulate power loss.
+
+### Finder provider evidence
+
+Start this command in a second Terminal before opening each fresh preview.
+Disable Finder's Preview pane to avoid rendering an extra file before the Space
+preview. Save the relevant renderer event with the trial evidence. The provider
+logs the renderer start and completion at info level.
+[Apple unified log tools](https://developer.apple.com/documentation/os/viewing-log-messages)
+
+```sh
+/usr/bin/log stream --level info --style json \
+  --predicate 'subsystem == "com.markwriter.app.quicklook" AND category == "renderer"'
+```
+
+After opening the fixture with Space, enter the heading shown in Finder and the
+`processImagePath` of its fresh renderer event at the prompts. The expected
+process is the selected app's
+`Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype`.
+The runner checks the operator-supplied path against the selected bundle and
+verifies the extension seal and version. PlugInKit lists registered paths and
+cannot establish which provider rendered the preview. If Finder chose another
+provider or no fresh event establishes the provider, retain the evidence and
+mark the phase incomplete. Close the preview and return Finder to a different
+folder after each phase. If a selected Quick Look process remains active, allow
+it to exit before retrying the transaction.
+
+Collect `receipt.jsonl`, the editor logs and the selected Finder event for each
+phase. The receipt contains automated seal, path, registration and fixture
+checks alongside the operator's observations. A `complete` event requires all
+three stages. Record the macOS build, the input artifact provenance and hashes,
+and any missing evidence alongside the receipt.
+
+## Inspect or resume an interrupted trial
+
+Keep the journal, staged app and logs until diagnosis is complete. Run the
+lower-level helper without `--apply` to inspect the exact generated
+installation path and transaction. Use the original version arguments for both
+directions.
 
 ```sh
 python3 tools/update-markwriter-macos.py \
-  --app '/private/tmp/markwriter-ab/MarkWriter.app' \
+  --app '/private/tmp/markwriter-update-trial-REPLACE_ME/MarkWriter.app' \
   --installed-version 2.13.3 --candidate-version 2.14.3
 ```
 
-Repeat with `--apply` to perform replacement. The tool verifies both app
-bundles and their extensions, then records their exact identities. It
-unregisters the old path when applicable and independently checks that its
-PlugInKit record is gone before exchanging the two directories. It verifies the
-new locations and re-registers the selected path. The final PlugInKit check
-confirms path presence. Confirm the active provider and version in Finder. The checkout tool and
-`uninstall-markwriter-macos.py` share the same per-app lock. The transaction
-only uses registration commands for the selected app path.
+Close both editor and preview processes. If the journal and both proofs match,
+repeat with `--apply` to finish replacement, or with `--rollback --apply` to
+restore the original version. If the swap already occurred, retry syncs both
+directories and repairs the selected registration without swapping again. The
+helper rejects substituted copies even if the candidate version matches. The
+runner's installed smoke trial starts in a fresh directory each time. An
+interrupted run's manual recovery stays with its own receipt.
 
-Launch the app at the same path with the isolated profile. Check the version in
-About, the saved document's bytes and the restored draft. Exercise Finder Space
-on a fresh synthetic Markdown file and record the provider and extension version.
-Check that any competing preview registration still points to its original
-location and that the staged copy is absent from PlugInKit.
+## Remove the trial registrations
 
-## Recover or roll back
+After saving evidence, close the editor and all previews of trial fixtures and
+move Finder outside the trial directory. A disposable VM can be reverted to its
+clean checkpoint. For an isolated account, use the exact trial directory printed
+by the tool to unregister only the two generated app copies. Keep both bundles
+in place until registration cleanup is confirmed.
 
-After an interruption, run the same dry run again to inspect the pair. If the
-journal and both proofs match, repeating `--apply` converges to the newer version
-and repairs the selected registration. A retry after an interrupted swap
-syncs both directories before repairing registration. The inverse operation
-uses the same original version arguments plus `--rollback --apply`. Both bundles must remain
-at their recorded locations so the tool can identify them. A swapped-in bundle
-from another location, even one with the same version, fails the identity check.
+```sh
+trial='/private/tmp/markwriter-update-trial-REPLACE_ME'
+lsregister='/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
+for app in "$trial/MarkWriter.app" "$trial/Competing.app"; do
+  /usr/bin/pluginkit -r "$app/Contents/PlugIns/MarkWriterQuickLook.appex"
+  "$lsregister" -u "$app"
+done
+/usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook
+```
 
-The older bundle stays in the staging slot after replacement. The newer bundle
-stays there after rollback. Keep the journal and the parked bundle until the
-trial is complete. When a filesystem or registration error persists, record
-the dry-run output and inspect the selected directory and stage before any
-manual repair. A failure while registering can leave the selected bundle at
-its requested version with registration unfinished. Close the editor and
-previews before retrying or rolling back.
+A copy that never registered can report no plug-in at its path. Check the query
+afterward for absence of both trial paths and the staging path. Preserve records
+for all unrelated paths. If the query still reports trial paths, retain the
+directory and diagnose those entries before removing the trial copies.
 
 ## Verification
 
 The macOS quality job builds ad hoc sealed synthetic Mach-O A/B bundles in a
-temporary directory, performs the real filesystem swap, resumes after a
-simulated interruption, and checks the executed version at the original path
+temporary directory. It performs the real atomic swap and resumes after a
+simulated interruption. It verifies the executed version at the same path
 before replacement and after rollback. Registration calls are intercepted in
-that test. The fault-injection tests also verify directory identity, journal
-validation, competing registrations and retained profile bytes with mocked
-native operations.
+that test. The mocked tests also cover the qualification receipt, rejected
+provider paths and invalid workspace evidence.
 
-Installed MarkWriter recovery and actual Finder and Launch Services effects
-require the disposable desktop trial above. System-owned install locations,
-unprivileged eligibility checks in the app, staging from downloaded artifacts,
-the app's recovery checkpoint and relaunch, and Windows and Linux lifecycle
-qualification remain outside this tool.
+Qualifying a real install requires running the desktop trial with both sealed
+MarkWriter builds. System-owned installation paths, the app-controlled recovery
+checkpoint and relaunch, authenticated package downloads, and Windows and
+Linux lifecycle qualification are separate gates.
