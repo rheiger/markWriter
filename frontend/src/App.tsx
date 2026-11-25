@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useAppStore, useTheme, watchOpenDocuments, withDocumentDialog } from './store/useAppStore'
 import { EditorView, EditorViewRef, EditorMode } from './components/EditorView'
 import { MenuBar } from './components/MenuBar'
@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const { theme } = useTheme()
   const editorViewRef = useRef<EditorViewRef>(null)
   const openButtonRef = useRef<HTMLButtonElement>(null)
+  const workspaceRoot = useRef<HTMLDivElement>(null)
 
   const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg')
   useEffect(() => {
@@ -33,6 +34,9 @@ const App: React.FC = () => {
   // Initialize the application
   const [ready, setReady] = useState(!isTauri())
   const didInitRef = useRef(false)
+  useLayoutEffect(() => {
+    if (workspaceRoot.current) workspaceRoot.current.inert = windowBusy
+  }, [ready, windowBusy])
   useEffect(() => {
     // Apply theme on startup
     if (theme === 'system') {
@@ -138,7 +142,7 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      <div className="app-workspace" inert={windowBusy}>
+      <div className="app-workspace" ref={workspaceRoot}>
         <MenuBar editorViewRef={editorViewRef} editorMode={editorMode} openButtonRef={openButtonRef} />
         <Toolbar editorViewRef={editorViewRef} editorMode={editorMode} openButtonRef={openButtonRef} />
 

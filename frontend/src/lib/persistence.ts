@@ -111,22 +111,34 @@ export async function loadWorkspace() {
     const value = await invoke<{ windowEpoch?: number } | null>('load_workspace')
     workspaceEpoch = value?.windowEpoch ?? 0
     if (!value) return
-    const { restoreSnapshot } = await import('./session')
-    const restored = await restoreSnapshot(value, useAppStore.getState().config.restoreSession,
+    const { parseSession, restoreSnapshot } = await import('./session')
+    const saved = parseSession(value)
+    const restored = await restoreSnapshot(saved, useAppStore.getState().config.restoreSession,
       path => invoke('open_document', { path }))
     const documents: Document[] = []
     for (const doc of restored.documents) {
-      if (!doc.path) { documents.push(doc); continue }
+      const claim = (path: string | null) => invoke<{ label: string, id: string } | null>('claim_document_path', {
+        id: doc.id, path, epoch: workspaceEpoch,
+      })
       let unownedReason: string | undefined
       try {
-        const owner = await invoke<{ label: string, id: string } | null>('claim_document_path', { id: doc.id, path: doc.path })
-        if (!owner) { documents.push(doc); continue }
+        if (!await claim(doc.path ?? null)) { documents.push(doc); continue }
         unownedReason = 'Open in another window'
       } catch (error) {
         unownedReason = `Could not verify which window owns the file (${String(error)})`
       }
-      if (doc.isDirty) documents.push({ ...doc, title: `${doc.title} (recovery)`, conflictPath: doc.path, path: undefined })
+      if (!doc.path) { documents.push(doc); continue }
+      if (doc.isDirty) {
+        await claim(null).catch(error => restored.warnings.push(`Could not register the detached recovery copy: ${String(error)}`))
+        documents.push({ ...doc, title: `${doc.title} (recovery)`, conflictPath: doc.path, path: undefined })
+      }
       restored.warnings.push(`${unownedReason}: ${doc.path}.${doc.isDirty ? ' Your draft is a separate recovery copy.' : ''}`)
+    }
+    const retained = new Set(documents.map(doc => doc.id))
+    for (const doc of saved.documents) {
+      if (retained.has(doc.id)) continue
+      await invoke('release_document_claim', { id: doc.id, epoch: workspaceEpoch })
+        .catch(error => restored.warnings.push(`Could not release a restored file's window claim: ${String(error)}`))
     }
     useAppStore.setState({ documents, fileViews: restored.fileViews,
       currentDocument: documents.find(doc => doc.id === restored.activeId) ?? documents[0] ?? null })

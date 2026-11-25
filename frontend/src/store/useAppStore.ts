@@ -335,7 +335,7 @@ export const useAppStore = create<AppState>((set, get) => {
       finally { loadingDocuments-- }
     },
     openDocument: async path => {
-      if (get().windowBusy) return
+      if (!path || get().windowBusy) return
       loadingDocuments++
       try {
         const read = async (candidate: string) => {
@@ -348,13 +348,14 @@ export const useAppStore = create<AppState>((set, get) => {
         }
         let result = await read(path)
         if (!result) return
-        const owner = destinations.get(result.path)
+        const canonicalPath = result.path
+        const owner = destinations.get(canonicalPath)
         if (owner) {
           // Read may have raced the atomic rename. Await its owner and activate the saved tab.
           await saving.get(owner)
-          const written = get().documents.find(d => d.id === owner && d.path === result.path)
+          const written = get().documents.find(d => d.id === owner && d.path === canonicalPath)
           if (written) { get().activateDocument(written.id); return }
-          result = await read(result.path)
+          result = await read(canonicalPath)
           if (!result) return
         }
         const existing = get().documents.find(d => d.path === result.path)
