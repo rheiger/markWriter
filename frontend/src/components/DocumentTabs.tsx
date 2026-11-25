@@ -1,16 +1,98 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { diskIssueMessage, saveCopyWithDialog, useAppStore, type Document } from '../store/useAppStore'
 import { Modal } from './Modal'
 import './Workspace.css'
 
 export function DocumentTabs() {
-  const { documents, currentDocument, activateDocument, closeDocument, reorderDocument } = useAppStore()
+  const { documents, currentDocument, activateDocument, closeDocument, closeOtherDocuments, reorderDocument } = useAppStore()
   const dragging = useRef<string | null>(null)
-  return <div className="document-tabs" role="tablist" aria-label="Documents">
+  const tabList = useRef<HTMLDivElement>(null)
+  const [menu, setMenu] = useState<{ id: string, trigger: HTMLElement, x: number, y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuOwner = menu && documents.find(doc => doc.id === menu.id)
+  const showMenu = Boolean(menuOwner)
+
+  useLayoutEffect(() => {
+    const popup = menuRef.current
+    if (!showMenu || !menu || !popup) return
+    const { width, height } = popup.getBoundingClientRect()
+    popup.style.left = `${Math.max(0, Math.min(menu.x, window.innerWidth - width))}px`
+    popup.style.top = `${Math.max(0, Math.min(menu.y, window.innerHeight - height))}px`
+    popup.querySelector<HTMLElement>('button')?.focus()
+    const dismissOutside = (event: Event) => {
+      if (event.target instanceof Node && !popup.contains(event.target)) setMenu(null)
+    }
+    const dismissOnResize = () => {
+      setMenu(null)
+      if (popup.contains(document.activeElement)) menu.trigger.focus()
+    }
+    document.addEventListener('pointerdown', dismissOutside)
+    document.addEventListener('focusin', dismissOutside)
+    window.addEventListener('resize', dismissOnResize)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside)
+      document.removeEventListener('focusin', dismissOutside)
+      window.removeEventListener('resize', dismissOnResize)
+    }
+  }, [menu, showMenu])
+
+  const dismissMenu = () => {
+    setMenu(null)
+    menu?.trigger.focus({ preventScroll: true })
+  }
+
+  const handleMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab' || event.key === 'Escape') {
+      event.stopPropagation()
+      if (event.key === 'Escape') event.preventDefault()
+      dismissMenu()
+      return
+    }
+    const items = Array.from(event.currentTarget.querySelectorAll('button'))
+    const index = items.findIndex(item => item === event.target)
+    let next: number
+    switch (event.key) {
+      case 'ArrowDown': next = (index + 1) % items.length; break
+      case 'ArrowUp': next = (index + items.length - 1) % items.length; break
+      case 'Home': next = 0; break
+      case 'End': next = items.length - 1; break
+      default: return
+    }
+    event.preventDefault()
+    items[next]?.focus()
+  }
+
+  const runMenuAction = async (other: boolean) => {
+    if (!menu || (other && documents.length < 2)) return
+    dismissMenu()
+    if (other) await closeOtherDocuments(menu.id)
+    else await closeDocument(menu.id)
+    if (!menu.trigger.isConnected && document.activeElement === document.body) {
+      tabList.current?.querySelector<HTMLElement>('[role=tab][aria-selected=true]')?.focus()
+    }
+  }
+
+  return <div ref={tabList} className="document-tabs" role="tablist" aria-label="Documents">
     {documents.map((doc, index) => <div className="document-tab" key={doc.id} draggable
+      onContextMenu={event => {
+        event.preventDefault()
+        const trigger = event.currentTarget.querySelector<HTMLButtonElement>('[role=tab]')
+        if (trigger) setMenu({ id: doc.id, trigger, x: event.clientX, y: event.clientY })
+      }}
+      onKeyDown={event => {
+        if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return
+        event.preventDefault()
+        event.stopPropagation()
+        const trigger = event.target
+        if (!(trigger instanceof HTMLElement)) return
+        const rect = trigger.getBoundingClientRect()
+        setMenu({ id: doc.id, trigger, x: rect.left, y: rect.bottom })
+      }}
       onDragStart={() => { dragging.current = doc.id }} onDragOver={event => event.preventDefault()}
       onDrop={event => { event.preventDefault(); if (dragging.current) reorderDocument(dragging.current, index); dragging.current = null }}>
-      <button role="tab" aria-selected={doc.id === currentDocument?.id} title={doc.path || doc.title}
+      <button role="tab" aria-selected={doc.id === currentDocument?.id} aria-haspopup="menu" aria-expanded={menuOwner?.id === doc.id}
+        title={doc.path || doc.title}
         tabIndex={doc.id === currentDocument?.id ? 0 : -1} onClick={() => activateDocument(doc.id)}
         onKeyDown={event => {
           const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
@@ -31,6 +113,14 @@ export function DocumentTabs() {
       </button>
       <button aria-label={`Close ${doc.title}`} title="Close tab" onClick={() => void closeDocument(doc.id)}>×</button>
     </div>)}
+    {menuOwner && createPortal(
+      <div ref={menuRef} className="document-tab-menu" role="menu" aria-label={`Tab actions for ${menuOwner.title}`} onKeyDown={handleMenuKey}>
+        <button role="menuitem" tabIndex={-1} onClick={() => void runMenuAction(false)}>Close Tab</button>
+        <button role="menuitem" tabIndex={-1} aria-disabled={documents.length < 2}
+          onClick={() => void runMenuAction(true)}>Close Other Tabs</button>
+      </div>,
+      document.body,
+    )}
   </div>
 }
 
