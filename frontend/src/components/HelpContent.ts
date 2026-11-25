@@ -54,6 +54,7 @@ export const helpTopics: HelpTopic[] = [
   {
     id: 'files', title: 'Files and recovery', blocks: [
       { kind: 'paragraph', text: 'Save writes your document to its chosen file. A new document needs a path; use Save As to choose one. Close Tab and Quit ask what to do with unsaved changes.' },
+      { kind: 'paragraph', text: 'Right-click a tab, or focus it and press Shift+F10 or the Context Menu key. Choose Close Tab or Close Other Tabs. Cancel stops the sequence and leaves the remaining tabs open.' },
       { kind: 'paragraph', text: 'A warning on a tab means the file changed or could not be checked. Reload from Disk replaces the tab with the current file and asks before discarding unsaved edits. Save a Copy writes your edits to a new file and keeps the tab open. Each save to the original checks the file against its last saved version.' },
       { kind: 'paragraph', text: 'MarkWriter keeps local recovery copies of workspace drafts. Settings → Restore tabs on startup controls restoring clean tabs; unsaved drafts can be recovered after an interruption. Recovery copies are not a substitute for saving and backing up files.' },
       { kind: 'paragraph', text: 'If the original file has changed externally or is unavailable when a draft is restored, MarkWriter opens a separate recovery copy and reports the problem. Review the draft and use Save As to choose where to save it.' },

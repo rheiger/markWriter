@@ -198,6 +198,10 @@ try {
   await click('//dialog//button[normalize-space(.)="Discard"]')
   await waitFor(async () => (await snapshot()).documents.length === 1, 'only the invoking tab remains')
   assert.equal((await snapshot()).document.id, keptTab.id)
+  await waitFor(async () => {
+    const workspace = JSON.parse(await readFile(join(profileDir, 'workspace.json'), 'utf8'))
+    return workspace.activeId === keptTab.id && workspace.documents.length === 1 && workspace.documents[0].id === keptTab.id
+  }, 'closed tabs removed from recovery storage')
   assert.deepEqual(await readFile(sourcePath), Buffer.from(source))
   alpha3Cases.push('tab context menu closes captured siblings, with Cancel and Discard for dirty drafts')
   console.log('Native fixture and About version checked; checking unchanged mode cycles')
