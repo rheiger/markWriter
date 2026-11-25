@@ -3,11 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>UTTypeIdentifier</key>
-    <string>public.toml</string>
+    <string>com.markwriter.toml-source</string>
     <key>UTTypeDescription</key>
     <string>TOML</string>
     <key>UTTypeConformsTo</key>
     <array>
+        <string>public.toml</string>
         <string>public.text</string>
     </array>
     <key>UTTypeTagSpecification</key>

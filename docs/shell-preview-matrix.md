@@ -13,7 +13,7 @@ The type observations below were made with `UTType(filenameExtension:)` on macOS
 | `.xml` | `public.xml`; declared | Limited element-only formatting, otherwise literal XML | Pending |
 | `.yml`, `.yaml` | `public.yaml`; declared | Limited block formatting, otherwise escaped literal YAML; both request YAML highlighting | Literal fallback color observed for both in VM |
 | `.sh`, `.bash` | `public.shell-script`, `public.bash-script` respectively; shell type declared, bash conforms on this host | Literal source, Bash grammar | Pending |
-| `.py`, `.sql`, `.toml` | `public.python-script`, `org.iso.sql`, `public.toml`; declared | Literal source, Python / SQL / TOML grammar | Pending |
+| `.py`, `.sql`, `.toml` | `public.python-script`, `org.iso.sql`, `public.toml`; declared. A narrow `com.markwriter.toml-source` fallback is also declared for `.toml`. | Literal source, Python / SQL / TOML grammar | Pending |
 | `.mk`, `.mak` | `public.make-source`; declared | Literal source, Makefile grammar | Pending |
 | `Makefile`, `GNUmakefile` | Extensionless; host association not established | Exact case-insensitive filename dispatch to Makefile grammar | Registration/selection pending; not claimed |
 | `.h` | `public.c-header`; declared in candidate | Literal source, C grammar. Headers are ambiguous and are not inferred as C++ | Color observed in VM; see record below |
@@ -93,6 +93,8 @@ The extension declares Apple's narrow `com.apple.xml-property-list` preview type
 | Other `.lock` files, `.spec` | Literal fallback | No registration specific to these formats. |
 
 The PowerShell and batch identifiers match existing [Loupe type imports](https://github.com/pepperonas/loupe/blob/e36bcb10c0294f113be49d76a56a6cb3f74e15d5/Sources/Loupe/Resources/Info.plist). MarkWriter limits the imported filename tags to `.ps1` and `.bat`. The hosted probe checks that an otherwise undeclared script type resolves to the intended preview type, and records preexisting type collisions for review.
+
+The original `public.toml` import displaced the hosted macOS 26 runner’s preexisting `.cfg` and `.config` type aliases and their TextEdit default. MarkWriter now declares `com.markwriter.toml-source` for `.toml` only and accepts both TOML type identifiers for preview. The preview extension still declines `.cfg` and `.config`. The registration probe checks preservation of their existing defaults and verifies that the `.toml` fixture matches a declared preview type.
 
 The production macOS package job captures resolved content types, all extension-tag types and effective Open With defaults for synthetic files before and after registering the exact installed app. It reports which of the extension's declared types match the observed content type and queries PlugInKit for the exact installed path. The hosted receipt records whether PlugInKit listed the extension. The check preserves existing source-file defaults, rejects any new source-file default for MarkWriter, verifies the ambiguous `.ts` type remains stable and compares the fixture bytes. The raw files `quicklook-types-before.json`, `quicklook-types-after.json` and `quicklook-plugins.txt` are retained with installed-app evidence.
 
