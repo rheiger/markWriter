@@ -67,7 +67,9 @@ async function request(method, path, body) {
     })
   } catch (error) { throw new Error(`${method} ${path}: ${error}`, { cause: error }) }
   const result = await response.json()
-  if (!response.ok || result.value?.error) throw new Error(JSON.stringify(result))
+  if (!response.ok || (typeof result.value?.error === 'string' && typeof result.value?.message === 'string')) {
+    throw new Error(`${method} ${path}: ${result.value?.error ?? response.status} ${result.value?.message ?? ''}`)
+  }
   return result.value
 }
 async function waitFor(check, description, timeout = 30000) {
