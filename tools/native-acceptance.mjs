@@ -164,6 +164,46 @@ try {
   await waitFor(() => run(`const dialog = document.querySelector('dialog[open]'); return !!dialog && dialog.textContent.includes(arguments[0])`, `Version ${expectedVersion}`), 'About version')
   await click('//dialog//button[normalize-space(.)="Close"]')
   await waitFor(() => run(`return !document.querySelector('dialog[open]')`), 'About closed')
+  const keptTab = (await snapshot()).document
+  const draftTab = (await action('create')).document
+  await mode('WYSIWYG')
+  await run(`const editor = document.querySelector('[data-active=true] .tiptap').editor;
+    return editor.commands.insertContent('Unsent tab menu draft');`)
+  await waitFor(async () => (await snapshot()).document.isDirty, 'tab menu draft edited')
+  const laterTab = (await action('create')).document
+  async function closeOtherTabs() {
+    const point = await run(`const tab = [...document.querySelectorAll('.document-tab [role=tab]')].find(e => e.title === arguments[0]);
+      tab.scrollIntoView({block:'nearest',inline:'nearest'});
+      const {left, top, width, height} = tab.getBoundingClientRect();
+      return {x:Math.round(left + width / 2),y:Math.round(top + height / 2)};`, keptTab.path)
+    await request('POST', `/session/${session}/actions`, { actions: [{
+      type: 'pointer', id: 'tab-menu', parameters: { pointerType: 'mouse' }, actions: [
+        { type: 'pointerMove', origin: 'viewport', duration: 0, ...point },
+        { type: 'pointerDown', button: 2 }, { type: 'pointerUp', button: 2 },
+      ],
+    }] })
+    await waitFor(() => run(`const popup = document.querySelector('.document-tab-menu');
+      return !!popup && popup.getAttribute('aria-label') === arguments[0] && popup.contains(document.activeElement);`,
+    `Tab actions for ${keptTab.title}`), 'tab context menu owns focus')
+    await click('//*[@role="menuitem" and normalize-space(.)="Close Other Tabs"]')
+    await waitFor(() => run(`return document.querySelector('dialog[aria-label="Unsaved changes"][open]')?.textContent.includes(arguments[0])`,
+      draftTab.title), 'close-other-tabs dirty prompt')
+  }
+  await closeOtherTabs()
+  await click('//dialog//button[normalize-space(.)="Cancel"]')
+  await waitFor(() => run('return !document.querySelector("dialog[open]")'), 'close-other-tabs cancelled')
+  assert.ok((await snapshot()).documents.some(doc => doc.id === draftTab.id && doc.isDirty))
+  assert.ok((await snapshot()).documents.some(doc => doc.id === laterTab.id))
+  await closeOtherTabs()
+  await click('//dialog//button[normalize-space(.)="Discard"]')
+  await waitFor(async () => (await snapshot()).documents.length === 1, 'only the invoking tab remains')
+  assert.equal((await snapshot()).document.id, keptTab.id)
+  await waitFor(async () => {
+    const workspace = JSON.parse(await readFile(join(profileDir, 'workspace.json'), 'utf8'))
+    return workspace.activeId === keptTab.id && workspace.documents.length === 1 && workspace.documents[0].id === keptTab.id
+  }, 'closed tabs removed from recovery storage')
+  assert.deepEqual(await readFile(sourcePath), Buffer.from(source))
+  alpha3Cases.push('tab context menu closes captured siblings, with Cancel and Discard for dirty drafts')
   console.log('Native fixture and About version checked; checking unchanged mode cycles')
   for (let cycle = 0; cycle < 5; cycle++) {
     await mode('Markdown'); await preview(); await mode('WYSIWYG')

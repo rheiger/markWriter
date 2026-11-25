@@ -125,6 +125,53 @@ describe('document ownership and file races', () => {
     finish({ path: '/new.md', title: 'New' }); await as; await saveOld
     expect(state().currentDocument).toMatchObject({ path: '/new.md', title: 'New' })
   })
+  it('closes only the captured other tabs, saving and discarding each reviewed draft', async () => {
+    state().setCurrentDocument({ ...initial, id: 'save', path: '/save.md', content: 'Keep this edit', isDirty: true })
+    state().setCurrentDocument({ ...initial, id: 'discard', path: '/discard.md', content: 'Discard this edit', isDirty: true })
+    const closing = state().closeOtherDocuments('one')
+    await tick()
+    expect(state().pendingClose?.id).toBe('save')
+    expect(await state().closeDocument('one')).toBe(false)
+    expect(await confirmDiscardChanges()).toBe(false)
+    state().setCurrentDocument({ ...initial, id: 'new', path: '/new.md' })
+    state().pendingClose!.resolve('save')
+    await tick()
+    expect(state().pendingClose?.id).toBe('discard')
+    state().pendingClose!.resolve('discard')
+    expect(await closing).toBe(true)
+    expect(state().documents.map(d => d.id)).toEqual(['one', 'new'])
+    expect(state().currentDocument?.id).toBe('new')
+    expect(call).toHaveBeenCalledWith('save_document', {
+      id: 'save', path: '/save.md', expected: '# Before', content: 'Keep this edit',
+    })
+  })
+  it.each([
+    ['Cancel', 'cancel'],
+    ['cancelling Save As', 'save'],
+  ] as const)('stops closing other tabs after %s', async (_, decision) => {
+    state().setCurrentDocument({ ...initial, id: 'clean', path: '/clean.md' })
+    state().setCurrentDocument({ ...initial, id: 'draft', path: undefined, isDirty: true })
+    state().setCurrentDocument({ ...initial, id: 'later', path: '/later.md' })
+    vi.mocked(save).mockResolvedValueOnce(null)
+    const closing = state().closeOtherDocuments('one')
+    await tick()
+    expect(state().pendingClose?.id).toBe('draft')
+    state().pendingClose!.resolve(decision)
+    expect(await closing).toBe(false)
+    expect(state().documents.map(d => d.id)).toEqual(['one', 'draft', 'later'])
+    expect(state().documents[1].isDirty).toBe(true)
+  })
+  it('leaves remaining other tabs open when recovery cannot be updated', async () => {
+    desktop.active = true
+    state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md' })
+    state().setCurrentDocument({ ...initial, id: 'three', path: '/three.md' })
+    call.mockRejectedValueOnce('Storage unavailable')
+    expect(await state().closeOtherDocuments('one')).toBe(false)
+    expect(state().documents.map(d => d.id)).toEqual(['one', 'two', 'three'])
+    expect(state().error).toContain('Cannot remove recovery copy')
+    expect(await state().closeOtherDocuments('missing')).toBe(false)
+    expect(state().documents.map(d => d.id)).toEqual(['one', 'two', 'three'])
+  })
   it('Quit inspects every dirty tab and Cancel retains the entire workspace', async () => {
     state().updateDocumentContent('A*')
     state().setCurrentDocument({ ...initial, id: 'two', path: '/two.md', isDirty: true })

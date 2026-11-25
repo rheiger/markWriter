@@ -58,6 +58,7 @@ export interface AppState {
   rememberView: (id: string, viewState: NonNullable<Document['viewState']>, sourceViewportAnchor?: number) => void
   reorderDocument: (id: string, index: number) => void
   closeDocument: (id: string) => Promise<boolean>
+  closeOtherDocuments: (keepId: string) => Promise<boolean>
   saveAll: () => Promise<boolean>
   saveToPath: (doc: Document, path: string) => Promise<boolean>
   refreshDocumentDisk: (id: string, stopped?: () => boolean) => Promise<void>
@@ -207,6 +208,53 @@ export const useAppStore = create<AppState>((set, get) => {
     saving.set(snapshot.id, pending)
     void pending.finally(() => { if (saving.get(snapshot.id) === pending) saving.delete(snapshot.id) })
     return pending
+  }
+  const closeDocuments = async (ids: string[]): Promise<boolean> => {
+    if (closing) return false
+    closing = true
+    try {
+      for (const id of ids) {
+        if (get().pendingDiskReload || reloading.has(id)) return false
+        const doc = find(id)
+        if (!doc) continue
+        const decision = doc.isDirty ? await decideUnsaved(doc) : 'discard'
+        if (decision === 'cancel') return false
+        if (decision === 'save' && !await saveWithDialog(doc)) return false
+
+        // Discard refers to the content the user reviewed. Save may leave newer edits.
+        const canClose = () => {
+          const latest = find(id)
+          return latest && (decision === 'discard' ? latest.content === doc.content : !latest.isDirty)
+        }
+        if (!canClose()) return false
+        if (get().currentDocument?.id === id && activeViewCapture?.id === id) activeViewCapture.capture()
+        const stateBeforeClose = get()
+        const remaining = stateBeforeClose.documents.filter(current => current.id !== id)
+        const fileViews = rememberFileView(stateBeforeClose.fileViews, find(id))
+        try {
+          await flushWorkspace(snapshotWorkspace(remaining, fileViews))
+          if (!canClose()) {
+            await flushWorkspace()
+            return false
+          }
+        } catch (error) {
+          set({ error: `Cannot remove recovery copy: ${String(error)}` })
+          return false
+        }
+        set(state => {
+          const index = state.documents.findIndex(current => current.id === id)
+          const docs = state.documents.filter(current => current.id !== id)
+          const activeId = state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id
+          return { ...workspace(docs, activeId), fileViews }
+        })
+      }
+      return true
+    } catch (error) {
+      set({ error: errorMessage(error, 'Could not close the tab') })
+      return false
+    } finally {
+      closing = false
+    }
   }
   return {
     documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig, updateChoices: {},
@@ -367,31 +415,11 @@ export const useAppStore = create<AppState>((set, get) => {
       for (const doc of docs) if (!await saveWithDialog(doc)) return false
       return !get().documents.some(d => d.isDirty)
     },
-    closeDocument: async id => {
-      if (closing || get().pendingDiskReload || reloading.has(id)) return false
-      closing = true
-      try {
-      const doc = get().documents.find(d => d.id === id)
-      if (!doc) return true
-      const decision = doc.isDirty ? await decideUnsaved(doc) : 'discard'
-      if (decision === 'cancel') return false
-      if (decision === 'save' && (!await saveWithDialog(doc) || get().documents.find(d => d.id === id)?.isDirty)) return false
-      // Discard must still refer to the revision the user reviewed.
-      if (decision === 'discard' && get().documents.find(d => d.id === id)?.content !== doc.content) return false
-      if (get().currentDocument?.id === id && activeViewCapture?.id === id) activeViewCapture.capture()
-      const stateBeforeClose = get()
-      const remaining = stateBeforeClose.documents.filter(d => d.id !== id)
-      const fileViews = rememberFileView(stateBeforeClose.fileViews, stateBeforeClose.documents.find(d => d.id === id))
-      try { await flushWorkspace(snapshotWorkspace(remaining, fileViews)) }
-      catch (error) { set({ error: `Cannot remove recovery copy: ${String(error)}` }); return false }
-      if ((get().documents.find(d => d.id === id)?.content !== doc.content && decision === 'discard') || (decision === 'save' && get().documents.find(d => d.id === id)?.isDirty)) { await flushWorkspace(); return false }
-      set(state => {
-        const index = state.documents.findIndex(d => d.id === id)
-        const docs = state.documents.filter(d => d.id !== id)
-        return { ...workspace(docs, state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id), fileViews }
-      })
-      return true
-      } finally { closing = false }
+    closeDocument: id => closeDocuments([id]),
+    closeOtherDocuments: keepId => {
+      const documents = get().documents
+      if (!documents.some(doc => doc.id === keepId)) return Promise.resolve(false)
+      return closeDocuments(documents.filter(doc => doc.id !== keepId).map(doc => doc.id))
     },
     exportDocument: async (path, format, snapshot = get().currentDocument) => {
       if (!snapshot) return
