@@ -51,6 +51,20 @@ def accessible(name, role):
     return None
 
 
+def editable_fixture(text):
+    for node in descendants(pyatspi.Registry.getDesktop(0)):
+        state = node.getState()
+        if not state.contains(pyatspi.STATE_SHOWING) or not state.contains(pyatspi.STATE_EDITABLE):
+            continue
+        try:
+            accessible_text = node.queryText()
+            if text in accessible_text.getText(0, accessible_text.characterCount):
+                return node
+        except NotImplementedError:
+            continue
+    return None
+
+
 def click_in(window, node, button="1"):
     x, y, width, height = node.queryComponent().getExtents(pyatspi.WINDOW_COORDS)
     assert width > 0 and height > 0
@@ -60,6 +74,10 @@ def click_in(window, node, button="1"):
 
 def window_id(name):
     return command("xdotool", "search", "--onlyvisible", "--name", name).splitlines()[-1]
+
+
+def editor_window():
+    return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
 def click_visible_text(pattern, screenshot, region=None):
@@ -151,7 +169,7 @@ def audit(mode):
         if mode == "rollback":
             process = subprocess.Popen(["/usr/bin/markwriter"])
             try:
-                window = wait("rolled-back editor window", lambda: window_id(r"^MarkWriter$"))
+                window = wait("rolled-back editor window", editor_window)
                 assert int(command("xdotool", "getwindowpid", window)) == process.pid
                 original_state = json.loads((EVIDENCE / "dirty-workspace.json").read_text())
                 draft = next(doc for doc in original_state["documents"] if doc["isDirty"])
@@ -196,17 +214,20 @@ def audit(mode):
     if mode == "existing":
         # Edit the visible buffer in the installed WebView. Observe the dirty
         # checkpoint and active document before and after real shell dispatch.
-        editor = wait("MarkWriter application window", lambda: window_id(r"^MarkWriter$"))
+        editor = wait("MarkWriter application window", editor_window)
         command("xdotool", "windowactivate", "--sync", editor)
-        text = wait("editable fixture text", lambda: accessible("AssociationOwnerSentinel", "paragraph"))
-        click_in(editor, text)
-        command("xdotool", "key", "End", "type", "--clearmodifiers", " dirty-draft")
+        text = wait("editable fixture text", lambda: editable_fixture("AssociationOwnerSentinel"))
+        if not text.queryComponent().grabFocus():
+            click_in(editor, text)
+        command("xdotool", "key", "End")
+        command("xdotool", "type", "--clearmodifiers", " dirty-draft")
         draft = wait("dirty recovery checkpoint", lambda: dirty_checkpoint(first))
         choose_markwriter(window, second, "warm")
         second_doc = wait("warm shell open of .markdown", lambda: observe(second))
         assert second_doc["content"].encode() == originals[second]
         choose_markwriter(window, first, "reopen")
         wait("reopened dirty owner selected", lambda: workspace()["activeId"] == owner["id"])
+        wait("reopened editor in the foreground", lambda: command("xdotool", "getactivewindow") == editor)
         choose_markwriter(window, first, "multiselect", multiple=True)
         for path in (third, fourth):
             opened = wait(f"{path.name} from one actual Nautilus multiselect", lambda: observe(path))
@@ -238,7 +259,7 @@ if __name__ == "__main__":
             # The X server and profile belong solely to this test. Keep the
             # unsaved checkpoint as evidence and stop only this editor.
             try:
-                editor_pid = int(command("xdotool", "getwindowpid", window_id(r"^MarkWriter$")))
+                editor_pid = int(command("xdotool", "getwindowpid", editor_window()))
                 os.kill(editor_pid, signal.SIGTERM)
             except (LookupError, OSError, subprocess.CalledProcessError):
                 pass
