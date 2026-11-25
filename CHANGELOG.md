@@ -1,12 +1,12 @@
 # Changelog
 
-## 2.18.3
+## 2.18.5
 
 - Import UTF-8 SQL DDL files up to 128 KiB for supported schemas. [#153](https://github.com/rheiger/markWriter/issues/153)
 - Add bounded standalone rendering for additional source and configuration formats. [#152](https://github.com/rheiger/markWriter/issues/152)
-- Record packaged Quick Look registration and source-file editor defaults on macOS. [#154](https://github.com/rheiger/markWriter/issues/154)
+- Add narrow PowerShell and batch Quick Look declarations, preserve existing configuration-file associations, and check source-file editor defaults on macOS. [#154](https://github.com/rheiger/markWriter/issues/154)
 
-[Release notes](docs/releases/2.18.3.md) · [Installation and rollback](docs/install-2.18.3.md)
+[Release notes](docs/releases/2.18.5.md) · [Installation and rollback](docs/install-2.18.5.md)
 
 ## 2.17.5
 

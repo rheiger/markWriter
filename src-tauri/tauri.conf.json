@@ -1,6 +1,6 @@
 {
   "productName": "MarkWriter",
-  "version": "2.18.3",
+  "version": "2.18.5",
   "identifier": "com.markwriter.app",
   "build": {
     "devUrl": "http://127.0.0.1:5173",
