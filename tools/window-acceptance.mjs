@@ -45,6 +45,8 @@ export async function verifyMultiWindow({
       ],
     }])
     await click('//*[@role="menuitem" and normalize-space(.)="Move Tab to Window…"]')
+    await wait(() => run(`return [...document.querySelectorAll('dialog[aria-label="Move Tab to Window"][open] .window-list button')]
+      .some(button=>button.textContent.trim()!=='New Window' && !button.disabled)`), 'destination window listed')
     const target = '//dialog[@aria-label="Move Tab to Window"]//button[not(@disabled) and normalize-space(.)!="New Window" and normalize-space(.)!="Cancel"]'
     await click(target)
   }
