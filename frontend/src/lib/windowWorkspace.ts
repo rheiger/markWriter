@@ -221,6 +221,7 @@ export async function reviewAppQuit(token: string) {
   const resume = !document.querySelector('dialog[open]') ? suspendWindowWorkspace() : undefined
   const review = resume ? { token, resume } : undefined
   if (review) quitReview = review
+  else reportWindowError('Finish the current document operation before quitting MarkWriter.')
   try {
     const value = review && await planWindowClose()
     if (review && quitReview !== review) return
