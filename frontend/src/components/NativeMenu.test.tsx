@@ -268,3 +268,27 @@ it('writes the skip choice from the update dialog and still finds the release fr
     useAppStore.setState({ updateChoices: {} })
   }
 })
+
+it('does not execute an editor shortcut queued before a window transaction locked the workspace', async () => {
+  const undo = vi.fn()
+  Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (X11; Linux x86_64)' })
+  render(<MenuBar editorViewRef={{ current: { undo } as unknown as EditorViewRef }} />)
+  await act(async () => {})
+  vi.useFakeTimers()
+  try {
+    act(() => {
+      fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+      useAppStore.setState({ windowBusy: true })
+      vi.runOnlyPendingTimers()
+    })
+    expect(undo).not.toHaveBeenCalled()
+
+    act(() => useAppStore.setState({ windowBusy: false }))
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+    act(() => vi.runOnlyPendingTimers())
+    expect(undo).toHaveBeenCalledOnce()
+  } finally {
+    act(() => useAppStore.setState({ windowBusy: false }))
+    vi.useRealTimers()
+  }
+})
