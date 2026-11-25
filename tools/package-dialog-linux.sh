@@ -7,9 +7,10 @@ package_dialog_capture() {
   xdotool getwindowfocus getwindowname || true
 }
 trap 'package_dialog_capture failure' ERR
+package_dialog_titles='^(Open( File)?|Save( File| As)?|Export.*|Choose a SQL DDL file)$'
 package_dialog_window=''
 for package_dialog_attempt in {1..100}; do
-  package_dialog_window=$(xdotool search --onlyvisible --name '^(Open( File)?|Save( File| As)?|Export.*)$' 2>/dev/null | tail -1 || true)
+  package_dialog_window=$(xdotool search --onlyvisible --name "$package_dialog_titles" 2>/dev/null | tail -1 || true)
   if [[ -n "$package_dialog_window" ]]; then break; fi
   sleep 0.1
 done
@@ -32,7 +33,7 @@ for package_input_attempt in {1..3}; do
   # Location commit can precede acceptance. A bounded retry replaces the entire
   # entry; downstream tests still require the exact chosen/saved file bytes.
   for package_close_attempt in {1..30}; do
-    if ! xdotool search --onlyvisible --name '^(Open( File)?|Save( File| As)?|Export.*)$' 2>/dev/null | grep -qx "$package_dialog_window"; then exit 0; fi
+    if ! xdotool search --onlyvisible --name "$package_dialog_titles" 2>/dev/null | grep -qx "$package_dialog_window"; then exit 0; fi
     if [[ "$package_close_attempt" == 10 ]]; then xdotool key --clearmodifiers Return; fi
     sleep 0.1
   done

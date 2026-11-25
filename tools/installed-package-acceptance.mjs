@@ -5,6 +5,7 @@ import { verifyTechnicalWriting } from './technical-writing-acceptance.mjs'
 import { verifyLongCode } from './long-code-acceptance.mjs'
 import { tomlEditorFixture, tomlLargeRenderedFixture } from './toml-fixtures.mjs'
 import { sqlHighlightFixture } from './sql-highlight-fixtures.mjs'
+import { workflowSchema } from './fixtures/sql-import/workflow-schema.mjs'
 import assert from 'node:assert/strict'
 import { codeFixtureCases } from './code-fixtures.mjs'
 import { spawn } from 'node:child_process'
@@ -146,6 +147,44 @@ async function verifyWrappedSourceViewport() {
  await wait(async()=>Math.abs(await scroller()-record.viewState.sourceScroll)<36,'reopened wrapped source stays at the same reading position')
  await closeCurrentDocument()
 }
+async function verifyLargeSqlImport() {
+ const sql=workflowSchema(), sqlBytes=Buffer.byteLength(sql)
+ const sqlPath=join(fixture,'workflow-schema.sql'), notesPath=join(fixture,'workflow-notes.md')
+ const notes='# Workflow notes\n\nThis document keeps its original spacing.'
+ assert.ok(sqlBytes>100*1024 && sqlBytes<=128*1024,'Fixture exercises the new SQL input range')
+ await writeFile(sqlPath,sql)
+ await writeFile(notesPath,notes)
+ await openDocument(notesPath,'workflow-notes.md')
+ await mode(true)
+ await menu('Insert','Import SQL DDL…')
+ const dialogQuery='dialog[open][aria-label="Import SQL as DBML"]'
+ await wait(()=>run('return !!document.querySelector(arguments[0])',dialogQuery),'SQL import modal')
+ await run(`const select=document.querySelector(arguments[0]+' select');select.value='postgresql';select.dispatchEvent(new Event('change',{bubbles:true}))`,dialogQuery)
+ await click('//dialog[@aria-label="Import SQL as DBML"]//button[normalize-space(.)="Choose SQL file…"]')
+ const started=performance.now()
+ await dialog(sqlPath)
+ const preview=await wait(()=>run(`const modal=document.querySelector(arguments[0]), dbml=modal?.querySelector('textarea'), alert=modal?.querySelector('[role=alert]');return dbml?{dbml:dbml.value, warnings:modal.querySelectorAll('li').length}:alert?{error:alert.textContent}:null`,dialogQuery),'large SQL conversion result')
+ const pickerAndConversionMs=Math.round(performance.now()-started)
+ assert.ok(preview.dbml,preview.error)
+ assert.match(preview.dbml,/^Table public\.training \{/m,'Conversion reaches the final table')
+ assert.match(preview.dbml,/^  summary "varchar\(255\)" \[not null\]$/m,'Conversion reaches the final field')
+ assert.equal(preview.warnings,380)
+ await click('//dialog[@aria-label="Import SQL as DBML"]//button[normalize-space(.)="Append DBML"]')
+ const appended=await wait(()=>run(`const modal=document.querySelector(arguments[0]), error=modal?.querySelector('[role=alert]');return error?{error:error.textContent}:!modal&&[...document.querySelectorAll('[data-active=true] .markwriter-preview [data-type=dbml] svg text')].some(label=>label.textContent==='training')?{rendered:true}:null`,dialogQuery),'appended DBML diagram')
+ assert.equal(appended.rendered,true,appended.error)
+ const expected=notes+'\n\n```dbml\n'+preview.dbml.trimEnd()+'\n```\n'
+ await menu('File','Save')
+ await wait(async()=>await readFile(notesPath,'utf8')===expected,'appended DBML saved exactly')
+ await menu('Edit','Undo')
+ await wait(()=>run('return !document.querySelector("[data-active=true] .markwriter-preview [data-type=dbml]")'),'one Undo removes only the appended diagram')
+ await menu('File','Save')
+ await wait(async()=>await readFile(notesPath,'utf8')===notes,'one Undo restores saved destination bytes')
+ assert.equal(await readFile(sqlPath,'utf8'),sql,'Native SQL import leaves the source file intact')
+ await closeCurrentDocument()
+ await writeFile(join(artifacts,'large-sql-import-evidence.json'),JSON.stringify({
+  sqlBytes,dbmlBytes:Buffer.byteLength(preview.dbml),warnings:preview.warnings,pickerAndConversionMs,
+ },null,2))
+}
 const cases=[]
 const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
@@ -191,6 +230,7 @@ try{
  assert.doesNotMatch(dbmlHtml,/<script|data-(?:mw-|chart|source-fence)|javascript:/)
  await closeCurrentDocument()
  cases.push('installed DBML worker policy, Preview and opaque node, exact OS Save As and static OS HTML export')
+ await verifyLargeSqlImport();cases.push('ordinary native SQL picker, conversion and DBML append of a file over 100 KiB, and exact single Undo')
  // Real OS Open on each small block avoids CodeMirror viewport virtualization
  // hiding later languages. No test bridge, editor commands or store calls.
  const syntaxSource=await readFile(join(root,'tools/fixtures/code-highlighting-alpha3.md'),'utf8')

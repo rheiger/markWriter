@@ -27,7 +27,7 @@ $dialog = $null
 for ($attempt=0; $attempt -lt 300; $attempt++) {
   $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
   foreach ($window in $windows) {
-    if (($window.Current.Name -match 'Open|Save|Export') -and ($applicationIds -contains $window.Current.ProcessId) -and -not $window.Current.IsOffscreen) { $dialog=$window; break }
+    if (($window.Current.Name -match 'Open|Save|Export|^Choose a SQL DDL file$') -and ($applicationIds -contains $window.Current.ProcessId) -and -not $window.Current.IsOffscreen) { $dialog=$window; break }
   }
   if ($dialog) { break }
   Start-Sleep -Milliseconds 100
