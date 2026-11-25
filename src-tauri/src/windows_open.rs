@@ -8,7 +8,7 @@ use std::{
     path::PathBuf,
     time::Duration,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::AppHandle;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::windows::named_pipe::{ClientOptions, NamedPipeServer, ServerOptions},
@@ -126,13 +126,9 @@ impl Inbox {
                     server,
                 } = self;
                 runtime.block_on(serve(&name, server, |paths| {
-                    // Validation and queuing stay in the same path used by the cold launch.
-                    let _ = app.state::<crate::os_open::OpenQueue>().enqueue(paths);
-                    let _ = app.emit("os-open-pending", ());
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
-                    }
+                    crate::window_service::enqueue_os_open(&app, |queue| {
+                        let _ = queue.enqueue(paths);
+                    });
                 }));
             })?;
         Ok(())
