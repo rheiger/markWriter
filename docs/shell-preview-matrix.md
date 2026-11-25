@@ -77,3 +77,23 @@ Light appearance covered all eleven fixtures with MarkWriter closed. Dark appear
 With the separate YAML-only competitor registered, Finder selected the MarkWriter QA extension for fresh block YAML and flow YML fixtures. Both effective editor lists matched. The supplemental competitor-only checks continued to report the baseline MarkWriter executable after its test registration was removed. Selection of the competing provider itself remains unverified on this VM.
 
 The published v2.12.2 baseline was restored at the same path and passed strict verification. Its restored extension hash matched the original. Finder then rendered fresh compact JSON and Markdown fixtures through that baseline. After cleanup, the two test registrations were absent and the original Light appearance and effective editor list were restored. All eleven original fixtures kept their SHA-256 digests, byte sizes, and nanosecond modification times.
+
+## Extended format registration and hosted probe
+
+The extension declares Apple's narrow `com.apple.xml-property-list` preview type. Apple defines it as conforming to both XML and property list. An item already resolved to the XML property-list type also matches the extension's existing XML declaration. The bundle leaves the generic property-list and binary-property-list types to the operating system and existing providers. It adds no Open With associations for these formats. The [Apple Quick Look extension documentation](https://developer.apple.com/documentation/quicklookui/) describes type-based selection, and the [XML property-list identifier](https://developer.apple.com/documentation/uniformtypeidentifiers/uttype-swift.struct/xmlpropertylist) describes this specific declaration.
+
+| Fixture | Renderer dispatch if selected | Preview registration and Finder evidence |
+| --- | --- | --- |
+| XML `.plist` | Escaped XML with syntax highlighting | Apple XML property-list type declared. Finder selection depends on the item's resolved type. Interactive candidate result pending. |
+| Binary `.plist` | Unsupported format notice if routed to MarkWriter | No explicit binary or generic plist registration. |
+| `Dockerfile`, `.dockerignore`, `.gitignore` | Exact-name matches | No exact-name registration established. |
+| `.ps1`, `.bat` | UTF-8 PowerShell and batch syntax respectively | Imports `com.microsoft.powershell-script` for `.ps1` and `com.microsoft.batch-file` for `.bat`, with each type declared in the preview extension. Interactive candidate result pending. |
+| `.jsonb` | Valid JSON text only | No specific type declared. PostgreSQL binary JSON is outside the text renderer's support. |
+| `uv.lock`, `flake.lock` | Known TOML and JSON variants respectively | No generic lock-file registration. |
+| Other `.lock` files, `.spec` | Literal fallback | No registration specific to these formats. |
+
+The PowerShell and batch identifiers match existing [Loupe type imports](https://github.com/pepperonas/loupe/blob/e36bcb10c0294f113be49d76a56a6cb3f74e15d5/Sources/Loupe/Resources/Info.plist). MarkWriter limits the imported filename tags to `.ps1` and `.bat`. The hosted probe checks that an otherwise undeclared script type resolves to the intended preview type, and records preexisting type collisions for review.
+
+The production macOS package job captures resolved content types, all extension-tag types and effective Open With defaults for synthetic files before and after registering the exact installed app. It reports which of the extension's declared types match the observed content type and queries PlugInKit for the exact installed path. The hosted receipt records whether PlugInKit listed the extension. The check preserves existing source-file defaults, rejects any new source-file default for MarkWriter, verifies the ambiguous `.ts` type remains stable and compares the fixture bytes. The raw files `quicklook-types-before.json`, `quicklook-types-after.json` and `quicklook-plugins.txt` are retained with installed-app evidence.
+
+The type report records which declarations are applicable. The PlugInKit result records discovery in that runner session. A desktop pass must open the fixture with Finder Space, identify the rendering extension executable, and compare rendered content and source hashes. Run the desktop checks on the published DMG bytes in an isolated Apple silicon session, including app-open and app-closed, coexistence, fresh install, same-path upgrade, removal and rollback. The existing Windows, Sushi and Dolphin Markdown scope is listed above.

@@ -33,10 +33,11 @@ case "$1" in
     if ! plutil -extract UTImportedTypeDeclarations xml1 -o /dev/null "$app_plist" 2>/dev/null; then
       plutil -insert UTImportedTypeDeclarations -array "$app_plist"
     fi
-    plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/JSONLinesType.plist")" "$app_plist"
-    # Preserve the standard TOML type on hosts where no other app declares it.
-    # Import only .toml and do not add an editor document type.
-    plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/TOMLType.plist")" "$app_plist"
+    # Import only the filename tags supported by the preview dispatcher.
+    # This does not add editor document types to the host.
+    for type in JSONLines TOML PowerShell BatchFile; do
+      plutil -insert UTImportedTypeDeclarations.0 -xml "$(cat "$root/native/quicklook/${type}Type.plist")" "$app_plist"
+    done
     plutil -lint "$app_plist"
     "$root/native/quicklook/build-experiment.sh" "$stage/extension-build"
     mkdir -p "$app/Contents/PlugIns"
