@@ -341,7 +341,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const captureForTransfer = useRef<(document: import('../store/useAppStore').Document) => EditorTransfer>(() => {
     throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
   })
-  const isComposing = useRef(() => false)
+  const isComposing = useRef<() => boolean>(() => false)
   isComposing.current = () => Boolean(editorViewRef.current?.compositionStarted ||
     (tiptap && !tiptap.isDestroyed && tiptap.view.composing))
   captureForTransfer.current = requested => {
