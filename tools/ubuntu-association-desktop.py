@@ -100,12 +100,14 @@ def choose_markwriter(window, path, label, multiple=False):
     click_in(window, cell, "3")
     click_visible_text(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png")
     dialog = wait("Open File dialog", lambda: window_id(r"^Open File"))
-    geometry = dict(line.split("=") for line in command("xdotool", "getwindowgeometry", "--shell", dialog).splitlines())
-    x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
     command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
-    # Exclude the icons so adjacent letter strokes do not merge into them.
-    click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
-                       (x + 74, y + 90, width - 90, height - 156))
+    if mime_state()["default"] != MARKWRITER:
+        geometry = dict(line.split("=") for line in
+                        command("xdotool", "getwindowgeometry", "--shell", dialog).splitlines())
+        x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
+        # Exclude the icons so adjacent letter strokes do not merge into them.
+        click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
+                           (x + 74, y + 90, width - 90, height - 156))
     button = wait("Open button", lambda: accessible("Open", "button"))
     click_in(dialog, button)
 
@@ -125,17 +127,17 @@ def workspace():
 def documents():
     state = workspace()
     return state["documents"] + [
-        doc for window in state.get("windows", {}).values() for doc in window["documents"]
+        doc for window in state.get("windows", []) for doc in window["workspace"]["documents"]
     ]
 
 
 def observe(path):
-    return next(doc for doc in documents() if doc.get("path") == str(path))
+    return next((doc for doc in documents() if doc.get("path") == str(path)), None)
 
 
 def dirty_checkpoint(path):
     doc = observe(path)
-    return doc if doc["isDirty"] and "dirty-draft" in doc["content"] else None
+    return doc if doc and doc["isDirty"] and "dirty-draft" in doc["content"] else None
 
 
 def audit(mode):
@@ -151,8 +153,11 @@ def audit(mode):
             try:
                 window = wait("rolled-back editor window", lambda: window_id(r"^MarkWriter$"))
                 assert int(command("xdotool", "getwindowpid", window)) == process.pid
-                wait("rolled-back editor workspace", workspace)
-                phase["rolledBackEditorLaunched"] = True
+                original_state = json.loads((EVIDENCE / "dirty-workspace.json").read_text())
+                draft = next(doc for doc in original_state["documents"] if doc["isDirty"])
+                restored = wait("rolled-back editor recovered dirty document", lambda: observe(Path(draft["path"])))
+                assert all(restored[key] == draft[key] for key in ("id", "content", "savedContent", "isDirty"))
+                phase["rolledBackEditorRecoveredDirtyOwner"] = True
             finally:
                 process.terminate()
                 process.wait(timeout=10)
