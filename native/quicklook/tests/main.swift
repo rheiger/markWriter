@@ -126,9 +126,62 @@ for (ext, language, source) in [
 }
 check(PreviewRenderer.declinesExtension("TS"), "transport stream suffix is declined even when Finder routes it to MarkWriter")
 check(!PreviewRenderer.declinesExtension("tsx") && !PreviewRenderer.declinesExtension("mjs"), "accepted script suffixes are not declined")
+check(["PSM1", "psd1", "cmd"].allSatisfy(PreviewRenderer.declinesExtension), "shared UTIs leave other script suffixes to the existing provider")
+check(!PreviewRenderer.declinesExtension("ps1") && !PreviewRenderer.declinesExtension("bat"), "requested script suffixes are not declined")
 
 for ext in ["yml", "yaml"] {
     let page = PreviewRenderer.render(data: Data("base: &anchor [<value>]\ncopy: *anchor".utf8), extension: ext)
     check(page.contains("Literal text") && page.contains("data-language=\"yaml\"") && page.contains("&amp;anchor [&lt;value&gt;]") && page.contains("*anchor"), "\(ext) literal fallback remains escaped and eligible for highlighting")
 }
 print("Source dispatch and YAML fallback tests passed")
+
+for (ext, filename, language) in [
+    ("", "Dockerfile", "dockerfile"), ("", ".dockerignore", "ignore"), ("", ".gitignore", "ignore"),
+    ("PS1", "sample.PS1", "powershell"), ("bat", "sample.bat", "dos")
+] {
+    let page = PreviewRenderer.render(data: Data("Grüße <tag>& 日本語".utf8), extension: ext, filename: filename)
+    check(page.contains("data-language=\"\(language)\"") && page.contains("Grüße &lt;tag&gt;&amp; 日本語"),
+          "\(filename) is mapped to \(language) and preserved as inert source")
+    check(!page.contains("<tag>"), "\(filename) markup stays escaped")
+}
+for filename in ["Dockerfile", ".dockerignore", ".gitignore"] {
+    let page = PreviewRenderer.render(data: Data([0, 65]), extension: "", filename: filename)
+    check(page.contains("Only UTF-8 text") && !page.contains("data-language="), "binary \(filename) is not rendered as text")
+}
+
+let validJSONB = #"{"value":"<tag>&","number":9007199254740993}"#
+let jsonbPage = PreviewRenderer.render(data: Data(validJSONB.utf8), extension: "jsonb", filename: "row.jsonb")
+check(jsonbPage.contains("data-language=\"json\"") && jsonbPage.contains("9007199254740993") &&
+      jsonbPage.contains("&lt;tag&gt;&amp;"), "JSON text in jsonb gets language without changing lexemes")
+let invalidJSONB = PreviewRenderer.render(data: Data("{broken".utf8), extension: "jsonb")
+check(invalidJSONB.contains("{broken") && !invalidJSONB.contains("data-language="), "malformed JSONB text is literal")
+let binaryJSONB = PreviewRenderer.render(data: Data([1]) + Data(validJSONB.utf8), extension: "jsonb")
+check(binaryJSONB.contains("Binary JSONB") && !binaryJSONB.contains("9007199254740993"), "binary JSONB is not rendered as text")
+let binaryLock = PreviewRenderer.render(data: Data([0, 65]), extension: "lock", filename: "other.lock")
+check(binaryLock.contains("Only UTF-8 text") && !binaryLock.contains("data-language="), "binary lock file is not rendered as text")
+
+let flakePage = PreviewRenderer.render(data: Data(#"{"nodes":{"root":{}},"root":"root","version":7}"#.utf8), extension: "lock", filename: "flake.lock")
+check(flakePage.contains("data-language=\"json\""), "flake.lock JSON recognized")
+for source in [#"{"unrelated":true}"#, #"{"nodes":{},"root":"root","version":7}"#,
+               #"{"nodes":{"root":{}},"root":"root","version":true}"#] {
+    let page = PreviewRenderer.render(data: Data(source.utf8), extension: "lock", filename: "flake.lock")
+    check(page.contains("literal text") && !page.contains("data-language="), "other JSON in flake.lock is literal")
+}
+let uvPage = PreviewRenderer.render(data: Data("version = 1\nrevision = 3\nrequires-python = \">=3.12\"\n[[package]]\nname = \"Example\"".utf8), extension: "lock", filename: "uv.lock")
+check(uvPage.contains("data-language=\"toml\"") && uvPage.contains("name = &quot;Example&quot;"), "uv.lock TOML recognized")
+for (ext, filename, content) in [("lock", "other.lock", validJSONB), ("lock", "flake.lock", "{broken"),
+                                 ("lock", "uv.lock", "version = other\n[[package]]"), ("spec", "binary.spec", "Label: value"),
+                                 ("", "Dockerfile-backup", "FROM scratch"), ("", ".gitignore-copy", "!include")] {
+    let page = PreviewRenderer.render(data: Data(content.utf8), extension: ext, filename: filename)
+    check(page.contains("Literal text") || page.contains("literal text"), "\(filename) has a visible plain-text fallback")
+    check(!page.contains("data-language="), "\(filename) has no speculative language")
+}
+
+let plistXML = "<?xml version=\"1.0\"?><!DOCTYPE plist SYSTEM \"https://example.test/untrusted.dtd\"><plist version=\"1.0\"><string>Grüße &amp; 日本語</string></plist>"
+let plistPage = PreviewRenderer.render(data: Data(plistXML.utf8), extension: "plist")
+check(plistPage.contains("data-language=\"xml\"") && plistPage.contains("&lt;!DOCTYPE plist") &&
+      plistPage.contains("Grüße &amp;amp; 日本語") && !plistPage.contains("<!DOCTYPE plist"), "XML plist remains inert escaped source")
+let binaryPlist = try PropertyListSerialization.data(fromPropertyList: ["sample": "secret"], format: .binary, options: 0)
+let binaryPlistPage = PreviewRenderer.render(data: binaryPlist, extension: "plist")
+check(binaryPlistPage.contains("Binary property lists") && !binaryPlistPage.contains("secret"), "binary plist reports an explicit unsupported variant")
+print("Additional source format dispatch tests passed")

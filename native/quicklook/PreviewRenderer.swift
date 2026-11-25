@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 // Isolated experiment: deliberately limited and never evaluates document-supplied HTML.
@@ -24,12 +25,31 @@ enum PreviewRenderer {
 
     static func render(data: Data, extension ext: String, filename: String? = nil) -> String {
         guard data.count <= limit else { return page("<p>File exceeds the 1 MiB preview limit.</p>") }
+        let suffix = ext.lowercased()
+        if suffix == "plist" && data.starts(with: "bplist00".utf8) {
+            return page("<p>Binary property lists are not supported.</p>")
+        }
+        let exactTextName = filename.map { ["Dockerfile", ".gitignore", ".dockerignore"].contains($0) } ?? false
+        if exactTextName || ["jsonb", "lock", "spec", "plist", "ps1", "bat"].contains(suffix),
+           data.contains(where: { $0 < 32 && $0 != 9 && $0 != 10 && $0 != 13 }) {
+            return page(suffix == "jsonb" ? "<p>Binary JSONB is not supported.</p>" : "<p>Only UTF-8 text is supported.</p>")
+        }
         guard let text = String(data: data, encoding: .utf8) else { return page("<p>Only UTF-8 text is supported.</p>") }
         if isMarkdown(ext) { return markdown(text) }
-        switch ext.lowercased() {
+        switch filename {
+        case "Dockerfile": return source(text, language: "dockerfile")
+        case ".dockerignore", ".gitignore": return source(text, language: "ignore")
+        case "flake.lock": return jsonSource(text, accepting: looksLikeFlakeLock)
+        case "uv.lock":
+            if looksLikeUVLock(text) { return source(text, language: "toml") }
+            return literal(text, notice: "Unrecognized uv.lock format; showing literal text.")
+        default: break
+        }
+        switch suffix {
         case "json":
             guard let result = JSONFormatter.format(text) else { return literal(text, notice: "Invalid JSON or formatting limit exceeded; showing Literal text.") }
             return page("<pre data-language=\"json\">\(escape(result))</pre>")
+        case "jsonb": return jsonSource(text)
         case "jsonl", "ndjson":
             let lines = normalizedLines(text)
             guard lines.count <= 2000 else { return literal(text, notice: "JSON Lines exceeds 2,000 lines; showing Literal text.") }
@@ -56,6 +76,9 @@ enum PreviewRenderer {
                 return page("<p class=\"notice\">Formatted XML (element-only subset)</p><pre data-language=\"xml\">\(escape(formatted))</pre>")
             }
             return literal(text, notice: "Literal text; XML is invalid or outside the supported element-only subset.", language: "xml")
+        case "plist":
+            if hasXMLPlistHeader(text) { return source(text, language: "xml") }
+            return literal(text, notice: "Unrecognized XML property list; showing literal text.")
         case "yaml", "yml":
             if let formatted = formatSimpleYAML(text) {
                 return page("<p class=\"notice\">Formatted YAML (block mapping/list subset; syntax not validated)</p><pre data-language=\"yaml\">\(escape(formatted))</pre>")
@@ -68,6 +91,8 @@ enum PreviewRenderer {
         case "tsx": return source(text, language: "typescript")
         case "css": return source(text, language: "css")
         case "sh", "bash": return source(text, language: "bash")
+        case "ps1": return source(text, language: "powershell")
+        case "bat": return source(text, language: "dos")
         case "py": return source(text, language: "python")
         case "sql": return source(text, language: "sql")
         case "toml": return source(text, language: "toml")
@@ -80,8 +105,8 @@ enum PreviewRenderer {
 
     static func declinesExtension(_ ext: String) -> Bool {
         // Installed apps may give these suffixes a UTType this extension handles.
-        // Leave generic configuration files and ambiguous transport streams alone.
-        ["cfg", "config", "ts"].contains(ext.lowercased())
+        // Other providers may also map script modules or alternate script suffixes.
+        ["cfg", "config", "ts", "psm1", "psd1", "cmd"].contains(ext.lowercased())
     }
 
     static func isMarkdown(_ ext: String) -> Bool {
@@ -90,6 +115,40 @@ enum PreviewRenderer {
 
     private static func source(_ text: String, language: String) -> String {
         page("<pre data-language=\"\(language)\">\(escape(text))</pre>")
+    }
+
+    private static func jsonSource(_ text: String, accepting: (Any) -> Bool = { _ in true }) -> String {
+        let json = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+        guard JSONFormatter.format(json, accepting: accepting) != nil else {
+            return literal(text, notice: "Unrecognized JSON or validation limit exceeded; showing literal text.")
+        }
+        return source(text, language: "json")
+    }
+
+    private static func looksLikeFlakeLock(_ value: Any) -> Bool {
+        guard let lock = value as? [String: Any], let version = lock["version"] as? NSNumber,
+              CFGetTypeID(version) != CFBooleanGetTypeID(), version as? Int != nil,
+              let root = lock["root"] as? String, let nodes = lock["nodes"] as? [String: Any] else { return false }
+        return nodes[root] is [String: Any]
+    }
+
+    private static func looksLikeUVLock(_ text: String) -> Bool {
+        let header = String(decoding: text.utf8.prefix(4096), as: UTF8.self)
+        let lines = normalizedLines(header).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+        guard let first = lines.first,
+              first.range(of: #"^version\s*=\s*[0-9]+\s*(?:#.*)?$"#, options: .regularExpression) != nil else { return false }
+        return lines.dropFirst().contains {
+            $0 == "[[package]]" || $0.range(of: #"^(?:revision|requires-python)\s*="#,
+                                            options: .regularExpression) != nil
+        }
+    }
+
+    private static func hasXMLPlistHeader(_ text: String) -> Bool {
+        // Recognize the header for lexical color. The XML is always rendered as text.
+        let header = String(decoding: text.utf8.prefix(4096), as: UTF8.self)
+        return header.range(of: #"^\uFEFF?\s*(?:<\?xml\b[^?]*\?>\s*)?(?:<!DOCTYPE\s+plist\b[^>]*>\s*)?<plist[\s>]"#,
+                            options: .regularExpression) != nil
     }
 
     private static func normalizedLines(_ text: String) -> [String] {
