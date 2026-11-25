@@ -2,9 +2,9 @@
 use gio::{glib, prelude::*};
 use std::{
     collections::HashMap,
-    env, fs, io,
+    env,
     os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 use tauri::AppHandle;
 
@@ -23,7 +23,7 @@ impl Launch {
         let profile = env::var_os("MARKWRITER_PROFILE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| glib::user_data_dir().join(identifier));
-        let application_id = profile_application_id(&profile)?;
+        let application_id = profile_application_id(&profile);
         let application =
             gio::Application::new(Some(&application_id), gio::ApplicationFlags::HANDLES_OPEN);
         application.register(gio::Cancellable::NONE)?;
@@ -55,21 +55,37 @@ impl Launch {
     }
 }
 
-fn profile_application_id(profile: &Path) -> io::Result<String> {
-    if !profile.is_absolute() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "MARKWRITER_PROFILE_DIR must be an absolute path",
-        ));
-    }
-    // A first launch through a symlink or ancestor alias must register the
-    // same name before and after the profile begins to contain recovery data.
-    fs::create_dir_all(profile)?;
-    let profile = profile.canonicalize()?;
-    let digest =
-        glib::compute_checksum_for_data(glib::ChecksumType::Sha256, profile.as_os_str().as_bytes())
-            .expect("GLib supports SHA-256");
-    Ok(format!("com.markwriter.app.Shell.p{digest}"))
+fn profile_application_id(profile: &Path) -> String {
+    // Resolve existing aliases even when the profile has not yet been created.
+    // Profile failures are surfaced by the existing workspace recovery UI.
+    let identity = if profile.is_absolute() {
+        profile.canonicalize().unwrap_or_else(|_| {
+            let mut resolved = PathBuf::new();
+            for component in profile.components() {
+                match component {
+                    Component::ParentDir => {
+                        resolved.pop();
+                    }
+                    Component::Normal(name) => {
+                        resolved.push(name);
+                        if let Ok(canonical) = resolved.canonicalize() {
+                            resolved = canonical;
+                        }
+                    }
+                    other => resolved.push(other.as_os_str()),
+                }
+            }
+            resolved
+        })
+    } else {
+        profile.to_path_buf()
+    };
+    let digest = glib::compute_checksum_for_data(
+        glib::ChecksumType::Sha256,
+        identity.as_os_str().as_bytes(),
+    )
+    .expect("GLib supports SHA-256");
+    format!("com.markwriter.app.Shell.p{digest}")
 }
 
 fn forward(
@@ -143,15 +159,19 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let original = root.path().join("original");
         let alias = root.path().join("alias");
-        fs::create_dir(&original).unwrap();
+        std::fs::create_dir(&original).unwrap();
         std::os::unix::fs::symlink(&original, &alias).unwrap();
-        assert_eq!(
-            profile_application_id(&alias.join("first/profile")).unwrap(),
-            profile_application_id(&original.join("first/profile")).unwrap()
-        );
+        let aliased_path = alias.join("missing/../first/profile");
+        let canonical_path = original.join("first/profile");
+        let first_launch = profile_application_id(&aliased_path);
+        assert!(!canonical_path.exists());
+        std::fs::create_dir_all(alias.join("missing")).unwrap();
+        std::fs::create_dir_all(&canonical_path).unwrap();
+        assert_eq!(first_launch, profile_application_id(&canonical_path));
+        assert_eq!(first_launch, profile_application_id(&aliased_path));
         assert_ne!(
-            profile_application_id(&original.join("first/profile")).unwrap(),
-            profile_application_id(&original.join("second/profile")).unwrap()
+            first_launch,
+            profile_application_id(&original.join("second/profile"))
         );
     }
 
@@ -159,7 +179,7 @@ mod tests {
     fn local_unicode_files_are_delivered_as_one_batch() {
         let queue = OpenQueue::default();
         let first = "/tmp/Grüße 中文 file.md";
-        let second = "/tmp/second.markdown";
+        let second = "/tmp/second.MKD";
         enqueue(
             &queue,
             &[gio::File::for_path(first), gio::File::for_path(second)],

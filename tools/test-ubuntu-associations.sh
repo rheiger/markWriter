@@ -96,6 +96,7 @@ cmp "$evidence/control.desktop" "$desktop"
 cmp "$evidence/dirty-workspace.json" "$MARKWRITER_PROFILE_DIR/workspace.json"
 export MARKWRITER_PROFILE_DIR="$workspace/rollback-recovery"
 mkdir "$MARKWRITER_PROFILE_DIR"
+cp "$evidence/dirty-workspace.json" "$MARKWRITER_PROFILE_DIR/workspace.json"
 check_desktop rollback
 cmp "$workspace/mimeapps-before-removal" "$XDG_CONFIG_HOME/mimeapps.list"
 
