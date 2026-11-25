@@ -1,7 +1,9 @@
 import { create } from 'zustand'
-import { save } from '@tauri-apps/plugin-dialog'
-import { invoke } from '@tauri-apps/api/core'
-import { flushWorkspace, snapshotWorkspace, flushPreferences } from '../lib/persistence'
+import { open, save } from '@tauri-apps/plugin-dialog'
+import { invoke, isTauri } from '@tauri-apps/api/core'
+import {
+  flushPreferences, flushWorkspace, persistPreferencesForCheckpoint, sameWorkspaceRecoveryState, snapshotWorkspace,
+} from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
 import { rememberFileView, type FileView } from '../lib/session'
 
@@ -108,6 +110,9 @@ function sameDiskOwner(captured: Document, latest: Document | undefined): latest
     baseline(latest) === baseline(captured)
 }
 let closing = false
+let loadingDocuments = 0
+let pendingDocumentDialogs = 0
+let checkpointing = false
 
 let activeViewCapture: { id: string, capture: () => void } | undefined
 export function registerActiveViewCapture(id: string, capture: () => void) {
@@ -246,13 +251,16 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     setLoading: isLoading => set({ isLoading }), setError: error => set({ error }),
     createNewDocument: async () => {
+      loadingDocuments++
       try {
         const result = await invoke<any>('create_document')
         add({ id: result.id, title: result.title || 'Untitled', content: result.content || '',
           isDirty: false, savedContent: result.content || '', lastModified: new Date() })
       } catch (error) { set({ error: errorMessage(error, 'Failed to create document') }) }
+      finally { loadingDocuments-- }
     },
     openDocument: async path => {
+      loadingDocuments++
       try {
         let result = await invoke<any>('open_document', { path })
         const owner = destinations.get(result.path)
@@ -272,6 +280,7 @@ export const useAppStore = create<AppState>((set, get) => {
           sourceViewportAnchor: remembered.sourceViewportAnchor } : doc
         add(opened); get().addRecentDocument(opened)
       } catch (error) { set({ error: errorMessage(error, 'Failed to open document') }) }
+      finally { loadingDocuments-- }
     },
     saveDocument: async (id = get().currentDocument?.id) => {
       const doc = get().documents.find(d => d.id === id)
@@ -403,16 +412,35 @@ function decideUnsaved(doc: Document): Promise<UnsavedDecision> {
   } }))
 }
 
-export async function saveWithDialog(doc: Document, as = false): Promise<boolean> {
-  const path = !as && doc.path ? doc.path : await save({ filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
-  if (!path) return false
-  return as || !doc.path ? useAppStore.getState().saveDocumentAs(path, doc.id, doc) : useAppStore.getState().saveToPath(doc, path)
+async function withDocumentDialog<T>(operation: () => Promise<T>): Promise<T> {
+  pendingDocumentDialogs++
+  try { return await operation() }
+  finally { pendingDocumentDialogs-- }
+}
+
+const markdownFilter = { name: 'Markdown', extensions: ['md', 'markdown'] }
+
+export function openDocumentWithDialog() {
+  return withDocumentDialog(async () => {
+    const path = await open({ multiple: false, filters: [{ ...markdownFilter, extensions: [...markdownFilter.extensions, 'txt'] }] })
+    if (typeof path === 'string' && path) await useAppStore.getState().openDocument(path)
+  })
+}
+
+export function saveWithDialog(doc: Document, as = false): Promise<boolean> {
+  if (!as && doc.path) return useAppStore.getState().saveToPath(doc, doc.path)
+  return withDocumentDialog(async () => {
+    const path = await save({ filters: [markdownFilter] })
+    return !!path && await useAppStore.getState().saveDocumentAs(path, doc.id, doc)
+  })
 }
 
 export async function saveCopyWithDialog(doc: Document): Promise<boolean> {
   try {
-    const path = await save({ title: 'Save a Copy', filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
-    return !!path && await useAppStore.getState().saveDocumentCopy(doc, path)
+    return await withDocumentDialog(async () => {
+      const path = await save({ title: 'Save a Copy', filters: [markdownFilter] })
+      return !!path && await useAppStore.getState().saveDocumentCopy(doc, path)
+    })
   } catch (error) {
     useAppStore.getState().setError(errorMessage(error, 'Could not choose a destination for the copy'))
     return false
@@ -436,6 +464,44 @@ export function watchOpenDocuments() {
   }
   timer = setTimeout(check, 500)
   return () => { stopped = true; clearTimeout(timer) }
+}
+
+function hasPendingDocumentOperation(state: AppState) {
+  return closing || loadingDocuments > 0 || pendingDocumentDialogs > 0 || saving.size > 0 || reloading.size > 0 ||
+    state.isLoading || state.pendingClose !== null || state.pendingDiskReload !== null
+}
+
+// The acceptance bridge can exercise this guard without installing or exiting.
+// A caller coordinating a real restart must also prevent edits after it returns.
+export async function checkpointWorkspaceForRestart() {
+  if (!isTauri()) throw new Error('Restart recovery requires native storage.')
+  if (checkpointing) throw new Error('A restart checkpoint is already in progress.')
+  if (hasPendingDocumentOperation(useAppStore.getState())) {
+    throw new Error('Finish the pending document operation before preparing to restart.')
+  }
+  checkpointing = true
+  try {
+    activeViewCapture?.capture()
+    const snapshot = snapshotWorkspace()
+    let changed = false
+    const stopWatching = useAppStore.subscribe((state, prior) => {
+      if (!sameWorkspaceRecoveryState(state, prior) || state.config !== prior.config ||
+          state.updateChoices !== prior.updateChoices || hasPendingDocumentOperation(state)) changed = true
+    })
+    try {
+      const preferences = persistPreferencesForCheckpoint()
+      const ensureUnchanged = () => {
+        if (!changed && preferences.isLatest() && !hasPendingDocumentOperation(useAppStore.getState())) return
+        throw new Error('The workspace or preferences changed during the restart checkpoint. Try again.')
+      }
+      await preferences.persisted
+      ensureUnchanged()
+      await flushWorkspace(snapshot)
+      // Catch view changes queued for the next animation frame.
+      activeViewCapture?.capture()
+      ensureUnchanged()
+    } finally { stopWatching() }
+  } finally { checkpointing = false }
 }
 
 // Quit collects choices first: Cancel never closes any tab or discards any draft.

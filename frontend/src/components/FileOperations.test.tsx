@@ -10,11 +10,6 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: vi.fn()
 }))
 
-// Mock the store
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: vi.fn()
-}))
-
 describe('File Operations', () => {
   const mockEditorRef = { current: null }
   
@@ -37,7 +32,7 @@ describe('File Operations', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(useAppStore as any).mockReturnValue(mockStore)
+    useAppStore.setState({ ...mockStore, documents: [mockStore.currentDocument] })
   })
 
   it('exposes accessible names for file operation buttons', () => {
@@ -122,7 +117,7 @@ describe('File Operations', () => {
         path: undefined
       }
     }
-    ;(useAppStore as any).mockReturnValue(mockStoreNoPath)
+    useAppStore.setState({ ...mockStoreNoPath, documents: [mockStoreNoPath.currentDocument] })
     
     render(<Toolbar editorViewRef={mockEditorRef} />)
     

@@ -1,5 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { useAppStore, type Document } from '../store/useAppStore'
+import { useAppStore, type AppState, type Document } from '../store/useAppStore'
 import { parsePreferences, parseUpdateChoices, type AppConfig, type UpdateChoice } from './preferences'
 
 let preferencesBlocked = false
@@ -91,11 +91,13 @@ export function snapshotWorkspace(documents = useAppStore.getState().documents, 
 export async function flushWorkspace(value = snapshotWorkspace()) {
   clearTimeout(timer)
   if (!isTauri()) return
-  if (workspaceBlocked) {
-    await retainRejected('workspace')
-    workspaceBlocked = false
-  }
-  const write = workspaceWrites.catch(() => {}).then(() => invoke('save_workspace', { value }))
+  const write = workspaceWrites.catch(() => {}).then(async () => {
+    if (workspaceBlocked) {
+      await retainRejected('workspace')
+      workspaceBlocked = false
+    }
+    await invoke('save_workspace', { value })
+  })
   workspaceWrites = write
   await write
 }
@@ -122,14 +124,30 @@ function sameRecoveryDocument(doc: Document, previous: Document): boolean {
     currentFields.every(([key, value]) => prior[key as keyof typeof prior] === value)
 }
 
+export function sameWorkspaceRecoveryState(state: AppState, prior: AppState) {
+  return state.currentDocument?.id === prior.currentDocument?.id && state.fileViews === prior.fileViews &&
+    (state.documents === prior.documents || (state.documents.length === prior.documents.length &&
+      state.documents.every((doc, index) => sameRecoveryDocument(doc, prior.documents[index]))))
+}
+
 export function watchWorkspace() {
   return useAppStore.subscribe((state, prior) => {
-    if (state.currentDocument?.id === prior.currentDocument?.id && state.fileViews === prior.fileViews &&
-        (state.documents === prior.documents || (state.documents.length === prior.documents.length &&
-          state.documents.every((doc, index) => sameRecoveryDocument(doc, prior.documents[index]))))) return
+    if (sameWorkspaceRecoveryState(state, prior)) return
     clearTimeout(timer)
     timer = setTimeout(() => { void flushWorkspace().catch(error => useAppStore.getState().setError(`Recovery could not be saved: ${String(error)}`)) }, 400)
   })
 }
 
 export async function flushPreferences() { await preferenceWrites }
+
+// Unlike the background preference watcher, a restart checkpoint requires
+// acknowledged storage even after an earlier write was rejected.
+export function persistPreferencesForCheckpoint() {
+  const pending = enqueuePreferenceWrite(async () => {
+    await allowPreferenceWrite()
+    await writePreferences(useAppStore.getState().config)
+  })
+  const settled = pending.catch(() => {})
+  preferenceWrites = settled
+  return { persisted: pending, isLatest: () => preferenceWrites === settled }
+}
