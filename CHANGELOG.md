@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.14.3
+
+- Remember a skipped update or defer its notice for 24 hours. Manual update checks and installer downloads stay available. [#111](https://github.com/rheiger/markWriter/issues/111)
+- Add signed-artifact verification tests and a macOS replacement and rollback qualification tool. [#59](https://github.com/rheiger/markWriter/issues/59) · [#78](https://github.com/rheiger/markWriter/issues/78)
+
+[Release notes](docs/releases/2.14.3.md) · [Installation and rollback](docs/install-2.14.3.md)
+
 ## 2.13.3
 
 - Check for stable releases in the background and open the matching installer download in your browser. [#110](https://github.com/rheiger/markWriter/issues/110)
