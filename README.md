@@ -4,7 +4,7 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.18.5](https://github.com/rheiger/markWriter/releases/tag/v2.18.5) raises the SQL DDL import limit to 128 KiB and extends offline preview rendering for source files. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.18.5.md) and [release notes](docs/releases/2.18.5.md).
+[MarkWriter 2.19.3](https://github.com/rheiger/markWriter/releases/tag/v2.19.3) adds Markdown Open With support in GNOME Files on Ubuntu and qualifies native Finder previews. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.19.3.md) and [release notes](docs/releases/2.19.3.md).
 
 ## Features
 

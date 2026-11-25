@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.19.3
+
+- Open local Markdown files in the existing MarkWriter profile from Ubuntu GNOME Files. [#169](https://github.com/rheiger/markWriter/issues/169)
+- Qualify large standalone PowerShell and structured Finder previews with repeatable fixtures. [#164](https://github.com/rheiger/markWriter/issues/164) · [#170](https://github.com/rheiger/markWriter/issues/170)
+
+[Release notes](docs/releases/2.19.3.md) · [Installation and rollback](docs/install-2.19.3.md)
+
 ## 2.18.5
 
 - Import UTF-8 SQL DDL files up to 128 KiB for supported schemas. [#153](https://github.com/rheiger/markWriter/issues/153)
