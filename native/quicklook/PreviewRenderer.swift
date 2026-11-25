@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 // Isolated experiment: deliberately limited and never evaluates document-supplied HTML.
@@ -28,7 +29,8 @@ enum PreviewRenderer {
         if suffix == "plist" && data.starts(with: "bplist00".utf8) {
             return page("<p>Binary property lists are not supported.</p>")
         }
-        if ["jsonb", "lock", "spec", "plist", "ps1", "bat"].contains(suffix),
+        let exactTextName = filename.map { ["Dockerfile", ".gitignore", ".dockerignore"].contains($0) } ?? false
+        if exactTextName || ["jsonb", "lock", "spec", "plist", "ps1", "bat"].contains(suffix),
            data.contains(where: { $0 < 32 && $0 != 9 && $0 != 10 && $0 != 13 }) {
             return page(suffix == "jsonb" ? "<p>Binary JSONB is not supported.</p>" : "<p>Only UTF-8 text is supported.</p>")
         }
@@ -37,7 +39,7 @@ enum PreviewRenderer {
         switch filename {
         case "Dockerfile": return source(text, language: "dockerfile")
         case ".dockerignore", ".gitignore": return source(text, language: "ignore")
-        case "flake.lock": return jsonSource(text)
+        case "flake.lock": return jsonSource(text, accepting: looksLikeFlakeLock)
         case "uv.lock":
             if looksLikeUVLock(text) { return source(text, language: "toml") }
             return literal(text, notice: "Unrecognized uv.lock format; showing literal text.")
@@ -103,8 +105,8 @@ enum PreviewRenderer {
 
     static func declinesExtension(_ ext: String) -> Bool {
         // Installed apps may give these suffixes a UTType this extension handles.
-        // Leave generic configuration files and ambiguous transport streams alone.
-        ["cfg", "config", "ts"].contains(ext.lowercased())
+        // Other providers may also map script modules or alternate script suffixes.
+        ["cfg", "config", "ts", "psm1", "psd1", "cmd"].contains(ext.lowercased())
     }
 
     static func isMarkdown(_ ext: String) -> Bool {
@@ -115,12 +117,19 @@ enum PreviewRenderer {
         page("<pre data-language=\"\(language)\">\(escape(text))</pre>")
     }
 
-    private static func jsonSource(_ text: String) -> String {
+    private static func jsonSource(_ text: String, accepting: (Any) -> Bool = { _ in true }) -> String {
         let json = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
-        guard JSONFormatter.format(json) != nil else {
-            return literal(text, notice: "Invalid JSON or validation limit exceeded; showing literal text.")
+        guard JSONFormatter.format(json, accepting: accepting) != nil else {
+            return literal(text, notice: "Unrecognized JSON or validation limit exceeded; showing literal text.")
         }
         return source(text, language: "json")
+    }
+
+    private static func looksLikeFlakeLock(_ value: Any) -> Bool {
+        guard let lock = value as? [String: Any], let version = lock["version"] as? NSNumber,
+              CFGetTypeID(version) != CFBooleanGetTypeID(), version as? Int != nil,
+              let root = lock["root"] as? String, let nodes = lock["nodes"] as? [String: Any] else { return false }
+        return nodes[root] is [String: Any]
     }
 
     private static func looksLikeUVLock(_ text: String) -> Bool {

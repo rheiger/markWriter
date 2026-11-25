@@ -126,6 +126,8 @@ for (ext, language, source) in [
 }
 check(PreviewRenderer.declinesExtension("TS"), "transport stream suffix is declined even when Finder routes it to MarkWriter")
 check(!PreviewRenderer.declinesExtension("tsx") && !PreviewRenderer.declinesExtension("mjs"), "accepted script suffixes are not declined")
+check(["PSM1", "psd1", "cmd"].allSatisfy(PreviewRenderer.declinesExtension), "shared UTIs leave other script suffixes to the existing provider")
+check(!PreviewRenderer.declinesExtension("ps1") && !PreviewRenderer.declinesExtension("bat"), "requested script suffixes are not declined")
 
 for ext in ["yml", "yaml"] {
     let page = PreviewRenderer.render(data: Data("base: &anchor [<value>]\ncopy: *anchor".utf8), extension: ext)
@@ -142,6 +144,10 @@ for (ext, filename, language) in [
           "\(filename) is mapped to \(language) and preserved as inert source")
     check(!page.contains("<tag>"), "\(filename) markup stays escaped")
 }
+for filename in ["Dockerfile", ".dockerignore", ".gitignore"] {
+    let page = PreviewRenderer.render(data: Data([0, 65]), extension: "", filename: filename)
+    check(page.contains("Only UTF-8 text") && !page.contains("data-language="), "binary \(filename) is not rendered as text")
+}
 
 let validJSONB = #"{"value":"<tag>&","number":9007199254740993}"#
 let jsonbPage = PreviewRenderer.render(data: Data(validJSONB.utf8), extension: "jsonb", filename: "row.jsonb")
@@ -154,8 +160,13 @@ check(binaryJSONB.contains("Binary JSONB") && !binaryJSONB.contains("90071992547
 let binaryLock = PreviewRenderer.render(data: Data([0, 65]), extension: "lock", filename: "other.lock")
 check(binaryLock.contains("Only UTF-8 text") && !binaryLock.contains("data-language="), "binary lock file is not rendered as text")
 
-let flakePage = PreviewRenderer.render(data: Data(#"{"nodes":{},"root":"root","version":7}"#.utf8), extension: "lock", filename: "flake.lock")
+let flakePage = PreviewRenderer.render(data: Data(#"{"nodes":{"root":{}},"root":"root","version":7}"#.utf8), extension: "lock", filename: "flake.lock")
 check(flakePage.contains("data-language=\"json\""), "flake.lock JSON recognized")
+for source in [#"{"unrelated":true}"#, #"{"nodes":{},"root":"root","version":7}"#,
+               #"{"nodes":{"root":{}},"root":"root","version":true}"#] {
+    let page = PreviewRenderer.render(data: Data(source.utf8), extension: "lock", filename: "flake.lock")
+    check(page.contains("literal text") && !page.contains("data-language="), "other JSON in flake.lock is literal")
+}
 let uvPage = PreviewRenderer.render(data: Data("version = 1\nrevision = 3\nrequires-python = \">=3.12\"\n[[package]]\nname = \"Example\"".utf8), extension: "lock", filename: "uv.lock")
 check(uvPage.contains("data-language=\"toml\"") && uvPage.contains("name = &quot;Example&quot;"), "uv.lock TOML recognized")
 for (ext, filename, content) in [("lock", "other.lock", validJSONB), ("lock", "flake.lock", "{broken"),

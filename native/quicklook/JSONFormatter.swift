@@ -1,6 +1,6 @@
 import Foundation
 
-// Retain every token verbatim; JSONSerialization is used solely as a validator.
+// Retain every token verbatim; JSONSerialization only validates the input.
 // Bound nesting and produced bytes before asking Foundation to parse anything.
 struct JSONFormatter {
     private var bytes: [UInt8]
@@ -9,13 +9,14 @@ struct JSONFormatter {
     private let outputLimit: Int
     private let depthLimit = 32
 
-    static func format(_ text: String, outputLimit: Int = 2_097_152) -> String? {
+    static func format(_ text: String, outputLimit: Int = 2_097_152, accepting: (Any) -> Bool = { _ in true }) -> String? {
         var parser = JSONFormatter(bytes: Array(text.utf8), outputLimit: outputLimit)
         guard parser.value(depth: 0) else { return nil }
         parser.whitespace()
         guard parser.pos == parser.bytes.count,
               let data = text.data(using: .utf8),
-              (try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])) != nil else { return nil }
+              let value = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]),
+              accepting(value) else { return nil }
         return String(bytes: parser.output, encoding: .utf8)
     }
 
