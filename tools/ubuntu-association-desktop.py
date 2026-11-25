@@ -168,7 +168,7 @@ def audit(mode):
     first = directory / "A Grüße 文件.md"
     second = directory / "B Ångström sample.markdown"
     third = directory / "C café sample.md"
-    fourth = directory / "D résumé sample.markdown"
+    fourth = directory / "D résumé sample.mkd"
     originals = {first: b"AssociationOwnerSentinel\n"}
     if mode == "existing":
         originals.update({second: b"AssociationSecondSentinel\n",

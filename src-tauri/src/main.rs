@@ -349,9 +349,11 @@ fn main() {
         })
         .build(context)
         .expect("error while building tauri application");
-    #[cfg(target_os = "linux")]
-    linux_launch.listen(app.handle());
-    app.run(|app, event| {
+    app.run(move |app, event| {
+        #[cfg(target_os = "linux")]
+        if matches!(event, tauri::RunEvent::Ready) {
+            linux_launch.listen(app);
+        }
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Opened { ref urls } = event {
             window_service::enqueue_os_open(app, |queue| {

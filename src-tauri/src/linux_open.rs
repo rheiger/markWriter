@@ -179,7 +179,7 @@ mod tests {
     fn local_unicode_files_are_delivered_as_one_batch() {
         let queue = OpenQueue::default();
         let first = "/tmp/Grüße 中文 file.md";
-        let second = "/tmp/second.markdown";
+        let second = "/tmp/second.MKD";
         enqueue(
             &queue,
             &[gio::File::for_path(first), gio::File::for_path(second)],

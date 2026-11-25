@@ -1,7 +1,7 @@
 {
   "bundle": {
     "fileAssociations": [{
-      "ext": ["md", "markdown"],
+      "ext": ["md", "markdown", "mkd"],
       "mimeType": "text/markdown"
     }],
     "linux": {

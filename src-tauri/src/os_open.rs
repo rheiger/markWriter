@@ -8,6 +8,7 @@ pub fn is_markdown_path(path: &Path) -> bool {
     path.is_absolute()
         && path.extension().and_then(|value| value.to_str()).is_some_and(|extension| {
             extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
+                || (cfg!(target_os = "linux") && extension.eq_ignore_ascii_case("mkd"))
         })
 }
 
