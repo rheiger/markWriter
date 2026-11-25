@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 import { useAppStore } from '../store/useAppStore'
-import { defaultConfig, type AppConfig } from '../lib/preferences'
+import { defaultConfig, type AppConfig, type DialogFolderSetting } from '../lib/preferences'
+import { dialogFolderOptions } from '../lib/dialogFolders'
 import { applyPreferences } from '../lib/persistence'
 import { encodeSettingsProfile, parseSettingsProfile } from '../lib/settingsProfile'
 import { Modal } from './Modal'
+
+const folderSettings = [
+  ['defaultDocumentFolder', 'document folder'],
+  ['defaultHtmlExportFolder', 'HTML export folder'],
+] as const
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState(() => ({ ...useAppStore.getState().config }))
@@ -15,7 +22,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => () => { operation.current = null }, [])
   const close = () => { if (!operation.current) onClose() }
 
-  const run = async (action: 'import' | 'export' | 'apply') => {
+  const run = async (action: 'import' | 'export' | 'apply' | DialogFolderSetting) => {
     if (operation.current) return
     const token = Symbol()
     operation.current = token
@@ -26,15 +33,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       if (action === 'import') {
         const profile = await invoke<unknown>('import_settings_profile')
         if (operation.current === token && profile !== null) {
-          setDraft(parseSettingsProfile(profile))
+          const portable = parseSettingsProfile(profile)
+          setDraft(current => ({ ...current, ...portable }))
           setStatus('Settings loaded. Review them and select Apply to commit.')
         }
       } else if (action === 'export') {
         const exported = await invoke<boolean>('export_settings_profile', { profile: encodeSettingsProfile(draft) })
         if (operation.current === token && exported) setStatus('Settings exported.')
-      } else {
+      } else if (action === 'apply') {
         await applyPreferences(draft)
         if (operation.current === token) onClose()
+      } else {
+        const title = action === 'defaultDocumentFolder' ? 'Choose Document Folder' : 'Choose HTML Export Folder'
+        const selected = await open({ directory: true, multiple: false, title, ...await dialogFolderOptions(draft[action]) })
+        if (operation.current === token && typeof selected === 'string') {
+          setDraft(current => ({ ...current, [action]: selected }))
+        }
       }
     } catch (cause) {
       if (operation.current === token) setError(cause instanceof Error ? cause.message : String(cause))
@@ -70,6 +84,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <label><input type="checkbox" checked={draft.restoreSession} onChange={e => field('restoreSession', e.target.checked)} />Restore tabs on startup</label>
       {isTauri() && <label><input type="checkbox" checked={draft.automaticUpdateChecks}
         onChange={e => field('automaticUpdateChecks', e.target.checked)} />Check for updates automatically</label>}
+      {isTauri() && folderSettings.map(([key, label]) => <div className="settings-folder" key={key}>
+        <label>Default {label}
+          <input value={draft[key]} placeholder="System default" readOnly />
+        </label>
+        <div className="settings-folder-actions">
+          <button aria-label={`Choose ${label}…`} onClick={() => void run(key)}>Choose…</button>
+          <button disabled={!draft[key]} aria-label={`Clear ${label}`} onClick={() => field(key, '')}>Clear</button>
+        </div>
+      </div>)}
     </fieldset>
     <p className="settings-note">Recovery copies stay on this device. Original files are written only when you save.</p>
     {isTauri() && <div className="settings-profile-actions">

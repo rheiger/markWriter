@@ -30,7 +30,7 @@ it('keeps local update choices through settings import, toolbar writes, recovery
     useAppStore.getState().updateConfig({ fontSize: 19 })
     await choiceWrite
     const imported = parseSettingsProfile({ format: 'markwriter-settings', version: 1, config: { theme: 'dark' } })
-    await applyPreferences(imported)
+    await applyPreferences({ ...useAppStore.getState().config, ...imported })
     await flushPreferences()
     expect(preferencesOnDisk).toMatchObject({ config: { theme: 'dark' }, updateChoices: skipped })
     expect(encodeSettingsProfile(useAppStore.getState().config)).not.toHaveProperty('updateChoices')

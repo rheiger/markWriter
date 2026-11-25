@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core'
+import { save } from '@tauri-apps/plugin-dialog'
 import type { EditorViewRef } from './EditorView'
 import { defaultConfig } from '../lib/preferences'
 import { MenuBar } from './MenuBar'
@@ -110,6 +111,32 @@ describe('native Mac menu dispatch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+})
+
+it('starts HTML Export in its own folder and retains the original document during lookup', async () => {
+  const original = { ...doc('first'), path: '/owned/first.md' }
+  const other = doc('second')
+  const exportDocument = vi.fn()
+  const previousExport = useAppStore.getState().exportDocument
+  let finishLookup!: (available: boolean) => void
+  vi.mocked(invoke).mockImplementation(command => command === 'is_dialog_directory_available'
+    ? new Promise(resolve => { finishLookup = resolve })
+    : Promise.resolve(null))
+  vi.mocked(save).mockResolvedValueOnce('/exports/first.html')
+  useAppStore.setState({ documents: [original, other], currentDocument: original, exportDocument,
+    config: { ...defaultConfig, automaticUpdateChecks: false, defaultDocumentFolder: '/documents', defaultHtmlExportFolder: '/exports' } })
+  try {
+    render(<MenuBar />)
+    await act(async () => {})
+    act(() => send('export'))
+    expect(invoke).toHaveBeenCalledWith('is_dialog_directory_available', { path: '/exports' })
+    act(() => { useAppStore.setState({ currentDocument: other }) })
+    await act(async () => finishLookup(true))
+    expect(save).toHaveBeenCalledWith({ filters: [{ name: 'HTML', extensions: ['html'] }], defaultPath: '/exports' })
+    expect(exportDocument).toHaveBeenCalledWith('/exports/first.html', 'html', original)
+  } finally {
+    useAppStore.setState({ exportDocument: previousExport, config: { ...defaultConfig } })
+  }
 })
 
 it('announces an update without taking focus or touching the active document', async () => {

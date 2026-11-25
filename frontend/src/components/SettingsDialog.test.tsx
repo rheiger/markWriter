@@ -4,9 +4,16 @@ import { SettingsDialog } from './SettingsDialog'
 import { useAppStore } from '../store/useAppStore'
 import { defaultConfig } from '../lib/preferences'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
+import { encodeSettingsProfile } from '../lib/settingsProfile'
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn() }))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }))
 HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
-beforeEach(() => { useAppStore.setState({ config: { ...defaultConfig }, error: null }); vi.mocked(invoke).mockReset() })
+beforeEach(() => {
+  useAppStore.setState({ config: { ...defaultConfig }, error: null })
+  vi.mocked(invoke).mockReset()
+  vi.mocked(open).mockReset()
+})
 it('Cancel and Reset do not commit a dialog draft; Apply persists separate values', async () => {
   const close = vi.fn()
   const view = render(<SettingsDialog onClose={close} />)
@@ -35,9 +42,10 @@ it('storage failure leaves current preferences intact and dialog retryable', asy
   await waitFor(() => expect(useAppStore.getState().config.theme).toBe('dark'))
 })
 
-const darkProfile = { format: 'markwriter-settings', version: 1, config: { ...defaultConfig, theme: 'dark' } }
+const darkProfile = encodeSettingsProfile({ ...defaultConfig, theme: 'dark' })
 
 it('imports into the draft and persists only on Apply', async () => {
+  useAppStore.setState({ config: { ...defaultConfig, defaultDocumentFolder: '/local' } })
   vi.mocked(invoke).mockResolvedValueOnce(darkProfile)
   const close = vi.fn()
   render(<SettingsDialog onClose={close} />)
@@ -49,6 +57,32 @@ it('imports into the draft and persists only on Apply', async () => {
   fireEvent.click(screen.getByText('Apply'))
   await waitFor(() => expect(close).toHaveBeenCalled())
   expect(useAppStore.getState().config.theme).toBe('dark')
+  expect(useAppStore.getState().config.defaultDocumentFolder).toBe('/local')
+})
+
+it('keeps folder changes in the draft until Apply and resets them through Settings', async () => {
+  useAppStore.setState({ config: { ...defaultConfig, defaultDocumentFolder: '/original' } })
+  vi.mocked(open).mockResolvedValueOnce('/new documents').mockResolvedValueOnce('/html exports')
+  vi.mocked(invoke).mockResolvedValue(true)
+  const view = render(<SettingsDialog onClose={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Choose document folder…' }))
+  await waitFor(() => expect(screen.getByLabelText('Default document folder')).toHaveValue('/new documents'))
+  expect(open).toHaveBeenCalledWith({ directory: true, multiple: false, title: 'Choose Document Folder', defaultPath: '/original' })
+  fireEvent.click(screen.getByRole('button', { name: 'Choose HTML export folder…' }))
+  await waitFor(() => expect(screen.getByLabelText('Default HTML export folder')).toHaveValue('/html exports'))
+  expect(useAppStore.getState().config).toMatchObject({ defaultDocumentFolder: '/original', defaultHtmlExportFolder: '' })
+  fireEvent.click(screen.getByRole('button', { name: 'Clear document folder' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  await waitFor(() => expect(useAppStore.getState().config).toMatchObject({ defaultDocumentFolder: '', defaultHtmlExportFolder: '/html exports' }))
+  expect(invoke).toHaveBeenCalledWith('save_preferences', {
+    value: { version: 1, config: expect.objectContaining({ defaultDocumentFolder: '', defaultHtmlExportFolder: '/html exports' }) },
+  })
+  view.unmount()
+  render(<SettingsDialog onClose={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Reset to Defaults' }))
+  expect(screen.getByLabelText('Default HTML export folder')).toHaveValue('')
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(useAppStore.getState().config.defaultHtmlExportFolder).toBe('/html exports')
 })
 
 it('canceled or rejected imports preserve both a draft and live settings', async () => {

@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Toolbar } from './Toolbar'
-import { useAppStore } from '../store/useAppStore'
+import { saveCopyWithDialog, useAppStore } from '../store/useAppStore'
 import { defaultConfig } from '../lib/preferences'
+import { invoke } from '@tauri-apps/api/core'
+import { open, save } from '@tauri-apps/plugin-dialog'
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }))
 
 // Mock the Tauri API
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -131,5 +135,32 @@ describe('File Operations', () => {
     await waitFor(() => {
       expect(mockStore.saveDocumentAs).toHaveBeenCalledWith('/test/new-file.md', 'test-id', expect.objectContaining({ id: 'test-id' }))
     })
+  })
+
+  it('starts Open, Save As and Save a Copy in the usable document folder', async () => {
+    useAppStore.setState({ config: { ...defaultConfig, defaultDocumentFolder: '/documents' } })
+    vi.mocked(invoke).mockResolvedValue(true)
+    vi.mocked(open).mockResolvedValue(null)
+    vi.mocked(save).mockResolvedValue(null)
+    render(<Toolbar editorViewRef={mockEditorRef} />)
+
+    fireEvent.click(screen.getByTitle('Open'))
+    await waitFor(() => expect(open).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: '/documents' })))
+    fireEvent.click(screen.getByTitle('Save As'))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: '/documents' })))
+    await saveCopyWithDialog(mockStore.currentDocument)
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Save a Copy', defaultPath: '/documents' }))
+  })
+
+  it.each(['unavailable', 'failed lookup'])('uses the native picker default on %s', async result => {
+    useAppStore.setState({ config: { ...defaultConfig, defaultDocumentFolder: '/missing' } })
+    if (result === 'failed lookup') vi.mocked(invoke).mockRejectedValueOnce('Lookup failed')
+    else vi.mocked(invoke).mockResolvedValueOnce(false)
+    vi.mocked(save).mockResolvedValue(null)
+    render(<Toolbar editorViewRef={mockEditorRef} />)
+
+    fireEvent.click(screen.getByTitle('Save As'))
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] }))
+    expect(invoke).toHaveBeenCalledWith('is_dialog_directory_available', { path: '/missing' })
   })
 })

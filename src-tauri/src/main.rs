@@ -97,6 +97,17 @@ fn canonical_document_path(path: String, preserve_leaf: Option<bool>, owned_path
         .map_err(|error| format!("Cannot resolve document path: {error}"))
 }
 
+fn usable_dialog_directory(path: &Path) -> bool {
+    path.is_absolute() && std::fs::read_dir(path).is_ok()
+}
+
+#[tauri::command]
+async fn is_dialog_directory_available(path: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || usable_dialog_directory(Path::new(&path)))
+        .await
+        .unwrap_or(false)
+}
+
 #[tauri::command]
 async fn monitor_document_disk(path: String, expected: Option<String>) -> DiskState {
     tauri::async_runtime::spawn_blocking(move || document_disk::monitor(Path::new(&path), expected.as_deref()))
@@ -299,6 +310,7 @@ fn main() {
             retain_rejected_storage,
             load_preferences, save_preferences, load_workspace, save_workspace,
             canonical_document_path,
+            is_dialog_directory_available,
             create_document,
             open_document,
             save_document,
@@ -373,6 +385,20 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dialog_directory_must_be_an_existing_absolute_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("Références");
+        let file = root.path().join("file.md");
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(&file, "# File").unwrap();
+        assert!(usable_dialog_directory(&directory));
+        assert!(!usable_dialog_directory(&file));
+        assert!(!usable_dialog_directory(Path::new(".")));
+        std::fs::remove_dir(&directory).unwrap();
+        assert!(!usable_dialog_directory(&directory));
+    }
 
     #[tokio::test]
     async fn file_save_save_as_reopen_preserves_source() {

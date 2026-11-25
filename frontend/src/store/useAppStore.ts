@@ -6,6 +6,7 @@ import {
 } from '../lib/persistence'
 import { createHtmlExport } from '../lib/htmlExport'
 import { rememberFileView, type FileView } from '../lib/session'
+import { dialogFolderOptions } from '../lib/dialogFolders'
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
@@ -422,7 +423,12 @@ const markdownFilter = { name: 'Markdown', extensions: ['md', 'markdown'] }
 
 export function openDocumentWithDialog() {
   return withDocumentDialog(async () => {
-    const path = await open({ multiple: false, filters: [{ ...markdownFilter, extensions: [...markdownFilter.extensions, 'txt'] }] })
+    const folder = useAppStore.getState().config.defaultDocumentFolder
+    const path = await open({
+      multiple: false,
+      filters: [{ ...markdownFilter, extensions: [...markdownFilter.extensions, 'txt'] }],
+      ...(folder ? await dialogFolderOptions(folder) : {}),
+    })
     if (typeof path === 'string' && path) await useAppStore.getState().openDocument(path)
   })
 }
@@ -430,7 +436,8 @@ export function openDocumentWithDialog() {
 export function saveWithDialog(doc: Document, as = false): Promise<boolean> {
   if (!as && doc.path) return useAppStore.getState().saveToPath(doc, doc.path)
   return withDocumentDialog(async () => {
-    const path = await save({ filters: [markdownFilter] })
+    const folder = useAppStore.getState().config.defaultDocumentFolder
+    const path = await save({ filters: [markdownFilter], ...(folder ? await dialogFolderOptions(folder) : {}) })
     return !!path && await useAppStore.getState().saveDocumentAs(path, doc.id, doc)
   })
 }
@@ -438,7 +445,8 @@ export function saveWithDialog(doc: Document, as = false): Promise<boolean> {
 export async function saveCopyWithDialog(doc: Document): Promise<boolean> {
   try {
     return await withDocumentDialog(async () => {
-      const path = await save({ title: 'Save a Copy', filters: [markdownFilter] })
+      const folder = useAppStore.getState().config.defaultDocumentFolder
+      const path = await save({ title: 'Save a Copy', filters: [markdownFilter], ...(folder ? await dialogFolderOptions(folder) : {}) })
       return !!path && await useAppStore.getState().saveDocumentCopy(doc, path)
     })
   } catch (error) {

@@ -68,7 +68,8 @@ export const helpTopics: HelpTopic[] = [
       { kind: 'paragraph', text: 'Choose Auto, Light or Dark in the View menu or Settings. Auto follows the system appearance.' },
       { kind: 'paragraph', text: 'Settings has independent source and rendered font families and text sizes. The source font is used in the Markdown editor; the rendered font is used for the rendered view and Preview. View → Zoom adjusts the active editor’s text size.' },
       { kind: 'paragraph', text: 'Settings also controls source tab width, wrapping, continuation markers, Preview synchronization and default folding. Changing a view or preference does not itself edit the document.' },
-      { kind: 'paragraph', text: 'Export Settings saves the current Settings draft to a new JSON file without replacing an existing file. Import Settings loads a profile up to 16 KiB for review. Omitted settings use defaults. Select Apply to commit the draft, or Cancel to keep your current settings. Your documents and recovery copies are stored separately.' },
+      { kind: 'paragraph', text: 'Set a default document folder for Open, Save As, Save a Copy and the first save of a new document. Set a separate folder for Export HTML. Each starts the native file picker in that folder when it is available. Clear either folder to use the system default.' },
+      { kind: 'paragraph', text: 'Export Settings saves the current portable Settings draft to a new JSON file without replacing an existing file. Import Settings loads a profile up to 16 KiB for review. Omitted portable settings use defaults. Default folders stay on this device and an import keeps them as shown in the draft. Select Apply to commit the draft, or Cancel to keep your current settings. Your documents and recovery copies are stored separately.' },
     ],
   },
   {
