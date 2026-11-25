@@ -1,4 +1,4 @@
-name: PI 2.17 Apple silicon native verification fallback
+name: PI 2.17 exact-source Linux desktop retry
 on: workflow_dispatch
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15]
+        os: [ubuntu-26.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     defaults:
