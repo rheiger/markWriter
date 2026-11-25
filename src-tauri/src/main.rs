@@ -58,9 +58,10 @@ fn save_preferences(
     app: tauri::AppHandle,
     state: tauri::State<window_preferences::PreferenceState>,
     value: serde_json::Value,
-    base: Option<serde_json::Value>,
+    base: serde_json::Value,
+    repair_generation: Option<u64>,
 ) -> Result<serde_json::Value, String> {
-    state.save(&storage_file(&app, "preferences")?, value, base.as_ref(), |update| {
+    state.save(&storage_file(&app, "preferences")?, value, &base, repair_generation, |update| {
         let _ = app.emit("preferences-committed", update);
     })
 }
