@@ -7,8 +7,10 @@ import { cancelAppQuit, closeEditorWindow, moveEditorDocument, receiveEditorTran
 const bridge = vi.hoisted(() => ({
   capture: vi.fn(),
   stage: vi.fn(),
+  composing: vi.fn(),
 }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn() }))
+vi.mock('./editorComposition', () => ({ editorIsComposing: bridge.composing }))
 vi.mock('./editorTransfer', () => ({ captureEditorTransfer: bridge.capture, stageEditorTransfer: bridge.stage }))
 
 const native = vi.mocked(invoke)
@@ -28,6 +30,7 @@ function deferred<T>() {
 
 beforeEach(async () => {
   native.mockReset().mockResolvedValue(null)
+  bridge.composing.mockReset().mockReturnValue(false)
   bridge.capture.mockReset().mockReturnValue({ mode: 'markdown', view: { sourceHead: 5 }, sourceViewportAnchor: 0 })
   bridge.stage.mockReset().mockReturnValue({ ready: Promise.resolve(), cancel: vi.fn() })
   useAppStore.setState({ documents: [draft, sibling], currentDocument: draft, windowBusy: false,
@@ -149,4 +152,32 @@ it('focuses the existing native owner of an already open path', async () => {
   await state().openDocument('/opened.md')
   expect(state().documents).toEqual([draft, sibling])
   expect(native).toHaveBeenCalledWith('focus_editor_window', { label: 'editor-target', id: 'remote-tab' })
+})
+
+it('defers incoming transfers while the destination editor is composing', async () => {
+  bridge.composing.mockImplementation(id => id === draft.id)
+  expect(await receiveEditorTransfers()).toBe(false)
+  expect(state().windowBusy).toBe(false)
+  expect(native).not.toHaveBeenCalled()
+
+  bridge.composing.mockReturnValue(false)
+  expect(await receiveEditorTransfers()).toBe(true)
+  expect(native).toHaveBeenCalledWith('take_editor_transfers')
+})
+
+it('keeps all drafts live when window close or Quit is attempted during composition', async () => {
+  bridge.composing.mockImplementation(id => id === draft.id)
+  await closeEditorWindow()
+  await reviewAppQuit('composing')
+  expect(state().pendingClose).toBeNull()
+  expect(state().windowBusy).toBe(false)
+  expect(state().documents).toEqual([draft, sibling])
+  expect(native).not.toHaveBeenCalledWith('finish_editor_window_close', expect.anything())
+  expect(native).toHaveBeenCalledWith('answer_app_quit', expect.objectContaining({ token: 'composing', allowed: false }))
+
+  bridge.composing.mockReturnValue(false)
+  const close = closeEditorWindow()
+  expect(state().pendingClose?.id).toBe(draft.id)
+  state().pendingClose!.resolve('cancel')
+  await close
 })

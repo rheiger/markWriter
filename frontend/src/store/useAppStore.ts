@@ -7,6 +7,7 @@ import {
 import { createHtmlExport } from '../lib/htmlExport'
 import { rememberFileView, type FileView } from '../lib/session'
 import { dialogFolderOptions } from '../lib/dialogFolders'
+import { editorIsComposing } from '../lib/editorComposition'
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
@@ -125,7 +126,8 @@ type OpenOwnedDocument = { document: { id: string, path: string, title?: string,
   { owner: DocumentOwner, document?: never }
 
 export function suspendWindowWorkspace(): (() => void) | undefined {
-  if (checkpointing || hasPendingDocumentOperation(useAppStore.getState())) return undefined
+  const state = useAppStore.getState()
+  if (checkpointing || hasPendingDocumentOperation(state) || state.documents.some(doc => editorIsComposing(doc.id))) return undefined
   activeViewCapture?.capture()
   useAppStore.setState({ windowBusy: true })
   return () => useAppStore.setState({ windowBusy: false })
