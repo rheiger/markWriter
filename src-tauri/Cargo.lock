@@ -2059,7 +2059,7 @@ dependencies = [
 
 [[package]]
 name = "markwriter"
-version = "2.15.4"
+version = "2.16.3"
 dependencies = [
  "chrono",
  "dirs",

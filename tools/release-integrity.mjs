@@ -14,6 +14,9 @@ export async function verifyReleaseAssets(directory, manifests, expected) {
    assert.equal(m.signing?.status,'ad-hoc','Expected qualified ad-hoc signature')
    assert.equal(m.signing.sealed,true,'Whole macOS bundle resource seal required')
    assert.equal(m.signing.strictVerified,true,'Strict installed bundle verification required')
+  } else {
+   assert.equal(m.signing?.status,'unsigned','Non-macOS packages must be unsigned')
+   if(m.platform==='windows-x64')assert.equal(m.signing.authenticode,'NotSigned','Windows Authenticode inspection required')
   }
   const [architecture,extension]=targets[m.platform];assert.equal(m.architecture,architecture)
   assert.equal(m.asset.name,`MarkWriter-${expected.version}-${m.platform}.${extension}`)

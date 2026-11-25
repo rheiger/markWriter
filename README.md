@@ -4,7 +4,7 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.15.4](https://github.com/rheiger/markWriter/releases/tag/v2.15.4) improves Windows Save under temporary file locks and adds update qualification tools. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.15.4.md) and [release notes](docs/releases/2.15.4.md).
+[MarkWriter 2.16.3](https://github.com/rheiger/markWriter/releases/tag/v2.16.3) adds tab context actions and default folders for document and HTML export dialogs. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.16.3.md) and [release notes](docs/releases/2.16.3.md).
 
 ## Features
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.16.3
+
+- Add Close Tab and Close Other Tabs to the tab context menu. [#137](https://github.com/rheiger/markWriter/issues/137)
+- Choose default folders for document dialogs and HTML export in Settings. [#136](https://github.com/rheiger/markWriter/issues/136)
+- Qualify the final ad-hoc sealed macOS app and Quick Look DMG in hosted packaging. [#138](https://github.com/rheiger/markWriter/issues/138)
+
+[Release notes](docs/releases/2.16.3.md) · [Installation and rollback](docs/install-2.16.3.md)
+
 ## 2.14.3
 
 - Remember a skipped update or defer its notice for 24 hours. Manual update checks and installer downloads stay available. [#111](https://github.com/rheiger/markWriter/issues/111)
