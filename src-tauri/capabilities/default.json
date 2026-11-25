@@ -1,7 +1,7 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for main window",
-  "windows": ["main"],
+  "description": "Capabilities for local editor windows",
+  "windows": ["main", "editor-*"],
   "permissions": [
     "core:default",
     "dialog:default",

@@ -2,11 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, Emitter};
+use tauri::{Emitter, Manager};
 mod persistence;
 mod document_disk;
 mod dot_policy;
 mod storage_profile;
+mod window_service;
 mod native_menu;
 mod os_open;
 mod update_policy;
@@ -64,23 +65,24 @@ fn save_preferences(
     })
 }
 #[tauri::command]
-fn load_workspace(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    persistence::read_json(&storage_file(&app, "workspace")?)
-}
-#[tauri::command]
-fn save_workspace(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
-    persistence::write_json(&storage_file(&app, "workspace")?, &value)
-}
-
-#[tauri::command]
-fn retain_rejected_storage(app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    let path = storage_file(&app, &kind)?;
+fn retain_rejected_storage(window: tauri::WebviewWindow, kind: String) -> Result<(), String> {
+    let app = window.app_handle();
+    if kind == "workspace" {
+        return window_service::retain_rejected_workspace(app, window.label());
+    }
+    let path = storage_file(app, &kind)?;
     persistence::retain_rejected(&path)
 }
 
 // Create a new document
 #[tauri::command]
-async fn create_document() -> Result<Document, String> {
+async fn create_document(window: tauri::WebviewWindow, service: tauri::State<'_, window_service::WindowService>) -> Result<Document, String> {
+    let doc = new_document();
+    window_service::register_document(window.label(), &service, &doc.id)?;
+    Ok(doc)
+}
+
+fn new_document() -> Document {
     println!("[TAURI] Creating new document");
     let doc = Document {
         id: uuid::Uuid::new_v4().to_string(),
@@ -90,7 +92,7 @@ async fn create_document() -> Result<Document, String> {
         last_modified: chrono::Utc::now().to_rfc3339(),
     };
     println!("[TAURI] Created document with ID: {}", doc.id);
-    Ok(doc)
+    doc
 }
 
 // Resolve aliases normally, or normalize just the parent for an already-owned name.
@@ -135,78 +137,52 @@ async fn read_document_disk(path: String) -> Result<String, DiskState> {
 async fn open_document(path: Option<String>) -> Result<Document, String> {
     println!("[TAURI] Opening document, path: {:?}", path);
 
-    if let Some(file_path) = path {
-        let file_path = canonical_document_path(file_path, None, None)?;
-        match std::fs::read_to_string(&file_path) {
-            Ok(content) => {
-                let title = std::path::Path::new(&file_path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("Untitled")
-                    .to_string();
+    let path = path.ok_or("No file path provided")?;
+    read_document_from_path(canonical_document_path(path, None, None)?)
+}
 
-                let doc = Document {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    title,
-                    content,
-                    path: Some(file_path.clone()),
-                    last_modified: chrono::Utc::now().to_rfc3339(),
-                };
-                println!("[TAURI] Successfully opened: {}", file_path);
-                Ok(doc)
-            }
-            Err(e) => {
-                let error_msg = format!("Failed to read file: {}", e);
-                println!("[TAURI] Error: {}", error_msg);
-                Err(error_msg)
-            }
-        }
-    } else {
-        let error_msg = "No file path provided".to_string();
-        println!("[TAURI] Error: {}", error_msg);
-        Err(error_msg)
-    }
+fn read_document_from_path(file_path: String) -> Result<Document, String> {
+    use std::io::Read;
+    let mut content = String::new();
+    document_disk::regular_file(Path::new(&file_path))
+        .and_then(|mut file| file.read_to_string(&mut content))
+        .map_err(|error| format!("Failed to read file: {error}"))?;
+    let title = Path::new(&file_path).file_name().and_then(|name| name.to_str()).unwrap_or("Untitled").to_owned();
+    println!("[TAURI] Successfully opened: {file_path}");
+    Ok(Document {
+        id: uuid::Uuid::new_v4().to_string(),
+        title,
+        content,
+        path: Some(file_path),
+        last_modified: chrono::Utc::now().to_rfc3339(),
+    })
 }
 
 // Save to an owned path only if the on-disk bytes still match its saved baseline.
 #[tauri::command]
-async fn save_document(_id: String, content: String, path: String, expected: String) -> Result<HashMap<String, String>, SaveError> {
-    document_disk::write(Path::new(&path), &content, Some(&expected))?;
-    Ok(HashMap::from([("path".to_string(), path)]))
-}
-
-// Save As may overwrite an existing destination chosen through the native dialog;
-// an already-owned path is always sent through save_document instead.
-#[tauri::command]
-async fn save_document_as(_id: String, content: String, path: String) -> Result<HashMap<String, String>, SaveError> {
-    document_disk::write(Path::new(&path), &content, None)?;
-    Ok(HashMap::from([("path".to_string(), path)]))
+async fn save_document(window: tauri::WebviewWindow, service: tauri::State<'_, window_service::WindowService>, id: String, content: String, path: String, expected: String) -> Result<HashMap<String, String>, SaveError> {
+    let path = window_service::save_document(&service, window.label(), &id, &content, &path, Some(&expected))?;
+    Ok(HashMap::from([("path".into(), path)]))
 }
 
 #[tauri::command]
-async fn save_document_copy(content: String, path: String) -> Result<(), String> {
-    document_disk::write_copy(Path::new(&path), &content)
-        .map_err(|error| format!("Could not save a copy to a new file: {error}"))
+async fn save_document_as(window: tauri::WebviewWindow, service: tauri::State<'_, window_service::WindowService>, id: String, content: String, path: String) -> Result<HashMap<String, String>, SaveError> {
+    let path = window_service::save_document(&service, window.label(), &id, &content, &path, None)?;
+    Ok(HashMap::from([("path".into(), path)]))
+}
+
+#[tauri::command]
+async fn save_document_copy(window: tauri::WebviewWindow, service: tauri::State<'_, window_service::WindowService>, content: String, path: String) -> Result<(), String> {
+    window_service::write_unowned(&service, window.label(), &path, &content, true)
 }
 
 // HTML is rendered by the same frontend parser as Preview, with inline diagram SVG.
 #[tauri::command]
-async fn export_document(path: String, format: String, html: String) -> Result<(), String> {
+async fn export_document(window: tauri::WebviewWindow, service: tauri::State<'_, window_service::WindowService>, path: String, format: String, html: String) -> Result<(), String> {
     if format != "html" {
-        return Err(format!("Unsupported export format: {}", format));
+        return Err(format!("Unsupported export format: {format}"));
     }
-    document_disk::write(Path::new(&path), &html, None).map_err(|error| match error {
-        SaveError::Io(message) => message,
-        SaveError::Conflict { .. } => "Could not export HTML".into(),
-    })
-}
-
-// Quit application
-#[tauri::command]
-async fn quit_app(app_handle: tauri::AppHandle) -> Result<(), String> {
-    println!("[TAURI] Quit application requested");
-    app_handle.exit(0);
-    Ok(())
+    window_service::write_unowned(&service, window.label(), &path, &html, false)
 }
 
 // Show about dialog
@@ -235,12 +211,6 @@ async fn get_document_stats(content: String) -> Result<HashMap<String, usize>, S
 }
 
 // Menu system temporarily disabled for Tauri 2 compatibility
-
-#[tauri::command]
-fn take_os_open(queue: tauri::State<os_open::OpenQueue>) -> Result<serde_json::Value, String> {
-    let batch = queue.drain()?;
-    Ok(serde_json::json!({ "paths": batch.paths, "errors": batch.errors }))
-}
 
 fn main() {
     #[cfg(target_os = "windows")]
@@ -302,7 +272,7 @@ fn main() {
     let cleanup_error = windows_install::retry_legacy_cleanup().err();
     tauri::Builder::default()
         .manage(native_menu::NativeState::default())
-        .manage(os_open::OpenQueue::default())
+        .manage(window_service::WindowService::default())
         .manage(window_preferences::PreferenceState::default())
         .manage(sql_import::SqlPicker::default())
         .manage(settings_profile::SettingsProfilePicker::default())
@@ -312,12 +282,27 @@ fn main() {
             native_menu::sync_native_menu,
             update_policy::check_updates,
             update_policy::open_update_link,
-            take_os_open,
+            window_service::take_os_open,
             sql_import::pick_sql_source,
             settings_profile::import_settings_profile,
             settings_profile::export_settings_profile,
             retain_rejected_storage,
-            load_preferences, save_preferences, load_workspace, save_workspace,
+            load_preferences, save_preferences,
+            window_service::load_workspace,
+            window_service::mark_editor_window_ready,
+            window_service::save_workspace,
+            window_service::create_editor_window,
+            window_service::list_editor_windows,
+            window_service::focus_editor_window,
+            window_service::finish_editor_window_close,
+            window_service::open_owned_document,
+            window_service::claim_document_path,
+            window_service::release_document_claim,
+            window_service::move_editor_document,
+            window_service::take_editor_transfers,
+            window_service::ack_editor_transfer,
+            window_service::editor_document_owner,
+            window_service::answer_app_quit,
             canonical_document_path,
             is_dialog_directory_available,
             create_document,
@@ -328,39 +313,22 @@ fn main() {
             monitor_document_disk,
             read_document_disk,
             export_document,
-            quit_app,
+            window_service::quit_app,
             show_about_dialog,
             get_document_stats
         ])
+        .on_window_event(window_service::on_window_event)
         .setup(move |app| {
+            #[cfg(target_os = "macos")]
+            native_menu::install(app.handle())?;
+            window_service::build_windows(app.handle())?;
             #[cfg(target_os = "windows")]
-            {
-                let queue = app.state::<os_open::OpenQueue>();
+            window_service::enqueue_os_open(app.handle(), |queue| {
                 let _ = queue.enqueue_argv(windows_args);
                 if let Some(error) = cleanup_error {
                     let _ = queue.reject_batch(&format!("Legacy Windows installation cleanup could not finish: {error}"));
                 }
-            }
-            #[cfg(target_os = "macos")]
-            native_menu::install(app.handle())?;
-            // Build configured windows here so their production asset responses
-            // receive the worker's own CSP (document meta CSP is insufficient).
-            for config in &app.config().app.windows {
-                tauri::WebviewWindowBuilder::from_config(app, config)?
-                    .on_web_resource_request(|request, response| {
-                        let path = request.uri().path();
-                        if dot_policy::is_math_worker(path) || dot_policy::is_regex_worker(path) || dot_policy::is_dbml_worker(path) || dot_policy::is_sql_worker(path) {
-                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::LOCAL_WORKER_CSP));
-                            response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
-                        }
-                        if dot_policy::is_dot_worker(path) {
-                            response.headers_mut().insert("Content-Security-Policy", tauri::http::HeaderValue::from_static(dot_policy::WORKER_CSP));
-                            response.headers_mut().insert("X-Content-Type-Options", tauri::http::HeaderValue::from_static("nosniff"));
-                            eprintln!("[DOT] worker response CSP: {}", dot_policy::WORKER_CSP);
-                        }
-                    })
-                    .build()?;
-            }
+            });
             #[cfg(target_os = "windows")]
             inbox.start(app.handle().clone())?;
             println!("[TAURI] Application setup completed");
@@ -368,26 +336,28 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app,event| {
+        .run(|app, event| {
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { ref urls } = event {
-                let queue = app.state::<os_open::OpenQueue>();
-                let paths: Result<Vec<_>,_> = urls.iter().map(|url| url.to_file_path()).collect();
-                match paths {
-                    Ok(paths) => { let _ = queue.enqueue(paths); },
-                    Err(_) => { let _ = queue.reject_batch("No files from this batch were opened: unsupported URL. Only local Markdown files can be opened."); },
-                }
-                let _ = app.emit("os-open-pending", ());
-                if let Some(window)=app.get_webview_window("main") { let _=window.set_focus(); }
+                window_service::enqueue_os_open(app, |queue| {
+                    let paths: Result<Vec<_>, _> = urls.iter().map(|url| url.to_file_path()).collect();
+                    match paths {
+                        Ok(paths) => { let _ = queue.enqueue(paths); }
+                        Err(_) => { let _ = queue.reject_batch("No files from this batch were opened: unsupported URL. Only local Markdown files can be opened."); }
+                    }
+                });
             }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
-                let ready = app.state::<native_menu::NativeState>().0.lock().map(|state|state.ready).unwrap_or(false);
-                if ready && app.get_webview_window("main").is_some() {
+                if window_service::intercept_exit(app) {
                     api.prevent_exit();
-                    native_menu::emit(app,"quit");
+                    if let Err(error) = window_service::initiate_quit(app) {
+                        eprintln!("Could not prepare to quit: {error}");
+                    }
                 }
             }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
         });
 }
 
@@ -415,14 +385,16 @@ mod tests {
         let original = dir.path().join("original.md").to_string_lossy().into_owned();
         let copy = dir.path().join("copy.md").to_string_lossy().into_owned();
         let source = "# Grüße\n\n```mermaid\nflowchart TD\n A --> B\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n";
-        let doc = create_document().await.unwrap();
-        save_document_as(doc.id.clone(), source.into(), original.clone()).await.unwrap();
+        let service = window_service::WindowService::default();
+        let doc = new_document();
+        window_service::register_document("main", &service, &doc.id).unwrap();
+        window_service::save_document(&service, "main", &doc.id, source, &original, None).unwrap();
         let reopened = open_document(Some(original.clone())).await.unwrap();
         assert_eq!(reopened.content, source);
         let edited = format!("{}\nEdited", source);
-        save_document(doc.id.clone(), edited.clone(), original.clone(), source.into()).await.unwrap();
+        window_service::save_document(&service, "main", &doc.id, &edited, &original, Some(source)).unwrap();
         assert_eq!(open_document(Some(original)).await.unwrap().content, edited);
-        save_document_as(doc.id, edited.clone(), copy.clone()).await.unwrap();
+        window_service::save_document(&service, "main", &doc.id, &edited, &copy, None).unwrap();
         assert_eq!(open_document(Some(copy)).await.unwrap().content, edited);
     }
 
@@ -431,9 +403,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("export.html").to_string_lossy().into_owned();
         let html = "<!DOCTYPE html><html><body><table></table><svg></svg></body></html>";
-        export_document(path.clone(), "html".into(), html.into()).await.unwrap();
+        let service = window_service::WindowService::default();
+        window_service::write_unowned(&service, "main", &path, html, false).unwrap();
         assert_eq!(std::fs::read_to_string(path).unwrap(), html);
-        assert!(export_document(dir.path().to_string_lossy().into_owned(), "html".into(), html.into()).await.is_err());
+        assert!(window_service::write_unowned(&service, "main", &dir.path().to_string_lossy(), html, false).is_err());
         assert!(open_document(Some(dir.path().join("missing.md").to_string_lossy().into_owned())).await.is_err());
     }
 }
