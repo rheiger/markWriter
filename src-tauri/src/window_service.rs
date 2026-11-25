@@ -545,7 +545,6 @@ pub async fn editor_document_owner(
     Ok(json!({ "owner": owner, "epoch": state.record(window.label())?.epoch }))
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub fn enqueue_os_open(app: &AppHandle, enqueue: impl FnOnce(&crate::os_open::OpenQueue)) {
     let label = app.state::<WindowService>().lock().ok().and_then(|state| {
         let label = state.target()?;
