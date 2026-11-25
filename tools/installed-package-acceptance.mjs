@@ -311,7 +311,7 @@ try{
  const secondWindow = await wait(async () => (await windowCommand('GET', '/handles')).find(handle => handle !== currentWindow),
    'independent installed editor window')
  await windowCommand('POST', '', { handle: secondWindow })
- await wait(() => run('return !!document.querySelector(".app-main")'), 'independent installed window loaded')
+ await wait(() => run('return !!document.querySelector(".app-main") && !document.querySelector(".app-workspace[inert]")'), 'independent installed window loaded')
  assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'), 'undefined', 'No bridge in the second installed window')
  assert.equal(await run('return document.querySelectorAll(".document-tab").length'), 0, 'New window has a separate workspace')
  await menu('Window', 'Close Window')

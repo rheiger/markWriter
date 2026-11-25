@@ -126,9 +126,12 @@ export interface DocumentOwner { label: string, id: string }
 type OpenOwnedDocument = { document: { id: string, path: string, title?: string, content?: string }, owner?: never } |
   { owner: DocumentOwner, document?: never }
 
-export function suspendWindowWorkspace(): (() => void) | undefined {
+export function canStartWindowOperation() {
   const state = useAppStore.getState()
-  if (checkpointing || hasPendingDocumentOperation(state) || state.documents.some(doc => editorIsComposing(doc.id))) return undefined
+  return !checkpointing && !hasPendingDocumentOperation(state) && !state.documents.some(doc => editorIsComposing(doc.id))
+}
+export function suspendWindowWorkspace(): (() => void) | undefined {
+  if (!canStartWindowOperation()) return undefined
   activeViewCapture?.capture()
   useAppStore.setState({ windowBusy: true })
   return () => useAppStore.setState({ windowBusy: false })

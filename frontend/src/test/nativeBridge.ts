@@ -1,4 +1,5 @@
-import { checkpointWorkspaceForRestart, useAppStore } from '../store/useAppStore'
+import { invoke } from '@tauri-apps/api/core'
+import { canStartWindowOperation, checkpointWorkspaceForRestart, useAppStore } from '../store/useAppStore'
 import { EditorView } from '@codemirror/view'
 import { foldedRanges } from '@codemirror/language'
 
@@ -16,6 +17,8 @@ export function installNativeBridge() {
         const state = useAppStore.getState()
         return { documents: state.documents, config: state.config, document: state.currentDocument, error: state.error, loading: state.isLoading }
       },
+      editorWindows: () => invoke('list_editor_windows'),
+      canReviewQuit: () => !document.querySelector('dialog[open]') && canStartWindowOperation(),
       sourceInfo: () => {
         const view = sourceView()
         if (!view) return null

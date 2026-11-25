@@ -115,11 +115,27 @@ export async function verifyMultiWindow({
   const remaining = (await snapshot()).documents
   assert.ok(drafts.every(draft => remaining.some(doc => doc.id === draft.id && doc.isDirty)))
 
+  // Restoring workspace HTML precedes the native acknowledgement that the
+  // renderer's quit listener exists, particularly for a large primary window.
+  await wait(async () => {
+    const windows = await run('return window.__MARKWRITER_ACCEPTANCE__.editorWindows()')
+    return windows.length === 2 && windows.every(window => window.ready)
+  }, 'restored native windows acknowledged their IPC listeners')
+  for (const handle of await handles()) {
+    await switchTo(handle)
+    await wait(() => run('return window.__MARKWRITER_ACCEPTANCE__.canReviewQuit()'), 'restored editor ready to review Quit')
+  }
+  await switchTo(recovered)
   await menu('File', 'Quit')
   const reviewWindow = await wait(async () => {
     for (const handle of await handles()) {
       await switchTo(handle)
-      if (await run('return !!document.querySelector(\'dialog[aria-label="Unsaved changes"][open]\')')) return handle
+      const detail = await run(`return {
+        confirming: !!document.querySelector('dialog[aria-label="Unsaved changes"][open]'),
+        error: window.__MARKWRITER_ACCEPTANCE__.snapshot().error
+      };`)
+      if (detail.confirming) return handle
+      if (detail.error?.includes('quit')) throw new Error(detail.error)
     }
     return null
   }, 'app Quit asks a window to review its dirty documents')
@@ -130,6 +146,6 @@ export async function verifyMultiWindow({
   return [
     'independent windows, window list and shared default editor preference',
     'dirty tab moves preserve ownership and Markdown/WYSIWYG Undo and Redo',
-    'dirty moved drafts recover in their destination window after interruption; Cancel preserves the window and app',
+    'dirty moved drafts recover in their destination window after interruption and Cancel preserves the window and app',
   ]
 }

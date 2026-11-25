@@ -191,6 +191,7 @@ pub struct WindowInfo {
     label: String,
     title: String,
     focused: bool,
+    ready: bool,
 }
 
 #[tauri::command]
@@ -199,15 +200,16 @@ pub async fn list_editor_windows(app: AppHandle) -> Result<Vec<WindowInfo>, Stri
     let (labels, focused) = {
         let state = service.lock()?;
         (
-            state.windows.keys().cloned().collect::<Vec<_>>(),
+            state.windows.iter().map(|(label, window)| (label.clone(), window.ready)).collect::<Vec<_>>(),
             state.target(),
         )
     };
     Ok(labels
         .into_iter()
-        .filter_map(|label| {
+        .filter_map(|(label, ready)| {
             let window = app.get_webview_window(&label)?;
             Some(WindowInfo {
+                ready,
                 focused: focused.as_ref() == Some(&label),
                 title: window.title().unwrap_or_else(|_| "MarkWriter".into()),
                 label,
