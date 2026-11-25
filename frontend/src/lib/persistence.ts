@@ -1,5 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { useAppStore, type AppState, type Document } from '../store/useAppStore'
+import { hasPendingDocumentSaves, useAppStore, type AppState, type Document } from '../store/useAppStore'
 import { parsePreferences, parseUpdateChoices, type AppConfig, type UpdateChoice } from './preferences'
 
 let preferencesBlocked = false
@@ -91,19 +91,36 @@ export function snapshotWorkspace(documents = useAppStore.getState().documents, 
   activeId = useAppStore.getState().currentDocument?.id ?? null) {
   return { version: 1 as const, activeId, documents: documents.map(recoveryDocument), fileViews }
 }
-export async function flushWorkspace(value = snapshotWorkspace()) {
+function cancelWorkspaceTimer() {
   clearTimeout(timer)
+  timer = undefined
+}
+function staleWorkspace(error: unknown): error is { kind: 'stale-workspace', message: string } {
+  return typeof error === 'object' && error !== null && 'kind' in error && error.kind === 'stale-workspace' &&
+    'message' in error && typeof error.message === 'string'
+}
+function enqueueWorkspaceWrite(write: () => Promise<void>) {
+  const pending = workspaceWrites.catch(() => {}).then(write)
+  workspaceWrites = pending
+  return pending
+}
+async function writeWorkspace(value: ReturnType<typeof snapshotWorkspace>, epoch: number) {
+  if (workspaceBlocked) {
+    await retainRejected('workspace')
+    workspaceBlocked = false
+  }
+  await invoke('save_workspace', { value, epoch })
+}
+
+export async function flushWorkspace(value = snapshotWorkspace()) {
+  cancelWorkspaceTimer()
   if (!isTauri()) return
   const epoch = workspaceEpoch
-  const write = workspaceWrites.catch(() => {}).then(async () => {
-    if (workspaceBlocked) {
-      await retainRejected('workspace')
-      workspaceBlocked = false
-    }
-    await invoke('save_workspace', { value, epoch })
-  })
-  workspaceWrites = write
-  await write
+  try { await enqueueWorkspaceWrite(() => writeWorkspace(value, epoch)) }
+  catch (error) {
+    if (staleWorkspace(error)) throw new Error(error.message)
+    throw error
+  }
 }
 export async function loadWorkspace() {
   if (!isTauri()) return
@@ -163,12 +180,40 @@ export function sameWorkspaceRecoveryState(state: AppState, prior: AppState) {
 }
 
 export function watchWorkspace() {
-  return useAppStore.subscribe((state, prior) => {
-    if (state.windowBusy) { clearTimeout(timer); return }
+  let stopped = false
+  const schedule = (retried = false) => {
+    cancelWorkspaceTimer()
+    timer = setTimeout(() => {
+      timer = undefined
+      if (!isTauri()) return
+      void enqueueWorkspaceWrite(async () => {
+        if (stopped || useAppStore.getState().windowBusy) return
+        // Save As can change native ownership before its IPC reply reaches this
+        // WebView. Take the snapshot at the queue head after saves settle.
+        if (hasPendingDocumentSaves()) {
+          if (timer === undefined) schedule(retried)
+          return
+        }
+        await writeWorkspace(snapshotWorkspace(), workspaceEpoch)
+      }).catch(error => {
+        if (stopped) return
+        if (staleWorkspace(error)) {
+          // An incoming tab or a successful Save As may already have scheduled
+          // a newer snapshot. Otherwise give the reconciled state one retry.
+          if (useAppStore.getState().windowBusy || timer !== undefined) return
+          if (!retried) { schedule(true); return }
+        }
+        const message = staleWorkspace(error) ? error.message : String(error)
+        useAppStore.getState().setError(`Recovery could not be saved: ${message}`)
+      })
+    }, 400)
+  }
+  const unsubscribe = useAppStore.subscribe((state, prior) => {
+    if (state.windowBusy) { cancelWorkspaceTimer(); return }
     if (!prior.windowBusy && sameWorkspaceRecoveryState(state, prior)) return
-    clearTimeout(timer)
-    timer = setTimeout(() => { void flushWorkspace().catch(error => useAppStore.getState().setError(`Recovery could not be saved: ${String(error)}`)) }, 400)
+    schedule()
   })
+  return () => { stopped = true; cancelWorkspaceTimer(); unsubscribe() }
 }
 
 export async function flushPreferences() { await preferenceWrites }
