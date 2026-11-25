@@ -43,14 +43,6 @@ def descendants(node):
         yield from descendants(child)
 
 
-def accessible(name, role):
-    for node in descendants(pyatspi.Registry.getDesktop(0)):
-        if node.name == name and node.getRoleName() == role:
-            if node.getState().contains(pyatspi.STATE_SHOWING):
-                return node
-    return None
-
-
 def editable_fixture(text):
     for node in descendants(pyatspi.Registry.getDesktop(0)):
         state = node.getState()
@@ -80,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def click_visible_text(pattern, screenshot, region=None):
+def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent_open_rows=False):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -96,6 +88,18 @@ def click_visible_text(pattern, screenshot, region=None):
             if row["text"]:
                 key = tuple(row[column] for column in ("block_num", "par_num", "line_num"))
                 lines.setdefault(key, []).append(row)
+        if adjacent_open_rows:
+            # Tesseract can split "With..." from "Open". Pair the aligned
+            # first words of the top two actions in the same context menu.
+            entries = sorted(
+                (int(words[0]["left"]), int(words[0]["top"]), int(words[0]["width"]),
+                 int(words[0]["height"]))
+                for words in lines.values() if words[0]["text"].casefold() == "open"
+            )
+            for x, y, width, height in entries:
+                if any(abs(x - earlier_x) <= 5 and 22 <= y - earlier_y <= 45
+                       for earlier_x, earlier_y, _, _ in entries):
+                    return x + width // 2, y + height // 2
         for words in lines.values():
             label = " ".join(word["text"] for word in words)
             if re.fullmatch(pattern, label, re.IGNORECASE):
@@ -103,20 +107,38 @@ def click_visible_text(pattern, screenshot, region=None):
                 return int(first["left"]) + int(first["width"]) // 2, int(first["top"]) + int(first["height"]) // 2
         return None
 
+    if disappear:
+        wait(f"{pattern} from the closed dialog", lambda: find() is None, 12)
+        return None
     x, y = wait(pattern, find, 12)
     if region:
         x, y = x + region[0], y + region[1]
+    return x, y
+
+
+def click_visible_text(pattern, screenshot, region=None):
+    x, y = visible_point(pattern, screenshot, region)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
 
 
-def choose_markwriter(window, path, label, multiple=False):
-    cell = wait(path.name, lambda: accessible(path.name, "table cell"))
+def select_pattern(window, pattern):
+    # GTK versions expose Nautilus grid items with different AT-SPI roles.
+    # Select by the ASCII fixture prefix in Nautilus's own pattern dialog.
     command("xdotool", "windowactivate", "--sync", window)
-    click_in(window, cell)
-    if multiple:
-        command("xdotool", "key", "ctrl+a")
-    click_in(window, cell, "3")
-    click_visible_text(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png")
+    command("xdotool", "key", "ctrl+s")
+    visible_point(r".*Select Items Matching.*", EVIDENCE / "select-pattern.png")
+    command("xdotool", "type", "--clearmodifiers", pattern)
+    command("xdotool", "key", "Return")
+    visible_point(r".*Select Items Matching.*", EVIDENCE / "selection.png", disappear=True)
+
+
+def choose_markwriter(window, path, label, multiple=False):
+    pattern = "*" if multiple else path.name.split(maxsplit=1)[0] + " *"
+    select_pattern(window, pattern)
+    command("xdotool", "key", "Shift+F10")
+    x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
+                         adjacent_open_rows=True)
+    command("xdotool", "mousemove", str(x), str(y), "click", "1")
     dialog = wait("Open File dialog", lambda: window_id(r"^Open File"))
     command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
     if mime_state()["default"] != MARKWRITER:
@@ -126,8 +148,7 @@ def choose_markwriter(window, path, label, multiple=False):
         # Exclude the icons so adjacent letter strokes do not merge into them.
         click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
                            (x + 74, y + 90, width - 90, height - 156))
-    button = wait("Open button", lambda: accessible("Open", "button"))
-    click_in(dialog, button)
+    command("xdotool", "key", "Return")
 
 
 def mime_state():
@@ -201,8 +222,7 @@ def audit(mode):
         subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
     window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
     if mode == "existing":
-        cell = wait(first.name, lambda: accessible(first.name, "table cell"))
-        click_in(window, cell)
+        select_pattern(window, "A *")
         command("xdotool", "key", "Return")
         log = ROOT / "incumbent-paths.txt"
         wait("double-click dispatch to the incumbent", lambda: log.read_text().strip() == str(first))
@@ -254,6 +274,11 @@ if __name__ == "__main__":
         result = audit(mode)
         (EVIDENCE / f"{mode}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
         print(json.dumps(result, ensure_ascii=False))
+    except Exception:
+        subprocess.run(["scrot", str(EVIDENCE / f"{mode}-failure.png")], check=False)
+        subprocess.run(["xdotool", "search", "--onlyvisible", "--name", ".", "getwindowname", "%@"],
+                       check=False)
+        raise
     finally:
         if mode in {"fresh", "existing"}:
             # The X server and profile belong solely to this test. Keep the
