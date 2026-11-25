@@ -455,7 +455,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
 
           // Execute action
           if (actionToExecute) {
-            setTimeout(actionToExecute, 0)
+            const execute = actionToExecute
+            setTimeout(() => {
+              if (!useAppStore.getState().windowBusy) execute()
+            }, 0)
           }
         }
       }
