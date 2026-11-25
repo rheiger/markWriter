@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core'
 import { checkpointWorkspaceForRestart, useAppStore } from '../store/useAppStore'
 import { EditorView } from '@codemirror/view'
 import { foldedRanges } from '@codemirror/language'
@@ -42,7 +41,6 @@ export function installNativeBridge() {
         if (!document.querySelector('.app-main')) throw new Error('The workspace is still restoring.')
         return checkpointWorkspaceForRestart()
       },
-      interrupt: () => invoke('quit_app'),
       activate: (id: string) => useAppStore.getState().activateDocument(id),
       close: (id: string) => useAppStore.getState().closeDocument(id),
       saveAll: () => useAppStore.getState().saveAll(),

@@ -1,4 +1,6 @@
 import { verifyRegex } from './regex-acceptance.mjs'
+import { stopOwnedApplication } from './owned-process.mjs'
+import { verifyMultiWindow } from './window-acceptance.mjs'
 // Real desktop WebView + production store/IPC acceptance. Node 24; no npm packages.
 // Protocol: https://www.w3.org/TR/webdriver2/#executing-script
 // Driver: https://v2.tauri.app/develop/tests/webdriver/manual-setup/
@@ -77,6 +79,15 @@ async function waitFor(check, description, timeout = 30000) {
     await delay(100)
   }
   throw new Error(`Timed out: ${description}${last ? `: ${last}` : ''}`)
+}
+async function restartApplication() {
+  // Interrupt only the synthetic application launched by this driver. The
+  // production Quit command must continue to show its unsaved-draft prompts.
+  await stopOwnedApplication(driver.pid, binaryPath)
+  await request('DELETE', `/session/${session}`).catch(() => {})
+  const restarted = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: binaryPath } } } })
+  session = restarted.sessionId
+  await request('POST', `/session/${session}/timeouts`, { script: 30000 })
 }
 const run = (script, ...args) => request('POST', `/session/${session}/execute/sync`, { script, args })
 async function action(name, ...args) {
@@ -579,14 +590,7 @@ try {
   await action('selectSource', 2, 5)
   await action('checkpointForRestart')
   assert.deepEqual(await readFile(namedRecoveryPath), Buffer.from(namedRecoveryBaseline))
-  // Exercise restart recovery without responding to dirty Close dialogs.
-  // Only the isolated acceptance bridge exposes this explicit production quit command.
-  await run('setTimeout(() => { void window.__MARKWRITER_ACCEPTANCE__.interrupt() }, 100); return true;')
-  await delay(300)
-  await request('DELETE', `/session/${session}`).catch(() => {})
-  const restarted = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: binaryPath } } } })
-  session = restarted.sessionId
-  await request('POST', `/session/${session}/timeouts`, { script: 30000 })
+  await restartApplication()
   await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'restarted application')
   await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error?.includes("External changes:")'),
     'external conflict recovery report')
@@ -672,6 +676,12 @@ try {
     saveAs: path => action('saveAs',path),exportHtml: path => action('exportHtml',path),
     wait:waitFor,syntax,request,session,fixture:tomlEditorFixture(),name:'long-toml',label:'long explicit TOML'})
   alpha3Cases.push(...longToml.cases)
+  const windows = await verifyMultiWindow({
+    dir: fixtureDir, run, click, menu, mode, action, snapshot, wait: waitFor, restartApplication,
+    windowCommand: (method, path, body) => request(method, `/session/${session}/window${path}`, body),
+    pointer: actions => request('POST', `/session/${session}/actions`, { actions }),
+  })
+  alpha3Cases.push(...windows)
   await writeFile(join(artifacts,'toml-evidence.json'),JSON.stringify(longToml,null,2))
   await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
   await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
