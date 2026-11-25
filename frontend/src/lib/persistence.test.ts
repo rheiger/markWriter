@@ -1,11 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { useAppStore, type Document } from '../store/useAppStore'
+import { checkpointWorkspaceForRestart, openDocumentWithDialog, registerActiveViewCapture, saveWithDialog, useAppStore, type Document } from '../store/useAppStore'
 import { applyPreferences, flushPreferences, flushWorkspace, loadPreferences, saveUpdateChoice, watchPreferences } from './persistence'
 import { defaultConfig } from './preferences'
 import { encodeSettingsProfile, parseSettingsProfile } from './settingsProfile'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn() }))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn() }))
 
 const draft: Document = { id: 'synthetic', title: 'draft', content: 'draft bytes\n', revision: 3, lastModified: new Date(0), isDirty: true }
 const skipped = { '2.14.1': { kind: 'skip' } }
@@ -81,5 +83,131 @@ it('preserves a toolbar edit and an update choice queued during a settings write
     expect(useAppStore.getState()).toMatchObject({ config: { theme: 'dark', fontSize: 19 }, updateChoices: skipped })
   } finally {
     stopWatching()
+  }
+})
+
+it('checkpoints dirty named and untitled documents and the current view without saving original files', async () => {
+  const named = { ...draft, id: 'named', path: '/test/synthetic.md', savedContent: 'saved bytes\n' }
+  const state = useAppStore.getState()
+  state.setCurrentDocument(named)
+  const unregister = registerActiveViewCapture(named.id, () => {
+    state.rememberView(named.id, { sourceAnchor: 4, sourceHead: 9 })
+  })
+  const stopWatching = watchPreferences()
+  try {
+    const choice = saveUpdateChoice('2.14.1', { kind: 'skip' })
+    await choice
+    state.updateConfig({ theme: 'dark' })
+    await checkpointWorkspaceForRestart()
+    expect(preferencesOnDisk).toMatchObject({ config: { theme: 'dark' }, updateChoices: skipped })
+    expect(invoke).toHaveBeenCalledWith('save_workspace', {
+      value: expect.objectContaining({ activeId: named.id, documents: [draft,
+        { ...named, viewState: { sourceAnchor: 4, sourceHead: 9 }, sourceViewportAnchor: undefined }] }),
+    })
+    expect(vi.mocked(invoke).mock.calls.every(([command]) => ['save_preferences', 'save_workspace'].includes(command))).toBe(true)
+    expect(useAppStore.getState().documents.every(doc => doc.isDirty)).toBe(true)
+  } finally {
+    stopWatching()
+    unregister()
+  }
+})
+
+it.each(['save_preferences', 'save_workspace'])('blocks a checkpoint when %s fails and allows a retry', async command => {
+  const storage = vi.mocked(invoke).getMockImplementation()!
+  let failing = true
+  vi.mocked(invoke).mockImplementation(async (called, args) => {
+    if (called === command && failing) throw new Error('storage unavailable')
+    return storage(called, args)
+  })
+
+  await expect(checkpointWorkspaceForRestart()).rejects.toThrow('storage unavailable')
+  await expect(flushPreferences()).resolves.toBeUndefined()
+  expect(useAppStore.getState().currentDocument).toEqual(draft)
+  failing = false
+  await expect(checkpointWorkspaceForRestart()).resolves.toBeUndefined()
+})
+
+it('blocks another checkpoint and detects a newer edit while awaiting workspace storage', async () => {
+  const started = Promise.withResolvers<void>()
+  const stored = Promise.withResolvers<void>()
+  vi.mocked(invoke).mockImplementation(async command => {
+    if (command === 'save_workspace') { started.resolve(); await stored.promise }
+  })
+
+  const result = checkpointWorkspaceForRestart()
+  const rejected = expect(result).rejects.toThrow(/changed/)
+  await started.promise
+  await expect(checkpointWorkspaceForRestart()).rejects.toThrow(/already/)
+  useAppStore.getState().updateDocumentContent('Newer draft bytes')
+  stored.resolve()
+  await rejected
+  expect(useAppStore.getState().currentDocument?.content).toBe('Newer draft bytes')
+  await expect(checkpointWorkspaceForRestart()).resolves.toBeUndefined()
+})
+
+it('blocks checkpointing while a native document open is unresolved', async () => {
+  const opened = Promise.withResolvers<Document>()
+  vi.mocked(invoke).mockImplementationOnce(() => opened.promise)
+  const loading = useAppStore.getState().openDocument('/test/another.md')
+  try {
+    await expect(checkpointWorkspaceForRestart()).rejects.toThrow(/document operation/i)
+  } finally {
+    opened.resolve({ ...draft, id: 'opened', path: '/test/another.md' })
+    await loading
+  }
+  await expect(checkpointWorkspaceForRestart()).resolves.toBeUndefined()
+})
+
+it('rejects a settings write queued during checkpointing before that write publishes its result', async () => {
+  const workspaceStarted = Promise.withResolvers<void>()
+  const workspaceStored = Promise.withResolvers<void>()
+  const settingsStarted = Promise.withResolvers<void>()
+  const settingsStored = Promise.withResolvers<void>()
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === 'save_workspace') {
+      workspaceStarted.resolve()
+      await workspaceStored.promise
+    }
+    if (command === 'save_preferences' && args?.value.config.theme === 'dark') {
+      settingsStarted.resolve()
+      await settingsStored.promise
+    }
+  })
+
+  const checkpoint = checkpointWorkspaceForRestart()
+  const rejected = expect(checkpoint).rejects.toThrow(/changed/)
+  await workspaceStarted.promise
+  const settings = applyPreferences({ ...defaultConfig, theme: 'dark' })
+  await settingsStarted.promise
+  workspaceStored.resolve()
+  try {
+    await rejected
+    expect(useAppStore.getState().config.theme).toBe(defaultConfig.theme)
+  } finally {
+    settingsStored.resolve()
+    await settings
+  }
+  expect(useAppStore.getState().config.theme).toBe('dark')
+})
+
+it('blocks checkpointing while the UI Open or Save As picker is unresolved', async () => {
+  const chooseOpen = Promise.withResolvers<null>()
+  const chooseSave = Promise.withResolvers<null>()
+  vi.mocked(open).mockImplementationOnce(() => chooseOpen.promise)
+  vi.mocked(save).mockImplementationOnce(() => chooseSave.promise)
+  try {
+    const opening = openDocumentWithDialog()
+    await expect(checkpointWorkspaceForRestart()).rejects.toThrow(/document operation/i)
+    chooseOpen.resolve(null)
+    await opening
+
+    const saving = saveWithDialog(draft, true)
+    await expect(checkpointWorkspaceForRestart()).rejects.toThrow(/document operation/i)
+    chooseSave.resolve(null)
+    expect(await saving).toBe(false)
+    await expect(checkpointWorkspaceForRestart()).resolves.toBeUndefined()
+  } finally {
+    chooseOpen.resolve(null)
+    chooseSave.resolve(null)
   }
 })

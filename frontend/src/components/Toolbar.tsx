@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { open, save } from '@tauri-apps/plugin-dialog'
+import { openDocumentWithDialog, saveWithDialog, useAppStore } from '../store/useAppStore'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './Toolbar.css'
 import { TablePicker } from './TablePicker'
@@ -16,9 +15,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
     currentDocument,
     config,
     updateConfig,
-    openDocument,
     saveDocument,
-    saveDocumentAs,
   } = useAppStore()
   const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
   const defaultTextSize = editorMode === 'markdown' ? 14 : 16
@@ -36,19 +33,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
   // File operations
   const handleOpen = async () => {
     try {
-      const selected = await open({
-        multiple: false,
-        filters: [
-          {
-            name: 'Markdown',
-            extensions: ['md', 'markdown', 'txt']
-          }
-        ]
-      })
-
-      if (selected && typeof selected === 'string') {
-        await openDocument(selected)
-      }
+      await openDocumentWithDialog()
     } catch (error) {
       console.error('[TOOLBAR] Failed to open file:', error)
     }
@@ -70,18 +55,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
     const snapshot = currentDocument
     if (!snapshot) return
     try {
-      const selected = await save({
-        filters: [
-          {
-            name: 'Markdown',
-            extensions: ['md', 'markdown']
-          }
-        ]
-      })
-
-      if (selected) {
-        await saveDocumentAs(selected, snapshot.id, snapshot)
-      }
+      await saveWithDialog(snapshot, true)
     } catch (error) {
       console.error('[TOOLBAR] Failed to save file:', error)
     }

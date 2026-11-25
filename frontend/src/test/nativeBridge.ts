@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { flushWorkspace } from '../lib/persistence'
-import { useAppStore } from '../store/useAppStore'
+import { checkpointWorkspaceForRestart, useAppStore } from '../store/useAppStore'
 import { EditorView } from '@codemirror/view'
 import { foldedRanges } from '@codemirror/language'
 
@@ -38,7 +37,11 @@ export function installNativeBridge() {
         view.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'start', yMargin: 16 }) })
       },
       configure: (patch: Parameters<ReturnType<typeof useAppStore.getState>['updateConfig']>[0]) => useAppStore.getState().updateConfig(patch),
-      flush: () => flushWorkspace(),
+      checkpointForRestart: () => {
+        // App mounts its editor workspace after preferences and recovery load.
+        if (!document.querySelector('.app-main')) throw new Error('The workspace is still restoring.')
+        return checkpointWorkspaceForRestart()
+      },
       interrupt: () => invoke('quit_app'),
       activate: (id: string) => useAppStore.getState().activateDocument(id),
       close: (id: string) => useAppStore.getState().closeDocument(id),

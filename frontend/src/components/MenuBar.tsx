@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useAppStore, useTheme, confirmDiscardChanges } from '../store/useAppStore'
-import { open, save } from '@tauri-apps/plugin-dialog'
+import { useAppStore, useTheme, confirmDiscardChanges, openDocumentWithDialog, saveWithDialog } from '../store/useAppStore'
+import { save } from '@tauri-apps/plugin-dialog'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { acceptsNativeCommand } from '../lib/nativeCommands'
@@ -38,9 +38,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     config,
     updateConfig,
     createNewDocument,
-    openDocument,
     saveDocument,
-    saveDocumentAs,
     exportDocument,
     pendingClose,
     pendingDiskReload,
@@ -113,24 +111,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     setActiveMenu(null)
     console.log('[DEBUG] handleOpen called')
     try {
-      console.log('[MENU] Opening file dialog...')
-      const selected = await open({
-        multiple: false,
-        filters: [
-          {
-            name: 'Markdown',
-            extensions: ['md', 'markdown', 'txt']
-          }
-        ]
-      })
-
-      console.log('[MENU] File dialog result:', selected)
-
-      if (selected && typeof selected === 'string') {
-        console.log('[MENU] Opening document:', selected)
-        await openDocument(selected)
-        console.log('[MENU] Document opened successfully')
-      }
+      await openDocumentWithDialog()
     } catch (error) {
       console.error('[MENU] Failed to open file:', error)
       alert(`Failed to open file: ${error}`)
@@ -161,23 +142,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     if (!snapshot) return
     console.log('[DEBUG] handleSaveAs called')
     try {
-      console.log('[MENU] Opening Save As dialog...')
-      const selected = await save({
-        filters: [
-          {
-            name: 'Markdown',
-            extensions: ['md', 'markdown']
-          }
-        ]
-      })
-
-      console.log('[MENU] Save As dialog result:', selected)
-
-      if (selected) {
-        console.log('[MENU] Saving document as:', selected)
-        await saveDocumentAs(selected, snapshot.id, snapshot)
-        console.log('[MENU] Document saved as successfully')
-      }
+      await saveWithDialog(snapshot, true)
     } catch (error) {
       console.error('[MENU] Failed to save file:', error)
       alert(`Failed to save file: ${error}`)

@@ -520,7 +520,15 @@ try {
   alpha3Cases.push('native HTML export captures syntax preference and embeds escaped static token CSS')
   const externalFiles = await verifyExternalFiles({ dir: fixtureDir, run, click, wait: waitFor, mode, action, snapshot })
   alpha3Cases.push(...externalFiles.cases)
-  // Keep previous recovery fixture active for restart coverage.
+  const namedRecoveryPath = join(fixtureDir, 'restart-saved.md')
+  const namedRecoveryBaseline = '# File on disk\n'
+  const namedRecoveryText = '# Unsaved named draft\n'
+  await writeFile(namedRecoveryPath, namedRecoveryBaseline)
+  const { id: namedRecoveryId, path: namedRecoveryCanonicalPath } = (await action('open', namedRecoveryPath)).document
+  await mode('Markdown')
+  await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();document.execCommand('selectAll');document.execCommand('insertText',false,arguments[0]);`, namedRecoveryText)
+  await waitFor(async () => (await snapshot()).document.content === namedRecoveryText, 'named draft edited before checkpoint')
+  // Keep the untitled recovery fixture active for restart coverage.
   await action('activate', (await snapshot()).documents.find(doc=>doc.content.includes('CUSTOMER') && !doc.path).id)
   await mode('Markdown')
   const recoveryExpected=(await snapshot()).document.content+'\n\n```math\n\\frac{1}{2}+x^2\n```\n\nInline `a  b` and `   `.\n'
@@ -528,8 +536,10 @@ try {
   await waitFor(async()=>(await snapshot()).document.content===recoveryExpected,'exact math/code draft updated before recovery snapshot')
   const recoveryText = (await snapshot()).document.content
   const recoveryId = (await snapshot()).document.id
-  await action('flush')
-  // Exit after flush models an interrupted run without responding to dirty Close dialogs.
+  await action('selectSource', 2, 5)
+  await action('checkpointForRestart')
+  assert.deepEqual(await readFile(namedRecoveryPath), Buffer.from(namedRecoveryBaseline))
+  // Exercise restart recovery without responding to dirty Close dialogs.
   // Only the isolated acceptance bridge exposes this explicit production quit command.
   await run('setTimeout(() => { void window.__MARKWRITER_ACCEPTANCE__.interrupt() }, 100); return true;')
   await delay(300)
@@ -551,6 +561,13 @@ try {
     });`), 'visible long-path recovery report and close control')
   await waitFor(() => run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().error === null'), 'external conflict recovery report expired')
   const restored = await snapshot()
+  const recoveredNamedDraft = restored.documents.find(doc => doc.id === namedRecoveryId)
+  assert.deepEqual({ path: recoveredNamedDraft?.path, content: recoveredNamedDraft?.content, dirty: recoveredNamedDraft?.isDirty },
+    { path: namedRecoveryCanonicalPath, content: namedRecoveryText, dirty: true })
+  assert.deepEqual(await readFile(namedRecoveryPath), Buffer.from(namedRecoveryBaseline))
+  assert.equal(restored.document.id, recoveryId)
+  assert.deepEqual(await run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()?.selection'), { anchor: 2, head: 5 })
+  alpha3Cases.push('update restart checkpoint restores named and untitled drafts, active selection and preferences')
   const conflict = externalFiles.restart
   const recoveredFile = restored.documents.find(doc => doc.id === conflict.id)
   assert.equal(recoveredFile.path ?? null, null)
