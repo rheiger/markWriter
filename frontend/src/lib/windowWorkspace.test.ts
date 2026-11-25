@@ -72,6 +72,21 @@ it.each([false, true])('reconciles a rejected move response using native ownersh
   if (!committed) expect(state().error).toContain('Move did not return successfully')
 })
 
+it('activates a moved tab before waiting for history in an existing window', async () => {
+  const hydrated = deferred<void>()
+  useAppStore.setState({ documents: [sibling], currentDocument: sibling })
+  bridge.stage.mockReturnValueOnce({ ready: hydrated.promise, cancel: vi.fn() })
+  native.mockImplementation(async command =>
+    command === 'take_editor_transfers' ? { epoch: 4, transfers: [{ document: draft, session: {} }] } : null)
+  const receiving = receiveEditorTransfers()
+  await vi.waitFor(() => expect(state().currentDocument?.id).toBe(draft.id))
+  expect(state().windowBusy).toBe(true)
+  expect(native).not.toHaveBeenCalledWith('ack_editor_transfer', expect.anything())
+  hydrated.resolve()
+  expect(await receiving).toBe(true)
+  expect(state().windowBusy).toBe(false)
+})
+
 it('retries native acknowledgment without replacing a previously received tab', async () => {
   let lostReceipt = true
   native.mockImplementation(async command => {

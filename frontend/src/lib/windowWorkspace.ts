@@ -137,6 +137,9 @@ async function finishIncomingTransfers(retryId?: string) {
   if (!pending?.transfers.length) { incoming.clear(); return }
   prepareTransfers(pending, retryId)
   for (const [id, history] of incoming) {
+    // Use the normal active editor lifecycle even before native focus arrives.
+    const document = store.getState().documents.find(doc => doc.id === id)
+    if (document) store.setState({ currentDocument: document })
     const hydrated = await history.ready
     if (!hydrated.ok) {
       history.failed = true
