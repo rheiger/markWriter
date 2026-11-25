@@ -118,7 +118,6 @@ jobs:
       - name: Verify uninstall and bind the final bytes to the qualification receipts
         run: |
           $ErrorActionPreference = 'Stop'
-          ./tools/test-windows-uninstall.ps1
           $installer = 'src-tauri/target/release/bundle/nsis/MarkWriter_2.15.4_x64-setup.exe'
           $releaseFile = 'final-package/MarkWriter-2.15.4-windows-x64.exe'
           if ((Get-FileHash -LiteralPath $installer).Hash -cne $env:FINAL_INSTALLER_SHA256) { throw 'Installer changed during acceptance' }
@@ -132,6 +131,14 @@ jobs:
           $manifest | Add-Member -NotePropertyName finalQualificationRun -NotePropertyValue "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
           $manifest | ConvertTo-Json -Depth 50 | Set-Content -Encoding utf8 final-package/windows-x64.manifest.json
           $env:GITHUB_SHA = $env:CANDIDATE_SOURCE
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item -LiteralPath $releaseFile, 'final-package/windows-x64.manifest.json' -Destination release-assets
+          ./tools/test-windows-uninstall.ps1
+          $rollback = Get-Content -Raw package-acceptance-results/windows-rollback.json | ConvertFrom-Json
+          if (!$rollback.passed -or $rollback.source -cne $env:CANDIDATE_SOURCE -or
+              $rollback.candidate.assetSha256 -cne $manifest.asset.sha256) {
+            throw 'Rollback receipt does not match the final installer'
+          }
           node tools/shell-preview-assets.mjs explorer final-package package-acceptance-results/explorer-preview.json
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
