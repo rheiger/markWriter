@@ -1279,3 +1279,148 @@ describe('rendered Find and Replace after equal-model transactions', () => {
     } finally { spy.mockRestore() }
   })
 })
+
+describe('cross-window editor state handoff', () => {
+  beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
+
+  it('moves both initialized engines through JSON and preserves the exact canonical rendered Undo/Redo journal', async () => {
+    const { captureEditorTransfer, stageEditorTransfer } = await import('../lib/editorTransfer')
+    const { closeHistory, redoDepth, undoDepth } = await import('@tiptap/pm/history')
+    const { redoDepth: sourceRedoDepth } = await import('@codemirror/commands')
+    const original = '# Base\r\n\r\nBefore  paragraph.\r\n'
+    const sourceWindow = await mount(original)
+    await markdown(sourceWindow.ref)
+    act(() => {
+      const cm = sourceWindow.ref.current!.getEditorView()!
+      cm.dispatch({ changes: { from: cm.state.doc.length, insert: 'source probe' }, selection: { anchor: 3, head: 1 } })
+      sourceWindow.ref.current!.undo()
+    })
+    const sourceSelection = sourceWindow.ref.current!.getEditorView()!.state.selection.toJSON()
+    expect(sourceRedoDepth(sourceWindow.ref.current!.getEditorView()!.state)).toBe(1)
+    await wysiwyg(sourceWindow.ref)
+    act(() => {
+      const { editor } = sourceWindow
+      editor.view.dispatch(closeHistory(editor.state.tr.insertText('First ', 9)))
+      editor.view.dispatch(closeHistory(editor.state.tr.insertText('Second ', 9)))
+      sourceWindow.ref.current!.undo()
+      editor.commands.setTextSelection({ from: 2, to: 3 })
+    })
+    const doc = useAppStore.getState().currentDocument!
+    expect(undoDepth(sourceWindow.editor.state)).toBe(1)
+    expect(redoDepth(sourceWindow.editor.state)).toBe(1)
+    const selection = sourceWindow.editor.state.selection.toJSON()
+    const payload = JSON.parse(JSON.stringify(captureEditorTransfer(doc)))
+    expect(() => stageEditorTransfer(doc, payload)).toThrow(/already exists/)
+    sourceWindow.unmount()
+    const pending = stageEditorTransfer(doc, payload)
+    const destinationRef = createRef<EditorViewRef>()
+    const destination = render(<EditorView ref={destinationRef} />)
+    await waitFor(() => expect(destinationRef.current?.getEditorView()).toBeTruthy())
+    await pending.ready
+    const rendered = (destination.container.querySelector('.tiptap') as HTMLElement & { editor: Editor }).editor
+    const codeMirror = destinationRef.current!.getEditorView()!
+    expect(codeMirror.state.selection.toJSON()).toEqual(sourceSelection)
+    expect(sourceRedoDepth(codeMirror.state)).toBe(1)
+    expect(rendered.state.selection.toJSON()).toEqual(selection)
+    expect(undoDepth(rendered.state)).toBe(1)
+    expect(redoDepth(rendered.state)).toBe(1)
+    expect(useAppStore.getState().currentDocument?.content).toBe(doc.content)
+    expect(useAppStore.getState().currentDocument?.revision).toBe(doc.revision)
+    act(() => destinationRef.current!.undo())
+    expect(destinationRef.current!.getMarkdown()).toBe(original)
+    act(() => destinationRef.current!.redo())
+    expect(destinationRef.current!.getMarkdown()).toBe(doc.content)
+    act(() => destinationRef.current!.redo())
+    expect(destinationRef.current!.getMarkdown()).toContain('Second First')
+  })
+
+  it('restores an active Markdown editor’s Undo and Redo while keeping its fold and CRLF source', async () => {
+    const { captureEditorTransfer, stageEditorTransfer } = await import('../lib/editorTransfer')
+    const { isolateHistory, redoDepth, undoDepth } = await import('@codemirror/commands')
+    useAppStore.getState().updateConfig({ collapseSource: true })
+    const original = '# Source\r\n\r\n```mermaid\r\nflowchart TD\r\n A --> B\r\n```\r\n'
+    const sourceWindow = await mount(original)
+    await markdown(sourceWindow.ref)
+    const sourceView = sourceWindow.ref.current!.getEditorView()!
+    act(() => {
+      sourceView.dispatch({
+        changes: { from: 2, insert: 'First ' },
+        annotations: isolateHistory.of('full'),
+      })
+      sourceView.dispatch({
+        changes: { from: 2, insert: 'Second ' },
+        annotations: isolateHistory.of('full'),
+      })
+      sourceWindow.ref.current!.undo()
+      sourceView.dispatch({ selection: { anchor: 5, head: 2 } })
+    })
+    const doc = useAppStore.getState().currentDocument!
+    const folded = (cm: CMView) => {
+      const ranges: [number, number][] = []
+      foldedRanges(cm.state).between(0, cm.state.doc.length, (from, to) => { ranges.push([from, to]) })
+      return ranges
+    }
+    const folds = folded(sourceView)
+    expect(folds).not.toHaveLength(0)
+    const serialized = captureEditorTransfer(doc)
+    sourceWindow.unmount()
+    const pending = stageEditorTransfer(doc, serialized)
+    const ref = createRef<EditorViewRef>()
+    render(<EditorView ref={ref} />)
+    await waitFor(() => expect(ref.current?.getEditorView()).toBeTruthy())
+    await pending.ready
+    const cm = ref.current!.getEditorView()!
+    expect(folded(cm)).toEqual(folds)
+    expect(cm.state.selection.toJSON()).toEqual(sourceView.state.selection.toJSON())
+    expect(redoDepth(cm.state)).toBe(1)
+    expect(undoDepth(cm.state)).toBe(1)
+    act(() => ref.current!.undo())
+    expect(ref.current!.getMarkdown()).toBe(original)
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe(doc.content)
+    act(() => ref.current!.redo())
+    expect(ref.current!.getMarkdown()).toBe(original.replace('# Source', '# Second First Source'))
+  })
+
+  it('refuses to capture an active or hidden tab during live IME composition', async () => {
+    const { captureEditorTransfer } = await import('../lib/editorTransfer')
+    const { ref, editor } = await mount('# Input\n')
+    await markdown(ref)
+    const cm = ref.current!.getEditorView()!
+    const doc = () => useAppStore.getState().documents.find(document => document.id === 'doc-1')!
+    act(() => fireEvent.compositionStart(cm.contentDOM))
+    expect(cm.compositionStarted).toBe(true)
+    expect(() => captureEditorTransfer(doc())).toThrow(/Finish entering/)
+    act(() => fireEvent.compositionEnd(cm.contentDOM))
+    await wysiwyg(ref)
+    const composing = vi.spyOn(editor.view, 'composing', 'get').mockReturnValue(true)
+    try {
+      act(() => useAppStore.getState().setCurrentDocument({
+        id: 'other', title: 'Other', content: 'Other', isDirty: false, lastModified: new Date(),
+      }))
+      expect(() => captureEditorTransfer(doc())).toThrow(/Finish entering/)
+    } finally { composing.mockRestore() }
+    expect(captureEditorTransfer(doc()).id).toBe('doc-1')
+  })
+
+  it('rejects mismatched, malformed and oversized handoffs before mounting a destination', async () => {
+    const { captureEditorTransfer, stageEditorTransfer, validateEditorTransfer } = await import('../lib/editorTransfer')
+    const sourceWindow = await mount('# Move check\n')
+    const doc = useAppStore.getState().currentDocument!
+    const payload = captureEditorTransfer(doc)
+    expect(() => validateEditorTransfer({ ...doc, revision: 99 }, payload)).toThrow(/match this tab/)
+    expect(() => validateEditorTransfer({ ...doc, content: 'unrelated' }, payload)).toThrow(/changed/)
+    expect(() => validateEditorTransfer(doc, { ...payload, rendered: { ...payload.rendered, done: [{ ranges: [0], inverted: false }] } })).toThrow(/safely/)
+    expect(() => validateEditorTransfer(doc, { ...payload, renderedSource: 'ä'.repeat(4_194_304) })).toThrow(/8 MiB/)
+    const remount = stageEditorTransfer(doc, payload, { remount: true })
+    remount.cancel()
+    await expect(remount.ready).rejects.toThrow(/canceled/)
+    sourceWindow.unmount()
+    const pending = stageEditorTransfer(doc, payload)
+    pending.cancel()
+    await expect(pending.ready).rejects.toThrow(/canceled/)
+    const retry = stageEditorTransfer(doc, payload)
+    retry.cancel()
+    await expect(retry.ready).rejects.toThrow(/canceled/)
+  })
+})
