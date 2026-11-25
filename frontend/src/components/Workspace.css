@@ -58,3 +58,7 @@
 .update-notice span { flex: 1; }
 .update-notice button { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; }
 .update-notice button:focus-visible { outline: 2px solid var(--accent-color, #3888dd); outline-offset: 1px; }
+
+.window-list { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.window-list button { width: 100%; text-align: left; overflow-wrap: anywhere; }
+.window-list button[aria-current=true] { font-weight: 600; }

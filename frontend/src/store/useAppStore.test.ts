@@ -331,6 +331,7 @@ describe('external file changes', () => {
       await state().refreshDocumentDisk('one')
       await vi.advanceTimersByTimeAsync(100)
       expect(call).toHaveBeenCalledWith('save_workspace', {
+      epoch: 0,
         value: expect.objectContaining({ documents: [expect.objectContaining({ content: 'Persist this draft' })] }),
       })
       const persisted = call.mock.calls.find(([command]) => command === 'save_workspace')?.[1] as { value: { documents: object[] } }

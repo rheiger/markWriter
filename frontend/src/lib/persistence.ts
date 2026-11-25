@@ -78,25 +78,29 @@ export function watchPreferences() {
   })
 }
 
+let workspaceEpoch = 0
+export const currentWorkspaceEpoch = () => workspaceEpoch
+export const adoptWorkspaceEpoch = (epoch: number) => { workspaceEpoch = Math.max(epoch, workspaceEpoch) }
 let workspaceWrites: Promise<unknown> = Promise.resolve()
 let timer: ReturnType<typeof setTimeout> | undefined
 function recoveryDocument({ diskIssue: _diskIssue, diskRevision: _diskRevision, reloadCount: _reloadCount, ...doc }: Document) {
   return doc
 }
 
-export function snapshotWorkspace(documents = useAppStore.getState().documents, fileViews = useAppStore.getState().fileViews) {
-  const recoveryDocuments = documents.map(recoveryDocument)
-  return { version: 1, activeId: useAppStore.getState().currentDocument?.id ?? null, documents: recoveryDocuments, fileViews }
+export function snapshotWorkspace(documents = useAppStore.getState().documents, fileViews = useAppStore.getState().fileViews,
+  activeId = useAppStore.getState().currentDocument?.id ?? null) {
+  return { version: 1 as const, activeId, documents: documents.map(recoveryDocument), fileViews }
 }
 export async function flushWorkspace(value = snapshotWorkspace()) {
   clearTimeout(timer)
   if (!isTauri()) return
+  const epoch = workspaceEpoch
   const write = workspaceWrites.catch(() => {}).then(async () => {
     if (workspaceBlocked) {
       await retainRejected('workspace')
       workspaceBlocked = false
     }
-    await invoke('save_workspace', { value })
+    await invoke('save_workspace', { value, epoch })
   })
   workspaceWrites = write
   await write
@@ -104,12 +108,28 @@ export async function flushWorkspace(value = snapshotWorkspace()) {
 export async function loadWorkspace() {
   if (!isTauri()) return
   try {
-    const value = await invoke('load_workspace')
+    const value = await invoke<{ windowEpoch?: number } | null>('load_workspace')
+    workspaceEpoch = value?.windowEpoch ?? 0
     if (!value) return
     const { restoreSnapshot } = await import('./session')
     const restored = await restoreSnapshot(value, useAppStore.getState().config.restoreSession,
       path => invoke('open_document', { path }))
-    useAppStore.setState({ documents: restored.documents, fileViews: restored.fileViews, currentDocument: restored.documents.find(d => d.id === restored.activeId) ?? null })
+    const documents: Document[] = []
+    for (const doc of restored.documents) {
+      if (!doc.path) { documents.push(doc); continue }
+      let unownedReason: string | undefined
+      try {
+        const owner = await invoke<{ label: string, id: string } | null>('claim_document_path', { id: doc.id, path: doc.path })
+        if (!owner) { documents.push(doc); continue }
+        unownedReason = 'Open in another window'
+      } catch (error) {
+        unownedReason = `Could not verify which window owns the file (${String(error)})`
+      }
+      if (doc.isDirty) documents.push({ ...doc, title: `${doc.title} (recovery)`, conflictPath: doc.path, path: undefined })
+      restored.warnings.push(`${unownedReason}: ${doc.path}.${doc.isDirty ? ' Your draft is a separate recovery copy.' : ''}`)
+    }
+    useAppStore.setState({ documents, fileViews: restored.fileViews,
+      currentDocument: documents.find(doc => doc.id === restored.activeId) ?? documents[0] ?? null })
     if (restored.warnings.length) useAppStore.getState().setError(restored.warnings.join('\n'))
   } catch (error) {
     try { await retainRejected('workspace') } catch { workspaceBlocked = true }
@@ -132,7 +152,8 @@ export function sameWorkspaceRecoveryState(state: AppState, prior: AppState) {
 
 export function watchWorkspace() {
   return useAppStore.subscribe((state, prior) => {
-    if (sameWorkspaceRecoveryState(state, prior)) return
+    if (state.windowBusy) { clearTimeout(timer); return }
+    if (!prior.windowBusy && sameWorkspaceRecoveryState(state, prior)) return
     clearTimeout(timer)
     timer = setTimeout(() => { void flushWorkspace().catch(error => useAppStore.getState().setError(`Recovery could not be saved: ${String(error)}`)) }, 400)
   })

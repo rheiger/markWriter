@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useAppStore, useTheme, confirmDiscardChanges, openDocumentWithDialog, saveWithDialog } from '../store/useAppStore'
+import { useAppStore, useTheme, openDocumentWithDialog, saveWithDialog, withDocumentDialog } from '../store/useAppStore'
 import { save } from '@tauri-apps/plugin-dialog'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { acceptsNativeCommand } from '../lib/nativeCommands'
 import { EditorViewRef, EditorMode } from './EditorView'
 import './MenuBar.css'
@@ -19,6 +20,8 @@ import { convertSqlInWorker } from '../lib/sqlDdlClient'
 import type { SqlDialect } from '../lib/sqlDdl'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
 import { dialogFolderOptions } from '../lib/dialogFolders'
+import { closeEditorWindow, createEditorWindow, focusEditorWindow, requestAppQuit } from '../lib/windowWorkspace'
+import { WindowPicker } from './WindowPicker'
 const discoverUpdates = () => isTauri()
   ? invoke<UpdateCheckResult>('check_updates')
   : Promise.resolve<UpdateCheckResult>({ kind: 'unsupported', reason: 'Open the desktop app to check for updates.' })
@@ -43,6 +46,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     exportDocument,
     pendingClose,
     pendingDiskReload,
+    windowBusy,
   } = useAppStore()
   const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
   const defaultTextSize = editorMode === 'markdown' ? 14 : 16
@@ -66,6 +70,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   const { check, notice, markSeen, dismissNotice } = useUpdateChecks(isTauri() && config.automaticUpdateChecks, discoverUpdates)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [windowsOpen, setWindowsOpen] = useState(false)
   const helpRef = useRef<HTMLButtonElement>(null)
   const updateNoticeRef = useRef<HTMLDivElement>(null)
   const focusAfterUpdate = () => {
@@ -80,14 +85,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
   const menuIdentity = useRef({ key: '', generation: 0 })
-  const modal = helpOpen || aboutOpen || settingsOpen || !!updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
+  const modal = windowBusy || windowsOpen || helpOpen || aboutOpen || settingsOpen || !!updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
   const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
   if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
   const generation = menuIdentity.current.generation
   const renderedOwner = useRef(currentDocument)
   renderedOwner.current = currentDocument
   useEffect(() => useAppStore.subscribe((state, previous) => {
-    if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose || state.pendingDiskReload !== previous.pendingDiskReload) {
+    if (state.currentDocument?.id !== previous.currentDocument?.id || state.currentDocument?.revision !== previous.currentDocument?.revision || state.currentDocument?.mode !== previous.currentDocument?.mode || state.pendingClose !== previous.pendingClose || state.pendingDiskReload !== previous.pendingDiskReload || state.windowBusy !== previous.windowBusy) {
       ownerEpoch.current++
       menuIdentity.current = { key: '', generation: menuIdentity.current.generation + 1 }
     }
@@ -156,40 +161,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     if (!snapshot) return
     console.log('[DEBUG] handleExportHTML called')
     try {
-      console.log('[MENU] Opening Export HTML dialog...')
-      const folder = useAppStore.getState().config.defaultHtmlExportFolder
-      const selected = await save({
-        filters: [
-          {
-            name: 'HTML',
-            extensions: ['html']
-          }
-        ],
-        ...(folder ? await dialogFolderOptions(folder) : {}),
+      await withDocumentDialog(async () => {
+        const folder = useAppStore.getState().config.defaultHtmlExportFolder
+        const selected = await save({
+          filters: [{ name: 'HTML', extensions: ['html'] }],
+          ...(folder ? await dialogFolderOptions(folder) : {}),
+        })
+        if (selected) await exportDocument(selected, 'html', snapshot)
       })
-
-      console.log('[MENU] Export dialog result:', selected)
-
-      if (selected) {
-        console.log('[MENU] Exporting document as HTML:', selected)
-        await exportDocument(selected, 'html', snapshot)
-        console.log('[MENU] Document exported successfully')
-      }
     } catch (error) {
       console.error('[MENU] Failed to export file:', error)
       alert(`Failed to export file: ${error}`)
     }
   }
 
-  const handleQuit = async () => {
-    setActiveMenu(null)
-    try {
-      if (!await confirmDiscardChanges()) return
-      await invoke('quit_app')
-    } catch (error) {
-      console.error('[MENU] Failed to quit app:', error)
-    }
-  }
+  const handleNewWindow = () => { setActiveMenu(null); void createEditorWindow() }
+  const handleCloseWindow = () => { setActiveMenu(null); void closeEditorWindow() }
+  const handleWindowList = () => { setActiveMenu(null); setWindowsOpen(true) }
+  const handleQuit = () => { setActiveMenu(null); void requestAppQuit() }
 
   // Edit menu handlers - CodeMirror 6 integration
   const handleUndo = () => {
@@ -230,7 +219,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     return { editor, valid: () => {
       const current = useAppStore.getState().currentDocument
       const activeSelection = editorViewRef?.current?.getSelectionIdentity()
-      return current?.id === document.id && (current.revision ?? 0) === revision &&
+      return !useAppStore.getState().windowBusy && current?.id === document.id && (current.revision ?? 0) === revision &&
         activeSelection?.editor === selection.editor && activeSelection.selection === selection.selection
     } }
   }
@@ -332,7 +321,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   }
   useEffect(() => {
     const search = (event: KeyboardEvent) => {
-      if (nativeMac || document.querySelector('dialog[open]')) return
+      if (nativeMac || useAppStore.getState().windowBusy || document.querySelector('dialog[open]')) return
       const mac = navigator.userAgent.includes('Mac')
       const mod = mac ? event.metaKey : event.ctrlKey
       if (!currentDocument || !mod) return
@@ -361,7 +350,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   // Keyboard shortcut handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.querySelector('dialog[open]') || e.defaultPrevented) return
+      if (useAppStore.getState().windowBusy || document.querySelector('dialog[open]') || e.defaultPrevented) return
       if (nativeMac) return
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
@@ -394,6 +383,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             shouldPrevent = true
             actionToExecute = () => setSettingsOpen(true)
             break
+          case 'W':
+            if (e.shiftKey && isTauri()) { shouldPrevent = true; actionToExecute = handleCloseWindow }
+            break
           case 'w':
             shouldPrevent = true
             actionToExecute = () => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id) }
@@ -408,6 +400,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             }
             break
           }
+          case 'N':
+            if (e.shiftKey && isTauri()) { shouldPrevent = true; actionToExecute = handleNewWindow }
+            break
           case 'n':
             shouldPrevent = true
             actionToExecute = handleNew
@@ -478,6 +473,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     if (field && ['undo','redo'].includes(action)) { document.execCommand(action); return }
     const actions: Record<string, () => void> = {
       new: () => { void handleNew() }, open: () => { void handleOpen() },
+      'new-window': handleNewWindow, 'close-window': handleCloseWindow, 'window-list': handleWindowList,
       save: () => { void handleSave() }, 'save-as': () => { void handleSaveAs() },
       'save-all': () => { void useAppStore.getState().saveAll() },
       'close-tab': () => { if (currentDocument) void useAppStore.getState().closeDocument(currentDocument.id) },
@@ -498,7 +494,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     if (!isTauri()) return
     let disposed = false
     let stop: (() => void) | undefined
+    const target = getCurrentWindow().label ?? 'main'
     void listen<{action: string; generation: number}>('native-command', event => {
+      if (useAppStore.getState().windowBusy) return
       const fieldEdit = ['undo','redo'].includes(event.payload.action) && !!document.activeElement?.closest('input,textarea')
       const current = useAppStore.getState().currentDocument
       const owner = renderedOwner.current
@@ -506,13 +504,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
       if (!acceptsNativeCommand(event.payload, menuIdentity.current.generation, !fieldEdit &&
         (!!useAppStore.getState().pendingDiskReload || !!document.querySelector('dialog[open]')))) return
       nativeActions.current(event.payload.action)
-    }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => useAppStore.getState().setError(String(error)))
+    }, { target }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => useAppStore.getState().setError(String(error)))
     return () => { disposed = true; stop?.() }
   }, [])
   useEffect(() => {
     if (!isTauri()) return
     void invoke('sync_native_menu', { state: { generation, ready: true, hasDocument: !!currentDocument, modal,
-      markdown: editorMode === 'markdown', highlighting: config.syntaxHighlighting, theme } })
+      markdown: editorMode === 'markdown', highlighting: config.syntaxHighlighting, theme, title: currentDocument?.title || 'MarkWriter' } })
       .catch(error => useAppStore.getState().setError(String(error)))
   }, [generation, currentDocument, modal, editorMode, config.syntaxHighlighting, theme])
 
@@ -520,6 +518,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     <div className={nativeMac ? 'native-menu-host' : 'menu-bar'}>
       {sqlTarget && <SqlImportDialog onSelectFile={loadSqlImport} onInsert={appendSqlImport} onClose={() => setSqlTarget(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {windowsOpen && <WindowPicker onClose={() => setWindowsOpen(false)} onChoose={label => {
+        setWindowsOpen(false)
+        if (label) void focusEditorWindow(label)
+      }} />}
       {!nativeMac && <>
       {/* File Menu */}
       <div className="menu-item">
@@ -709,6 +711,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
           </div>
         )}
       </div>
+
+      {isTauri() && <div className="menu-item">
+        <button className={`menu-trigger ${activeMenu === 'window' ? 'active' : ''}`}
+          onClick={() => toggleMenu('window')}>Window</button>
+        {activeMenu === 'window' && <div className="menu-dropdown">
+          <button className="menu-option" onClick={handleNewWindow}>New Window</button>
+          <button className="menu-option" onClick={handleCloseWindow}>Close Window</button>
+          <div className="menu-separator" />
+          <button className="menu-option" onClick={handleWindowList}>Show Windows…</button>
+        </div>}
+      </div>}
 
       {/* Help Menu */}
       <div className="menu-item">
