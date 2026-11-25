@@ -102,14 +102,19 @@ export function saveUpdateChoice(version: string, choice: UpdateChoice) {
 }
 export async function loadPreferences() {
   if (!isTauri()) return
+  const startingGeneration = generation
   let value: unknown
   try {
     value = await invoke('load_preferences')
     if (value) acceptPreferences(value)
     else if (generation < 0) useAppStore.setState({ updateChoices: {} })
   } catch (error) {
-    try { await retainRejected('preferences') } catch { preferencesBlocked = true }
-    repairGeneration = (value as { generation?: number } | null)?.generation ?? Math.max(0, generation)
+    const rejectedGeneration = (value as { generation?: number } | null)?.generation ?? Math.max(0, startingGeneration)
+    let blocked = false
+    try { await retainRejected('preferences') } catch { blocked = true }
+    if (generation > rejectedGeneration) return
+    preferencesBlocked = blocked
+    repairGeneration = rejectedGeneration
     useAppStore.setState({ updateChoices: {} })
     useAppStore.getState().setError(`Preferences could not be loaded. Defaults remain usable; rejected storage is retained. ${String(error)}`)
   }

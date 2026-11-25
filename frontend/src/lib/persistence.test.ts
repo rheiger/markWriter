@@ -252,3 +252,39 @@ it('accepts the newest cross-window preferences without echoing another windowâ€
   }
   expect(unlisten).toHaveBeenCalledOnce()
 })
+
+it('keeps a repaired commit received while retaining the rejected original', async () => {
+  let commit: ((event: Event<unknown>) => void) | undefined
+  vi.mocked(listen).mockImplementationOnce(async (_event, handle) => {
+    commit = handle as typeof commit
+    return () => {}
+  })
+  const retaining = Promise.withResolvers<void>()
+  const retained = Promise.withResolvers<void>()
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === 'load_preferences') throw new Error('invalid settings')
+    if (command === 'retain_rejected_storage') {
+      retaining.resolve()
+      await retained.promise
+    }
+    if (command === 'save_preferences') {
+      return { ...args?.value, generation: 203 }
+    }
+    return null
+  })
+  const stop = watchPreferences(true)
+  try {
+    await retaining.promise
+    commit!({ id: 3, event: 'preferences-committed', payload: { version: 1, generation: 202,
+      config: defaultConfig, updateChoices: skipped } })
+    retained.resolve()
+    await retained.promise
+    await applyPreferences({ ...defaultConfig, defaultEditorMode: 'markdown' })
+    expect(useAppStore.getState().updateChoices).toEqual(skipped)
+    const args = vi.mocked(invoke).mock.calls.find(([command]) => command === 'save_preferences')?.[1]
+    expect(args?.repairGeneration).toBeUndefined()
+  } finally {
+    retained.resolve()
+    stop()
+  }
+})
