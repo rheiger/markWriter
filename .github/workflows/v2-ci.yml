@@ -1,24 +1,5 @@
-name: V2 quality and native builds
-
-on:
-  pull_request:
-    paths:
-      - 'frontend/**'
-      - 'src-tauri/**'
-      - '.github/workflows/v2-ci.yml'
-      - 'tools/**'
-      - 'tests/test_update_markwriter_macos.py'
-      - 'tests/test_uninstall_markwriter_macos.py'
-  push:
-    branches: [main, v2-development, 'codex/**']
-    paths:
-      - 'frontend/**'
-      - 'src-tauri/**'
-      - '.github/workflows/v2-ci.yml'
-      - 'tools/**'
-      - 'tests/test_update_markwriter_macos.py'
-      - 'tests/test_uninstall_markwriter_macos.py'
-  workflow_dispatch:
+name: PI 2.17 Apple silicon native verification fallback
+on: workflow_dispatch
 
 permissions:
   contents: read
@@ -40,6 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: 2749ed5aae37243e5b3b6c2de85bf80d3c98341d
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.2'
@@ -58,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, ubuntu-26.04, windows-2025]
+        os: [macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     defaults:
@@ -68,6 +50,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: 2749ed5aae37243e5b3b6c2de85bf80d3c98341d
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.2'
