@@ -1,9 +1,16 @@
 import { expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core'
 import App from '../App'
 import { useAppStore } from '../store/useAppStore'
 import { installNativeBridge } from '../test/nativeBridge'
+const nativeEvents = vi.hoisted(() => new Map<string, (event: { payload: unknown }) => void>())
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(async (name: string, listener: (event: { payload: unknown }) => void) => {
+    nativeEvents.set(name, listener)
+    return () => { if (nativeEvents.get(name) === listener) nativeEvents.delete(name) }
+  }),
+}))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn() }))
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => () => {} }) }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn(), open: vi.fn() }))
@@ -46,4 +53,27 @@ it('loads a saved update opt-out before scheduling checks and keeps the manual m
   fireEvent.click(screen.getByRole('button', { name: 'Check for Updates…' }))
   expect(await screen.findByText('Version 2.12.2 is up to date.')).toBeVisible()
   expect(vi.mocked(invoke).mock.calls.filter(([name]) => name === 'check_updates')).toHaveLength(1)
+})
+
+it('defers cross-window focus until the received tab exists and the workspace unlocks', async () => {
+  vi.mocked(invoke).mockReset().mockResolvedValue(null)
+  const first = { id: 'first', title: 'First tab', content: 'First', isDirty: false, lastModified: new Date(0) }
+  const received = { ...first, id: 'received', title: 'Received tab' }
+  useAppStore.setState({ documents: [first], currentDocument: first, windowBusy: false })
+  render(<App />)
+  await screen.findByRole('tab', { name: 'First tab' })
+  await waitFor(() => {
+    expect(nativeEvents.has('editor-focus-document')).toBe(true)
+    expect(useAppStore.getState().windowBusy).toBe(false)
+  })
+
+  act(() => {
+    useAppStore.setState({ windowBusy: true })
+    nativeEvents.get('editor-focus-document')?.({ payload: { id: received.id } })
+    useAppStore.setState({ documents: [first, received] })
+  })
+  expect(useAppStore.getState().currentDocument?.id).toBe(first.id)
+  act(() => useAppStore.setState({ windowBusy: false }))
+  expect(useAppStore.getState().currentDocument?.id).toBe(received.id)
+  expect(screen.getByRole('tab', { name: 'Received tab' })).toHaveAttribute('aria-selected', 'true')
 })

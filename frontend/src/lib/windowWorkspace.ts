@@ -150,7 +150,7 @@ async function finishIncomingTransfers(retryId?: string) {
 
 export async function receiveEditorTransfers(): Promise<boolean> {
   if (store.getState().transferRecovery) return true
-  if (resumeReceiving) return false
+  if (resumeReceiving || document.querySelector('dialog[open]')) return false
   const resume = suspendWindowWorkspace()
   if (!resume) return false
   resumeReceiving = resume
