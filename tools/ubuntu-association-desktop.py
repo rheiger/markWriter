@@ -62,14 +62,17 @@ def window_id(name):
     return command("xdotool", "search", "--onlyvisible", "--name", name).splitlines()[-1]
 
 
-def click_visible_text(pattern, screenshot):
+def click_visible_text(pattern, screenshot, region=None):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
         screenshot.unlink(missing_ok=True)
-        command("scrot", str(screenshot))
+        arguments = ["scrot"]
+        if region:
+            arguments.extend(("--autoselect", ",".join(str(value) for value in region)))
+        command(*arguments, str(screenshot))
         rows = csv.DictReader(io.StringIO(command("tesseract", str(screenshot), "stdout",
-                                                "--psm", "11", "tsv")), delimiter="\t")
+                                                "--psm", "6" if region else "11", "tsv")), delimiter="\t")
         lines = {}
         for row in rows:
             if row["text"]:
@@ -83,6 +86,8 @@ def click_visible_text(pattern, screenshot):
         return None
 
     x, y = wait(pattern, find, 12)
+    if region:
+        x, y = x + region[0], y + region[1]
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
 
 
@@ -93,9 +98,14 @@ def choose_markwriter(window, path, label, multiple=False):
     if multiple:
         command("xdotool", "key", "ctrl+a")
     click_in(window, cell, "3")
-    click_visible_text(r"Open With\s*(?:\.{2,3}|…)?", EVIDENCE / f"{label}-context.png")
+    click_visible_text(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png")
     dialog = wait("Open File dialog", lambda: window_id(r"^Open File"))
-    click_visible_text(r"MarkWriter", EVIDENCE / f"{label}-chooser.png")
+    geometry = dict(line.split("=") for line in command("xdotool", "getwindowgeometry", "--shell", dialog).splitlines())
+    x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
+    command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
+    # Exclude the icons so adjacent letter strokes do not merge into them.
+    click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
+                       (x + 74, y + 90, width - 90, height - 156))
     button = wait("Open button", lambda: accessible("Open", "button"))
     click_in(dialog, button)
 
@@ -136,6 +146,16 @@ def audit(mode):
     if mode != "fresh":
         assert mime["default"] == INCUMBENT, mime
     if not installed:
+        if mode == "rollback":
+            process = subprocess.Popen(["/usr/bin/markwriter"])
+            try:
+                window = wait("rolled-back editor window", lambda: window_id(r"^MarkWriter$"))
+                assert int(command("xdotool", "getwindowpid", window)) == process.pid
+                wait("rolled-back editor workspace", workspace)
+                phase["rolledBackEditorLaunched"] = True
+            finally:
+                process.terminate()
+                process.wait(timeout=10)
         return phase
 
     directory = ROOT / "association-fixtures"
@@ -143,9 +163,11 @@ def audit(mode):
     first = directory / "A Grüße 文件.md"
     second = directory / "B Ångström sample.markdown"
     third = directory / "C café sample.md"
+    fourth = directory / "D résumé sample.markdown"
     originals = {first: b"AssociationOwnerSentinel\n"}
     if mode == "existing":
-        originals.update({second: b"AssociationSecondSentinel\n", third: b"AssociationThirdSentinel\n"})
+        originals.update({second: b"AssociationSecondSentinel\n",
+                          third: b"AssociationThirdSentinel\n", fourth: b"AssociationFourthSentinel\n"})
     for path, source in originals.items():
         path.write_bytes(source)
         info = Gio.File.new_for_path(str(path)).query_info(
@@ -181,8 +203,9 @@ def audit(mode):
         choose_markwriter(window, first, "reopen")
         wait("reopened dirty owner selected", lambda: workspace()["activeId"] == owner["id"])
         choose_markwriter(window, first, "multiselect", multiple=True)
-        third_doc = wait("third file from actual Nautilus multiselect", lambda: observe(third))
-        assert third_doc["content"].encode() == originals[third]
+        for path in (third, fourth):
+            opened = wait(f"{path.name} from one actual Nautilus multiselect", lambda: observe(path))
+            assert opened["content"].encode() == originals[path]
         same_path = [doc for doc in documents() if doc.get("path") == str(first)]
         assert len(same_path) == 1
         assert same_path[0]["id"] == owner["id"] and same_path[0]["isDirty"]

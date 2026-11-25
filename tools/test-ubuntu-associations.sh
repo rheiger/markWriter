@@ -25,13 +25,12 @@ export MARKWRITER_ASSOCIATION_EVIDENCE="$evidence"
 export XDG_DATA_DIRS=/usr/local/share:/usr/share
 profile() {
   export MARKWRITER_ASSOCIATION_ROOT="$workspace/$1"
-  export HOME="$MARKWRITER_ASSOCIATION_ROOT/home"
   export XDG_DATA_HOME="$MARKWRITER_ASSOCIATION_ROOT/data"
   export XDG_CONFIG_HOME="$MARKWRITER_ASSOCIATION_ROOT/config"
   export XDG_CACHE_HOME="$MARKWRITER_ASSOCIATION_ROOT/cache"
   export XDG_RUNTIME_DIR="$MARKWRITER_ASSOCIATION_ROOT/runtime"
   export MARKWRITER_PROFILE_DIR="$MARKWRITER_ASSOCIATION_ROOT/recovery"
-  mkdir -p "$HOME" "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$MARKWRITER_PROFILE_DIR"
+  mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$MARKWRITER_PROFILE_DIR"
   mkdir -p -m 700 "$XDG_RUNTIME_DIR"
 }
 check_desktop() {
@@ -90,9 +89,13 @@ test ! -e "$desktop"
 test ! -e /usr/bin/markwriter
 check_desktop removed
 cmp "$workspace/mimeapps-before-removal" "$XDG_CONFIG_HOME/mimeapps.list"
+cmp "$evidence/dirty-workspace.json" "$MARKWRITER_PROFILE_DIR/workspace.json"
 
 install "$workspace/$control"
 cmp "$evidence/control.desktop" "$desktop"
+cmp "$evidence/dirty-workspace.json" "$MARKWRITER_PROFILE_DIR/workspace.json"
+export MARKWRITER_PROFILE_DIR="$workspace/rollback-recovery"
+mkdir "$MARKWRITER_PROFILE_DIR"
 check_desktop rollback
 cmp "$workspace/mimeapps-before-removal" "$XDG_CONFIG_HOME/mimeapps.list"
 
