@@ -320,6 +320,68 @@ describe('external file changes', () => {
     expect(state().error).toContain('recovery storage could not be updated')
   })
 
+  it('captures the latest draft and path after an in-flight Save As settles', async () => {
+    desktop.active = true
+    vi.useFakeTimers()
+    let finishSave!: (value: { path: string }) => void
+    let saveAs: Promise<boolean> | undefined
+    call.mockImplementation(async (command, args) => {
+      if (command === 'canonical_document_path') return (args as { path: string }).path
+      if (command === 'save_document_as') return new Promise(resolve => { finishSave = resolve })
+      return {}
+    })
+    const stop = watchWorkspace()
+    try {
+      state().updateDocumentContent('Draft at Save As')
+      saveAs = state().saveDocumentAs('/new.md')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(call).not.toHaveBeenCalledWith('save_workspace', expect.anything())
+
+      state().updateDocumentContent('Newer edit during Save As')
+      finishSave({ path: '/new.md' })
+      expect(await saveAs).toBe(true)
+      await vi.advanceTimersByTimeAsync(400)
+      expect(call).toHaveBeenCalledWith('save_workspace', {
+        epoch: 0,
+        value: expect.objectContaining({ documents: [expect.objectContaining({
+          id: initial.id, path: '/new.md', content: 'Newer edit during Save As', isDirty: true,
+        })] }),
+      })
+      expect(state().error).toBeNull()
+    } finally {
+      stop()
+      finishSave?.({ path: '/new.md' })
+      await saveAs
+      await flushWorkspace()
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries a stale background recovery rejection while explicit flushes still fail', async () => {
+    desktop.active = true
+    vi.useFakeTimers()
+    const stale = { kind: 'stale-workspace', message: 'Document ownership changed before this recovery snapshot was written.' }
+    let failNext = true
+    call.mockImplementation(async command => {
+      if (command === 'save_workspace' && failNext) { failNext = false; throw stale }
+      return {}
+    })
+    const stop = watchWorkspace()
+    try {
+      state().updateDocumentContent('Latest draft')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(state().error).toBeNull()
+      await vi.advanceTimersByTimeAsync(400)
+      expect(call.mock.calls.filter(([command]) => command === 'save_workspace')).toHaveLength(2)
+      expect(state().error).toBeNull()
+
+      failNext = true
+      await expect(flushWorkspace()).rejects.toThrow(stale.message)
+      await vi.advanceTimersByTimeAsync(800)
+      expect(call.mock.calls.filter(([command]) => command === 'save_workspace')).toHaveLength(3)
+    } finally { stop(); await flushWorkspace(); vi.useRealTimers() }
+  })
+
   it('does not postpone dirty recovery writes for disk-status-only updates', async () => {
     desktop.active = true
     vi.useFakeTimers()

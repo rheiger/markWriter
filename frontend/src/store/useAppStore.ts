@@ -101,6 +101,7 @@ function workspace(documents: Document[], activeId?: string | null) {
   return { documents, currentDocument: documents.find(doc => doc.id === activeId) ?? null }
 }
 const saving = new Map<string, Promise<boolean>>()
+export const hasPendingDocumentSaves = () => saving.size > 0
 const checking = new Map<string, Promise<unknown>>()
 const destinations = new Map<string, string>()
 const reloading = new Set<string>()
