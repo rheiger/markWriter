@@ -208,3 +208,35 @@ it('restores focus after the keyboard update command removes its menu item', asy
   expect(screen.getByRole('textbox', { name: 'Editor fixture' })).toHaveFocus()
   expect(focus).toHaveBeenCalledOnce()
 })
+
+it('writes the skip choice from the update dialog and still finds the release from the native menu', async () => {
+  const update = {
+    kind: 'available', version: '2.13.1', currentVersion: '2.12.2',
+    releasePageUrl: 'https://github.com/rheiger/markWriter/releases/tag/v2.13.1',
+    installer: { kind: 'unavailable', reason: 'missingInstaller' },
+  }
+  vi.mocked(invoke).mockImplementation(async command => command === 'check_updates' ? update : null)
+  useAppStore.setState({ config: { ...defaultConfig }, updateChoices: {} })
+  const source = { ...doc('synthetic draft', 4), isDirty: true }
+  useAppStore.setState({ documents: [source], currentDocument: source })
+  try {
+    render(<MenuBar />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View update' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip This Release' }))
+    await act(async () => {})
+    expect(invoke).toHaveBeenCalledWith('save_preferences', {
+      value: { version: 1, config: defaultConfig, updateChoices: { [update.version]: { kind: 'skip' } } },
+    })
+    expect(screen.queryByRole('button', { name: 'View update' })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(useAppStore.getState().currentDocument).toBe(source)
+    expect(invoke).not.toHaveBeenCalledWith('save_workspace', expect.anything())
+    expect(invoke).not.toHaveBeenCalledWith('open_update_link', expect.anything())
+
+    act(() => send('updates'))
+    expect(await screen.findByText('Version 2.13.1 is available (installed: 2.12.2).')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Open release page' })).toBeVisible()
+  } finally {
+    useAppStore.setState({ updateChoices: {} })
+  }
+})

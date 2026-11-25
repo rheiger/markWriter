@@ -42,3 +42,21 @@ export function parsePreferences(value: unknown): AppConfig {
   if (config.renderedFontSize === undefined && typeof config.fontSize === 'number') result.renderedFontSize = Math.min(32, config.fontSize + 2)
   return result
 }
+
+export type UpdateChoiceAction = 'skip' | 'remind'
+export type UpdateChoice = { kind: 'skip' } | { kind: 'remind'; until: number }
+export type UpdateChoices = Record<string, UpdateChoice>
+
+export function parseUpdateChoices(value: unknown): UpdateChoices {
+  const raw = (value as { updateChoices?: unknown } | null)?.updateChoices
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const choices: UpdateChoices = {}
+  for (const [version, choice] of Object.entries(raw)) {
+    if (!/^(0|[1-9][0-9]{0,19})(\.(0|[1-9][0-9]{0,19})){2}$/.test(version)) continue
+    if (choice?.kind === 'skip') choices[version] = { kind: 'skip' }
+    if (choice?.kind === 'remind' && Number.isSafeInteger(choice.until) && choice.until > 0) {
+      choices[version] = { kind: 'remind', until: choice.until }
+    }
+  }
+  return choices
+}

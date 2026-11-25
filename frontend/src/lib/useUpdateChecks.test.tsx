@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { useUpdateChecks, type UpdateCheckResult } from './useUpdateChecks'
+import { useUpdateChecks, type AvailableUpdate, type UpdateCheckResult } from './useUpdateChecks'
+import { useAppStore } from '../store/useAppStore'
 
 const day = 24 * 60 * 60 * 1000
 const available = (version: string): UpdateCheckResult => ({
@@ -11,7 +12,10 @@ const available = (version: string): UpdateCheckResult => ({
   installer: { kind: 'unavailable', reason: 'missingInstaller' },
 })
 
-beforeEach(() => vi.useFakeTimers())
+beforeEach(() => {
+  vi.useFakeTimers()
+  useAppStore.setState({ updateChoices: {} })
+})
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
@@ -72,4 +76,46 @@ it('keeps startup and periodic failures quiet', async () => {
   expect(result.current.notice).toBeNull()
   await act(async () => vi.advanceTimersByTimeAsync(day))
   expect(result.current.notice).toBeNull()
+})
+
+it('suppresses the exact skipped release across remounts and still returns it for a manual check', async () => {
+  useAppStore.setState({ updateChoices: { '2.13.1': { kind: 'skip' } } })
+  const check = vi.fn().mockResolvedValue(available('2.13.1'))
+  const first = renderHook(() => useUpdateChecks(true, check))
+  await act(async () => {})
+  expect(first.result.current.notice).toBeNull()
+  first.unmount()
+
+  const { result } = renderHook(() => useUpdateChecks(true, check))
+  await act(async () => {})
+  expect(result.current.notice).toBeNull()
+  await expect(result.current.check()).resolves.toEqual(available('2.13.1'))
+  check.mockResolvedValue(available('2.13.2'))
+  await act(async () => vi.advanceTimersByTimeAsync(day))
+  expect(result.current.notice?.version).toBe('2.13.2')
+})
+
+it('reminds again at the selected deadline and does not interrupt a newer version', async () => {
+  const check = vi.fn().mockResolvedValue(available('2.13.1'))
+  const first = renderHook(() => useUpdateChecks(true, check))
+  await act(async () => {})
+  expect(first.result.current.notice?.version).toBe('2.13.1')
+  await act(async () => vi.advanceTimersByTimeAsync(30_000))
+  act(() => {
+    useAppStore.setState({ updateChoices: { '2.13.1': { kind: 'remind', until: Date.now() + day } } })
+    first.result.current.markSeen(available('2.13.1') as AvailableUpdate)
+  })
+  await act(async () => vi.advanceTimersByTimeAsync(day - 1))
+  expect(first.result.current.notice).toBeNull()
+  await act(async () => vi.advanceTimersByTimeAsync(1))
+  expect(first.result.current.notice?.version).toBe('2.13.1')
+  first.unmount()
+
+  useAppStore.setState({ updateChoices: { '2.13.1': { kind: 'remind', until: Date.now() + day } } })
+  const { result } = renderHook(() => useUpdateChecks(true, check))
+  await act(async () => {})
+  expect(result.current.notice).toBeNull()
+  check.mockResolvedValue(available('2.13.2'))
+  await act(async () => vi.advanceTimersByTimeAsync(day))
+  expect(result.current.notice?.version).toBe('2.13.2')
 })

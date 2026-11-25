@@ -46,7 +46,7 @@ export interface Document {
 }
 
 export type { AppConfig } from '../lib/preferences'
-import { type AppConfig, defaultConfig, parsePreferences } from '../lib/preferences'
+import { type AppConfig, type UpdateChoices, defaultConfig, parsePreferences } from '../lib/preferences'
 
 export interface AppState {
   documents: Document[]
@@ -68,6 +68,7 @@ export interface AppState {
 
   // UI state
   config: AppConfig
+  updateChoices: UpdateChoices
   isLoading: boolean
   error: string | null
 
@@ -203,7 +204,7 @@ export const useAppStore = create<AppState>((set, get) => {
     return pending
   }
   return {
-    documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig,
+    documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig, updateChoices: {},
     isLoading: false, error: null, pendingClose: null, pendingDiskReload: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => {
