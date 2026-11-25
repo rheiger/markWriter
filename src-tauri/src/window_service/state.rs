@@ -134,6 +134,38 @@ impl Default for Windows {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum WorkspaceWriteError {
+    Stale { kind: &'static str, message: String },
+    Other(String),
+}
+
+impl WorkspaceWriteError {
+    fn stale(message: &str) -> Self {
+        Self::Stale {
+            kind: "stale-workspace",
+            message: message.into(),
+        }
+    }
+}
+
+impl From<String> for WorkspaceWriteError {
+    fn from(error: String) -> Self {
+        Self::Other(error)
+    }
+}
+
+impl From<WorkspaceWriteError> for String {
+    fn from(error: WorkspaceWriteError) -> Self {
+        match error {
+            WorkspaceWriteError::Stale { message, .. } | WorkspaceWriteError::Other(message) => {
+                message
+            }
+        }
+    }
+}
+
 pub(super) fn fail(message: &str) -> String {
     message.into()
 }
@@ -323,18 +355,20 @@ impl Windows {
             .ok_or_else(|| fail("This editor window is closed."))
     }
 
-    fn ensure_current(&self, label: &str, epoch: u64) -> Result<(), String> {
+    fn ensure_current(&self, label: &str, epoch: u64) -> Result<(), WorkspaceWriteError> {
         if let Some(error) = &self.startup_error {
-            return Err(error.clone());
+            return Err(error.clone().into());
         }
         if self.exiting
-            || self.record(label)?.epoch != epoch
             || self
                 .quitting
                 .as_ref()
                 .is_some_and(|quit| quit.snapshots.contains_key(label))
         {
-            return Err(fail(
+            return Err(fail("MarkWriter is quitting.").into());
+        }
+        if self.record(label)?.epoch != epoch {
+            return Err(WorkspaceWriteError::stale(
                 "The editor window changed. Refresh its workspace and try again.",
             ));
         }
@@ -374,13 +408,23 @@ impl Windows {
             .ok_or_else(|| fail("The document no longer belongs to this window."))
     }
 
-    fn check_workspace_ownership(&self, label: &str, value: &Value) -> Result<(), String> {
+    fn check_workspace_ownership(
+        &self,
+        label: &str,
+        value: &Value,
+    ) -> Result<(), WorkspaceWriteError> {
         for document in value["documents"].as_array().unwrap() {
             let id = document_id(document)?;
             let path = document_path(document)?;
             if let Some(claim) = self.claims.get(id) {
-                if claim.owner.label != label || claim.path.as_deref() != path {
+                if claim.owner.label != label {
                     return Err(fail(
+                        "A document in this snapshot belongs to another tab or window.",
+                    )
+                    .into());
+                }
+                if claim.path.as_deref() != path {
+                    return Err(WorkspaceWriteError::stale(
                         "Document ownership changed before this recovery snapshot was written.",
                     ));
                 }
@@ -389,9 +433,9 @@ impl Windows {
                 .and_then(|path| self.path_owner(path))
                 .is_some_and(|owner| owner.label != label || owner.id != id)
             {
-                return Err(fail(
-                    "A document in this snapshot belongs to another tab or window.",
-                ));
+                return Err(
+                    fail("A document in this snapshot belongs to another tab or window.").into(),
+                );
             }
         }
         Ok(())
@@ -511,7 +555,7 @@ impl Windows {
         epoch: u64,
         value: Value,
         geometry: Option<Geometry>,
-    ) -> Result<(), String> {
+    ) -> Result<(), WorkspaceWriteError> {
         self.ensure_current(label, epoch)?;
         let value = clean_workspace(value)?;
         self.check_workspace_ownership(label, &value)?;
@@ -522,9 +566,9 @@ impl Windows {
                 .iter()
                 .any(|doc| doc["id"] == transfer.document["id"])
         }) {
-            return Err(fail(
-                "Finish accepting the incoming tab before saving this workspace.",
-            ));
+            return Err(
+                fail("Finish accepting the incoming tab before saving this workspace.").into(),
+            );
         }
         let mut snapshots = self.saved();
         snapshots.insert(
@@ -534,7 +578,7 @@ impl Windows {
                 geometry,
             },
         );
-        self.commit(path, snapshots)
+        self.commit(path, snapshots).map_err(Into::into)
     }
 
     pub(super) fn claim(

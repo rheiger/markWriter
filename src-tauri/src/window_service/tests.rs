@@ -92,7 +92,11 @@ fn a_committed_move_has_one_durable_owner_and_rejects_stale_snapshots() {
     assert_eq!(state.move_document(&path, request()).unwrap(), 1);
     assert!(state.owned(MAIN, "one").is_err());
     assert!(state.owned(SECOND, "one").is_ok());
-    assert!(state.save(&path, MAIN, 0, source, None).is_err());
+    let stale_epoch = state.save(&path, MAIN, 0, source, None).unwrap_err();
+    assert_eq!(
+        serde_json::to_value(stale_epoch).unwrap()["kind"],
+        "stale-workspace"
+    );
     assert!(state.save(&path, SECOND, 0, target.clone(), None).is_err());
     assert!(state.save(&path, SECOND, 1, target, None).is_err());
     assert_eq!(state.record(SECOND).unwrap().transfers.len(), 1);
@@ -291,7 +295,15 @@ fn save_as_releases_the_old_path_without_creating_duplicate_recovery_owners() {
 
     let new = save_document(&service, MAIN, "one", "captured save", &new_path, None).unwrap();
     let mut state = service.lock().unwrap();
-    assert!(state.save(&storage, MAIN, 0, stale, None).is_err());
+    let stale_error = state
+        .save(&storage, MAIN, 0, stale.clone(), None)
+        .unwrap_err();
+    assert_eq!(
+        serde_json::to_value(stale_error).unwrap()["kind"],
+        "stale-workspace"
+    );
+    let wrong_owner = state.save(&storage, SECOND, 0, stale, None).unwrap_err();
+    assert!(serde_json::to_value(wrong_owner).unwrap().is_string());
     assert!(state
         .claim(SECOND, "two", Some(old.clone()))
         .unwrap()

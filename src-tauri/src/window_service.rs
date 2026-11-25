@@ -305,7 +305,7 @@ pub async fn save_workspace(
     service: State<'_, WindowService>,
     value: Value,
     epoch: Option<u64>,
-) -> Result<(), String> {
+) -> Result<(), WorkspaceWriteError> {
     let path = storage_file(window.app_handle(), "workspace")?;
     let geometry = Geometry::read(&window);
     service
