@@ -24,7 +24,7 @@ MimeType=text/markdown;
 Terminal=false
 Type=Application
 DESKTOP
-sed 's/Name=MarkWriter/Name=Incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
+sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's|^Exec=.*|Exec=/usr/bin/false %F|' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
 update-desktop-database "$XDG_DATA_HOME/applications"
 gio mime text/markdown incumbent.desktop
 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -c '

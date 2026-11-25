@@ -139,16 +139,34 @@ def choose_markwriter(window, path, label, multiple=False):
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
                          adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
-    dialog = wait("Open File dialog", lambda: window_id(r"^Open File"))
-    command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
-    if mime_state()["default"] != MARKWRITER:
-        geometry = dict(line.split("=") for line in
-                        command("xdotool", "getwindowgeometry", "--shell", dialog).splitlines())
-        x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
-        # Exclude the icons so adjacent letter strokes do not merge into them.
-        click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
-                           (x + 74, y + 90, width - 90, height - 156))
+    try:
+        dialog = wait("Open File dialog window", lambda: window_id(r"^Open (?:File|Items)"), 2)
+    except RuntimeError:
+        # Nautilus can present its chooser inside the existing Files window.
+        # The embedded chooser opens with focus in its application search.
+        _, title_y = visible_point(r".*Open (?:File|Items).*", EVIDENCE / f"{label}-chooser.png")
+        x, y, width, height = window_geometry(window)
+        command("xdotool", "type", "--clearmodifiers", "MarkWriter")
+        list_top = title_y + 99
+        list_height = min(392, y + height - list_top)
+        click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*",
+                           EVIDENCE / f"{label}-chooser-labels.png",
+                           (x + width // 2 - 145, list_top, 315, list_height))
+    else:
+        command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
+        if mime_state()["default"] != MARKWRITER:
+            x, y, width, height = window_geometry(dialog)
+            # Exclude the icons so adjacent letter strokes do not merge into them.
+            click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*",
+                               EVIDENCE / f"{label}-chooser-labels.png",
+                               (x + 74, y + 90, width - 90, height - 156))
     command("xdotool", "key", "Return")
+
+
+def window_geometry(window):
+    geometry = dict(line.split("=") for line in
+                    command("xdotool", "getwindowgeometry", "--shell", window).splitlines())
+    return tuple(int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
 
 
 def mime_state():
