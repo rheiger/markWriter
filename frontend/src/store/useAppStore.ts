@@ -67,6 +67,8 @@ export interface AppState {
   saveDocumentCopy: (document: Document, path: string) => Promise<boolean>
   // Document state
   currentDocument: Document | null
+  windowBusy: boolean
+  transferRecovery: { id: string, message: string } | null
   recentDocuments: Document[]
   fileViews: FileView[]
 
@@ -115,6 +117,26 @@ let closing = false
 let loadingDocuments = 0
 let pendingDocumentDialogs = 0
 let checkpointing = false
+let windowReviewingSaves = false
+let fileOperations = 0
+
+export interface DocumentOwner { label: string, id: string }
+type OpenOwnedDocument = { document: { id: string, path: string, title?: string, content?: string }, owner?: never } |
+  { owner: DocumentOwner, document?: never }
+
+export function suspendWindowWorkspace(): (() => void) | undefined {
+  if (checkpointing || hasPendingDocumentOperation(useAppStore.getState())) return undefined
+  activeViewCapture?.capture()
+  useAppStore.setState({ windowBusy: true })
+  return () => useAppStore.setState({ windowBusy: false })
+}
+
+export function workspaceAfterRemoving(state: AppState, id: string) {
+  const index = state.documents.findIndex(doc => doc.id === id)
+  const documents = state.documents.filter(doc => doc.id !== id)
+  const activeId = state.currentDocument?.id === id ? documents[Math.min(index, documents.length - 1)]?.id : state.currentDocument?.id
+  return workspace(documents, activeId)
+}
 
 let activeViewCapture: { id: string, capture: () => void } | undefined
 export function registerActiveViewCapture(id: string, capture: () => void) {
@@ -145,6 +167,7 @@ export const useAppStore = create<AppState>((set, get) => {
     }))
   }
   const saveSnapshot = (snapshot: Document, path: string, as: boolean): Promise<boolean> => {
+    if (get().windowBusy && !windowReviewingSaves) return Promise.resolve(false)
     const run = async () => {
       set({ error: null, isLoading: true })
       let canonical = path
@@ -211,7 +234,7 @@ export const useAppStore = create<AppState>((set, get) => {
     return pending
   }
   const closeDocuments = async (ids: string[]): Promise<boolean> => {
-    if (closing) return false
+    if (closing || get().windowBusy) return false
     closing = true
     try {
       for (const id of ids) {
@@ -230,10 +253,10 @@ export const useAppStore = create<AppState>((set, get) => {
         if (!canClose()) return false
         if (get().currentDocument?.id === id && activeViewCapture?.id === id) activeViewCapture.capture()
         const stateBeforeClose = get()
-        const remaining = stateBeforeClose.documents.filter(current => current.id !== id)
+        const remaining = workspaceAfterRemoving(stateBeforeClose, id)
         const fileViews = rememberFileView(stateBeforeClose.fileViews, find(id))
         try {
-          await flushWorkspace(snapshotWorkspace(remaining, fileViews))
+          await flushWorkspace(snapshotWorkspace(remaining.documents, fileViews, remaining.currentDocument?.id ?? null))
           if (!canClose()) {
             await flushWorkspace()
             return false
@@ -242,12 +265,11 @@ export const useAppStore = create<AppState>((set, get) => {
           set({ error: `Cannot remove recovery copy: ${String(error)}` })
           return false
         }
-        set(state => {
-          const index = state.documents.findIndex(current => current.id === id)
-          const docs = state.documents.filter(current => current.id !== id)
-          const activeId = state.currentDocument?.id === id ? docs[Math.min(index, docs.length - 1)]?.id : state.currentDocument?.id
-          return { ...workspace(docs, activeId), fileViews }
-        })
+        set(state => ({ ...workspaceAfterRemoving(state, id), fileViews }))
+        if (isTauri() && doc.path) {
+          try { await invoke('release_document_claim', { id }) }
+          catch (error) { set({ error: `Could not release the file's window ownership: ${String(error)}` }) }
+        }
       }
       return true
     } catch (error) {
@@ -259,9 +281,10 @@ export const useAppStore = create<AppState>((set, get) => {
   }
   return {
     documents: [], currentDocument: null, recentDocuments: [], fileViews: [], config: defaultConfig, updateChoices: {},
-    isLoading: false, error: null, pendingClose: null, pendingDiskReload: null,
+    isLoading: false, error: null, pendingClose: null, pendingDiskReload: null, windowBusy: false, transferRecovery: null,
     setCurrentDocument: doc => doc ? add(doc) : set(workspace([], null)),
     activateDocument: id => {
+      if (get().windowBusy) return
       captureBeforeActivating(id)
       set(state => workspace(state.documents, id))
     },
@@ -273,13 +296,14 @@ export const useAppStore = create<AppState>((set, get) => {
         sourceViewportAnchor: sourceViewportAnchor ?? doc.sourceViewportAnchor } : doc), state.currentDocument?.id)
     }),
     reorderDocument: (id, index) => set(state => {
+      if (state.windowBusy) return state
       const docs = state.documents.filter(d => d.id !== id)
       const doc = state.documents.find(d => d.id === id)
       if (doc) docs.splice(Math.max(0, Math.min(index, docs.length)), 0, doc)
       return workspace(docs, state.currentDocument?.id)
     }),
     updateDocumentContent: (content, id = get().currentDocument?.id, reloadCount) => {
-      if (!id || (reloadCount !== undefined && (find(id)?.reloadCount ?? 0) !== reloadCount)) return
+      if (get().windowBusy || !id || (reloadCount !== undefined && (find(id)?.reloadCount ?? 0) !== reloadCount)) return
       replace(id, doc => doc.content === content ? doc : ({ ...doc, content,
         savedContent: doc.savedContent ?? (doc.isDirty ? undefined : doc.content),
         revision: (doc.revision ?? 0) + 1,
@@ -287,6 +311,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }))
     },
     setDocumentDirty: dirty => {
+      if (get().windowBusy) return
       const doc = get().currentDocument
       if (doc) replace(doc.id, latest => ({ ...latest, isDirty: dirty }))
     },
@@ -300,6 +325,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     setLoading: isLoading => set({ isLoading }), setError: error => set({ error }),
     createNewDocument: async () => {
+      if (get().windowBusy) return
       const mode = get().config.defaultEditorMode
       loadingDocuments++
       try {
@@ -310,16 +336,28 @@ export const useAppStore = create<AppState>((set, get) => {
       finally { loadingDocuments-- }
     },
     openDocument: async path => {
+      if (!path || get().windowBusy) return
       loadingDocuments++
       try {
-        let result = await invoke<any>('open_document', { path })
-        const owner = destinations.get(result.path)
+        const read = async (candidate: string) => {
+          if (!isTauri()) return invoke<NonNullable<OpenOwnedDocument['document']>>('open_document', { path: candidate })
+          const opened = await invoke<OpenOwnedDocument>('open_owned_document', { path: candidate })
+          if (opened.document) return opened.document
+          if (find(opened.owner.id)) get().activateDocument(opened.owner.id)
+          else await invoke('focus_editor_window', { label: opened.owner.label, id: opened.owner.id })
+          return undefined
+        }
+        let result = await read(path)
+        if (!result) return
+        const canonicalPath = result.path
+        const owner = destinations.get(canonicalPath)
         if (owner) {
           // Read may have raced the atomic rename. Await its owner and activate the saved tab.
           await saving.get(owner)
-          const written = get().documents.find(d => d.id === owner && d.path === result.path)
+          const written = get().documents.find(d => d.id === owner && d.path === canonicalPath)
           if (written) { get().activateDocument(written.id); return }
-          result = await invoke<any>('open_document', { path: result.path })
+          result = await read(canonicalPath)
+          if (!result) return
         }
         const existing = get().documents.find(d => d.path === result.path)
         if (existing) { get().activateDocument(existing.id); return }
@@ -344,7 +382,7 @@ export const useAppStore = create<AppState>((set, get) => {
     saveToPath: (doc, path) => saveSnapshot(doc, path, false),
     refreshDocumentDisk: async (id, stopped = () => false) => {
       const captured = find(id)
-      if (!captured?.path || saving.has(id) || reloading.has(id) || checking.has(id)) return
+      if (get().windowBusy || !captured?.path || saving.has(id) || reloading.has(id) || checking.has(id)) return
       const expected = baseline(captured)
       const scan = Promise.resolve().then(() => expected === undefined ? 'unreadable' : invoke('monitor_document_disk', {
         path: captured.path, expected: expected.length <= monitorCharacterLimit ? expected : null,
@@ -354,7 +392,7 @@ export const useAppStore = create<AppState>((set, get) => {
       try { result = await scan }
       catch { result = 'unreadable' }
       finally { checking.delete(id) }
-      if (stopped() || saving.has(id) || reloading.has(id)) return
+      if (stopped() || get().windowBusy || saving.has(id) || reloading.has(id)) return
       if (result === 'tooLarge' && captured.diskIssue === 'changed') return
       setDiskIssue(captured, result === 'unchanged' ? undefined : isDiskIssue(result) ? result : 'unreadable')
     },
@@ -362,7 +400,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const id = captured.id
       const eligible = (latest: Document | undefined) => sameDiskOwner(captured, latest) &&
         latest.revision === captured.revision && latest.content === captured.content && (!latest.isDirty || discardEdits) &&
-        !saving.has(id) && !closing
+        !saving.has(id) && !closing && !get().windowBusy
       if (!captured.path || reloading.has(id) || !eligible(find(id))) {
         set({ error: 'The document changed while preparing to reload. Review it and try again.' })
         return false
@@ -395,6 +433,8 @@ export const useAppStore = create<AppState>((set, get) => {
       } finally { reloading.delete(id) }
     },
     saveDocumentCopy: async (captured, path) => {
+      if (get().windowBusy) return false
+      fileOperations++
       let canonical = path
       let reserved = false
       try {
@@ -410,12 +450,19 @@ export const useAppStore = create<AppState>((set, get) => {
       } catch (error) {
         set({ error: errorMessage(error, 'Failed to save a copy') })
         return false
-      } finally { if (reserved) destinations.delete(canonical) }
+      } finally {
+        if (reserved) destinations.delete(canonical)
+        fileOperations--
+      }
     },
     saveAll: async () => {
+      if (get().windowBusy) return false
+      fileOperations++
+      try {
       const docs = get().documents.filter(d => d.isDirty)
       for (const doc of docs) if (!await saveWithDialog(doc)) return false
       return !get().documents.some(d => d.isDirty)
+      } finally { fileOperations-- }
     },
     closeDocument: id => closeDocuments([id]),
     closeOtherDocuments: keepId => {
@@ -424,13 +471,15 @@ export const useAppStore = create<AppState>((set, get) => {
       return closeDocuments(documents.filter(doc => doc.id !== keepId).map(doc => doc.id))
     },
     exportDocument: async (path, format, snapshot = get().currentDocument) => {
-      if (!snapshot) return
+      if (!snapshot || get().windowBusy) return
+      fileOperations++
       try {
         if (format !== 'html') throw new Error(`Unsupported export format: ${format}`)
         const highlighting = get().config.syntaxHighlighting
         const html = await createHtmlExport(snapshot.content, `${snapshot.id}:${snapshot.revision ?? 0}:export:${crypto.randomUUID()}`, highlighting)
         await invoke('export_document', { html, id: snapshot.id, content: snapshot.content, path, format })
       } catch (error) { set({ error: errorMessage(error, 'Failed to export document') }) }
+      finally { fileOperations-- }
     },
   }
 })
@@ -442,7 +491,7 @@ function decideUnsaved(doc: Document): Promise<UnsavedDecision> {
   } }))
 }
 
-async function withDocumentDialog<T>(operation: () => Promise<T>): Promise<T> {
+export async function withDocumentDialog<T>(operation: () => Promise<T>): Promise<T> {
   pendingDocumentDialogs++
   try { return await operation() }
   finally { pendingDocumentDialogs-- }
@@ -451,6 +500,7 @@ async function withDocumentDialog<T>(operation: () => Promise<T>): Promise<T> {
 const markdownFilter = { name: 'Markdown', extensions: ['md', 'markdown'] }
 
 export function openDocumentWithDialog() {
+  if (useAppStore.getState().windowBusy) return Promise.resolve()
   return withDocumentDialog(async () => {
     const folder = useAppStore.getState().config.defaultDocumentFolder
     const path = await open({
@@ -463,6 +513,7 @@ export function openDocumentWithDialog() {
 }
 
 export function saveWithDialog(doc: Document, as = false): Promise<boolean> {
+  if (useAppStore.getState().windowBusy && !windowReviewingSaves) return Promise.resolve(false)
   if (!as && doc.path) return useAppStore.getState().saveToPath(doc, doc.path)
   return withDocumentDialog(async () => {
     const folder = useAppStore.getState().config.defaultDocumentFolder
@@ -472,6 +523,7 @@ export function saveWithDialog(doc: Document, as = false): Promise<boolean> {
 }
 
 export async function saveCopyWithDialog(doc: Document): Promise<boolean> {
+  if (useAppStore.getState().windowBusy) return false
   try {
     return await withDocumentDialog(async () => {
       const folder = useAppStore.getState().config.defaultDocumentFolder
@@ -504,7 +556,7 @@ export function watchOpenDocuments() {
 }
 
 function hasPendingDocumentOperation(state: AppState) {
-  return closing || loadingDocuments > 0 || pendingDocumentDialogs > 0 || saving.size > 0 || reloading.size > 0 ||
+  return state.windowBusy || closing || fileOperations > 0 || loadingDocuments > 0 || pendingDocumentDialogs > 0 || saving.size > 0 || reloading.size > 0 ||
     state.isLoading || state.pendingClose !== null || state.pendingDiskReload !== null
 }
 
@@ -541,29 +593,43 @@ export async function checkpointWorkspaceForRestart() {
   } finally { checkpointing = false }
 }
 
-// Quit collects choices first: Cancel never closes any tab or discards any draft.
-export async function confirmDiscardChanges(): Promise<boolean> {
-  if (closing || useAppStore.getState().pendingDiskReload || reloading.size) return false
-  closing = true
+// Close and app Quit collect choices before changing any recovery copy.
+export async function planWindowClose() {
+  windowReviewingSaves = true
   try {
-  const reviewed: Document[] = []
-  for (const doc of useAppStore.getState().documents) {
-    if (!doc.isDirty) continue
-    const decision = await decideUnsaved(doc)
-    if (decision === 'cancel') return false
-    if (decision === 'save' && (!await saveWithDialog(doc) || useAppStore.getState().documents.find(d => d.id === doc.id)?.isDirty)) return false
-    if (decision === 'discard') reviewed.push(doc)
+    const reviewed: Document[] = []
+    for (const doc of useAppStore.getState().documents) {
+      if (!doc.isDirty) continue
+      const decision = await decideUnsaved(doc)
+      if (decision === 'cancel') return null
+      if (decision === 'save' && (!await saveWithDialog(doc) || useAppStore.getState().documents.find(d => d.id === doc.id)?.isDirty)) return null
+      if (decision === 'discard') reviewed.push(doc)
+    }
+    const state = useAppStore.getState()
+    if (state.documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))) return null
+    const documents = state.documents.flatMap(doc => reviewed.some(d => d.id === doc.id)
+      ? (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : [])
+      : [doc])
+    const activeId = documents.some(doc => doc.id === state.currentDocument?.id) ? state.currentDocument?.id : documents[0]?.id
+    await flushPreferences()
+    return snapshotWorkspace(documents, state.fileViews, activeId ?? null)
+  } finally {
+    windowReviewingSaves = false
   }
-  const safe = () => !useAppStore.getState().documents.some(doc => doc.isDirty && !reviewed.some(d => d.id === doc.id && d.content === doc.content))
-  if (!safe()) return false
-  activeViewCapture?.capture()
-  const restore = useAppStore.getState().documents.flatMap(doc => reviewed.some(d => d.id === doc.id) ?
-    (doc.path ? [{ ...doc, content: doc.savedContent ?? '', isDirty: false }] : []) : [doc])
-  try { await flushPreferences(); await flushWorkspace(snapshotWorkspace(restore)) }
-  catch (error) { useAppStore.getState().setError(`Cannot finish recovery storage before quitting: ${String(error)}`); return false }
-  if (!safe()) { await flushWorkspace(); return false }
-  return true
-  } finally { closing = false }
+}
+
+export async function confirmDiscardChanges(): Promise<boolean> {
+  const resume = suspendWindowWorkspace()
+  if (!resume) return false
+  try {
+    const plan = await planWindowClose()
+    if (!plan) return false
+    await flushWorkspace(plan)
+    return true
+  } catch (error) {
+    useAppStore.getState().setError(`Cannot finish recovery storage before quitting: ${String(error)}`)
+    return false
+  } finally { resume() }
 }
 
 // Hook for theme management

@@ -1,16 +1,20 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { isTauri } from '@tauri-apps/api/core'
+import { moveEditorDocument } from '../lib/windowWorkspace'
+import { WindowPicker } from './WindowPicker'
 import { diskIssueMessage, saveCopyWithDialog, useAppStore, type Document } from '../store/useAppStore'
 import { Modal } from './Modal'
 import './Workspace.css'
 
 export function DocumentTabs() {
-  const { documents, currentDocument, activateDocument, closeDocument, closeOtherDocuments, reorderDocument } = useAppStore()
+  const { documents, currentDocument, activateDocument, closeDocument, closeOtherDocuments, reorderDocument, windowBusy } = useAppStore()
   const dragging = useRef<string | null>(null)
   const tabList = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ id: string, trigger: HTMLElement, x: number, y: number } | null>(null)
+  const [moveTab, setMoveTab] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const menuOwner = menu && documents.find(doc => doc.id === menu.id)
+  const menuOwner = !windowBusy && menu && documents.find(doc => doc.id === menu.id)
   const showMenu = Boolean(menuOwner)
 
   useLayoutEffect(() => {
@@ -73,7 +77,8 @@ export function DocumentTabs() {
     }
   }
 
-  return <div ref={tabList} className="document-tabs" role="tablist" aria-label="Documents">
+  return <>
+    <div ref={tabList} className="document-tabs" role="tablist" aria-label="Documents">
     {documents.map((doc, index) => <div className="document-tab" key={doc.id} draggable
       onContextMenu={event => {
         event.preventDefault()
@@ -91,7 +96,7 @@ export function DocumentTabs() {
       }}
       onDragStart={() => { dragging.current = doc.id }} onDragOver={event => event.preventDefault()}
       onDrop={event => { event.preventDefault(); if (dragging.current) reorderDocument(dragging.current, index); dragging.current = null }}>
-      <button role="tab" aria-selected={doc.id === currentDocument?.id} aria-haspopup="menu" aria-expanded={menuOwner?.id === doc.id}
+      <button role="tab" aria-selected={doc.id === currentDocument?.id} aria-haspopup="menu" aria-expanded={!!menuOwner && menuOwner.id === doc.id}
         title={doc.path || doc.title}
         tabIndex={doc.id === currentDocument?.id ? 0 : -1} onClick={() => activateDocument(doc.id)}
         onKeyDown={event => {
@@ -118,10 +123,20 @@ export function DocumentTabs() {
         <button role="menuitem" tabIndex={-1} onClick={() => void runMenuAction(false)}>Close Tab</button>
         <button role="menuitem" tabIndex={-1} aria-disabled={documents.length < 2}
           onClick={() => void runMenuAction(true)}>Close Other Tabs</button>
+        {isTauri() && <button role="menuitem" tabIndex={-1} onClick={() => {
+          if (!menu) return
+          dismissMenu()
+          setMoveTab(menu.id)
+        }}>Move Tab to Window…</button>}
       </div>,
       document.body,
     )}
-  </div>
+    </div>
+    {moveTab && <WindowPicker move onClose={() => setMoveTab(null)} onChoose={label => {
+      setMoveTab(null)
+      void moveEditorDocument(moveTab, label)
+    }} />}
+  </>
 }
 
 export function UnsavedDialog() {

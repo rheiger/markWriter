@@ -9,6 +9,7 @@ import { useAppStore, type Document } from '../store/useAppStore'
 
 const native = vi.hoisted(() => ({ listener: undefined as undefined | ((event: { payload: { action: string, generation: number } }) => void) }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn().mockResolvedValue(null) }))
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ label: 'main' }) }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async (_name, listener) => { native.listener = listener; return () => { native.listener = undefined } }) }))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('2.5.1') }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn(), open: vi.fn() }))

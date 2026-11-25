@@ -103,6 +103,7 @@ it('checkpoints dirty named and untitled documents and the current view without 
     await checkpointWorkspaceForRestart()
     expect(preferencesOnDisk).toMatchObject({ config: { theme: 'dark' }, updateChoices: skipped })
     expect(invoke).toHaveBeenCalledWith('save_workspace', {
+      epoch: 0,
       value: expect.objectContaining({ activeId: named.id, documents: [draft,
         { ...named, viewState: { sourceAnchor: 4, sourceHead: 9 }, sourceViewportAnchor: undefined }] }),
     })
