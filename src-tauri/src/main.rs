@@ -10,6 +10,8 @@ mod storage_profile;
 mod native_menu;
 mod os_open;
 mod update_policy;
+#[cfg(test)]
+mod update_trust;
 mod sql_import;
 mod settings_profile;
 #[cfg(target_os = "windows")]

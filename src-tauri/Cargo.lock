@@ -2066,6 +2066,7 @@ dependencies = [
  "gio",
  "libc",
  "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "tauri",
