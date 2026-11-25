@@ -24,6 +24,8 @@ func propertyList(_ url: URL) throws -> [String: Any] {
     return try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] ?? [:]
 }
 
+let tomlPreviewTypes: Set<String> = ["public.toml", "com.markwriter.toml-source"]
+
 let expectedScriptTypes = [
     "example.ps1": "com.microsoft.powershell-script",
     "example.bat": "com.microsoft.batch-file",
@@ -105,6 +107,15 @@ func run() throws {
                     "Found an excluded type in the packaged preview declarations")
         let hostPlist = try propertyList(app.appendingPathComponent("Contents/Info.plist"))
         let imports = hostPlist["UTImportedTypeDeclarations"] as? [[String: Any]] ?? []
+        try require(tomlPreviewTypes.isSubset(of: previewTypes),
+                    "Expected both the existing and fallback TOML preview types")
+        try require(!imports.contains { $0["UTTypeIdentifier"] as? String == "public.toml" },
+                    "The host must not replace existing public.toml filename tags")
+        let toml = imports.filter { $0["UTTypeIdentifier"] as? String == "com.markwriter.toml-source" }
+        let tomlTags = toml.first?["UTTypeTagSpecification"] as? [String: Any]
+        try require(toml.count == 1 && tomlTags?["public.filename-extension"] as? [String] == ["toml"] &&
+                    toml.first?["UTTypeConformsTo"] as? [String] == ["public.toml", "public.text"],
+                    "Expected the narrow fallback TOML type")
         for (name, identifier) in expectedScriptTypes {
             let declarations = imports.filter { $0["UTTypeIdentifier"] as? String == identifier }
             let tags = declarations.first?["UTTypeTagSpecification"] as? [String: Any]
@@ -162,6 +173,9 @@ func run() throws {
            prior.extensionTypes.allSatisfy({ $0.hasPrefix("dyn.") || $0 == expected }),
            !matchingPreviewTypes.contains(expected) {
             violations.append("\(name) resolves to \(current.contentType ?? "no content type"); expected \(expected)")
+        }
+        if name == "example.toml", baseline[name] != nil, tomlPreviewTypes.isDisjoint(with: matchingPreviewTypes) {
+            violations.append("example.toml resolves to \(current.contentType ?? "no content type"); expected a TOML preview type")
         }
         if name == "example.ts", let prior = baseline[name], prior.contentType != current.contentType {
             violations.append("The ambiguous .ts content type changed")
