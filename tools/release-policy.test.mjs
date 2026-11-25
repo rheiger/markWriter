@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
 
-test('the 2.17.4 candidate cannot stage a release without publication authorization', () => {
-  assert.equal(releasePolicy.version, '2.17.4')
-  assert.throws(() => draftReleaseArgs('2.17.4', ['SHA256SUMS']), /requires a separate reviewed release instruction/)
+test('the 2.17.5 candidate cannot stage a release without publication authorization', () => {
+  assert.equal(releasePolicy.version, '2.17.5')
+  assert.throws(() => draftReleaseArgs('2.17.5', ['SHA256SUMS']), /requires a separate reviewed release instruction/)
 })

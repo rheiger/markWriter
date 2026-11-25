@@ -1,12 +1,12 @@
 # Changelog
 
-## 2.17.4
+## 2.17.5
 
 - Open, switch between and close independent native editor windows. [#143](https://github.com/rheiger/markWriter/issues/143) · [#146](https://github.com/rheiger/markWriter/issues/146)
 - Move tabs between windows with document ownership, unsaved edits, view and Undo/Redo preserved. [#145](https://github.com/rheiger/markWriter/issues/145)
 - Choose the default editor view for new documents. [#144](https://github.com/rheiger/markWriter/issues/144)
 
-[Release notes](docs/releases/2.17.4.md) · [Installation and rollback](docs/install-2.17.4.md)
+[Release notes](docs/releases/2.17.5.md) · [Installation and rollback](docs/install-2.17.5.md)
 
 ## 2.16.3
 
