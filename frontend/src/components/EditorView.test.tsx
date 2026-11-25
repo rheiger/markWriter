@@ -1384,12 +1384,15 @@ describe('cross-window editor state handoff', () => {
 
   it('refuses to capture an active or hidden tab during live IME composition', async () => {
     const { captureEditorTransfer } = await import('../lib/editorTransfer')
+    const { editorIsComposing } = await import('../lib/editorComposition')
     const { ref, editor } = await mount('# Input\n')
     await markdown(ref)
     const cm = ref.current!.getEditorView()!
     const doc = () => useAppStore.getState().documents.find(document => document.id === 'doc-1')!
     act(() => fireEvent.compositionStart(cm.contentDOM))
     expect(cm.compositionStarted).toBe(true)
+    expect(editorIsComposing('doc-1')).toBe(true)
+    expect(editorIsComposing('unmounted')).toBe(false)
     expect(() => captureEditorTransfer(doc())).toThrow(/Finish entering/)
     act(() => fireEvent.compositionEnd(cm.contentDOM))
     await wysiwyg(ref)
@@ -1398,8 +1401,10 @@ describe('cross-window editor state handoff', () => {
       act(() => useAppStore.getState().setCurrentDocument({
         id: 'other', title: 'Other', content: 'Other', isDirty: false, lastModified: new Date(),
       }))
+      expect(editorIsComposing('doc-1')).toBe(true)
       expect(() => captureEditorTransfer(doc())).toThrow(/Finish entering/)
     } finally { composing.mockRestore() }
+    expect(editorIsComposing('doc-1')).toBe(false)
     expect(captureEditorTransfer(doc()).id).toBe('doc-1')
   })
 
