@@ -7,7 +7,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+import unicodedata
+from unittest.mock import call, patch
 
 
 TOOL = Path(__file__).resolve().parents[1] / 'tools/update-markwriter-macos.py'
@@ -187,6 +188,68 @@ class TransactionTest(Trial):
         self.assert_pair(OLD, NEW, registered=False)
         self.run_tool(apply=True, rollback=True)
         self.assert_pair(OLD, NEW)
+
+    def test_matching_unicode_missing_plugin_replies_require_independent_absence(self):
+        extension = str(self.app / removal.EXT)
+
+        def report_missing_plugin(*args):
+            if args[:2] == (removal.PLUGIN, '-r'):
+                message = unicodedata.normalize('NFD', f'remove: no plugin at {extension}')
+                raise subprocess.CalledProcessError(1, args, stderr=message)
+            self.command(*args)
+
+        self.mock_command.side_effect = report_missing_plugin
+        with self.assertRaisesRegex(removal.Refusal, 'outgoing registration removal'):
+            self.run_tool(apply=True)
+        self.assert_pair(OLD, NEW)
+        self.mock_exchange_paths.assert_not_called()
+
+        def clear_after_unknown_unicode_removal(*args):
+            if args[:2] == (removal.LSREGISTER, '-u'):
+                self.registrations.remove(extension)
+            report_missing_plugin(*args)
+
+        self.mock_command.side_effect = clear_after_unknown_unicode_removal
+        self.run_tool(apply=True)
+        self.assert_pair(NEW, OLD)
+
+    def test_successful_remove_command_with_stale_record_refuses_swap(self):
+        def leave_stale_record(*args):
+            if args[:2] != (removal.PLUGIN, '-r'):
+                self.command(*args)
+
+        self.mock_command.side_effect = leave_stale_record
+        with self.assertRaisesRegex(removal.Refusal, 'outgoing registration removal'):
+            self.run_tool(apply=True)
+        self.assert_pair(OLD, NEW)
+        self.mock_exchange_paths.assert_not_called()
+
+    def test_unrelated_plugin_error_refuses_swap(self):
+        def unrelated_error(*args):
+            if args[:2] == (removal.PLUGIN, '-r'):
+                raise subprocess.CalledProcessError(1, args, stderr=f'remove: no plugin at {self.other}')
+            self.command(*args)
+
+        self.mock_command.side_effect = unrelated_error
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.run_tool(apply=True)
+        self.assert_pair(OLD, NEW)
+        self.mock_exchange_paths.assert_not_called()
+
+    def test_retry_after_post_exchange_sync_failure_syncs_both_directories(self):
+        def swap_then_fail_sync(*args):
+            self.fake_swap(*args)
+            raise OSError('directory sync failed after the exchange')
+
+        self.mock_exchange_paths.side_effect = swap_then_fail_sync
+        with self.assertRaisesRegex(OSError, 'directory sync failed'):
+            self.run_tool(apply=True)
+        self.assert_pair(NEW, OLD, registered=False)
+        with patch.object(removal, 'sync_directory', wraps=removal.sync_directory) as sync:
+            self.run_tool(apply=True)
+        self.assertEqual(sync.call_args_list, [call(self.root), call(self.stage)])
+        self.assertEqual(self.mock_exchange_paths.call_count, 1)
+        self.assert_pair(NEW, OLD)
 
     def test_record_refuses_substituted_copy_and_unsafe_record(self):
         self.run_tool(apply=True)

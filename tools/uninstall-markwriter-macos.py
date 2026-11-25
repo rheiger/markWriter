@@ -366,6 +366,21 @@ def registration_paths():
         raise Refusal('Cannot establish complete PlugInKit registration state')
     return paths
 
+def remove_quicklook_registration(app):
+    """Request removal of the exact path for independent confirmation by the caller."""
+    extension = str(app / EXT)
+    try:
+        command(PLUGIN, '-r', extension)
+    except subprocess.CalledProcessError as exc:
+        expected_error = 'remove: no plugin at ' + extension
+        if (exc.returncode != 1 or exc.stdout not in (None, '') or not isinstance(exc.stderr, str) or
+                unicodedata.normalize('NFD', exc.stderr.strip()).casefold() !=
+                unicodedata.normalize('NFD', expected_error).casefold()):
+            raise
+        # Some macOS versions reject a Unicode path despite a matching record.
+        print('PlugInKit removal failed; checking path-scoped recovery.', file=sys.stderr)
+
+
 def confirm_unregistered(app, backup):
     def normalized(path):
         return unicodedata.normalize('NFD', os.path.normpath(str(path))).casefold()
@@ -475,20 +490,9 @@ def run_locked(app, version, apply=False, restore=False, repair=False):
     moved = False
     observed = None
     try:
-        try:
-            assert_stopped(app)
-            verify_proof(app, version, original)
-            command(PLUGIN, '-r', str(app / EXT))
-        except subprocess.CalledProcessError as exc:
-            expected_error = 'remove: no plugin at ' + str(app / EXT)
-            if (exc.returncode != 1 or exc.stdout not in (None, '') or not isinstance(exc.stderr, str) or
-                    unicodedata.normalize('NFD', exc.stderr.strip()).casefold() !=
-                    unicodedata.normalize('NFD', expected_error).casefold()):
-                raise
-            # Some macOS versions reject a Unicode path despite a matching
-            # record. Continue only with path-scoped LS removal, a reversible
-            # move, and independent confirmation that the record is gone.
-            print('PlugInKit removal failed; checking path-scoped recovery.', file=sys.stderr)
+        assert_stopped(app)
+        verify_proof(app, version, original)
+        remove_quicklook_registration(app)
         assert_stopped(app)
         verify_proof(app, version, original)
         command(LSREGISTER, '-u', str(app))

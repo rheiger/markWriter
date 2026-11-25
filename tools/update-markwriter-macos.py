@@ -209,18 +209,24 @@ def run_locked(app, slot, old, new, *, apply, rollback):
         write_journal(app, slot, old, proofs[0], new, proofs[1])
     if read_journal(app, slot, old, new) != proofs:
         raise removal.Refusal('Cannot establish transaction journal')
-    removal.sync_directory(slot.parent)
-
     if installed[0] != desired:
+        removal.sync_directory(slot.parent)
         if selected:
-            removal.command(removal.PLUGIN, '-r', str(app / removal.EXT))
+            removal.remove_quicklook_registration(app)
         removal.command(removal.LSREGISTER, '-u', str(app))
         validate_layout(app, slot, old, new)
         removal.verify_proof(app, *installed)
         removal.verify_proof(slot, *parked)
         removal.assert_stopped(app)
         removal.assert_stopped(slot)
+        selected, remaining = registration_status(app, slot)
+        if selected or not others.issubset(remaining):
+            raise removal.Refusal('Could not confirm outgoing registration removal and competing paths')
         exchange_paths(app, slot, installed[1], parked[1])
+    else:
+        # A prior swap may have succeeded before either directory was synced.
+        removal.sync_directory(app.parent)
+        removal.sync_directory(slot.parent)
 
     installed, _ = verify_pair(app, slot, old, new, proofs)
     if installed[0] != desired:
@@ -232,6 +238,7 @@ def run_locked(app, slot, old, new, *, apply, rollback):
     if not selected or not others.issubset(remaining):
         raise removal.Refusal('Could not confirm selected and competing extension registrations')
     print(f'Verified version {desired} at {app}. Transaction journal and both bundles retained.')
+    print('PlugInKit reports the selected path. Verify the active provider and version in Finder.')
 
 
 def run(app, old, new, *, apply=False, rollback=False):

@@ -39,8 +39,10 @@ python3 tools/update-markwriter-macos.py \
 
 Repeat with `--apply` to perform replacement. The tool verifies both app
 bundles and their extensions, then records their exact identities. It
-unregisters the old path when applicable, exchanges the two directories, verifies
-their new locations and re-registers the selected path. The checkout tool and
+unregisters the old path when applicable and independently checks that its
+PlugInKit record is gone before exchanging the two directories. It verifies the
+new locations and re-registers the selected path. The final PlugInKit check
+confirms path presence. Confirm the active provider and version in Finder. The checkout tool and
 `uninstall-markwriter-macos.py` share the same per-app lock. The transaction
 only uses registration commands for the selected app path.
 
@@ -54,8 +56,9 @@ location and that the staged copy is absent from PlugInKit.
 
 After an interruption, run the same dry run again to inspect the pair. If the
 journal and both proofs match, repeating `--apply` converges to the newer version
-and repairs the selected registration. The inverse operation uses the same
-original version arguments plus `--rollback --apply`. Both bundles must remain
+and repairs the selected registration. A retry after an interrupted swap
+syncs both directories before repairing registration. The inverse operation
+uses the same original version arguments plus `--rollback --apply`. Both bundles must remain
 at their recorded locations so the tool can identify them. A swapped-in bundle
 from another location, even one with the same version, fails the identity check.
 
