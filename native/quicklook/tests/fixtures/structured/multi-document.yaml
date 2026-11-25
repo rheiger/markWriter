@@ -1,0 +1,8 @@
+short: 0001
+longer: false
+---
+meta:
+  ready: true
+  last_key: YAML-BLOCK-FINAL 日本語
+list:
+  - Café

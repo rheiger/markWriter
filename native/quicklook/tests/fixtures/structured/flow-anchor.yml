@@ -1,0 +1,5 @@
+---
+base: &base [one, two]
+copy: *base
+---
+final: "YAML-LITERAL-FINAL Grüße <item> & 日本語"
