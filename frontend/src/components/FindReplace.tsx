@@ -66,7 +66,8 @@ export function FindReplace({ documentId, source, view, editor, mode, active, op
   useEffect(() => {
     if (!open || !active) return
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || document.querySelector('dialog[open], .table-picker') || (event.target as Element)?.closest('.menu-dropdown')) return
+      if (event.key !== 'Escape' || document.querySelector('dialog[open], .table-picker')) return
+      if (event.target instanceof Element && event.target.closest('.menu-dropdown, .document-tab-menu')) return
       event.preventDefault(); event.stopPropagation(); close.current()
     }
     document.addEventListener('keydown', escape, true)
