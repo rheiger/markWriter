@@ -169,7 +169,16 @@ try {
   session = created.sessionId
   console.log('Desktop session created; waiting for application')
   await request('POST', `/session/${session}/timeouts`, { script: 30000 })
-  await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'application startup')
+  // The first document can exist before native listeners register. Initial
+  // transfer and OS-open drains then temporarily block document actions.
+  await waitFor(async () => {
+    const windows = await run('return window.__MARKWRITER_ACCEPTANCE__?.editorWindows() ?? []')
+    return windows.some(window => window.label === 'main' && window.ready)
+  }, 'initial native window acknowledged its IPC listeners')
+  await waitFor(() => run(`const bridge=window.__MARKWRITER_ACCEPTANCE__
+    const workspace=document.querySelector('.app-workspace')
+    return !!bridge?.snapshot().document && bridge.canReviewQuit() && !!workspace && !workspace.inert`
+  ), 'initial workspace ready for document operations')
   assert.equal((await action('open', sourcePath)).document.content, source)
   const expectedVersion = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8')).version
   await click('//button[normalize-space(.)="Help"]')
