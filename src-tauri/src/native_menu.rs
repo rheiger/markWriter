@@ -239,7 +239,6 @@ pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
         .item(&item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?)
         .item(&item(
             "close-window",
-            "window-list",
             "Close Window",
             Some("CmdOrCtrl+Shift+W"),
         )?)
