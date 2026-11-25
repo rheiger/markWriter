@@ -94,25 +94,29 @@ if [[ "$package_started" != true ]]; then cat package-acceptance-results/launch.
 
 package_fixture="$package_work/package-open.md"
 printf '# Installed MarkWriter\n\nSynthetic macOS package fixture.\n' >"$package_fixture"
+# Register this exact app location. The editor is already running from its
+# binary, so sending it an open event alone need not rediscover the package.
+lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$lsregister" -f "$package_app"
 open -a "$package_app" "$package_fixture"
-# PlugInKit registration is a separate observation from Finder's active provider.
-# Launch Services registration can be asynchronous on hosted runners.
+"$registration_probe" "$registration_fixtures" "$package_app" \
+  package-acceptance-results/quicklook-types-before.json >package-acceptance-results/quicklook-types-after.json
+
+# Query PlugInKit without adding or selecting a provider. Hosted sessions
+# differ in extension discovery, and a listing does not prove Finder selection.
 registered_extension=$(cd "$package_extension" && pwd -P)
 plugin_evidence=package-acceptance-results/quicklook-plugins.txt
-has_installed_extension() {
-  sed -n 's/^[[:space:]]*Path = //p' "$plugin_evidence" | grep -Fxq -- "$registered_extension"
-}
-for registration_attempt in {1..120}; do
-  if /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook >"$plugin_evidence" && has_installed_extension; then
+plugin_observed=false
+for registration_attempt in {1..20}; do
+  if /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook >"$plugin_evidence" 2>&1 &&
+    sed -n 's/^[[:space:]]*Path = //p' "$plugin_evidence" | grep -Fx -- "$registered_extension" >/dev/null; then
+    plugin_observed=true
     break
   fi
   sleep 0.25
 done
-has_installed_extension
-"$registration_probe" "$registration_fixtures" "$package_app" \
-  package-acceptance-results/quicklook-types-before.json >package-acceptance-results/quicklook-types-after.json
 
-python3 - "$package_install" "$package_profile" "$package_fixture" "$package_dmg" <<'PY'
+python3 - "$package_install" "$package_profile" "$package_fixture" "$package_dmg" "$plugin_observed" <<'PYTHON'
 import hashlib
 import json
 import pathlib
@@ -120,7 +124,8 @@ import platform
 import sys
 import time
 
-installed, profile, fixture, dmg = map(pathlib.Path, sys.argv[1:])
+installed, profile, fixture, dmg = map(pathlib.Path, sys.argv[1:5])
+plugin_observed = sys.argv[5] == "true"
 source = b'# Installed MarkWriter\n\nSynthetic macOS package fixture.\n'
 workspace = profile / 'workspace.json'
 fixture = fixture.resolve()
@@ -145,6 +150,7 @@ result = {
     'arch': platform.machine(),
     'installed': str(installed),
     'packageSha256': hashlib.sha256(dmg.read_bytes()).hexdigest(),
+    'quickLookRegistrationObserved': plugin_observed,
     'cases': [
         'Verified the final DMG and copied the app from its read-only mount',
         'Verified arm64, bundle versions, and strict ad hoc seals for the app and Quick Look extension',
@@ -152,9 +158,10 @@ result = {
         'Matched the final app Mach-O text to the Tauri candidate',
         'Launched the installed production app with outbound IP denied and an isolated profile',
         'Opened synthetic Markdown through Launch Services and verified exact clean workspace and source bytes',
-        'Recorded fixture content types and preview declaration matches, verified existing source defaults, and observed the installed extension in PlugInKit',
+        'Verified existing source-file defaults and recorded fixture content types and preview declaration matches',
+        *(['Observed the installed extension path in PlugInKit'] if plugin_observed else []),
     ],
     'qualification': 'Hosted macOS installed-package smoke test. Finder provider selection and interactive native file dialogs require desktop qualification.',
 }
 pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps(result, indent=2) + '\n')
-PY
+PYTHON

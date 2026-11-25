@@ -90,9 +90,10 @@ func run() throws {
                     "Expected the packaged Quick Look preview extension")
         try require(previewTypes.contains(UTType.xmlPropertyList.identifier),
                     "Expected the narrow Apple XML property-list declaration")
-        let broadTypes = [UTType.item, .data, .text, .plainText, .script, .movie, .propertyList]
-        try require(broadTypes.allSatisfy { !previewTypes.contains($0.identifier) },
-                    "Found a broad type in the packaged preview declarations")
+        let excludedTypes = [UTType.item, .data, .text, .plainText, .script, .movie,
+                             .propertyList, .binaryPropertyList]
+        try require(excludedTypes.allSatisfy { !previewTypes.contains($0.identifier) },
+                    "Found an excluded type in the packaged preview declarations")
         baseline = try JSONDecoder().decode([String: FileObservation].self,
                                           from: Data(contentsOf: URL(fileURLWithPath: args[2])))
     } else {
