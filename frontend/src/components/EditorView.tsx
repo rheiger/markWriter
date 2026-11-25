@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, forwardRef, useState, useCallback } from 'react'
 import { EditorView as CodeMirrorView, keymap, drawSelection } from '@codemirror/view'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, type EditorStateConfig } from '@codemirror/state'
 import { foldEffect, unfoldAll } from '@codemirror/language'
 import { embeddedSourceFolds, findEmbeddedSource, synchronizeSource } from '../lib/sourceFolds'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -8,48 +8,30 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo } from '@codemirror/commands'
 import { searchKeymap } from '@codemirror/search'
 import { registerActiveViewCapture, useAppStore } from '../store/useAppStore'
+import { renderedEditorExtensions } from '../lib/renderedEditorExtensions'
+import {
+  captureRenderedJournal, captureSourceEngine, registerEditorTransfer,
+  restoreRenderedJournal, restoreSourceEngine, stagedEditorTransfer,
+  type EditorTransfer, type RenderedJournal,
+} from '../lib/editorTransfer'
+import { captureRenderedEngine, restoreRenderedEngine } from '../lib/renderedHistoryTransfer'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { closeHistory, isHistoryTransaction, undoDepth } from '@tiptap/pm/history'
 import mermaid from 'mermaid'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-import Placeholder from '@tiptap/extension-placeholder'
-import Link from '@tiptap/extension-link'
-import BulletList from '@tiptap/extension-bullet-list'
-import OrderedList from '@tiptap/extension-ordered-list'
-import ListItem from '@tiptap/extension-list-item'
-import Heading from '@tiptap/extension-heading'
-import Blockquote from '@tiptap/extension-blockquote'
-import HardBreak from '@tiptap/extension-hard-break'
-import HorizontalRule from '@tiptap/extension-horizontal-rule'
-import Code from '@tiptap/extension-code'
-import { HighlightedCodeBlock, codeHighlightKey, sourceCodeHighlighting } from '../lib/editorCodeHighlight'
+import { codeHighlightKey, sourceCodeHighlighting } from '../lib/editorCodeHighlight'
 import { useResolvedDark } from '../lib/theme'
-import { cancelAutomaticReplacement, literalInputAttributes, technicalInput } from '../lib/technicalInput'
+import { cancelAutomaticReplacement } from '../lib/technicalInput'
 import '../lib/codeHighlight.css'
 import { appendDbmlFence, toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown } from '../lib/markdown'
 import { parseInlineCodeDocument, createInlineCodeClipboardParser } from '../lib/inlineCodeParser'
-import Strike from '@tiptap/extension-strike'
-import Underline from '@tiptap/extension-underline'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
-import { Table } from '@tiptap/extension-table'
-import TextAlign from '@tiptap/extension-text-align'
-import TableRow from '@tiptap/extension-table-row'
-import TableCell from '@tiptap/extension-table-cell'
-import TableHeader from '@tiptap/extension-table-header'
 import { TableTools } from './TableTools'
-import { MermaidNode } from '../extensions/MermaidNode'
-import { DotNode } from '../extensions/DotNode'
-import { DbmlNode } from '../extensions/DbmlNode'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
 import { dotRenderer } from '../lib/dotRenderer'
-import { MathNode } from '../extensions/MathNode'
 import { mathRenderer, createMathBudget } from '../lib/mathRenderer'
 import { FindReplace } from './FindReplace'
-import { renderedSearchDecorations, sourceSearchDecorations } from '../lib/editorSearch'
+import { sourceSearchDecorations } from '../lib/editorSearch'
 import { synchronizePreview } from '../lib/previewSync'
 import type { PreviewMap } from '../lib/sourceMap'
 import { sourceCoordinates, applyEditorChanges, editorText } from '../lib/sourceCoordinates'
@@ -174,7 +156,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const [diagramCount, setDiagramCount] = useState(0)
   const [renderedReady, setRenderedReady] = useState(false)
   const [editorMode, setEditorMode] = useState<EditorMode>(useAppStore.getState().documents.find(doc => doc.id === documentId)?.mode ?? 'wysiwyg')
-  const [splitPos, setSplitPos] = useState<number>(50)
+  const [transfer, setTransfer] = useState(() => stagedEditorTransfer(documentId))
+  const [receivedSource] = useState(() => !!transfer?.data.source)
+  const [splitPos, setSplitPos] = useState(transfer?.data.split ?? 50)
   const isDraggingSplit = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const syncRef = useRef<ReturnType<typeof synchronizePreview> | null>(null)
@@ -183,14 +167,15 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const isUpdatingFromMarkdown = useRef(false)
   const isSwitchingModeRef = useRef(false)
   const initialDocument = useAppStore.getState().documents.find(doc => doc.id === documentId)
-  const initialViewState = useRef(initialDocument?.viewState)
-  const initialSourceViewport = useRef(initialDocument?.sourceViewportAnchor)
+  const initialViewState = useRef(transfer?.data.view ?? initialDocument?.viewState)
+  const initialSourceViewport = useRef(transfer?.data.sourceViewportAnchor ?? initialDocument?.sourceViewportAnchor)
+  const initialSourceScrollHandled = useRef(false)
   const lastMarkdownAnchorRef = useRef(initialViewState.current?.sourceAnchor ?? 0)
   const initialRenderedScrollHandled = useRef(false)
   const respectRenderedInput = () => { initialRenderedScrollHandled.current = true }
   const restoredPreviewScroll = useRef(false)
   const stopPreviewRestore = useRef<() => void>(() => {})
-  const sourceNewline = useRef(useAppStore.getState().documents.find(doc => doc.id === documentId)?.content.includes('\r\n') ? '\r\n' : '\n')
+  const sourceNewline = useRef(transfer?.data.sourceNewline ?? (initialDocument?.content.includes('\r\n') ? '\r\n' : '\n'))
   const captureView = useRef<() => void>(() => {})
   const formattingListenerRef = useRef<null | ((state: any) => void)>(null)
 
@@ -200,7 +185,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const updateDocumentContent = useCallback((content: string) => useAppStore.getState().updateDocumentContent(content, documentId, reloadCount), [documentId, reloadCount])
   const source = useCallback(() => useAppStore.getState().documents.find(doc => doc.id === documentId)?.content ?? '', [documentId])
 
-  const [initialHtml] = useState(() => toWysiwygHtml(currentDocument?.content ?? ''))
+  const [initialHtml] = useState(() => transfer ? '' : toWysiwygHtml(currentDocument?.content ?? ''))
   const lastTiptapSource = useRef(currentDocument?.content ?? '')
   const lastTiptapSemantic = useRef<string | null>(null)
   // Checkpoints belong to history positions, not semantic text: the same
@@ -209,7 +194,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   // Older checkpoints are limited to 128 entries and 2,000,000 UTF-16 units; a single current
   // external baseline remains pinned. Evicted/oversized older patches fall
   // back to serialization rather than being matched by text at another depth.
-  const renderedHistory = useRef<{ depth: number; previous: number; patches: Map<number, SourcePatch>; anchor: { depth: number; patch: SourcePatch } | null }>({ depth: 0, previous: 0, patches: new Map(), anchor: null })
+  const renderedHistory = useRef<RenderedJournal>({ depth: 0, previous: 0, patches: new Map(), anchor: null })
   function trimCheckpoints() {
     const journal = renderedHistory.current, patches = journal.patches
     const retainedSize = () => Array.from(new Set(patches.values())).reduce((sum, item) => sum + (item === journal.anchor?.patch ? 0 : item.semantic.length + item.original.length), 0)
@@ -249,64 +234,35 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     renderedHistory.current = { depth, previous: depth, patches: new Map(), anchor: null }
     rememberCheckpoint(depth, semantic, canonical, true)
   }
-  if (lastTiptapSemantic.current === null) rememberRenderedSource(initialHtml, lastTiptapSource.current)
+  if (!transfer && lastTiptapSemantic.current === null) rememberRenderedSource(initialHtml, lastTiptapSource.current)
   // Tiptap editor instance (WYSIWYG)
   const tiptap = useEditor({
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-        // Disable to avoid duplicate extensions; we add our own below
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        heading: false,
-        blockquote: false,
-        hardBreak: false,
-        horizontalRule: false,
-        code: false,
-        strike: false,
-        underline: false,
-        link: false,
-      }),
-      renderedSearchDecorations,
-      technicalInput,
-      HighlightedCodeBlock.configure({ highlighting: config.syntaxHighlighting, HTMLAttributes: literalInputAttributes }),
-      Placeholder.configure({ placeholder: 'Start writing…' }),
-      BulletList,
-      OrderedList,
-      ListItem,
-      Heading.configure({ levels: [1,2,3,4,5,6] }),
-      Blockquote.configure({ HTMLAttributes: literalInputAttributes }),
-      HardBreak,
-      HorizontalRule,
-      Code.configure({ HTMLAttributes: literalInputAttributes }),
-      Strike,
-      Underline,
-      Link.configure({ autolink: false, linkOnPaste: false }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      TextAlign.configure({ types: ['tableCell', 'tableHeader'] }),
-      MermaidNode,
-      DotNode.configure({ documentId }),
-      DbmlNode.configure({ documentId }),
-      MathNode.configure({ documentId }),
-      Image.configure({ inline: true, allowBase64: true }),
-    ],
+    extensions: renderedEditorExtensions(documentId, config.syntaxHighlighting),
     content: initialHtml,
     onBeforeCreate: ({ editor }) => {
       // Schema exists before Tiptap parses initial content. Preserve inline code
       // through a scoped parser; keep live DOM/IME parsing on the default path.
-      editor.setOptions({ content: parseInlineCodeDocument(initialHtml, editor.schema).toJSON(),
+      editor.setOptions({ content: transfer?.data.rendered.editor.doc ?? parseInlineCodeDocument(initialHtml, editor.schema).toJSON(),
         editorProps: { ...editor.options.editorProps, clipboardParser: createInlineCodeClipboardParser(editor.schema) } })
     },
     onCreate: ({ editor }) => {
-      rememberRenderedSource(editor.getHTML(), lastTiptapSource.current, undoDepth(editor.state))
-      const remembered = initialViewState.current
-      if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
+      if (transfer) {
+        try {
+          const state = restoreRenderedEngine(editor.schema, transfer.data.rendered, editor.state.plugins)
+          const journal = restoreRenderedJournal(transfer.data.journal)
+          editor.view.updateState(state)
+          lastTiptapSource.current = transfer.data.renderedSource
+          lastTiptapSemantic.current = transfer.data.renderedSemantic
+          renderedHistory.current = journal
+        } catch (error) {
+          transfer.failed(error)
+          return
+        }
+      } else {
+        rememberRenderedSource(editor.getHTML(), lastTiptapSource.current, undoDepth(editor.state))
+        const remembered = initialViewState.current
+        if (remembered?.renderedAnchor !== undefined) editor.commands.setTextSelection({ from: Math.min(editor.state.doc.content.size, remembered.renderedAnchor), to: Math.min(editor.state.doc.content.size, remembered.renderedHead ?? remembered.renderedAnchor) })
+      }
       setRenderedReady(true)
     },
     onTransaction: ({ editor, transaction, appendedTransactions }) => {
@@ -373,6 +329,60 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     enableInputRules: false,
     enablePasteRules: false,
   })
+
+  useEffect(() => {
+    if (transfer && renderedReady && (!transfer.data.source || sourceView)) {
+      transfer.hydrated()
+      setTransfer(undefined)
+    }
+  }, [renderedReady, sourceView, transfer])
+
+  const captureForTransfer = useRef<(document: import('../store/useAppStore').Document) => EditorTransfer>(() => {
+    throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
+  })
+  captureForTransfer.current = requested => {
+    const sourceEditor = editorViewRef.current
+    const current = useAppStore.getState().documents.find(doc => doc.id === documentId)
+    if (!current || current.content !== requested.content || current.revision !== requested.revision ||
+        current.reloadCount !== requested.reloadCount || current.mode !== editorMode) {
+      throw new Error('The tab changed while preparing to move it. Try again.')
+    }
+    if (!tiptap || tiptap.isDestroyed || !tiptap.isInitialized || !renderedReady ||
+        (editorMode === 'markdown' && !sourceEditor) || isUpdatingFromMarkdown.current || isSwitchingModeRef.current) {
+      throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
+    }
+    if (tiptap.view.composing || sourceEditor?.compositionStarted) {
+      throw new Error('Finish entering the current text, then try moving this tab again.')
+    }
+    const view = { ...current.viewState }
+    let sourceViewportAnchor = current.sourceViewportAnchor
+    if (sourceEditor) {
+      view.sourceAnchor = sourceEditor.state.selection.main.anchor
+      view.sourceHead = sourceEditor.state.selection.main.head
+      if (active && editorMode === 'markdown') {
+        const box = sourceEditor.scrollDOM.getBoundingClientRect()
+        const y = box.top + 16
+        const row = box.height > 0 && typeof sourceEditor.root.elementFromPoint === 'function' ?
+          sourceEditor.posAtCoords({ x: Math.max(box.left, sourceEditor.contentDOM.getBoundingClientRect().left) + 20, y }) : null
+        sourceViewportAnchor = row ?? sourceEditor.lineBlockAtHeight(Math.max(0, y - sourceEditor.documentTop)).from
+        view.sourceScroll = sourceEditor.scrollDOM.scrollTop
+        view.previewScroll = previewScrollRef.current?.scrollTop ?? 0
+      }
+    }
+    view.renderedAnchor = tiptap.state.selection.anchor
+    view.renderedHead = tiptap.state.selection.head
+    if (active && editorMode === 'wysiwyg') view.renderedScroll = wysiwygContainerRef.current?.scrollTop ?? 0
+    return {
+      version: 1, id: requested.id, revision: requested.revision ?? 0, mode: editorMode,
+      source: sourceEditor ? captureSourceEngine(sourceEditor.state) : null,
+      sourceNewline: sourceNewline.current, rendered: captureRenderedEngine(tiptap.state),
+      renderedSource: lastTiptapSource.current, renderedSemantic: lastTiptapSemantic.current ?? '',
+      journal: captureRenderedJournal(renderedHistory.current), view, sourceViewportAnchor, split: splitPos,
+    }
+  }
+  useEffect(() => {
+    if (documentId) return registerEditorTransfer(documentId, doc => captureForTransfer.current(doc))
+  }, [documentId])
 
   // Compute formatting state for WYSIWYG toolbar label
   const computeFormattingState = useCallback(() => {
@@ -914,7 +924,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
   // Initialize CodeMirror editor when entering markdown mode (lazy init)
   useEffect(() => {
-    if (editorMode !== 'markdown' || !active) return
+    if ((!active || editorMode !== 'markdown') && !transfer?.data.source) return
     if (editorViewRef.current) return
     console.log('[EDITOR] useEffect triggered for editor initialization')
     console.log('[EDITOR] editorRef.current:', editorRef.current)
@@ -931,7 +941,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     console.log('[EDITOR] Creating CodeMirror editor with content length:', defaultContent.length)
 
     // Create CodeMirror editor state
-    const state = EditorState.create({
+    const stateConfig = {
       doc: defaultContent,
       extensions: [
         markdown({ base: markdownLanguage }),
@@ -993,17 +1003,29 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
           }
         }),
       ]
-    })
+    } satisfies EditorStateConfig
 
-    // Create and mount the editor
-    const view = new CodeMirrorView({
-      state,
-      parent: editorRef.current
-    })
+    // A transferred hidden engine is hydrated before the move is acknowledged.
+    let view: CodeMirrorView
+    try {
+      const state = transfer?.data.source
+        ? restoreSourceEngine(transfer.data.source, stateConfig.extensions)
+        : EditorState.create(stateConfig)
+      view = new CodeMirrorView({ state, parent: editorRef.current })
+    } catch (error) {
+      if (transfer) { transfer.failed(error); return }
+      throw error
+    }
 
     editorViewRef.current = view
     setSourceView(view)
     console.log('[EDITOR] CodeMirror editor created successfully')
+
+    if (transfer?.data.source) {
+      lastMarkdownAnchorRef.current = view.state.selection.main.anchor
+      updatePreview(defaultContent)
+      return
+    }
 
     // A fresh source engine starts at zero; retained engines keep their own selection.
     const anchor = Math.min(
@@ -1025,7 +1047,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
 
     // Initial preview update
     // Force equal split at mount
-    setSplitPos(50)
+    if (!transfer) setSplitPos(50)
     updatePreview(defaultContent)
 
     }, 100) // 100ms delay to ensure DOM is ready
@@ -1034,7 +1056,19 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       clearTimeout(timer)
       // Keep CodeMirror view alive across mode switches to preserve selection/state
     }
-  }, [source, active, editorMode, documentId, currentDocument?.id, isDark, config.theme, config.syntaxHighlighting, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent])
+  }, [source, active, editorMode, documentId, currentDocument?.id, isDark, config.theme, config.syntaxHighlighting, config.wordWrap, config.wrapContinuation, config.tabWidth, config.collapseSource, updatePreview, updateDocumentContent, transfer])
+
+  useEffect(() => {
+    if (!receivedSource || !active || editorMode !== 'markdown' || !sourceView || initialSourceScrollHandled.current) return
+    const frame = requestAnimationFrame(() => {
+      if (useAppStore.getState().currentDocument?.id !== documentId) return
+      initialSourceScrollHandled.current = true
+      const anchor = initialSourceViewport.current
+      if (anchor === undefined) sourceView.scrollDOM.scrollTop = initialViewState.current?.sourceScroll ?? 0
+      else sourceView.dispatch({ effects: CodeMirrorView.scrollIntoView(Math.min(anchor, sourceView.state.doc.length), { y: 'start', yMargin: 16 }) })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [active, documentId, editorMode, receivedSource, sourceView])
 
   useEffect(() => {
     editorViewRef.current?.dispatch({ effects: preferences.current.reconfigure([
