@@ -31,24 +31,46 @@ export type RenderedJournal = {
   patches: Map<number, SourcePatch>
   anchor: { depth: number; patch: SourcePatch } | null
 }
-type JournalTransfer = Omit<RenderedJournal, 'patches'> & { patches: [number, SourcePatch][] }
+type JournalTransfer = {
+  depth: number
+  previous: number
+  values: SourcePatch[]
+  patches: [number, number][]
+  anchor: { depth: number; index: number } | null
+}
 
-export function captureRenderedJournal(journal: RenderedJournal): JournalTransfer {
-  return { ...journal, patches: [...journal.patches] }
+export function captureRenderedJournal({ depth, previous, patches, anchor }: RenderedJournal): JournalTransfer {
+  // The journal’s retention budget counts shared patches once and exempts
+  // copies of the pinned baseline. Keep that identity through the JSON hop.
+  const values: SourcePatch[] = []
+  const indexes = new Map<SourcePatch, number>()
+  const indexOf = (patch: SourcePatch) => {
+    const existing = indexes.get(patch)
+    if (existing !== undefined) return existing
+    const index = values.length
+    values.push(patch)
+    indexes.set(patch, index)
+    return index
+  }
+  return { depth, previous, values, patches: [...patches].map(([position, patch]) => [position, indexOf(patch)]),
+    anchor: anchor && { depth: anchor.depth, index: indexOf(anchor.patch) } }
 }
 
 export function restoreRenderedJournal(journal: JournalTransfer): RenderedJournal {
   const validPatch = (patch: SourcePatch) => !!patch && typeof patch.semantic === 'string' && typeof patch.original === 'string' &&
     validInteger(patch.prefix) && validInteger(patch.suffix) && patch.prefix + patch.suffix <= patch.semantic.length
+  const validIndex = (index: unknown): index is number => validInteger(index) && index < journal.values.length
   if (!journal || !validInteger(journal.depth) || !validInteger(journal.previous) ||
+      !Array.isArray(journal.values) || journal.values.length > 129 || !journal.values.every(validPatch) ||
       !Array.isArray(journal.patches) || journal.patches.length > 128 ||
-      !journal.patches.every(row => Array.isArray(row) && row.length === 2 && validInteger(row[0]) && validPatch(row[1])) ||
-      (journal.anchor !== null && (!validInteger(journal.anchor?.depth) || !validPatch(journal.anchor.patch)))) {
+      !journal.patches.every(row => Array.isArray(row) && row.length === 2 && validInteger(row[0]) && validIndex(row[1])) ||
+      (journal.anchor !== null && (!validInteger(journal.anchor?.depth) || !validIndex(journal.anchor.index)))) {
     throw new Error('The rendered Markdown history cannot be moved safely.')
   }
-  const patches = new Map(journal.patches)
+  const patches = new Map(journal.patches.map(([position, index]) => [position, journal.values[index]]))
   if (patches.size !== journal.patches.length) throw new Error('The rendered Markdown history contains duplicate positions.')
-  return { ...journal, patches }
+  const anchor = journal.anchor && { depth: journal.anchor.depth, patch: journal.values[journal.anchor.index] }
+  return { depth: journal.depth, previous: journal.previous, patches, anchor }
 }
 
 export type EditorTransfer = {
