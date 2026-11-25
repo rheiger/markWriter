@@ -377,13 +377,17 @@ impl Windows {
     fn check_workspace_ownership(&self, label: &str, value: &Value) -> Result<(), String> {
         for document in value["documents"].as_array().unwrap() {
             let id = document_id(document)?;
-            if self
-                .claims
-                .get(id)
-                .is_some_and(|claim| claim.owner.label != label)
-                || document_path(document)?
-                    .and_then(|path| self.path_owner(path))
-                    .is_some_and(|owner| owner.label != label || owner.id != id)
+            let path = document_path(document)?;
+            if let Some(claim) = self.claims.get(id) {
+                if claim.owner.label != label || claim.path.as_deref() != path {
+                    return Err(fail(
+                        "Document ownership changed before this recovery snapshot was written.",
+                    ));
+                }
+            }
+            if path
+                .and_then(|path| self.path_owner(path))
+                .is_some_and(|owner| owner.label != label || owner.id != id)
             {
                 return Err(fail(
                     "A document in this snapshot belongs to another tab or window.",
@@ -391,6 +395,77 @@ impl Windows {
             }
         }
         Ok(())
+    }
+
+    fn saved_document_mut(&mut self, label: &str, id: &str) -> Option<&mut Value> {
+        self.windows
+            .get_mut(label)?
+            .saved
+            .workspace
+            .as_mut()?
+            .get_mut("documents")?
+            .as_array_mut()?
+            .iter_mut()
+            .find(|doc| doc["id"] == id)
+    }
+
+    fn reconcile_saved_path(&mut self, label: &str, id: &str, path: Option<&str>) {
+        let Some(document) = self.saved_document_mut(label, id) else {
+            return;
+        };
+        if document["path"].as_str() == path {
+            return;
+        }
+        if let Some(path) = path {
+            document["path"] = json!(path);
+        } else if let Some(previous) = document.as_object_mut().unwrap().remove("path") {
+            document["conflictPath"] = previous;
+            document["isDirty"] = json!(true);
+        }
+    }
+
+    pub(super) fn finish_save_as(&mut self, label: &str, id: &str, path: &str, content: &str) {
+        self.claims.get_mut(id).unwrap().path = Some(path.into());
+        self.reconcile_saved_path(label, id, Some(path));
+        if let Some(document) = self.saved_document_mut(label, id) {
+            // An older clean checkpoint has no unsaved edits to preserve. An
+            // older dirty checkpoint can include edits newer than this save.
+            if document["isDirty"] == false {
+                document["content"] = json!(content);
+            }
+            document["isDirty"] = json!(document["content"].as_str() != Some(content));
+            document["savedContent"] = json!(content);
+            if let Some(name) = Path::new(path).file_name().and_then(|name| name.to_str()) {
+                document["title"] = json!(name);
+            }
+            let fields = document.as_object_mut().unwrap();
+            fields.remove("conflictPath");
+            fields.remove("diskContent");
+        }
+    }
+
+    pub(super) fn release_claim(&mut self, label: &str, id: &str) {
+        if self.incoming(label, id) || self.owned(label, id).is_err() {
+            return;
+        }
+        self.claims.remove(id);
+        let Some(workspace) = self
+            .windows
+            .get_mut(label)
+            .and_then(|window| window.saved.workspace.as_mut())
+        else {
+            return;
+        };
+        let documents = workspace["documents"].as_array_mut().unwrap();
+        documents.retain(|document| document["id"] != id);
+        if workspace["activeId"] == id {
+            workspace["activeId"] = workspace["documents"]
+                .as_array()
+                .unwrap()
+                .first()
+                .map(|document| document["id"].clone())
+                .unwrap_or(Value::Null);
+        }
     }
 
     pub(super) fn saved(&self) -> BTreeMap<String, SavedWindow> {
@@ -406,6 +481,20 @@ impl Windows {
         path: &Path,
         snapshots: BTreeMap<String, SavedWindow>,
     ) -> Result<(), String> {
+        let mut ids = HashSet::new();
+        let mut paths = HashSet::new();
+        for snapshot in snapshots
+            .values()
+            .filter_map(|saved| saved.workspace.as_ref())
+        {
+            for document in snapshot["documents"].as_array().unwrap() {
+                if !ids.insert(document_id(document)?)
+                    || document_path(document)?.is_some_and(|path| !paths.insert(Path::new(path)))
+                {
+                    return Err(fail("Recovery cannot contain duplicate document owners."));
+                }
+            }
+        }
         persistence::write_json(path, &persisted_workspace(&snapshots))?;
         for (label, saved) in snapshots {
             if let Some(window) = self.windows.get_mut(&label) {
@@ -472,6 +561,7 @@ impl Windows {
         {
             return Ok(Some(owner.clone()));
         }
+        self.reconcile_saved_path(label, id, path.as_deref());
         self.claims.insert(
             id.into(),
             DocumentClaim {
@@ -674,6 +764,42 @@ pub(super) enum QuitProgress {
 }
 
 impl Windows {
+    pub(super) fn begin_quit(&mut self) -> Result<Option<(String, String)>, String> {
+        if self.quitting.is_some() || self.exiting {
+            return Ok(None);
+        }
+        let Some(first) = self.target() else {
+            return Ok(None);
+        };
+        if self.windows.values().any(|window| !window.ready) {
+            return Err(fail(
+                "Wait for every editor window to finish opening before quitting.",
+            ));
+        }
+        if self
+            .windows
+            .values()
+            .any(|window| !window.transfers.is_empty())
+        {
+            return Err(fail("Wait for pending tab moves before quitting."));
+        }
+        let token = uuid::Uuid::new_v4().to_string();
+        let pending = std::iter::once(first.clone())
+            .chain(
+                self.windows
+                    .keys()
+                    .filter(|label| *label != &first)
+                    .cloned(),
+            )
+            .collect();
+        self.quitting = Some(Quit {
+            token: token.clone(),
+            pending,
+            snapshots: BTreeMap::new(),
+        });
+        Ok(Some((first, token)))
+    }
+
     pub(super) fn answer_quit(
         &mut self,
         path: &Path,
