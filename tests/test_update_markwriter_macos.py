@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
 import plistlib
@@ -16,6 +17,11 @@ SPEC = importlib.util.spec_from_file_location('macos_update', TOOL)
 update = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(update)
 removal = update.removal
+QUALIFY_SPEC = importlib.util.spec_from_file_location(
+    'macos_update_qualification', TOOL.with_name('qualify-update-markwriter-macos.py')
+)
+qualify = importlib.util.module_from_spec(QUALIFY_SPEC)
+QUALIFY_SPEC.loader.exec_module(qualify)
 OLD, NEW = '2.13.3', '2.14.3'
 
 
@@ -286,6 +292,37 @@ class TransactionTest(Trial):
             self.run_tool(apply=True, rollback=True)
         self.assert_pair(OLD, NEW)
 
+    def test_qualification_interrupts_retries_and_keeps_both_directions(self):
+        trial = qualify.Trial(self.root, OLD, NEW)
+        trial.app, trial.slot = self.app, self.slot
+        trial.profile.mkdir()
+        trial.old_proof, trial.new_proof = removal.identity(self.app), removal.identity(self.slot)
+        trial.competitor = self.root / "Qualification competitor.app"
+        bundle(trial.competitor, OLD)
+        trial.competitor_proof = removal.identity(trial.competitor)
+        self.registrations.add(str(trial.competitor / removal.EXT))
+        trial.saved.write_text(qualify.SAVED_TEXT)
+        trial.workspace.write_text('synthetic draft')
+        trial.preferences.write_text('synthetic preferences')
+
+        with patch.object(qualify, 'update', update), patch.object(qualify, 'removal', removal):
+            trial.exercise_transaction('upgrade')
+            self.assertEqual((version(self.app), version(self.slot)), (NEW, OLD))
+            trial.exercise_transaction('rollback', rollback=True)
+            self.assertEqual((version(self.app), version(self.slot)), (OLD, NEW))
+
+        self.assertEqual(self.mock_exchange_paths.call_count, 2)
+        events = [json.loads(line) for line in (self.root / 'receipt.jsonl').read_text().splitlines()]
+        self.assertEqual([event['kind'] for event in events],
+                         ['interrupted-after-swap', 'transaction'] * 2)
+        for event, active in zip(events[1::2], (NEW, OLD)):
+            self.assertEqual(event['installed'], active)
+            self.assertTrue(event['retryVerified'] and event['repeatVerified'])
+            self.assertTrue(event['competingFixturePresent'])
+            self.assertEqual(event['preservedFixtureHashes']['Saved.md'], qualify.fixture_hash(trial.saved))
+        self.assertIn(str(self.other / removal.EXT), self.registrations)
+        self.assertIn(str(trial.competitor / removal.EXT), self.registrations)
+
     def test_symlinked_stage_refuses(self):
         parked = self.root / 'parked'
         self.stage.rename(parked)
@@ -293,6 +330,33 @@ class TransactionTest(Trial):
         with self.assertRaises(removal.Refusal):
             self.run_tool(apply=True)
         self.mock_exchange_paths.assert_not_called()
+
+
+class QualificationEvidenceTest(Trial):
+    def test_workspace_proof_requires_the_saved_fixture_and_active_untitled_draft(self):
+        saved = self.root / 'Saved.md'
+        workspace = self.root / 'workspace.json'
+        documents = [
+            {'id': 'saved', 'path': str(saved), 'isDirty': False, 'content': qualify.SAVED_TEXT},
+            {'id': 'draft', 'isDirty': True, 'content': qualify.DRAFT + '\n'},
+        ]
+        workspace.write_text(json.dumps({'activeId': 'draft', 'documents': documents}))
+        qualify.check_workspace(workspace, saved)
+        workspace.write_text(json.dumps({'activeId': 'saved', 'documents': documents}))
+        with self.assertRaisesRegex(qualify.removal.Refusal, 'active untitled dirty draft'):
+            qualify.check_workspace(workspace, saved)
+        workspace.write_text(json.dumps({'activeId': 'draft', 'documents': documents[1:]}))
+        with self.assertRaisesRegex(qualify.removal.Refusal, 'saved fixture'):
+            qualify.check_workspace(workspace, saved)
+
+    def test_provider_proof_refuses_a_different_bundle(self):
+        bundle(self.app, OLD)
+        bundle(self.slot, NEW)
+        qualify.check_provider(str(self.app / qualify.PREVIEW), self.app / qualify.PREVIEW)
+        with self.assertRaisesRegex(qualify.removal.Refusal, 'Finder provider differed'):
+            qualify.check_provider(str(self.slot / qualify.PREVIEW), self.app / qualify.PREVIEW)
+        with self.assertRaisesRegex(qualify.removal.Refusal, 'Finder provider differed'):
+            qualify.check_provider(str(qualify.PREVIEW), self.app / qualify.PREVIEW)
 
 
 @unittest.skipUnless(sys.platform == 'darwin', 'requires macOS codesign and atomic swap')
