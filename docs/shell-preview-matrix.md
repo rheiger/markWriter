@@ -87,10 +87,12 @@ The extension declares Apple's narrow `com.apple.xml-property-list` preview type
 | XML `.plist` | Escaped XML with syntax highlighting | Apple XML property-list type declared. Finder selection depends on the item's resolved type. Interactive candidate result pending. |
 | Binary `.plist` | Unsupported format notice if routed to MarkWriter | No explicit binary or generic plist registration. |
 | `Dockerfile`, `.dockerignore`, `.gitignore` | Exact-name matches | No exact-name registration established. |
-| `.ps1`, `.bat` | PowerShell and batch syntax respectively | No matching declared type established. |
+| `.ps1`, `.bat` | UTF-8 PowerShell and batch syntax respectively | Imports `com.microsoft.powershell-script` for `.ps1` and `com.microsoft.batch-file` for `.bat`, with each type declared in the preview extension. Interactive candidate result pending. |
 | `.jsonb` | Valid JSON text only | No specific type declared. PostgreSQL binary JSON is outside the text renderer's support. |
 | `uv.lock`, `flake.lock` | Known TOML and JSON variants respectively | No generic lock-file registration. |
 | Other `.lock` files, `.spec` | Literal fallback | No registration specific to these formats. |
+
+The PowerShell and batch identifiers match existing [Loupe type imports](https://github.com/pepperonas/loupe/blob/e36bcb10c0294f113be49d76a56a6cb3f74e15d5/Sources/Loupe/Resources/Info.plist). MarkWriter limits the imported filename tags to `.ps1` and `.bat`. The hosted probe checks that an otherwise undeclared script type resolves to the intended preview type, and records preexisting type collisions for review.
 
 The production macOS package job captures resolved content types, all extension-tag types and effective Open With defaults for synthetic files before and after registering the exact installed app. It reports which of the extension's declared types match the observed content type and queries PlugInKit for the exact installed path. The hosted receipt records whether PlugInKit listed the extension. The check preserves existing source-file defaults, rejects any new source-file default for MarkWriter, verifies the ambiguous `.ts` type remains stable and compares the fixture bytes. The raw files `quicklook-types-before.json`, `quicklook-types-after.json` and `quicklook-plugins.txt` are retained with installed-app evidence.
 

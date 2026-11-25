@@ -104,12 +104,16 @@ open -a "$package_app" "$package_fixture"
 
 # Query PlugInKit without adding or selecting a provider. Hosted sessions
 # differ in extension discovery, and a listing does not prove Finder selection.
-registered_extension=$(cd "$package_extension" && pwd -P)
 plugin_evidence=package-acceptance-results/quicklook-plugins.txt
 plugin_observed=false
+has_installed_extension() {
+  while IFS= read -r discovered_path; do
+    if [[ "$discovered_path" -ef "$package_extension" ]]; then return 0; fi
+  done < <(sed -n 's/^[[:space:]]*Path = //p' "$plugin_evidence")
+  return 1
+}
 for registration_attempt in {1..20}; do
-  if /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook >"$plugin_evidence" 2>&1 &&
-    sed -n 's/^[[:space:]]*Path = //p' "$plugin_evidence" | grep -Fx -- "$registered_extension" >/dev/null; then
+  if /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook >"$plugin_evidence" 2>&1 && has_installed_extension; then
     plugin_observed=true
     break
   fi

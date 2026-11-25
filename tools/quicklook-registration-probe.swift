@@ -9,6 +9,7 @@ struct FileObservation: Codable {
     let extensionTypes: [String]
     let defaultApplication: String?
     let matchingPreviewTypes: [String]
+    let expectedPreviewType: String?
 }
 
 func require(_ condition: Bool, _ message: String) throws {
@@ -22,6 +23,11 @@ func propertyList(_ url: URL) throws -> [String: Any] {
     let data = try Data(contentsOf: url)
     return try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] ?? [:]
 }
+
+let expectedScriptTypes = [
+    "example.ps1": "com.microsoft.powershell-script",
+    "example.bat": "com.microsoft.batch-file",
+]
 
 let fixtures = [
     "example.md": "# Markdown\n",
@@ -56,6 +62,9 @@ let fixtures = [
     ".gitignore": "**/tmp\n",
     "example.ps1": "Write-Output 'fixture'\n",
     "example.bat": "@echo off\r\necho fixture\r\n",
+    "example.cmd": "@echo off\r\necho fixture\r\n",
+    "example.psm1": "function Get-Fixture { 'fixture' }\n",
+    "example.psd1": "@{ RootModule = 'example.psm1' }\n",
     "example.spec": "Name: fixture\nVersion: 1\n",
     "example.lock": "unrecognized lock content\n",
     "flake.lock": "{\"version\":7,\"root\":\"root\",\"nodes\":{\"root\":{}}}\n",
@@ -94,6 +103,15 @@ func run() throws {
                              .propertyList, .binaryPropertyList]
         try require(excludedTypes.allSatisfy { !previewTypes.contains($0.identifier) },
                     "Found an excluded type in the packaged preview declarations")
+        let hostPlist = try propertyList(app.appendingPathComponent("Contents/Info.plist"))
+        let imports = hostPlist["UTImportedTypeDeclarations"] as? [[String: Any]] ?? []
+        for (name, identifier) in expectedScriptTypes {
+            let declarations = imports.filter { $0["UTTypeIdentifier"] as? String == identifier }
+            let tags = declarations.first?["UTTypeTagSpecification"] as? [String: Any]
+            try require(declarations.count == 1 &&
+                        tags?["public.filename-extension"] as? [String] == [(name as NSString).pathExtension] &&
+                        previewTypes.contains(identifier), "Missing or overbroad preview declaration for \(name)")
+        }
         baseline = try JSONDecoder().decode([String: FileObservation].self,
                                           from: Data(contentsOf: URL(fileURLWithPath: args[2])))
     } else {
@@ -123,7 +141,8 @@ func run() throws {
             extensionTypes: ext.isEmpty ? [] : UTType.types(tag: ext, tagClass: .filenameExtension,
                                                           conformingTo: nil).map(\.identifier),
             defaultApplication: editor?.path,
-            matchingPreviewTypes: matchingPreviewTypes
+            matchingPreviewTypes: matchingPreviewTypes,
+            expectedPreviewType: expectedScriptTypes[name]
         )
         results[name] = current
 
@@ -136,6 +155,13 @@ func run() throws {
             if let editor, Bundle(url: editor)?.bundleIdentifier == "com.markwriter.app" {
                 violations.append("MarkWriter became the default for \(name)")
             }
+        }
+        // If a host already declares a competing script type, report the
+        // actual match and preserve its defaults instead of requiring priority.
+        if let expected = expectedScriptTypes[name], let prior = baseline[name],
+           prior.extensionTypes.allSatisfy({ $0.hasPrefix("dyn.") || $0 == expected }),
+           !matchingPreviewTypes.contains(expected) {
+            violations.append("\(name) resolves to \(current.contentType ?? "no content type"); expected \(expected)")
         }
         if name == "example.ts", let prior = baseline[name], prior.contentType != current.contentType {
             violations.append("The ambiguous .ts content type changed")
