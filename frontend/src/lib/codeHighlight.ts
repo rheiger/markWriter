@@ -23,17 +23,31 @@ import java from 'highlight.js/lib/languages/java'
 import perl from 'highlight.js/lib/languages/perl'
 import awk from 'highlight.js/lib/languages/awk'
 import cmake from 'highlight.js/lib/languages/cmake'
+import powershell from 'highlight.js/lib/languages/powershell'
+import dos from 'highlight.js/lib/languages/dos'
+
+// Color the shared ignore-file syntax without trying to interpret a glob.
+const ignore = () => ({
+  contains: [
+    { scope: 'comment', match: /^#[^\r\n]*/ },
+    { scope: 'keyword', match: /^!/ },
+    { match: /\\[^\r\n]/ },
+    { scope: 'literal', match: /[*?]/ },
+  ],
+})
 
 // Local, pinned grammars only. lowlight's public AST API preserves UTF-16 text offsets:
 // https://github.com/wooorm/lowlight#lowlightHighlightlanguage-value-options
 const grammars = { c, cpp, csharp, objectivec, sql, bash, rust, python, go, yaml, json, xml, javascript, typescript, dockerfile, css, swift, makefile }
 // Keep opt-in grammars out of the automatic candidate set.
-const lowlight = createLowlight({ ...grammars, toml, java, perl, awk, cmake })
+const lowlight = createLowlight({ ...grammars, toml, java, perl, awk, cmake, powershell, dos, ignore })
 const aliases: Record<string, string> = {
   'c++': 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', 'c#': 'csharp', cs: 'csharp',
   'objective-c': 'objectivec', objc: 'objectivec', 'obj-c': 'objectivec', m: 'objectivec', mm: 'objectivec',
   sh: 'bash', zsh: 'bash', shell: 'bash', rs: 'rust', py: 'python', golang: 'go', yml: 'yaml',
   js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', html: 'xml', htm: 'xml', svg: 'xml', docker: 'dockerfile',
+  mjs: 'javascript', jsonb: 'json', plist: 'xml', ps1: 'powershell', bat: 'dos', cmd: 'dos',
+  gitignore: 'ignore', dockerignore: 'ignore', '.gitignore': 'ignore', '.dockerignore': 'ignore',
 }
 export const CODE_LIMIT = 4 * 1024
 // Explicit Python, JSON and TOML are independently qualified for longer technical examples.

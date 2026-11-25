@@ -146,6 +146,10 @@ describe('standalone Finder language markers', () => {
     ['cpp', 'int main() { return 42; }'],
     ['javascript', 'export const answer = "Grüße & 日本語";'],
     ['typescript', 'export const Badge = (label: string) => <span>{label}</span>;'],
+    ['dockerfile', 'FROM scratch\nLABEL message="Grüße & 日本語"'],
+    ['ignore', '# Größere Dateien\n!keep/**\n\\#literal\n[tag]&.txt'],
+    ['powershell', 'Write-Output "Grüße <tag>& 日本語"'],
+    ['dos', 'if defined READY echo Grüße <tag>& 日本語'],
     ['css', 'body { color: red; }'],
     ['yaml', 'defaults: &base {enabled: true}\ncopy: *base\nscript: "<script>&"'],
   ])('enriches escaped %s text without changing or executing it', async (language, source) => {
@@ -155,6 +159,30 @@ describe('standalone Finder language markers', () => {
     expect(parsed.querySelector('pre')?.textContent).toBe(source)
     expect(parsed.querySelector('pre span')).not.toBeNull()
     expect(parsed.querySelector('script')).toBeNull()
+  })
+
+  it('preserves ignore-file comment and negation semantics', async () => {
+    const pre = document.createElement('pre')
+    pre.setAttribute('data-language', 'gitignore')
+    pre.textContent = '# a comment\n\\#literal\n!keep/**\n\\!literal\n'
+    const parsed = new DOMParser().parseFromString(await quickLookRender(doc(pre.outerHTML)), 'text/html')
+    expect(parsed.querySelector('pre')?.textContent).toBe(pre.textContent)
+    expect([...parsed.querySelectorAll('.hljs-comment')].map(span => span.textContent)).toEqual(['# a comment'])
+    expect([...parsed.querySelectorAll('.hljs-keyword')].map(span => span.textContent)).toEqual(['!'])
+  })
+
+  it('highlights a standalone PowerShell source file beyond 100 KiB through the last line', async () => {
+    const pre = document.createElement('pre')
+    pre.setAttribute('data-language', 'powershell')
+    const sample = Array.from({ length: 1000 }, (_, index) =>
+      `$line${index} = "Grüße & 日本語" # A descriptive comment for this example disambiguates the line from the next one.\n`,
+    ).join('') + 'Write-Output "final_sentinel"\n'
+    expect(new TextEncoder().encode(sample).length).toBeGreaterThan(100 * 1024)
+    pre.textContent = sample
+    const parsed = new DOMParser().parseFromString(await quickLookRender(doc(pre.outerHTML)), 'text/html')
+    const rendered = parsed.querySelector('pre')!
+    expect(rendered.textContent).toBe(sample)
+    expect(Array.from(rendered.querySelectorAll('.hljs-string')).at(-1)?.textContent).toBe('"final_sentinel"')
   })
 })
 

@@ -14,6 +14,9 @@ const fixtures = [
   { label: 'pl', keyword: 'my', code: 'my $message = "Welt😀<tag>&";\nprint $message;' },
   { label: 'awk', keyword: 'BEGIN', code: 'BEGIN { print "Welt😀<tag>&"; }\n$1 ~ /test/ { print $0; }' },
   { label: 'CMake', keyword: 'message', code: 'cmake_minimum_required(VERSION 3.24)\nmessage(STATUS "Welt😀<tag>&")' },
+  { label: 'ps1', keyword: 'if', code: 'if ($ready) { Write-Output "Welt😀<tag>&" }' },
+  { label: 'bat', keyword: 'if', code: 'if defined READY echo Welt😀<tag>&' },
+  { label: 'gitignore', keyword: '!', code: '# Welt😀<tag>&\n!keep/**' },
 ]
 
 describe('explicit technical code fences', () => {
@@ -52,7 +55,7 @@ describe('explicit technical code fences', () => {
     expect(highlightCode(perl, 'perl title="example"').ranges).toEqual(highlightCode(perl, 'pl').ranges)
     expect(highlightCode(perl, 'perl').ranges.length).toBeGreaterThan(0)
     for (const { label, code } of fixtures) {
-      expect(['java', 'perl', 'awk', 'cmake']).not.toContain(highlightCode(code).language)
+      expect(['java', 'perl', 'awk', 'cmake', 'powershell', 'dos', 'ignore']).not.toContain(highlightCode(code).language)
       expect(highlightCode(code, 'sed').ranges).toEqual([])
       expect(createCodeHighlighter(false)(code, label).ranges).toEqual([])
     }
