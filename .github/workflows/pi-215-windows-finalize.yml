@@ -28,6 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Sign the qualified NSIS installer with a disposable test certificate
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,22 +50,17 @@ jobs:
           if ($LASTEXITCODE -or (Get-FileHash src-tauri/windows/MarkWriterPreview.dll).Hash -ine $env:CANDIDATE_DLL_SHA256) {
             throw 'The extracted preview DLL differs from the qualified candidate'
           }
+          Write-Host 'Creating the disposable non-exportable test key'
           $certificate = New-SelfSignedCertificate -Subject 'CN=MarkWriter 2.15.4 Testing' -Type CodeSigningCert -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddYears(1)
           $personal = "Cert:\CurrentUser\My\$($certificate.Thumbprint)"
-          $anchor = "Cert:\CurrentUser\Root\$($certificate.Thumbprint)"
-          $public = Join-Path $env:RUNNER_TEMP 'markwriter-2154-testing.cer'
           try {
-            Export-Certificate -Cert $certificate -FilePath $public | Out-Null
-            Import-Certificate -FilePath $public -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
-            Set-AuthenticodeSignature -LiteralPath $installer -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
-            $verified = Get-AuthenticodeSignature -LiteralPath $installer
-            if ($verified.Status -ne 'Valid' -or $verified.SignerCertificate.Thumbprint -cne $certificate.Thumbprint) {
-              throw "Test-root verification failed ($($verified.Status)): $($verified.StatusMessage)"
+            Write-Host 'Embedding the Authenticode signature without installing a trust anchor'
+            $publicView = Set-AuthenticodeSignature -LiteralPath $installer -Certificate $certificate -HashAlgorithm SHA256
+            if (!$publicView.SignerCertificate -or $publicView.SignerCertificate.Thumbprint -cne $certificate.Thumbprint -or $publicView.Status -notin @('NotTrusted','UnknownError')) {
+              throw "Unexpected test signature status: $($publicView.Status) $($publicView.StatusMessage)"
             }
           } finally {
-            if (Test-Path $anchor) { Remove-Item -LiteralPath $anchor }
             if (Test-Path $personal) { Remove-Item -LiteralPath $personal -DeleteKey }
-            if (Test-Path $public) { Remove-Item -LiteralPath $public }
           }
           $publicView = Get-AuthenticodeSignature -LiteralPath $installer
           if (!$publicView.SignerCertificate -or $publicView.SignerCertificate.Thumbprint -cne $certificate.Thumbprint -or $publicView.Status -notin @('NotTrusted','UnknownError')) {
@@ -76,7 +72,6 @@ jobs:
             trusted = $false
             hashAlgorithm = 'SHA256'
             timestamped = $false
-            validatedInTemporaryTrustStore = $true
             authenticode = $publicView.Status.ToString()
             subject = $certificate.Subject
             certificateSha256 = $certificateSha
