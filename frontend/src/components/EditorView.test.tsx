@@ -1403,6 +1403,19 @@ describe('cross-window editor state handoff', () => {
     expect(captureEditorTransfer(doc()).id).toBe('doc-1')
   })
 
+  it('keeps aliased canonical checkpoints tied to one pinned baseline', async () => {
+    const { captureRenderedJournal, restoreRenderedJournal } = await import('../lib/editorTransfer')
+    const baseline = { semantic: 'a', prefix: 1, suffix: 0, original: '  ' }
+    const independent = { ...baseline }
+    const json = captureRenderedJournal({ depth: 3, previous: 2,
+      patches: new Map([[1, baseline], [2, baseline], [3, independent]]), anchor: { depth: 0, patch: baseline } })
+    expect(json.values).toHaveLength(2)
+    const restored = restoreRenderedJournal(JSON.parse(JSON.stringify(json)))
+    expect(restored.patches.get(1)).toBe(restored.anchor?.patch)
+    expect(restored.patches.get(2)).toBe(restored.anchor?.patch)
+    expect(restored.patches.get(3)).not.toBe(restored.anchor?.patch)
+  })
+
   it('rejects mismatched, malformed and oversized handoffs before mounting a destination', async () => {
     const { captureEditorTransfer, stageEditorTransfer, validateEditorTransfer } = await import('../lib/editorTransfer')
     const sourceWindow = await mount('# Move check\n')
