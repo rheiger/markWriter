@@ -15,6 +15,10 @@ package_install="$package_work/installed"
 package_profile="$package_work/profile"
 extension_path=Contents/PlugIns/MarkWriterQuickLook.appex
 mkdir -p "$package_mount" "$package_install" "$package_profile" package-acceptance-results release-assets
+registration_probe="$package_work/quicklook-registration-probe"
+registration_fixtures="$package_work/quicklook-fixtures"
+xcrun swiftc tools/quicklook-registration-probe.swift -o "$registration_probe"
+"$registration_probe" "$registration_fixtures" >package-acceptance-results/quicklook-types-before.json
 
 mount_package() {
   hdiutil attach "$1" -nobrowse -readonly -mountpoint "$package_mount"
@@ -91,6 +95,22 @@ if [[ "$package_started" != true ]]; then cat package-acceptance-results/launch.
 package_fixture="$package_work/package-open.md"
 printf '# Installed MarkWriter\n\nSynthetic macOS package fixture.\n' >"$package_fixture"
 open -a "$package_app" "$package_fixture"
+# PlugInKit registration is a separate observation from Finder's active provider.
+# Launch Services registration can be asynchronous on hosted runners.
+registered_extension=$(cd "$package_extension" && pwd -P)
+plugin_evidence=package-acceptance-results/quicklook-plugins.txt
+has_installed_extension() {
+  sed -n 's/^[[:space:]]*Path = //p' "$plugin_evidence" | grep -Fxq -- "$registered_extension"
+}
+for registration_attempt in {1..120}; do
+  if /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook >"$plugin_evidence" && has_installed_extension; then
+    break
+  fi
+  sleep 0.25
+done
+has_installed_extension
+"$registration_probe" "$registration_fixtures" "$package_app" \
+  package-acceptance-results/quicklook-types-before.json >package-acceptance-results/quicklook-types-after.json
 
 python3 - "$package_install" "$package_profile" "$package_fixture" "$package_dmg" <<'PY'
 import hashlib
@@ -132,6 +152,7 @@ result = {
         'Matched the final app Mach-O text to the Tauri candidate',
         'Launched the installed production app with outbound IP denied and an isolated profile',
         'Opened synthetic Markdown through Launch Services and verified exact clean workspace and source bytes',
+        'Recorded fixture content types and preview declaration matches, verified existing source defaults, and observed the installed extension in PlugInKit',
     ],
     'qualification': 'Hosted macOS installed-package smoke test. Finder provider selection and interactive native file dialogs require desktop qualification.',
 }
