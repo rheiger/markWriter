@@ -14,7 +14,7 @@ Use `java`, `perl` (or `pl`), `awk` or `cmake` as the fence label to highlight t
 
 Both editors, Preview and HTML export can highlight one explicitly labeled SQL fence up to 131,072 UTF-16 code units. Explicit SQL shares that budget across the document. Each line can contain up to 2,048 UTF-16 code units and each fence can produce up to 24,576 styled spans. The highlighter considers at most 64 code blocks per document pass. If a bound is exceeded, the affected SQL remains readable as literal source with a highlighting notice. Source bytes and edit history stay with the document.
 
-Finder uses a separate bounded renderer. The per-fence and span limits above also apply there, with up to 262,144 UTF-16 units of ordinary highlighted code in aggregate, 16,384 UTF-16 units per line and 65,536 aggregate spans. The whole-file read, WebKit enrichment and deadline limits also apply. SQL import uses a different 64 KiB UTF-8 file limit.
+Finder uses a separate bounded renderer. The per-fence and span limits above also apply there, with up to 262,144 UTF-16 units of ordinary highlighted code in aggregate, 16,384 UTF-16 units per line and 65,536 aggregate spans. The whole-file read, WebKit enrichment and deadline limits also apply. SQL import uses a separate [128 KiB UTF-8 file limit](sql-import-preview.md).
 
 ### Large explicit TOML fences
 

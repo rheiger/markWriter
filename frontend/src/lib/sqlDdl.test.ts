@@ -107,7 +107,14 @@ describe('SQL grammar boundaries', () => {
     expect(() => convertSqlDdl(sql, 'sqlite')).toThrow(/limit/i)
   })
   it('enforces UTF-8 byte limit', () => {
-    expect(() => convertSqlDdl(' '.repeat(65537), 'sqlite')).toThrow(/64 KiB/)
+    const prefix = '\ufeffCREATE TABLE café (id int);\n-- '
+    const byteLength = (source: string) => new TextEncoder().encode(source).length
+    const budget = 128 * 1024 - byteLength(prefix)
+    const boundary = prefix + 'é'.repeat(Math.floor(budget / 2)) + ' '.repeat(budget % 2)
+    expect(byteLength(boundary)).toBe(128 * 1024)
+    expect(boundary.length).toBeLessThan(128 * 1024)
+    expect(convertSqlDdl(boundary, 'sqlite').dbml).toContain('main.café')
+    expect(() => convertSqlDdl(boundary + ' ', 'sqlite')).toThrow(/128 KiB/)
   })
 })
 

@@ -7,7 +7,8 @@ use tauri_plugin_dialog::DialogExt;
 use tokio::sync::Mutex;
 
 // Keep in sync with the frontend SQL parser cap. The limit includes a UTF-8 BOM.
-const MAX_SQL_BYTES: u64 = 64 * 1024;
+const MAX_SQL_KIB: u64 = 128;
+const MAX_SQL_BYTES: u64 = MAX_SQL_KIB * 1024;
 #[derive(Default)]
 pub struct SqlPicker(Arc<Mutex<()>>);
 
@@ -37,15 +38,16 @@ fn read_sql(path: &Path) -> Result<String, String> {
     if !metadata.is_file() {
         return Err("Choose a regular SQL file.".into());
     }
+    let too_large = || format!("SQL file exceeds {MAX_SQL_KIB} KiB. Choose a smaller supported schema excerpt.");
     if metadata.len() > MAX_SQL_BYTES {
-        return Err("SQL file exceeds 64 KiB. Choose a smaller supported schema excerpt.".into());
+        return Err(too_large());
     }
     let mut bytes = Vec::new();
     file.take(MAX_SQL_BYTES + 1)
         .read_to_end(&mut bytes)
         .map_err(io_error)?;
     if bytes.len() as u64 > MAX_SQL_BYTES {
-        return Err("SQL file exceeds 64 KiB. Choose a smaller supported schema excerpt.".into());
+        return Err(too_large());
     }
     String::from_utf8(bytes).map_err(|_| "SQL file must be UTF-8. Re-save a copy as UTF-8 and choose it again.".into())
 }
@@ -98,12 +100,13 @@ mod tests {
         assert_eq!(fs::read(&file).unwrap(), before);
         fs::write(&file, [0xff]).unwrap();
         assert!(read_sql(&file).unwrap_err().contains("Re-save a copy as UTF-8"));
-        let mut boundary = vec![b' '; MAX_SQL_BYTES as usize];
-        boundary[..3].copy_from_slice(&[0xef, 0xbb, 0xbf]);
+        let mut boundary = "\u{feff}-- café\nCREATE TABLE café (id int);\n-- ".as_bytes().to_vec();
+        boundary.resize(128 * 1024, b'x');
         fs::write(&file, &boundary).unwrap();
         assert_eq!(read_sql(&file).unwrap().as_bytes(), boundary);
-        fs::write(&file, vec![b' '; MAX_SQL_BYTES as usize + 1]).unwrap();
-        assert!(read_sql(&file).unwrap_err().contains("64 KiB"));
+        boundary.push(b'x');
+        fs::write(&file, &boundary).unwrap();
+        assert!(read_sql(&file).unwrap_err().contains("128 KiB"));
         let wrong_extension = dir.path().join("schema.md");
         fs::write(&wrong_extension, b"CREATE TABLE t(id int);").unwrap();
         assert!(read_sql(&wrong_extension).unwrap_err().contains(".sql"));

@@ -3,7 +3,9 @@ import { validateDot } from './dotSafety'
 
 export type SqlDialect = 'postgresql' | 'sqlite'
 export type SqlImportResult = { dbml: string; warnings: string[] }
-export const SQL_DDL_MAX_BYTES = 65536
+// Keep in sync with the native picker. The UTF-8 BOM counts toward this limit.
+export const SQL_DDL_MAX_KIB = 128
+const SQL_DDL_MAX_BYTES = SQL_DDL_MAX_KIB * 1024
 
 type Token = { value: string; kind: 'word' | 'quoted' | 'string' | 'symbol'; line: number }
 type Key = { columns: string[]; primary: boolean }
@@ -55,8 +57,10 @@ function lex(source: string, dialect: SqlDialect): Token[] {
 
 export function convertSqlDdl(source: string, dialect: SqlDialect): SqlImportResult {
   if (dialect !== 'postgresql' && dialect !== 'sqlite') throw new Error('Unsupported SQL dialect')
+  if (source.length > SQL_DDL_MAX_BYTES || new TextEncoder().encode(source).length > SQL_DDL_MAX_BYTES) {
+    throw new Error(`SQL exceeds ${SQL_DDL_MAX_KIB} KiB. Choose a smaller supported schema excerpt.`)
+  }
   if (source.includes('\0')) throw new Error('SQL contains a NUL character. If the file uses another encoding, re-save a copy as UTF-8. If it is already UTF-8, export a fresh SQL text file without NUL characters.')
-  if (source.length > SQL_DDL_MAX_BYTES || new TextEncoder().encode(source).length > SQL_DDL_MAX_BYTES) throw new Error('SQL exceeds 64 KiB limit')
   if (/^\ufeff?\s*(?:#{1,6}\s|`{3,}|~{3,})/u.test(source)) throw new Error('This looks like Markdown, not SQL DDL. Choose a .sql file containing supported CREATE TABLE statements.')
   const tokens = lex(source, dialect); let pos = 0
   const warnings: string[] = []; const tables: Table[] = []

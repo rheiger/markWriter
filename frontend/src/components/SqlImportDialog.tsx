@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { SQL_DDL_MAX_KIB } from '../lib/sqlDdl'
 import { Modal } from './Modal'
 
 type Dialect = 'postgresql' | 'sqlite'
@@ -62,7 +63,7 @@ export function SqlImportDialog({ onSelectFile, onInsert, onClose }: {
   }
 
   return <Modal title="Import SQL as DBML" onClose={close}>
-    <p>Select the dialect that produced the schema, then choose a local UTF-8 .sql file up to 64 KiB. A matching dialect does not guarantee that every SQL feature is supported.</p>
+    <p>Select the dialect that produced the schema, then choose a local UTF-8 .sql file up to {SQL_DDL_MAX_KIB} KiB. A matching dialect does not guarantee that every SQL feature is supported.</p>
     <p>Review the generated keys and relationships before appending. Diagrams can omit defaults and foreign-key actions. Unsupported SQL stops the import.</p>
     <label>SQL dialect{' '}
       <select value={dialect} disabled={inserting} onChange={event => {
