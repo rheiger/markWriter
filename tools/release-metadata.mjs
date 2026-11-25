@@ -20,8 +20,8 @@ async function check(){
  for(const path of ['src-tauri/Cargo.toml','src-tauri/Cargo.lock'])assert.ok((await readFile(join(root,path),'utf8')).replaceAll('\r\n','\n').includes(`name = "markwriter"\nversion = "${version}"`),'Native version '+path)
  assert.equal(version,releasePolicy.version)
  {
-  assert.equal((await json('src-tauri/tauri.conf.json')).bundle.macOS.signingIdentity,null,'CI package builds must leave explicit signing to local qualification')
-  for(const name of ['APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_SIGNING_IDENTITY','APPLE_ID','APPLE_PASSWORD','APPLE_API_KEY','APPLE_API_ISSUER','TAURI_SIGNING_PRIVATE_KEY']) assert.ok(!process.env[name],'Signing environment forbidden for candidate: '+name)
+  assert.equal((await json('src-tauri/tauri.conf.json')).bundle.macOS.signingIdentity,null,'Tauri must build without a signing identity')
+  for(const name of ['APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_SIGNING_IDENTITY','APPLE_ID','APPLE_PASSWORD','APPLE_API_KEY','APPLE_API_ISSUER','TAURI_SIGNING_PRIVATE_KEY']) assert.ok(!process.env[name],'Credential-backed signing is forbidden: '+name)
  }
  await verifyDesktopIconSources(root)
  if(process.env.GITHUB_REF_TYPE==='tag')assert.equal(process.env.GITHUB_REF_NAME,'v'+version)
@@ -42,13 +42,16 @@ if(args.includes('--collect')){
  await checkFrontend();await mkdir(assets,{recursive:true});const platform=args[args.indexOf('--collect')+1]
  const expected={ 'macos-arm64':['darwin','arm64','.dmg'], 'windows-x64':['win32','x64','.exe'], 'ubuntu-26.04-x64':['linux','x64','.deb'] }[platform];assert.ok(expected)
  assert.equal(process.platform,expected[0]);assert.equal(process.arch,expected[1])
- const packageName=`MarkWriter_${version}_${{'macos-arm64':'aarch64','windows-x64':'x64-setup','ubuntu-26.04-x64':'amd64'}[platform]}${expected[2]}`
- // Cargo caches can contain previous-version packages; select current bytes by
- // exact Tauri filename while retaining older local artifacts unchanged.
- const packages=(await files(join(targetDir,'release/bundle'))).filter(path=>basename(path)===packageName && !relative(join(targetDir,'release/bundle'),path).split(/[\\/]/).includes('macos'))
- assert.equal(packages.length,1,'Exactly one requested installation format')
- const file=`MarkWriter-${version}-${platform}${expected[2]}`;await copyFile(packages[0],join(assets,file))
- const data=await readFile(join(assets,file));const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
+ const file=`MarkWriter-${version}-${platform}${expected[2]}`
+ const packagePath=join(assets,file)
+ if(process.platform!=='darwin'){
+  const packageName=`MarkWriter_${version}_${{'windows-x64':'x64-setup','ubuntu-26.04-x64':'amd64'}[platform]}${expected[2]}`
+  // Cargo caches can contain previous-version packages. Select the exact current Tauri filename.
+  const packages=(await files(join(targetDir,'release/bundle'))).filter(path=>basename(path)===packageName)
+  assert.equal(packages.length,1,'Exactly one requested installation format')
+  await copyFile(packages[0],packagePath)
+ }
+ const data=await readFile(packagePath);const acceptance=await json('package-acceptance-results/result.json');assert.equal(acceptance.passed,true)
  const iconSources=await verifyDesktopIconSources(root)
  let baseline,signing,binaryInspection,iconInspection
  if(process.platform==='darwin'){
@@ -57,11 +60,15 @@ if(args.includes('--collect')){
   binaryInspection={format:'Mach-O',architecture:'arm64',sha256:sha(await readFile(binary)),details:command('file',['-b',binary])}
   baseline={os:command('sw_vers',[]),webview:command('/usr/bin/defaults',['read','/System/Library/Frameworks/WebKit.framework/Resources/Info','CFBundleVersion'])}
   const app=join(acceptance.installed,'MarkWriter.app')
-  // Candidate has no OS-signing authority. Inspect, never repair/sign, the
-  // linker signature and explicitly retain the unsealed bundle limitation.
+  assert.equal(acceptance.packageSha256,sha(data),'Final macOS DMG must match the installed receipt')
   const details=await readFile(join(root,'package-acceptance-results/signature.txt'),'utf8')
-  assert.ok(!details.includes('Sealed Resources version=2'),'Unsigned candidate bundle expected')
-  signing={status:'linker-ad-hoc-only',sealed:false,strictVerified:false,trusted:false,notarized:false,details}
+  const quickLookDetails=await readFile(join(root,'package-acceptance-results/quicklook-signature.txt'),'utf8')
+  for(const signature of [details,quickLookDetails]){
+   assert.match(signature,/^Signature=adhoc$/m)
+   assert.match(signature,/^TeamIdentifier=not set$/m)
+   assert.match(signature,/^Sealed Resources version=2 /m)
+  }
+  signing={status:'ad-hoc',sealed:true,strictVerified:true,trusted:false,notarized:false,details,quickLookDetails}
   const iconName=command('plutil',['-extract','CFBundleIconFile','raw',join(app,'Contents/Info.plist')]);assert.equal(iconName,'icon.icns')
   const installedIcon=join(app,'Contents/Resources',iconName),iconHash=sha(await readFile(installedIcon))
   assert.equal(iconHash,iconSources.find(icon=>icon.path.endsWith('.icns')).sha256,'Installed macOS icon bytes')
@@ -71,9 +78,9 @@ if(args.includes('--collect')){
   assert.ok(details.startsWith('ELF 64-bit LSB') && details.includes('x86-64'),'Installed ELF architecture')
   binaryInspection={format:'ELF',architecture:'x64',sha256:sha(await readFile(binary)),details}
   baseline={os:await readFile('/etc/os-release','utf8'),kernel:command('uname',['-r']),webview:command('pkg-config',['--modversion','webkit2gtk-4.1'])};assert.ok(baseline.os.includes('VERSION_ID="26.04"'))
-  baseline.packageName=command('dpkg-deb',['--field',packages[0],'Package'])
+  baseline.packageName=command('dpkg-deb',['--field',packagePath,'Package'])
   assert.equal(baseline.packageName,'mark-writer')
-  signing={status:'unsigned',trusted:false};assert.ok(command('dpkg-deb',['--field',packages[0],'Version']).includes(version));assert.equal(command('dpkg-deb',['--field',packages[0],'Architecture']),'amd64')
+  signing={status:'unsigned',trusted:false};assert.ok(command('dpkg-deb',['--field',packagePath,'Version']).includes(version));assert.equal(command('dpkg-deb',['--field',packagePath,'Architecture']),'amd64')
   const desktopPath='/usr/share/applications/MarkWriter.desktop',desktop=await readFile(desktopPath,'utf8')
   assert.match(desktop,/^Icon=markwriter$/m,'Desktop entry native icon identity')
   const installed=[]
@@ -88,7 +95,7 @@ if(args.includes('--collect')){
   const installedBinary=await readFile(process.env.MARKWRITER_BINARY);assert.equal(peArchitecture(installedBinary),'x64');binaryInspection={format:'PE',architecture:peArchitecture(installedBinary),sha256:sha(installedBinary)}
   assert.ok(acceptance.actualWebviewPaths?.every(p=>p.toLowerCase()===process.env.MARKWRITER_WEBVIEW_RUNTIME?.toLowerCase()) && acceptance.actualWebviewPaths.length)
   baseline=JSON.parse(command('pwsh',['-NoProfile','-Command',`$o=Get-CimInstance Win32_OperatingSystem;$w=Get-Item -LiteralPath $env:MARKWRITER_WEBVIEW_RUNTIME;@{os=$o.Caption;version=$o.Version;build=$o.BuildNumber;webview=$w.VersionInfo.FileVersion;webviewPath=$w.FullName}|ConvertTo-Json -Compress`]))
-  const status=command('pwsh',['-NoProfile','-Command',`(Get-AuthenticodeSignature -LiteralPath '${packages[0].replaceAll("'","''")}').Status.ToString()`]);assert.equal(status,'NotSigned');signing={status:'unsigned',authenticode:status,trusted:false}
+  const status=command('pwsh',['-NoProfile','-Command',`(Get-AuthenticodeSignature -LiteralPath '${packagePath.replaceAll("'","''")}').Status.ToString()`]);assert.equal(status,'NotSigned');signing={status:'unsigned',authenticode:status,trusted:false}
   const nativeIcon=JSON.parse(command('pwsh',['-NoProfile','-File',join(root,'tools/verify-installed-icon-windows.ps1'),'-Binary',process.env.MARKWRITER_BINARY,'-Reference',join(root,'src-tauri/icons/32x32.png'),'-Output',join(root,'package-acceptance-results/native-associated-icon.png')]))
   assert.equal(nativeIcon.verified,true)
   iconInspection={...nativeIcon,sources:iconSources,sha256:sha(await readFile(nativeIcon.preview))}
