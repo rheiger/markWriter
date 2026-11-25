@@ -3,7 +3,6 @@ use crate::{document_disk, persistence, storage_file, Document};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeMap,
     path::Path,
     sync::{Mutex, MutexGuard},
 };
@@ -377,15 +376,7 @@ pub async fn release_document_claim(
     service: State<'_, WindowService>,
     id: String,
 ) -> Result<(), String> {
-    let mut state = service.lock()?;
-    if !state.incoming(window.label(), &id)
-        && state
-            .claims
-            .get(&id)
-            .is_some_and(|claim| claim.owner.label == window.label())
-    {
-        state.claims.remove(&id);
-    }
+    service.lock()?.release_claim(window.label(), &id);
     Ok(())
 }
 
@@ -452,7 +443,7 @@ pub fn save_document(
     // The mutex covers the file operation and the ownership update as one reservation.
     document_disk::write(Path::new(&canonical), content, expected)?;
     if expected.is_none() {
-        state.claims.get_mut(id).unwrap().path = Some(canonical.clone());
+        state.finish_save_as(label, id, &canonical, content);
     }
     Ok(canonical)
 }
@@ -590,37 +581,9 @@ fn prompt_quit(app: &AppHandle, label: &str, token: &str) -> Result<(), String> 
 
 pub fn initiate_quit(app: &AppHandle) -> Result<(), String> {
     let service = app.state::<WindowService>();
-    let (first, token) = {
-        let mut state = service.lock()?;
-        if state.quitting.is_some() || state.exiting {
-            return Ok(());
-        }
-        let Some(first) = state.target() else {
-            return Ok(());
-        };
-        if state
-            .windows
-            .values()
-            .any(|window| !window.transfers.is_empty())
-        {
-            return Err(fail("Wait for pending tab moves before quitting."));
-        }
-        let token = uuid::Uuid::new_v4().to_string();
-        let pending = std::iter::once(first.clone())
-            .chain(
-                state
-                    .windows
-                    .keys()
-                    .filter(|label| *label != &first)
-                    .cloned(),
-            )
-            .collect();
-        state.quitting = Some(Quit {
-            token: token.clone(),
-            pending,
-            snapshots: BTreeMap::new(),
-        });
-        (first, token)
+    let first_request = service.lock()?.begin_quit()?;
+    let Some((first, token)) = first_request else {
+        return Ok(());
     };
     if let Err(error) = prompt_quit(app, &first, &token) {
         service.lock()?.quitting = None;

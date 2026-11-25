@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 const SECOND: &str = "editor-c9495abb-4109-45ca-b413-487820958290";
 
@@ -269,4 +269,92 @@ fn closing_the_primary_does_not_resurrect_it_or_lose_the_remaining_window() {
             .unwrap()["documents"][0]["content"],
         "survives"
     );
+}
+
+#[test]
+fn save_as_releases_the_old_path_without_creating_duplicate_recovery_owners() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = dir.path().join("workspace.json");
+    let old_path = dir.path().join("old.md").to_string_lossy().into_owned();
+    let new_path = dir.path().join("new.md").to_string_lossy().into_owned();
+    let service = WindowService(Mutex::new(with_two_windows()));
+    register_document(MAIN, &service, "one").unwrap();
+    let old = save_document(&service, MAIN, "one", "old bytes", &old_path, None).unwrap();
+    let mut doc = draft("one", "unflushed edit");
+    doc["path"] = json!(old);
+    let stale = workspace(vec![doc]);
+    service
+        .lock()
+        .unwrap()
+        .save(&storage, MAIN, 0, stale.clone(), None)
+        .unwrap();
+
+    let new = save_document(&service, MAIN, "one", "captured save", &new_path, None).unwrap();
+    let mut state = service.lock().unwrap();
+    assert!(state.save(&storage, MAIN, 0, stale, None).is_err());
+    assert!(state
+        .claim(SECOND, "two", Some(old.clone()))
+        .unwrap()
+        .is_none());
+    let mut second = draft("two", "old bytes");
+    second["path"] = json!(old);
+    state
+        .save(&storage, SECOND, 0, workspace(vec![second]), None)
+        .unwrap();
+
+    let persisted = persistence::read_json(&storage).unwrap().unwrap();
+    let restored = Windows::restore(persisted.clone()).unwrap();
+    assert_eq!(restored.path_owner(&new).unwrap().label, MAIN);
+    assert_eq!(restored.path_owner(&old).unwrap().label, SECOND);
+    let document = &persisted["documents"][0];
+    assert_eq!(document["path"], new);
+    assert_eq!(document["title"], "new.md");
+    assert_eq!(document["content"], "unflushed edit");
+    assert_eq!(document["savedContent"], "captured save");
+    assert_eq!(document["isDirty"], true);
+}
+
+#[test]
+fn releasing_an_omitted_restore_document_reconciles_the_saved_owner() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = dir.path().join("workspace.json");
+    let path = dir.path().join("example.md").to_string_lossy().into_owned();
+    let mut state = with_two_windows();
+    state.claim(MAIN, "omitted", Some(path.clone())).unwrap();
+    let mut old = draft("omitted", "");
+    old["isDirty"] = json!(false);
+    old["path"] = json!(path);
+    state
+        .save(&storage, MAIN, 0, workspace(vec![old]), None)
+        .unwrap();
+
+    state.release_claim(MAIN, "omitted");
+    state.claim(SECOND, "new", Some(path.clone())).unwrap();
+    let mut reopened = draft("new", "example file");
+    reopened["path"] = json!(path);
+    state
+        .save(&storage, SECOND, 0, workspace(vec![reopened]), None)
+        .unwrap();
+
+    let persisted = persistence::read_json(&storage).unwrap().unwrap();
+    let restored = Windows::restore(persisted.clone()).unwrap();
+    assert_eq!(restored.path_owner(&path).unwrap().id, "new");
+    assert_eq!(persisted["activeId"], Value::Null);
+    assert_eq!(persisted["documents"], json!([]));
+}
+
+#[test]
+fn quit_is_retryable_while_a_window_has_not_registered_its_listener() {
+    let mut state = with_two_windows();
+    state.windows.get_mut(MAIN).unwrap().ready = true;
+    assert!(state.begin_quit().unwrap_err().contains("finish opening"));
+    assert!(state.quitting.is_none());
+
+    state.windows.get_mut(SECOND).unwrap().ready = true;
+    state.focused = Some(SECOND.into());
+    let (first, token) = state.begin_quit().unwrap().unwrap();
+    assert_eq!(first, SECOND);
+    let request = state.quitting.unwrap();
+    assert_eq!(request.token, token);
+    assert_eq!(request.pending, [SECOND, MAIN]);
 }
