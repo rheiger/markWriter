@@ -8,11 +8,14 @@ use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 use std::marker::PhantomData;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const APPLICATION: &str = "com.markwriter.app";
-const SCHEMA: u32 = 1;
+const SCHEMA: u32 = 2;
 const MAX_MANIFEST_BYTES: usize = 4096;
 const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_MANIFEST_LIFETIME_SECONDS: u64 = 7 * 24 * 60 * 60;
+const MAX_FUTURE_ISSUANCE_SECONDS: u64 = 5 * 60;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21,6 +24,10 @@ struct Manifest {
     application: String,
     version: String,
     platform: String,
+    #[serde(rename = "issuedAt")]
+    issued_at: u64,
+    #[serde(rename = "expiresAt")]
+    expires_at: u64,
     #[serde(deserialize_with = "object_only")]
     artifact: Artifact,
 }
@@ -38,6 +45,8 @@ pub(crate) enum VerifyError {
     InvalidSignature,
     InvalidManifest,
     InvalidSelection,
+    InvalidFreshness,
+    InvalidClock,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -105,6 +114,7 @@ fn canonical_version(value: &str) -> Option<[u64; 3]> {
 }
 
 /// The caller supplies a native trust root and a selection from native stable discovery.
+/// Sample the native wall clock at verification time. Never use a timestamp from the offer.
 pub(crate) fn verify_manifest(
     pinned_public_key: &[u8; 32],
     bytes: &[u8],
@@ -112,6 +122,7 @@ pub(crate) fn verify_manifest(
     current_version: &str,
     selected_version: &str,
     platform: InstallerPlatform,
+    now: SystemTime,
 ) -> Result<VerifiedManifest, VerifyError> {
     if bytes.is_empty() || bytes.len() > MAX_MANIFEST_BYTES {
         return Err(VerifyError::InvalidManifest);
@@ -125,6 +136,18 @@ pub(crate) fn verify_manifest(
     parser.end().map_err(|_| VerifyError::InvalidManifest)?;
     if manifest.schema != SCHEMA || !(1..=MAX_ARTIFACT_BYTES).contains(&manifest.artifact.size) {
         return Err(VerifyError::InvalidManifest);
+    }
+
+    let now = now
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| VerifyError::InvalidClock)?
+        .as_secs();
+    let lifetime = manifest.expires_at.checked_sub(manifest.issued_at);
+    if !matches!(lifetime, Some(1..=MAX_MANIFEST_LIFETIME_SECONDS))
+        || manifest.issued_at.saturating_sub(now) > MAX_FUTURE_ISSUANCE_SECONDS
+        || now >= manifest.expires_at
+    {
+        return Err(VerifyError::InvalidFreshness);
     }
 
     let current = canonical_version(current_version).ok_or(VerifyError::InvalidSelection)?;
