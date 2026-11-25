@@ -23,7 +23,7 @@ struct ReleaseAsset {
 }
 
 #[derive(Clone, Copy)]
-enum InstallerPlatform {
+pub(crate) enum InstallerPlatform {
     MacosArm64,
     WindowsX64,
     Ubuntu2604X64,
@@ -40,7 +40,7 @@ impl InstallerPlatform {
         }
     }
 
-    fn asset_name(self, version: &str) -> Option<String> {
+    pub(crate) fn asset_name(self, version: &str) -> Option<String> {
         let suffix = match self {
             Self::MacosArm64 => "macos-arm64.dmg",
             Self::WindowsX64 => "windows-x64.exe",
@@ -125,7 +125,7 @@ pub enum UpdateCheckResult {
 }
 
 // Deliberately accept only canonical stable numeric versions; no guessed ordering.
-fn stable_version(value: &str) -> Option<[u64; 3]> {
+pub(crate) fn stable_version(value: &str) -> Option<[u64; 3]> {
     let raw = value.strip_prefix('v').unwrap_or(value);
     let mut result = [0; 3];
     let mut parts = raw.split('.');
