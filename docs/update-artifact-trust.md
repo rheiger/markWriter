@@ -1,6 +1,6 @@
 # Authenticated update artifacts
 
-The verifier for [app-controlled updates](https://github.com/rheiger/markWriter/issues/59) runs in native test builds. The app currently discovers stable releases and opens the matching installer in the default browser.
+The verifier for app-controlled updates runs in native test builds. The app currently discovers stable releases and opens the matching installer in the default browser. [Update readiness tracking](https://github.com/rheiger/markWriter/issues/125)
 
 ## Manifest and signature
 
@@ -10,10 +10,12 @@ This test manifest describes three synthetic bytes.
 
 ```json
 {
-  "schema": 1,
+  "schema": 2,
   "application": "com.markwriter.app",
   "version": "2.14.3",
   "platform": "macos-arm64",
+  "issuedAt": 1800000000,
+  "expiresAt": 1800604800,
   "artifact": {
     "name": "MarkWriter-2.14.3-macos-arm64.dmg",
     "size": 3,
@@ -26,7 +28,15 @@ This test manifest describes three synthetic bytes.
 - The manifest version must exactly match the selection and be strictly newer than the running version. Both inputs use canonical numeric `major.minor.patch` with no prefix, leading zeroes or suffix. The supported platform IDs are `macos-arm64`, `windows-x64`, and `ubuntu-26.04-x64`. Each uses the same exact installer basename as release discovery. The manifest contains no URL or filesystem path.
 - The signed byte count is a positive integer up to 512 MiB. SHA-256 is 64 lowercase hexadecimal characters. Download staging hashes and copies the stream in one pass, reads at most one byte past the signed count, and releases a read-only interface to the same temporary file only after size and hash verification. Dropping the staged handle cleans up its temporary file.
 
-The transport will need a fixed HTTPS origin and validated redirect policy, bounded manifest and signature reads, timeouts and cancellation, and a private staging directory. Use the native selection to derive the official release and asset location. Map transport, manifest and artifact failures to recoverable UI states. Do not accept a signature key supplied by an update response. The verifier also requires release freshness policy before activation. Comparing against the installed version blocks downgrades, while a replay of an old signed release newer than the installation can still pass.
+## Freshness
+
+Schema 2 requires signed `issuedAt` and `expiresAt` fields as unsigned integer Unix seconds in UTC. The lifetime must be positive and at most seven days. The verifier allows issuance up to five minutes ahead of the caller's clock. Expiry is exclusive, with no grace period. Schema 1 lacks these signed timestamps and is rejected.
+
+The trusted native caller samples the system wall clock at verification. A time before the Unix epoch fails verification. Renderer input, the release response, and HTTP date headers have no authority over this clock. Recheck freshness against a new clock sample before the installer handoff if verification happened earlier.
+
+An accurate clock bounds the period in which a signed manifest can be replayed. A still-valid manifest for a release newer than the installed app may pass when the selection names that release. A badly skewed or rolled-back clock can cause false rejection or acceptance. The production feed policy must address selection freshness, clock errors, and renewal of expiring manifests for the current stable release.
+
+The transport will need a fixed HTTPS origin and validated redirect policy, bounded manifest and signature reads, timeouts and cancellation, and a private staging directory. Use the native selection to derive the official release and asset location. Map transport, manifest and artifact failures to recoverable UI states. The verifier accepts only a native trust root for signature verification.
 
 ## macOS staging and handoff
 
