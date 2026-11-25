@@ -223,7 +223,7 @@ fn still_current(path: &Path, stamp: &FileStamp) -> io::Result<bool> {
     Ok(file_stamp(&regular_file(path)?)? == *stamp)
 }
 
-fn compare_bytes(path: &Path, mut expected: &[u8]) -> io::Result<bool> {
+fn compare_bytes(path: &Path, mut expected: &[u8]) -> io::Result<Option<FileStamp>> {
     let mut file = regular_file(path)?;
     let stamp = file_stamp(&file)?;
     let mut buffer = [0; 16 * 1024];
@@ -233,14 +233,10 @@ fn compare_bytes(path: &Path, mut expected: &[u8]) -> io::Result<bool> {
             result => result?,
         };
         if read == 0 {
-            return if expected.is_empty() {
-                still_current(path, &stamp)
-            } else {
-                Ok(false)
-            };
+            return Ok((expected.is_empty() && still_current(path, &stamp)?).then_some(stamp));
         }
         if !expected.starts_with(&buffer[..read]) {
-            return Ok(false);
+            return Ok(None);
         }
         expected = &expected[read..];
     }
@@ -266,23 +262,74 @@ fn stage_write(
     Ok(temporary)
 }
 
+fn verify_baseline(path: &Path, expected: &str) -> Result<FileStamp, SaveError> {
+    let disk_state = match compare_bytes(path, expected.as_bytes()) {
+        Ok(Some(stamp)) => return Ok(stamp),
+        Ok(None) => DiskState::Changed,
+        Err(error) => reading_failure(error),
+    };
+    Err(SaveError::Conflict { disk_state })
+}
+
 fn commit_write(
     temporary: tempfile::NamedTempFile,
     path: &Path,
     expected: Option<&str>,
 ) -> Result<(), SaveError> {
     if let Some(expected) = expected {
-        let disk_state = match compare_bytes(path, expected.as_bytes()) {
-            Ok(true) => DiskState::Unchanged,
-            Ok(false) => DiskState::Changed,
-            Err(error) => reading_failure(error),
-        };
-        if disk_state != DiskState::Unchanged {
-            return Err(SaveError::Conflict { disk_state });
-        }
+        #[cfg(windows)]
+        return commit_owned_write_with_wait(temporary, path, expected, std::thread::sleep);
+        #[cfg(not(windows))]
+        verify_baseline(path, expected)?;
     }
     temporary.persist(path).map_err(|error| error.error)?;
     Ok(())
+}
+
+#[cfg(windows)]
+fn commit_owned_write_with_wait(
+    mut temporary: tempfile::NamedTempFile,
+    path: &Path,
+    expected: &str,
+    mut wait: impl FnMut(std::time::Duration),
+) -> Result<(), SaveError> {
+    use windows::Win32::Foundation::{
+        ERROR_ACCESS_DENIED, ERROR_LOCK_VIOLATION, ERROR_SHARING_VIOLATION,
+    };
+
+    // Match the bounded replacement delays used by native workspace persistence.
+    const DELAYS_MS: [u64; 4] = [20, 40, 80, 160];
+    let initial_stamp = verify_baseline(path, expected)?;
+    for attempt in 1..=DELAYS_MS.len() + 1 {
+        let failure = match temporary.persist(path) {
+            Ok(_) => return Ok(()),
+            Err(failure) => failure,
+        };
+        let may_retry = [
+            ERROR_ACCESS_DENIED,
+            ERROR_SHARING_VIOLATION,
+            ERROR_LOCK_VIOLATION,
+        ]
+        .iter()
+        .any(|code| failure.error.raw_os_error() == Some(code.0 as i32));
+        let delay = DELAYS_MS.get(attempt - 1).filter(|_| may_retry);
+        let Some(delay) = delay else {
+            return Err(SaveError::Io(format!(
+                "Failed to save file: document replacement failed on attempt {attempt}: {}",
+                failure.error
+            )));
+        };
+        // Retain the same staged bytes. The file or its permissions may have
+        // changed while Windows blocked replacement, even if its bytes match.
+        temporary = failure.file;
+        wait(std::time::Duration::from_millis(*delay));
+        if verify_baseline(path, expected)? != initial_stamp {
+            return Err(SaveError::Conflict {
+                disk_state: DiskState::Changed,
+            });
+        }
+    }
+    unreachable!("the final failed replacement returns its error")
 }
 
 pub fn write(path: &Path, content: &str, expected: Option<&str>) -> Result<(), SaveError> {
@@ -398,6 +445,102 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), large);
         write(&path, "draft", Some(&large)).unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), "draft");
+    }
+
+    #[cfg(windows)]
+    mod windows {
+        use super::*;
+        use ::windows::Win32::Storage::FileSystem::{FILE_SHARE_READ, FILE_SHARE_WRITE};
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::time::Duration;
+
+        fn hold_target_without_delete_sharing(path: &Path) -> File {
+            OpenOptions::new()
+                .read(true)
+                .share_mode((FILE_SHARE_READ | FILE_SHARE_WRITE).0)
+                .open(path)
+                .unwrap()
+        }
+
+        #[test]
+        fn owned_save_reuses_its_staging_file_after_a_temporary_windows_lock() {
+            let fixture = tempfile::tempdir().unwrap();
+            let path = fixture.path().join("locked.md");
+            let baseline = "prior markdown\r\n";
+            let draft = "edited markdown\r\n";
+            fs::write(&path, baseline).unwrap();
+            let mut held = Some(hold_target_without_delete_sharing(&path));
+            let temporary = stage_write(&path, draft, true).unwrap();
+            let staged_path = temporary.path().to_owned();
+
+            let mut waits = Vec::new();
+            commit_owned_write_with_wait(temporary, &path, baseline, |delay| {
+                waits.push(delay);
+                assert_eq!(fs::read(&staged_path).unwrap(), draft.as_bytes());
+                assert_eq!(fs::read(&path).unwrap(), baseline.as_bytes());
+                drop(held.take());
+            })
+            .unwrap();
+
+            assert_eq!(waits, [Duration::from_millis(20)]);
+            assert_eq!(fs::read(&path).unwrap(), draft.as_bytes());
+            assert!(!staged_path.exists());
+        }
+
+        #[test]
+        fn owned_save_rejects_an_external_edit_or_replacement_during_the_retry_delay() {
+            let baseline = "prior markdown";
+            for external in ["other markdown", baseline] {
+                let fixture = tempfile::tempdir().unwrap();
+                let path = fixture.path().join("locked.md");
+                fs::write(&path, baseline).unwrap();
+                let mut held = Some(hold_target_without_delete_sharing(&path));
+                let temporary = stage_write(&path, "edited markdown", true).unwrap();
+                let staged_path = temporary.path().to_owned();
+
+                let result = commit_owned_write_with_wait(temporary, &path, baseline, |_| {
+                    drop(held.take().unwrap());
+                    write(&path, external, None).unwrap();
+                });
+
+                assert!(matches!(
+                    result,
+                    Err(SaveError::Conflict {
+                        disk_state: DiskState::Changed
+                    })
+                ));
+                assert_eq!(fs::read(&path).unwrap(), external.as_bytes());
+                assert!(!staged_path.exists());
+            }
+        }
+
+        #[test]
+        fn owned_save_reports_a_persistent_windows_lock_after_bounded_retries() {
+            let fixture = tempfile::tempdir().unwrap();
+            let path = fixture.path().join("locked.md");
+            let baseline = "prior markdown";
+            fs::write(&path, baseline).unwrap();
+            let _held = hold_target_without_delete_sharing(&path);
+            let temporary = stage_write(&path, "edited markdown", true).unwrap();
+            let staged_path = temporary.path().to_owned();
+
+            let mut waited_millis = 0;
+            let error = commit_owned_write_with_wait(temporary, &path, baseline, |delay| {
+                waited_millis += delay.as_millis();
+            })
+            .unwrap_err();
+
+            let SaveError::Io(error) = error else {
+                panic!("expected replacement failure, got {error:?}");
+            };
+            assert!(
+                error.contains("document replacement failed on attempt 5"),
+                "{error}"
+            );
+            assert_eq!(waited_millis, 300);
+            assert_eq!(fs::read(&path).unwrap(), baseline.as_bytes());
+            assert!(!staged_path.exists());
+        }
     }
 
     #[cfg(unix)]
