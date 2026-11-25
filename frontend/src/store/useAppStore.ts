@@ -300,11 +300,12 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     setLoading: isLoading => set({ isLoading }), setError: error => set({ error }),
     createNewDocument: async () => {
+      const mode = get().config.defaultEditorMode
       loadingDocuments++
       try {
         const result = await invoke<any>('create_document')
         add({ id: result.id, title: result.title || 'Untitled', content: result.content || '',
-          isDirty: false, savedContent: result.content || '', lastModified: new Date() })
+          mode, isDirty: false, savedContent: result.content || '', lastModified: new Date() })
       } catch (error) { set({ error: errorMessage(error, 'Failed to create document') }) }
       finally { loadingDocuments-- }
     },

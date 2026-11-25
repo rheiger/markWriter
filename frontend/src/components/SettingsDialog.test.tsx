@@ -74,9 +74,9 @@ it('keeps folder changes in the draft until Apply and resets them through Settin
   fireEvent.click(screen.getByRole('button', { name: 'Clear document folder' }))
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
   await waitFor(() => expect(useAppStore.getState().config).toMatchObject({ defaultDocumentFolder: '', defaultHtmlExportFolder: '/html exports' }))
-  expect(invoke).toHaveBeenCalledWith('save_preferences', {
+  expect(invoke).toHaveBeenCalledWith('save_preferences', expect.objectContaining({
     value: { version: 1, config: expect.objectContaining({ defaultDocumentFolder: '', defaultHtmlExportFolder: '/html exports' }) },
-  })
+  }))
   view.unmount()
   render(<SettingsDialog onClose={vi.fn()} />)
   fireEvent.click(screen.getByRole('button', { name: 'Reset to Defaults' }))
@@ -132,4 +132,28 @@ it('ignores a native picker result after the Settings dialog is replaced', async
   expect(screen.getByLabelText('Theme')).toHaveValue('system')
   expect(screen.queryByRole('status')).toBeNull()
   expect(useAppStore.getState().config.theme).toBe('system')
+})
+
+it('applies the new document mode without reverting another window’s change during the draft', async () => {
+  const store = useAppStore.getState()
+  const existing = { id: 'already-open', title: 'Already open', content: '', isDirty: false,
+    mode: 'wysiwyg' as const, lastModified: new Date() }
+  store.setCurrentDocument(existing)
+  const view = render(<SettingsDialog onClose={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText('Default editor for new documents'), { target: { value: 'markdown' } })
+  expect(useAppStore.getState().config.defaultEditorMode).toBe('wysiwyg')
+  useAppStore.getState().updateConfig({ theme: 'dark' })
+  fireEvent.click(screen.getByText('Apply'))
+  await waitFor(() => expect(useAppStore.getState().config).toMatchObject({ theme: 'dark', defaultEditorMode: 'markdown' }))
+  view.unmount()
+  render(<SettingsDialog onClose={vi.fn()} />)
+  expect(screen.getByLabelText('Default editor for new documents')).toHaveValue('markdown')
+  fireEvent.click(screen.getByText('Reset to Defaults'))
+  expect(screen.getByLabelText('Default editor for new documents')).toHaveValue('wysiwyg')
+  fireEvent.click(screen.getByText('Cancel'))
+  expect(useAppStore.getState().config.defaultEditorMode).toBe('markdown')
+  vi.mocked(invoke).mockResolvedValueOnce({ id: 'new-tab', title: 'Untitled', content: '' })
+  await act(() => store.createNewDocument())
+  expect(useAppStore.getState().currentDocument).toMatchObject({ id: 'new-tab', mode: 'markdown' })
+  expect(useAppStore.getState().documents.find(doc => doc.id === existing.id)?.mode).toBe('wysiwyg')
 })

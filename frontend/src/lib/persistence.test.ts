@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type Event } from '@tauri-apps/api/event'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { checkpointWorkspaceForRestart, openDocumentWithDialog, registerActiveViewCapture, saveWithDialog, useAppStore, type Document } from '../store/useAppStore'
@@ -7,6 +8,7 @@ import { defaultConfig } from './preferences'
 import { encodeSettingsProfile, parseSettingsProfile } from './settingsProfile'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn() }))
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn() }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn() }))
 
 const draft: Document = { id: 'synthetic', title: 'draft', content: 'draft bytes\n', revision: 3, lastModified: new Date(0), isDirty: true }
@@ -210,4 +212,26 @@ it('blocks checkpointing while the UI Open or Save As picker is unresolved', asy
     chooseOpen.resolve(null)
     chooseSave.resolve(null)
   }
+})
+
+it('accepts the newest cross-window preferences without echoing another window’s update', async () => {
+  let commit: ((event: Event<unknown>) => void) | undefined
+  const unlisten = vi.fn()
+  vi.mocked(listen).mockImplementationOnce(async (_event, handle) => {
+    commit = handle as typeof commit
+    return unlisten
+  })
+  const stop = watchPreferences(true)
+  try {
+    await vi.waitFor(() => expect(commit).toBeDefined())
+    commit!({ id: 1, event: 'preferences-committed', payload: { version: 1, generation: 101,
+      config: { ...defaultConfig, defaultEditorMode: 'markdown' } } })
+    commit!({ id: 2, event: 'preferences-committed', payload: { version: 1, generation: 100, config: defaultConfig } })
+    await flushPreferences()
+    expect(useAppStore.getState().config.defaultEditorMode).toBe('markdown')
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === 'save_preferences')).toBe(false)
+  } finally {
+    stop()
+  }
+  expect(unlisten).toHaveBeenCalledOnce()
 })

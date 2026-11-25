@@ -30,3 +30,9 @@ it('defaults older profiles to automatic updates and validates the persisted opt
   expect(parsePreferences({ version: 1, config: { automaticUpdateChecks: false } }).automaticUpdateChecks).toBe(false)
   expect(() => parsePreferences({ version: 1, config: { automaticUpdateChecks: 'false' } })).toThrow(/automaticUpdateChecks/)
 })
+
+it('validates the optional default mode and keeps legacy WYSIWYG behavior', () => {
+  expect(parsePreferences({ version: 0 }).defaultEditorMode).toBe('wysiwyg')
+  expect(parsePreferences({ version: 1, config: { defaultEditorMode: 'markdown' } }).defaultEditorMode).toBe('markdown')
+  expect(() => parsePreferences({ version: 1, config: { defaultEditorMode: 'preview' } })).toThrow('defaultEditorMode')
+})
