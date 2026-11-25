@@ -18,6 +18,7 @@ import { SqlImportDialog } from './SqlImportDialog'
 import { convertSqlInWorker } from '../lib/sqlDdlClient'
 import type { SqlDialect } from '../lib/sqlDdl'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
+import { dialogFolderOptions } from '../lib/dialogFolders'
 const discoverUpdates = () => isTauri()
   ? invoke<UpdateCheckResult>('check_updates')
   : Promise.resolve<UpdateCheckResult>({ kind: 'unsupported', reason: 'Open the desktop app to check for updates.' })
@@ -156,13 +157,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     console.log('[DEBUG] handleExportHTML called')
     try {
       console.log('[MENU] Opening Export HTML dialog...')
+      const folder = useAppStore.getState().config.defaultHtmlExportFolder
       const selected = await save({
         filters: [
           {
             name: 'HTML',
             extensions: ['html']
           }
-        ]
+        ],
+        ...(folder ? await dialogFolderOptions(folder) : {}),
       })
 
       console.log('[MENU] Export dialog result:', selected)

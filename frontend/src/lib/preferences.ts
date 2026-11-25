@@ -1,3 +1,5 @@
+export type DialogFolderSetting = 'defaultDocumentFolder' | 'defaultHtmlExportFolder'
+
 export interface AppConfig {
   theme: 'light' | 'dark' | 'system'
   syntaxHighlighting: boolean
@@ -13,12 +15,15 @@ export interface AppConfig {
   collapseSource: boolean
   restoreSession: boolean
   automaticUpdateChecks: boolean
+  defaultDocumentFolder: string
+  defaultHtmlExportFolder: string
 }
 export const defaultConfig: AppConfig = {
   theme: 'system', syntaxHighlighting: true, fontSize: 14, fontFamily: 'Monaco, Menlo, Consolas, monospace',
   renderedFontSize: 16, renderedFontFamily: 'system-ui, sans-serif', renderedLineHeight: 1.6,
   tabWidth: 4, wordWrap: true, wrapContinuation: true, syncPreview: true, collapseSource: true, restoreSession: true,
   automaticUpdateChecks: true,
+  defaultDocumentFolder: '', defaultHtmlExportFolder: '',
 }
 export function parsePreferences(value: unknown): AppConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid preferences')
@@ -36,6 +41,7 @@ export function parsePreferences(value: unknown): AppConfig {
     if (key === 'tabWidth') valid = [2, 4, 8].includes(Number(field)) && typeof field === 'number'
     if (key === 'renderedLineHeight') valid = typeof field === 'number' && Number.isFinite(field) && field >= 1 && field <= 2.5
     if (key === 'fontFamily' || key === 'renderedFontFamily') valid = typeof field === 'string' && field.trim().length > 0 && field.length <= 200 && !/[;{}<>]/.test(field)
+    if (key === 'defaultDocumentFolder' || key === 'defaultHtmlExportFolder') valid = typeof field === 'string' && field.length <= 32767 && !field.includes('\0')
     if (!valid) throw new Error(`Invalid preference: ${key}`)
     Object.assign(result, { [key]: field })
   }
