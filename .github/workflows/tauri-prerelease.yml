@@ -1,12 +1,5 @@
-name: Tauri production packages
-on:
-  pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
-  push:
-    branches: [main]
-    tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
-  workflow_dispatch:
+name: PI 2.17 Apple silicon package fallback
+on: workflow_dispatch
 permissions:
   contents: read
 concurrency:
@@ -18,15 +11,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-26
+          - os: macos-15
             platform: macos-arm64
             bundles: dmg
-          - os: ubuntu-26.04
-            platform: ubuntu-26.04-x64
-            bundles: deb
-          - os: windows-2025
-            platform: windows-x64
-            bundles: nsis
     runs-on: ${{ matrix.os }}
     timeout-minutes: 55
     defaults:
@@ -36,6 +23,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: 2749ed5aae37243e5b3b6c2de85bf80d3c98341d
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.2'
@@ -129,7 +117,10 @@ jobs:
             native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
             native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-renderer-tests.log
       - name: Record package provenance, hashes and tested baseline
-        run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
+        run: |
+          source_sha="$(git rev-parse HEAD)"
+          test "$source_sha" = '2749ed5aae37243e5b3b6c2de85bf80d3c98341d'
+          GITHUB_SHA="$source_sha" node tools/release-metadata.mjs --collect ${{ matrix.platform }}
       - name: Qualify Windows uninstallation and preserve the lifecycle receipt
         if: runner.os == 'Windows'
         shell: pwsh
