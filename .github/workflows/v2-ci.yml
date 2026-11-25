@@ -1,4 +1,4 @@
-name: PI 2.18 exact-source Linux desktop retry
+name: PI 2.18 exact-source Linux desktop readiness qualification
 on: workflow_dispatch
 
 permissions:
@@ -115,7 +115,34 @@ jobs:
         run: ./tools/setup-windows-acceptance.ps1
       - name: Exercise Linux desktop application
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' node tools/native-acceptance.mjs
+        run: |
+          test "$(git rev-parse HEAD)" = "e2544f97d01bcad5f928f1656c7816e11a01db69"
+          git apply --index - <<'MARKWRITER_HARNESS_PATCH'
+          diff --git a/tools/native-acceptance.mjs b/tools/native-acceptance.mjs
+          index b560c92..29b3247 100644
+          --- a/tools/native-acceptance.mjs
+          +++ b/tools/native-acceptance.mjs
+          @@ -169,7 +169,16 @@ try {
+             session = created.sessionId
+             console.log('Desktop session created; waiting for application')
+             await request('POST', `/session/${session}/timeouts`, { script: 30000 })
+          -  await waitFor(() => run('return !!window.__MARKWRITER_ACCEPTANCE__?.snapshot().document'), 'application startup')
+          +  // The first document can exist before native listeners register. Initial
+          +  // transfer and OS-open drains then temporarily block document actions.
+          +  await waitFor(async () => {
+          +    const windows = await run('return window.__MARKWRITER_ACCEPTANCE__?.editorWindows() ?? []')
+          +    return windows.some(window => window.label === 'main' && window.ready)
+          +  }, 'initial native window acknowledged its IPC listeners')
+          +  await waitFor(() => run(`const bridge=window.__MARKWRITER_ACCEPTANCE__
+          +    const workspace=document.querySelector('.app-workspace')
+          +    return !!bridge?.snapshot().document && bridge.canReviewQuit() && !!workspace && !workspace.inert`
+          +  ), 'initial workspace ready for document operations')
+             assert.equal((await action('open', sourcePath)).document.content, source)
+             const expectedVersion = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8')).version
+             await click('//button[normalize-space(.)="Help"]')
+          MARKWRITER_HARNESS_PATCH
+          test "$(git diff --cached --name-only)" = tools/native-acceptance.mjs
+          xvfb-run -a -s '-screen 0 1920x1080x24' node tools/native-acceptance.mjs
         env:
           GDK_BACKEND: x11
       - name: Exercise Windows desktop application
