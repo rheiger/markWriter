@@ -79,58 +79,58 @@ export function DocumentTabs() {
 
   return <>
     <div ref={tabList} className="document-tabs" role="tablist" aria-label="Documents">
-    {documents.map((doc, index) => <div className="document-tab" key={doc.id} draggable
-      onContextMenu={event => {
-        event.preventDefault()
-        const trigger = event.currentTarget.querySelector<HTMLButtonElement>('[role=tab]')
-        if (trigger) setMenu({ id: doc.id, trigger, x: event.clientX, y: event.clientY })
-      }}
-      onKeyDown={event => {
-        if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return
-        event.preventDefault()
-        event.stopPropagation()
-        const trigger = event.target
-        if (!(trigger instanceof HTMLElement)) return
-        const rect = trigger.getBoundingClientRect()
-        setMenu({ id: doc.id, trigger, x: rect.left, y: rect.bottom })
-      }}
-      onDragStart={() => { dragging.current = doc.id }} onDragOver={event => event.preventDefault()}
-      onDrop={event => { event.preventDefault(); if (dragging.current) reorderDocument(dragging.current, index); dragging.current = null }}>
-      <button role="tab" aria-selected={doc.id === currentDocument?.id} aria-haspopup="menu" aria-expanded={!!menuOwner && menuOwner.id === doc.id}
-        title={doc.path || doc.title}
-        tabIndex={doc.id === currentDocument?.id ? 0 : -1} onClick={() => activateDocument(doc.id)}
-        onKeyDown={event => {
-          const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
-          if (!delta) return
+      {documents.map((doc, index) => <div className="document-tab" key={doc.id} draggable
+        onContextMenu={event => {
           event.preventDefault()
-          if (event.altKey) reorderDocument(doc.id, index + delta)
-          else {
-            const next = documents[(index + delta + documents.length) % documents.length]
-            activateDocument(next.id)
-            const tabs = event.currentTarget.closest('[role=tablist]')?.querySelectorAll<HTMLElement>('[role=tab]')
-            tabs?.[(index + delta + documents.length) % documents.length]?.focus()
-          }
-        }}>
-        {doc.isDirty && <span aria-label="Unsaved">● </span>}
-        {doc.diskIssue && <span role="img" aria-label={doc.diskIssue === 'tooLarge' ? 'Disk check unavailable' : 'External file change'}
-          title={diskIssueMessage(doc.diskIssue)}>⚠ </span>}
-        {documents.some(other => other.id !== doc.id && other.title === doc.title) ? doc.path || doc.title : doc.title}
-      </button>
-      <button aria-label={`Close ${doc.title}`} title="Close tab" onClick={() => void closeDocument(doc.id)}>×</button>
-    </div>)}
-    {menuOwner && createPortal(
-      <div ref={menuRef} className="document-tab-menu" role="menu" aria-label={`Tab actions for ${menuOwner.title}`} onKeyDown={handleMenuKey}>
-        <button role="menuitem" tabIndex={-1} onClick={() => void runMenuAction(false)}>Close Tab</button>
-        <button role="menuitem" tabIndex={-1} aria-disabled={documents.length < 2}
-          onClick={() => void runMenuAction(true)}>Close Other Tabs</button>
-        {isTauri() && <button role="menuitem" tabIndex={-1} onClick={() => {
-          if (!menu) return
-          dismissMenu()
-          setMoveTab(menu.id)
-        }}>Move Tab to Window…</button>}
-      </div>,
-      document.body,
-    )}
+          const trigger = event.currentTarget.querySelector<HTMLButtonElement>('[role=tab]')
+          if (trigger) setMenu({ id: doc.id, trigger, x: event.clientX, y: event.clientY })
+        }}
+        onKeyDown={event => {
+          if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return
+          event.preventDefault()
+          event.stopPropagation()
+          const trigger = event.target
+          if (!(trigger instanceof HTMLElement)) return
+          const rect = trigger.getBoundingClientRect()
+          setMenu({ id: doc.id, trigger, x: rect.left, y: rect.bottom })
+        }}
+        onDragStart={() => { dragging.current = doc.id }} onDragOver={event => event.preventDefault()}
+        onDrop={event => { event.preventDefault(); if (dragging.current) reorderDocument(dragging.current, index); dragging.current = null }}>
+        <button role="tab" aria-selected={doc.id === currentDocument?.id} aria-haspopup="menu" aria-expanded={!!menuOwner && menuOwner.id === doc.id}
+          title={doc.path || doc.title}
+          tabIndex={doc.id === currentDocument?.id ? 0 : -1} onClick={() => activateDocument(doc.id)}
+          onKeyDown={event => {
+            const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+            if (!delta) return
+            event.preventDefault()
+            if (event.altKey) reorderDocument(doc.id, index + delta)
+            else {
+              const next = documents[(index + delta + documents.length) % documents.length]
+              activateDocument(next.id)
+              const tabs = event.currentTarget.closest('[role=tablist]')?.querySelectorAll<HTMLElement>('[role=tab]')
+              tabs?.[(index + delta + documents.length) % documents.length]?.focus()
+            }
+          }}>
+          {doc.isDirty && <span aria-label="Unsaved">● </span>}
+          {doc.diskIssue && <span role="img" aria-label={doc.diskIssue === 'tooLarge' ? 'Disk check unavailable' : 'External file change'}
+            title={diskIssueMessage(doc.diskIssue)}>⚠ </span>}
+          {documents.some(other => other.id !== doc.id && other.title === doc.title) ? doc.path || doc.title : doc.title}
+        </button>
+        <button aria-label={`Close ${doc.title}`} title="Close tab" onClick={() => void closeDocument(doc.id)}>×</button>
+      </div>)}
+      {menuOwner && createPortal(
+        <div ref={menuRef} className="document-tab-menu" role="menu" aria-label={`Tab actions for ${menuOwner.title}`} onKeyDown={handleMenuKey}>
+          <button role="menuitem" tabIndex={-1} onClick={() => void runMenuAction(false)}>Close Tab</button>
+          <button role="menuitem" tabIndex={-1} aria-disabled={documents.length < 2}
+            onClick={() => void runMenuAction(true)}>Close Other Tabs</button>
+          {isTauri() && <button role="menuitem" tabIndex={-1} onClick={() => {
+            if (!menu) return
+            dismissMenu()
+            setMoveTab(menu.id)
+          }}>Move Tab to Window…</button>}
+        </div>,
+        document.body,
+      )}
     </div>
     {moveTab && <WindowPicker move onClose={() => setMoveTab(null)} onChoose={label => {
       setMoveTab(null)

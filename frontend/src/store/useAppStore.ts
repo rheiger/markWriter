@@ -266,7 +266,7 @@ export const useAppStore = create<AppState>((set, get) => {
           return false
         }
         set(state => ({ ...workspaceAfterRemoving(state, id), fileViews }))
-        if (isTauri() && doc.path) {
+        if (isTauri()) {
           try { await invoke('release_document_claim', { id }) }
           catch (error) { set({ error: `Could not release the file's window ownership: ${String(error)}` }) }
         }
@@ -458,9 +458,9 @@ export const useAppStore = create<AppState>((set, get) => {
       if (get().windowBusy) return false
       fileOperations++
       try {
-      const docs = get().documents.filter(d => d.isDirty)
-      for (const doc of docs) if (!await saveWithDialog(doc)) return false
-      return !get().documents.some(d => d.isDirty)
+        const docs = get().documents.filter(d => d.isDirty)
+        for (const doc of docs) if (!await saveWithDialog(doc)) return false
+        return !get().documents.some(d => d.isDirty)
       } finally { fileOperations-- }
     },
     closeDocument: id => closeDocuments([id]),
