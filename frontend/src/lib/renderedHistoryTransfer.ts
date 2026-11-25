@@ -138,10 +138,12 @@ function decodeBranch(schema: Schema, input: TransferItem[]): HistoryBranch {
   if (!Array.isArray(input) || input.length > maxBranchItems) return handoffFailure()
   const { Branch, Item, empty } = historyFactories(schema)
   let eventCount = 0
-  const items = input.map((item, index) => {
+  const items = input.map(item => {
+    // A retained mapping can still refer to an item pruned below this branch.
+    // ProseMirror ignores such mirrors when building its bounded remapping.
     if (!item || !Array.isArray(item.ranges) || item.ranges.length % 3 !== 0 ||
         item.ranges.some((entry: unknown) => !validInteger(entry)) || typeof item.inverted !== 'boolean' ||
-        (item.mirrorOffset !== undefined && (!validInteger(item.mirrorOffset, 1) || item.mirrorOffset > index)) ||
+        (item.mirrorOffset !== undefined && !validInteger(item.mirrorOffset, 1)) ||
         (item.selection && !item.step)) return handoffFailure()
     const selection = item.selection && decodeBookmark(item.selection)
     if (selection) eventCount++
