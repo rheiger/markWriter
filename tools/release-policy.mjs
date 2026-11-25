@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 // Package candidate. Release staging requires separate publication authorization.
-export const releasePolicy = Object.freeze({ version: '2.16.3', publicationAuthorized: false, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.16.3.md' })
+export const releasePolicy = Object.freeze({ version: '2.17.4', publicationAuthorized: false, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.17.4.md' })
 
 export function draftReleaseArgs(version, names) {
   assert.equal(releasePolicy.publicationAuthorized, true, 'Candidate publication requires a separate reviewed release instruction')

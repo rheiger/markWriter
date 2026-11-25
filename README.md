@@ -4,16 +4,16 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.16.3](https://github.com/rheiger/markWriter/releases/tag/v2.16.3) adds tab context actions and default folders for document and HTML export dialogs. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.16.3.md) and [release notes](docs/releases/2.16.3.md).
+[MarkWriter 2.17.4](https://github.com/rheiger/markWriter/releases/tag/v2.17.4) adds independent editor windows, tab moves and a default editor view for new documents. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.17.4.md) and [release notes](docs/releases/2.17.4.md).
 
 ## Features
 
-- Markdown and WYSIWYG editing, live Preview, tabs, per-tab Undo/Redo, Find/Replace and tables.
+- Markdown and WYSIWYG editing, live Preview, independent windows, movable tabs, per-tab Undo/Redo, Find/Replace and tables.
 - Native file operations and HTML export, local session recovery, themes and independent editor fonts.
 - Offline syntax highlighting, Mermaid, [DOT](docs/dot-security.md), [DBML](docs/dbml-2.7.md), explicit math fences and [SQL DDL import preview](docs/sql-import-preview.md).
 - Searchable offline **Help → User Guide**.
 
-Markdown is canonical. Navigation and view changes preserve its bytes; actual WYSIWYG edits may normalize syntax. Rendering is bounded and falls back to source when limits are exceeded. See [editing conventions](docs/supported-markdown.md) and [regex search](docs/regex-search.md). Independent windows, plugins, draw.io and PDF export are not implemented.
+Markdown is canonical. Navigation and view changes preserve its bytes; actual WYSIWYG edits may normalize syntax. Rendering is bounded and falls back to source when limits are exceeded. See [editing conventions](docs/supported-markdown.md) and [regex search](docs/regex-search.md). Plugins, draw.io and PDF export are not implemented.
 
 ## Build and develop
 
