@@ -289,3 +289,27 @@ it('keeps a repaired commit received while retaining the rejected original', asy
     stop()
   }
 })
+
+it('resumes local writes when another window repairs a blocked preference file', async () => {
+  let commit: ((event: Event<unknown>) => void) | undefined
+  vi.mocked(listen).mockImplementationOnce(async (_event, handle) => {
+    commit = handle as typeof commit
+    return () => {}
+  })
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === 'load_preferences' || command === 'retain_rejected_storage') throw new Error('storage unavailable')
+    return command === 'save_preferences' ? { ...args?.value, generation: 205 } : null
+  })
+  const stop = watchPreferences(true)
+  try {
+    await vi.waitFor(() => expect(useAppStore.getState().error).toContain('Preferences could not be loaded'))
+    commit!({ id: 4, event: 'preferences-committed', payload: { version: 1, generation: 204, config: defaultConfig } })
+    useAppStore.getState().updateConfig({ defaultEditorMode: 'markdown' })
+    await flushPreferences()
+    expect(invoke).toHaveBeenCalledWith('save_preferences', expect.objectContaining({
+      value: expect.objectContaining({ config: expect.objectContaining({ defaultEditorMode: 'markdown' }) }),
+    }))
+  } finally {
+    stop()
+  }
+})

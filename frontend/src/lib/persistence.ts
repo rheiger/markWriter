@@ -42,6 +42,7 @@ function acceptPreferences(value: unknown) {
   if (received !== undefined) generation = received
   storedConfig = config
   storedChoices = choices
+  preferencesBlocked = false
   repairGeneration = undefined
   publishPreferences()
 }
