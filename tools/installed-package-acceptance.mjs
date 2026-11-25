@@ -304,6 +304,21 @@ try{
  const updateCheck=await verifyUpdateCheck({dir:fixture,artifacts,run,click,menu,mode,open:openDocument,
    saveAs:async path=>{await menu('File','Save As...');await dialog(path)},save:()=>menu('File','Save'),wait,request,session})
  cases.push(...updateCheck.cases)
+
+ const windowCommand = (method, path = '', body) => request(method, `/session/${session}/window${path}`, body)
+ const currentWindow = await windowCommand('GET')
+ await menu('Window', 'New Window')
+ const secondWindow = await wait(async () => (await windowCommand('GET', '/handles')).find(handle => handle !== currentWindow),
+   'independent installed editor window')
+ await windowCommand('POST', '', { handle: secondWindow })
+ await wait(() => run('return !!document.querySelector(".app-main")'), 'independent installed window loaded')
+ assert.equal(await run('return typeof window.__MARKWRITER_ACCEPTANCE__'), 'undefined', 'No bridge in the second installed window')
+ assert.equal(await run('return document.querySelectorAll(".document-tab").length'), 0, 'New window has a separate workspace')
+ await menu('Window', 'Close Window')
+ await wait(async () => !(await windowCommand('GET', '/handles')).includes(secondWindow), 'independent installed window closed')
+ await windowCommand('POST', '', { handle: currentWindow })
+ assert.ok(await run('return !!document.querySelector(".document-tab")'), 'Closing a second window retained the original tabs')
+ cases.push('installed native window opens and closes with an independent workspace')
  await writeFile(join(artifacts,'long-code-evidence.json'),JSON.stringify(longCode,null,2))
  await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
