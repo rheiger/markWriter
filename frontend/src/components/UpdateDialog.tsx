@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AvailableUpdate, UpdateCheckResult } from '../lib/useUpdateChecks'
+import type { UpdateChoiceAction } from '../lib/preferences'
 import { Modal } from './Modal'
 
 type State = { kind: 'checking' } | UpdateCheckResult | { kind: 'error' }
 
-export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onClose, fallbackFocus }: {
+export function UpdateDialog({ check, initialUpdate, onAvailable, onChoice, openLink, onClose, fallbackFocus }: {
   check: () => Promise<UpdateCheckResult>
   initialUpdate?: AvailableUpdate
   onAvailable?: (update: AvailableUpdate) => void
+  onChoice?: (update: AvailableUpdate, action: UpdateChoiceAction) => Promise<void>
   openLink: (version: string, url: string) => Promise<void>
   onClose: () => void
   fallbackFocus?: () => void
 }) {
   const [state, setState] = useState<State>(initialUpdate ?? { kind: 'checking' })
-  const [opening, setOpening] = useState(false)
-  const [openFailed, setOpenFailed] = useState(false)
+  const [pending, setPending] = useState<'download' | 'choice' | null>(null)
+  const operation = useRef<typeof pending>(null)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     if (initialUpdate) return
@@ -30,19 +33,28 @@ export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onCl
     return () => { cancelled = true }
   }, [check, initialUpdate, onAvailable])
 
-  const handOff = async (update: AvailableUpdate) => {
-    setOpening(true)
-    setOpenFailed(false)
+  const run = async (kind: NonNullable<typeof pending>, action: () => Promise<void>) => {
+    if (operation.current) return
+    operation.current = kind
+    setPending(kind)
+    setActionError('')
     try {
-      await openLink(update.version, update.installer.kind === 'available' ? update.installer.url : update.releasePageUrl)
+      await action()
+      if (kind === 'choice') onClose()
     } catch {
-      setOpenFailed(true)
+      setActionError(kind === 'choice'
+        ? 'Could not save your update choice. Try again.'
+        : 'Could not open the browser. Try again.')
     } finally {
-      setOpening(false)
+      operation.current = null
+      setPending(null)
     }
   }
+  const handOff = (update: AvailableUpdate) => run('download', () =>
+    openLink(update.version, update.installer.kind === 'available' ? update.installer.url : update.releasePageUrl))
+  const close = () => { if (operation.current !== 'choice') onClose() }
 
-  return <Modal title="Check for Updates" onClose={onClose} fallbackFocus={fallbackFocus}>
+  return <Modal title="Check for Updates" onClose={close} fallbackFocus={fallbackFocus}>
     <div role="status" aria-live="polite">
       {state.kind === 'checking' && <p>Checking for updates…</p>}
       {state.kind === 'current' && <p>Version {state.version} is up to date.</p>}
@@ -56,12 +68,22 @@ export function UpdateDialog({ check, initialUpdate, onAvailable, openLink, onCl
       {state.kind === 'unsupported' && <p>Updates are unavailable: {state.reason}</p>}
       {state.kind === 'error' && <p>Could not check for updates. Try again later.</p>}
     </div>
-    {openFailed && <p role="alert">Could not open the browser. Try again.</p>}
-    <div className="dialog-actions">
-      <button type="button" onClick={onClose}>Close</button>
-      {state.kind === 'available' && <button type="button" disabled={opening} onClick={() => void handOff(state)}>
-        {state.installer.kind === 'available' ? 'Open installer download' : 'Open release page'}
-      </button>}
+    {actionError && <p role="alert">{actionError}</p>}
+    <div className="dialog-actions update-dialog-actions">
+      <button type="button" disabled={pending === 'choice'} onClick={close}>Close</button>
+      {state.kind === 'available' && onChoice && <>
+        <button type="button" disabled={pending !== null} onClick={() => void run('choice', () => onChoice(state, 'skip'))}>
+          Skip This Release
+        </button>
+        <button type="button" disabled={pending !== null} onClick={() => void run('choice', () => onChoice(state, 'remind'))}>
+          Remind Me Later
+        </button>
+      </>}
     </div>
+    {state.kind === 'available' && <div className="dialog-actions">
+      <button type="button" disabled={pending !== null} onClick={() => void handOff(state)}>
+        {state.installer.kind === 'available' ? 'Open installer download' : 'Open release page'}
+      </button>
+    </div>}
   </Modal>
 }

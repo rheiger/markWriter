@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-const updateInterval = 24 * 60 * 60 * 1000
+import { useAppStore } from '../store/useAppStore'
+
+export const updateInterval = 24 * 60 * 60 * 1000
 
 export type AvailableUpdate = {
   kind: 'available'
@@ -20,7 +22,7 @@ export type UpdateCheckResult =
 
 export function useUpdateChecks(enabled: boolean, discover: () => Promise<UpdateCheckResult>) {
   const inFlight = useRef<Promise<UpdateCheckResult> | null>(null)
-  const announced = useRef(new Set<string>())
+  const announced = useRef(new Map<string, number>())
   const [notice, setNotice] = useState<AvailableUpdate | null>(null)
 
   const check = useCallback(() => {
@@ -31,7 +33,7 @@ export function useUpdateChecks(enabled: boolean, discover: () => Promise<Update
   }, [discover])
 
   const markSeen = useCallback((update: AvailableUpdate) => {
-    announced.current.add(update.version)
+    announced.current.set(update.version, Date.now())
     setNotice(current => current?.version === update.version ? null : current)
   }, [])
 
@@ -41,23 +43,47 @@ export function useUpdateChecks(enabled: boolean, discover: () => Promise<Update
       return
     }
     let stopped = false
-    const refresh = () => {
+    let timer: ReturnType<typeof window.setTimeout>
+    let nextRegularCheck = Date.now() + updateInterval
+    const schedule = () => {
+      window.clearTimeout(timer)
+      const now = Date.now()
+      let next = nextRegularCheck
+      for (const choice of Object.values(useAppStore.getState().updateChoices)) {
+        if (choice.kind === 'remind' && choice.until > now) next = Math.min(next, choice.until)
+      }
+      timer = window.setTimeout(refresh, Math.max(0, next - now))
+    }
+    function refresh() {
+      const now = Date.now()
+      if (now >= nextRegularCheck) nextRegularCheck = now + updateInterval
+      schedule()
       void check().then(update => {
         if (stopped) return
         if (update.kind === 'current') setNotice(null)
         if (update.kind !== 'available') return
-        const seen = announced.current.has(update.version)
-        announced.current.add(update.version)
+        const choice = useAppStore.getState().updateChoices[update.version]
+        const now = Date.now()
+        if (choice?.kind === 'skip' || (choice?.kind === 'remind' && choice.until > now)) {
+          setNotice(null)
+          return
+        }
+        const seenAt = announced.current.get(update.version)
+        const seen = seenAt !== undefined && (choice?.kind !== 'remind' || seenAt >= choice.until)
+        if (!seen) announced.current.set(update.version, now)
         setNotice(current => !seen || current?.version === update.version ? update : null)
       }).catch(() => {
         // Background discovery leaves editing uninterrupted when the service is unavailable.
       })
     }
+    const stopWatching = useAppStore.subscribe((state, prior) => {
+      if (state.updateChoices !== prior.updateChoices) schedule()
+    })
     refresh()
-    const timer = window.setInterval(refresh, updateInterval)
     return () => {
       stopped = true
-      window.clearInterval(timer)
+      stopWatching()
+      window.clearTimeout(timer)
     }
   }, [enabled, check])
 

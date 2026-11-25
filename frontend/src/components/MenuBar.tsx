@@ -11,7 +11,9 @@ import { SettingsDialog } from './SettingsDialog'
 import { AboutDialog } from './AboutDialog'
 import { HelpDialog } from './HelpDialog'
 import { UpdateDialog } from './UpdateDialog'
-import { useUpdateChecks, type AvailableUpdate, type UpdateCheckResult } from '../lib/useUpdateChecks'
+import { updateInterval, useUpdateChecks, type AvailableUpdate, type UpdateCheckResult } from '../lib/useUpdateChecks'
+import { saveUpdateChoice } from '../lib/persistence'
+import type { UpdateChoiceAction } from '../lib/preferences'
 import { SqlImportDialog } from './SqlImportDialog'
 import { convertSqlInWorker } from '../lib/sqlDdlClient'
 import type { SqlDialect } from '../lib/sqlDdl'
@@ -20,6 +22,9 @@ const discoverUpdates = () => isTauri()
   ? invoke<UpdateCheckResult>('check_updates')
   : Promise.resolve<UpdateCheckResult>({ kind: 'unsupported', reason: 'Open the desktop app to check for updates.' })
 const openUpdateLink = (version: string, url: string) => invoke<void>('open_update_link', { version, url })
+const rememberUpdateChoice = (update: AvailableUpdate, action: UpdateChoiceAction) => saveUpdateChoice(update.version,
+  action === 'skip' ? { kind: 'skip' } : { kind: 'remind', until: Date.now() + updateInterval })
+
 
 interface MenuBarProps {
   editorMode?: EditorMode
@@ -759,7 +764,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
 
       </>}
       {updatesOpen && <UpdateDialog check={check} initialUpdate={updatesOpen === true ? undefined : updatesOpen}
-        onAvailable={markSeen} openLink={openUpdateLink} fallbackFocus={focusAfterUpdate} onClose={() => {
+        onAvailable={markSeen} onChoice={isTauri() ? rememberUpdateChoice : undefined} openLink={openUpdateLink}
+        fallbackFocus={focusAfterUpdate} onClose={() => {
           if (updatesOpen !== true) markSeen(updatesOpen)
           setUpdatesOpen(null)
         }} />}

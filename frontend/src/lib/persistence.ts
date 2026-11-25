@@ -1,30 +1,67 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { useAppStore, type Document } from '../store/useAppStore'
-import { parsePreferences, type AppConfig } from './preferences'
+import { parsePreferences, parseUpdateChoices, type AppConfig, type UpdateChoice } from './preferences'
 
 let preferencesBlocked = false
 let workspaceBlocked = false
 async function retainRejected(kind: 'preferences' | 'workspace') {
   await invoke('retain_rejected_storage', { kind })
 }
-let preferenceWrites: Promise<unknown> = Promise.resolve()
+let preferenceWrites: Promise<void> = Promise.resolve()
+let lastStoredConfig: AppConfig | undefined
+function enqueuePreferenceWrite(write: () => Promise<void>) {
+  const pending = preferenceWrites.catch(() => {}).then(write)
+  preferenceWrites = pending
+  return pending
+}
+async function allowPreferenceWrite() {
+  if (!preferencesBlocked) return
+  await retainRejected('preferences')
+  preferencesBlocked = false
+}
+async function writePreferences(config: AppConfig, updateChoices = useAppStore.getState().updateChoices) {
+  const value = { version: 1, config, ...(Object.keys(updateChoices).length ? { updateChoices } : {}) }
+  await invoke('save_preferences', { value })
+  lastStoredConfig = config
+}
 export async function applyPreferences(value: AppConfig) {
   const config = parsePreferences({ version: 1, config: value })
-  if (isTauri()) {
-    if (preferencesBlocked) { await retainRejected('preferences'); preferencesBlocked = false }
-    const write = preferenceWrites.catch(() => {}).then(() => invoke('save_preferences', { value: { version: 1, config } }))
-    preferenceWrites = write
-    await write
+  if (!isTauri()) {
+    useAppStore.getState().updateConfig(config)
+    return
   }
-  useAppStore.getState().updateConfig(config)
+  const prior = useAppStore.getState().config
+  await enqueuePreferenceWrite(async () => {
+    await allowPreferenceWrite()
+    await writePreferences(config)
+    const current = useAppStore.getState().config
+    // Preserve fields changed by a later immediate control while Apply was pending.
+    const changes = Object.entries(current).filter(([key, value]) => value !== prior[key as keyof AppConfig])
+    useAppStore.setState({ config: changes.length ? { ...config, ...Object.fromEntries(changes) } : config })
+  })
+}
+export function saveUpdateChoice(version: string, choice: UpdateChoice) {
+  const pending = enqueuePreferenceWrite(async () => {
+    const { config, updateChoices } = useAppStore.getState()
+    const next = { ...updateChoices, [version]: choice }
+    await allowPreferenceWrite()
+    await writePreferences(config, next)
+    useAppStore.setState({ updateChoices: next })
+  })
+  // The dialog reports this save failure. It must not block workspace recovery on quit.
+  preferenceWrites = pending.catch(() => {})
+  return pending
 }
 export async function loadPreferences() {
   if (!isTauri()) return
+  lastStoredConfig = undefined
   try {
     const value = await invoke('load_preferences')
-    if (value) useAppStore.setState({ config: parsePreferences(value) })
+    if (value) useAppStore.setState({ config: parsePreferences(value), updateChoices: parseUpdateChoices(value) })
+    else useAppStore.setState({ updateChoices: {} })
   } catch (error) {
     try { await retainRejected('preferences') } catch { preferencesBlocked = true }
+    useAppStore.setState({ updateChoices: {} })
     useAppStore.getState().setError(`Preferences could not be loaded. Defaults remain usable; rejected storage is retained. ${String(error)}`)
   }
 }
@@ -33,9 +70,11 @@ export async function loadPreferences() {
 export function watchPreferences() {
   return useAppStore.subscribe((state, prior) => {
     if (state.config === prior.config || !isTauri() || preferencesBlocked) return
-    const config = state.config
-    preferenceWrites = preferenceWrites.catch(() => {}).then(() => invoke('save_preferences', { value: { version: 1, config } }))
-      .catch(error => useAppStore.getState().setError(`Preferences could not be saved: ${String(error)}`))
+    void enqueuePreferenceWrite(async () => {
+      const { config, setError } = useAppStore.getState()
+      if (config === lastStoredConfig) return
+      await writePreferences(config).catch(error => setError(`Preferences could not be saved: ${String(error)}`))
+    })
   })
 }
 

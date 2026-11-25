@@ -64,3 +64,24 @@ it('ignores a stale check when the checker changes', async () => {
   finish(available)
   await waitFor(() => expect(screen.queryByText(/2.13.1/)).toBeNull())
 })
+
+it.each([
+  ['Skip This Release', 'skip'],
+  ['Remind Me Later', 'remind'],
+] as const)('saves %s before dismissing the dialog', async (name, action) => {
+  const onChoice = vi.fn().mockRejectedValueOnce(new Error('unwritable preferences')).mockResolvedValueOnce(undefined)
+  const onClose = vi.fn()
+  const openLink = vi.fn()
+  render(<UpdateDialog check={vi.fn()} initialUpdate={available} openLink={openLink} onChoice={onChoice} onClose={onClose} />)
+
+  fireEvent.click(screen.getByRole('button', { name }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your update choice. Try again.')
+  expect(onClose).not.toHaveBeenCalled()
+  expect(openLink).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole('button', { name }))
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
+  expect(onChoice).toHaveBeenLastCalledWith(available, action)
+  expect(openLink).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: 'Upgrade Now' })).toBeNull()
+})
