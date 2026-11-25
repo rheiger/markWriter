@@ -1,6 +1,6 @@
 use std::{path::{Path, PathBuf}, sync::Mutex};
 
-const LIMIT: usize = 64;
+pub(crate) const LIMIT: usize = 64;
 const MAX_ERROR_CHARS: usize = 512;
 const OVERFLOW: &str = "Additional OS-open errors were omitted. Try smaller selections.";
 

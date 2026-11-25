@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "fileAssociations": [{
+      "ext": ["md", "markdown"],
+      "mimeType": "text/markdown"
+    }],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/markwriter.desktop"
+      }
+    }
+  }
+}

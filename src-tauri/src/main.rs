@@ -16,6 +16,8 @@ mod update_trust;
 mod sql_import;
 mod settings_profile;
 mod window_preferences;
+#[cfg(target_os = "linux")]
+mod linux_open;
 #[cfg(target_os = "windows")]
 mod windows_install;
 #[cfg(target_os = "windows")]
@@ -271,7 +273,17 @@ fn main() {
 
     #[cfg(target_os = "windows")]
     let cleanup_error = windows_install::retry_legacy_cleanup().err();
-    tauri::Builder::default()
+    let context = tauri::generate_context!();
+    #[cfg(target_os = "linux")]
+    let linux_launch = match linux_open::Launch::register(&context.config().identifier) {
+        Ok(Some(launch)) => launch,
+        Ok(None) => return,
+        Err(error) => {
+            eprintln!("MarkWriter could not open this window or file: {error}");
+            std::process::exit(1);
+        }
+    };
+    let app = tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(window_service::WindowService::default())
         .manage(window_preferences::PreferenceState::default())
@@ -335,31 +347,33 @@ fn main() {
             println!("[TAURI] Application setup completed");
             Ok(())
         })
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app, event| {
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Opened { ref urls } = event {
-                window_service::enqueue_os_open(app, |queue| {
-                    let paths: Result<Vec<_>, _> = urls.iter().map(|url| url.to_file_path()).collect();
-                    match paths {
-                        Ok(paths) => { let _ = queue.enqueue(paths); }
-                        Err(_) => { let _ = queue.reject_batch("No files from this batch were opened: unsupported URL. Only local Markdown files can be opened."); }
-                    }
-                });
-            }
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
-                if window_service::intercept_exit(app) {
-                    api.prevent_exit();
-                    if let Err(error) = window_service::initiate_quit(app) {
-                        eprintln!("Could not prepare to quit: {error}");
-                    }
+        .build(context)
+        .expect("error while building tauri application");
+    #[cfg(target_os = "linux")]
+    linux_launch.listen(app.handle());
+    app.run(|app, event| {
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { ref urls } = event {
+            window_service::enqueue_os_open(app, |queue| {
+                let paths: Result<Vec<_>, _> = urls.iter().map(|url| url.to_file_path()).collect();
+                match paths {
+                    Ok(paths) => { let _ = queue.enqueue(paths); }
+                    Err(_) => { let _ = queue.reject_batch("No files from this batch were opened: unsupported URL. Only local Markdown files can be opened."); }
+                }
+            });
+        }
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+            if window_service::intercept_exit(app) {
+                api.prevent_exit();
+                if let Err(error) = window_service::initiate_quit(app) {
+                    eprintln!("Could not prepare to quit: {error}");
                 }
             }
-            #[cfg(not(target_os = "macos"))]
-            let _ = (app, event);
-        });
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (app, event);
+    });
 }
 
 #[cfg(test)]
