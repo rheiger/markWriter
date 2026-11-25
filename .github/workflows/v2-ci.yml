@@ -8,6 +8,7 @@ on:
       - '.github/workflows/v2-ci.yml'
       - 'tools/**'
       - 'tests/test_update_markwriter_macos.py'
+      - 'tests/test_uninstall_markwriter_macos.py'
   push:
     branches: [main, v2-development, 'codex/**']
     paths:
@@ -16,6 +17,7 @@ on:
       - '.github/workflows/v2-ci.yml'
       - 'tools/**'
       - 'tests/test_update_markwriter_macos.py'
+      - 'tests/test_uninstall_markwriter_macos.py'
   workflow_dispatch:
 
 permissions:
@@ -79,7 +81,7 @@ jobs:
         timeout-minutes: 3
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python3 -m unittest discover -s tests -p test_update_markwriter_macos.py -v
+        run: python3 -m unittest discover -s tests -p 'test_*markwriter_macos.py' -v
       - name: Select stable Rust
         run: |
           rustup toolchain install 1.90.0 --profile minimal

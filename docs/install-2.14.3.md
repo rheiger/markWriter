@@ -1,10 +1,10 @@
 # Install, upgrade and roll back MarkWriter 2.14.3
 
-Download the MarkWriter 2.14.3 package for your system. Before installing, compare your package's SHA-256 digest with the corresponding entry in `SHA256SUMS`. Keep the previous installer and back up your MarkWriter profile before upgrading.
+These installation instructions apply to the final MarkWriter 2.14.3 GitHub Release packages. Download the package for your system from that release. Before installing, compare your package's SHA-256 digest with the corresponding entry in `SHA256SUMS`. Keep the previous installer and back up your MarkWriter profile before upgrading.
 
 ## macOS on Apple silicon
 
-Mount `MarkWriter-2.14.3-macos-arm64.dmg` and copy `MarkWriter.app` to a staging folder. Eject the image, then run `codesign --verify --deep --strict` with the path to the staged app. The package uses ad hoc integrity seals and has no Developer ID signature or Apple notarization. For a fresh install, move the verified app to Applications and open it. When replacing an older copy, use the upgrade and rollback procedure below before moving the verified app into place.
+Mount `MarkWriter-2.14.3-macos-arm64.dmg` and copy `MarkWriter.app` to a staging folder. Eject the image, then run `codesign --verify --deep --strict` with the path to the staged app. The final DMG requires ad hoc integrity seals. Hosted candidate DMGs lack a whole-app seal and require sealing and byte verification before release. The final package has no Developer ID signature or Apple notarization. For a fresh install, move the verified app to Applications and open it. When replacing an older copy, use the upgrade and rollback procedure below before moving the verified app into place.
 
 Use the exact installed version and absolute app path when running the macOS removal tool. Keep its backup and transaction record for rollback. Quit the selected app and close its Finder previews before removing or restoring it. See the [macOS upgrade and rollback procedure](https://github.com/rheiger/markWriter/blob/v2.7.5/docs/install-2.7.5.md#macos-on-apple-silicon) for the exact-path workflow and Finder registration checks.
 
