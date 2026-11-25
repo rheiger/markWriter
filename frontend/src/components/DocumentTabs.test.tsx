@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { DocumentTabs } from './DocumentTabs'
+import { FindReplace } from './FindReplace'
 import { useAppStore } from '../store/useAppStore'
 
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: vi.fn() }))
@@ -61,4 +62,23 @@ it('dismisses on an outside pointer and disables closing others for a lone tab',
   fireEvent.contextMenu(tab)
   await act(async () => fireEvent.click(screen.getByRole('menuitem', { name: 'Close Tab' })))
   expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+})
+
+it('dismisses the tab menu with Escape before closing Find', () => {
+  const closeFind = vi.fn()
+  render(<>
+    <DocumentTabs />
+    <FindReplace documentId="Third" source="" view={null} editor={null} mode="markdown"
+      active open replace={false} request={1} onClose={closeFind} onSource={() => {}} />
+  </>)
+
+  const tab = screen.getByRole('tab', { name: 'Third' })
+  fireEvent.contextMenu(tab)
+  fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Close Tab' }), { key: 'Escape' })
+  expect(closeFind).not.toHaveBeenCalled()
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  expect(tab).toHaveFocus()
+
+  fireEvent.keyDown(tab, { key: 'Escape' })
+  expect(closeFind).toHaveBeenCalledOnce()
 })
