@@ -13,7 +13,7 @@ let storedConfig: AppConfig = defaultConfig
 let storedChoices: UpdateChoices = {}
 let generation = -1
 let publishingPreferences = false
-let repairPreferences = false
+let repairGeneration: number | undefined
 const optimisticEdits = new Set<Partial<AppConfig>>()
 
 function enqueuePreferenceWrite(write: () => Promise<void>) {
@@ -42,7 +42,7 @@ function acceptPreferences(value: unknown) {
   if (received !== undefined) generation = received
   storedConfig = config
   storedChoices = choices
-  repairPreferences = false
+  repairGeneration = undefined
   publishPreferences()
 }
 function publishPreferences() {
@@ -70,8 +70,8 @@ async function writePreferences(
   optimisticEdit?: Partial<AppConfig>,
 ) {
   const value = preferenceRecord(config, updateChoices)
-  const base = repairPreferences ? undefined : preferenceRecord(baseConfig, baseChoices)
-  const committed = await invoke('save_preferences', { value, ...(base ? { base } : {}) })
+  const base = preferenceRecord(baseConfig, baseChoices)
+  const committed = await invoke('save_preferences', { value, base, repairGeneration })
   if (optimisticEdit) optimisticEdits.delete(optimisticEdit)
   // Native acknowledges the full merged record. Local test doubles may omit the reply.
   acceptPreferences(committed && typeof committed === 'object' ? committed : value)
@@ -102,13 +102,14 @@ export function saveUpdateChoice(version: string, choice: UpdateChoice) {
 }
 export async function loadPreferences() {
   if (!isTauri()) return
+  let value: unknown
   try {
-    const value = await invoke('load_preferences')
+    value = await invoke('load_preferences')
     if (value) acceptPreferences(value)
     else if (generation < 0) useAppStore.setState({ updateChoices: {} })
   } catch (error) {
     try { await retainRejected('preferences') } catch { preferencesBlocked = true }
-    repairPreferences = true
+    repairGeneration = (value as { generation?: number } | null)?.generation ?? Math.max(0, generation)
     useAppStore.setState({ updateChoices: {} })
     useAppStore.getState().setError(`Preferences could not be loaded. Defaults remain usable; rejected storage is retained. ${String(error)}`)
   }
@@ -129,9 +130,9 @@ export function watchPreferences(syncWindows = false) {
         const base = { ...config, ...Object.fromEntries(Object.keys(patch).map(key => [key, prior.config[key as keyof AppConfig]])) }
         await writePreferences({ ...base, ...patch }, base, updateChoices, updateChoices, patch)
       } catch (error) {
-        useAppStore.getState().setError(`Preferences could not be saved: ${String(error)}`)
-      } finally {
         optimisticEdits.delete(patch)
+        publishPreferences()
+        useAppStore.getState().setError(`Preferences could not be saved: ${String(error)}`)
       }
     })
   })
@@ -142,7 +143,7 @@ export function watchPreferences(syncWindows = false) {
       if (disposed) { unsubscribe(); return }
       unlisten = unsubscribe
       // Cover the interval between initial load and event registration.
-      if (!repairPreferences) void loadPreferences()
+      if (repairGeneration === undefined) void loadPreferences()
     }).catch(error => useAppStore.getState().setError(`Could not synchronize preferences: ${String(error)}`))
   }
   return () => { disposed = true; stop(); unlisten?.() }

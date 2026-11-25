@@ -214,6 +214,23 @@ it('blocks checkpointing while the UI Open or Save As picker is unresolved', asy
   }
 })
 
+it('rolls back a failed immediate preference edit before a later write', async () => {
+  await loadPreferences()
+  const stop = watchPreferences()
+  try {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('storage lost'))
+    useAppStore.getState().updateConfig({ fontSize: 19 })
+    await flushPreferences()
+    expect(useAppStore.getState().config.fontSize).toBe(14)
+    expect(useAppStore.getState().error).toContain('storage lost')
+    useAppStore.getState().updateConfig({ theme: 'dark' })
+    await flushPreferences()
+    expect(preferencesOnDisk).toMatchObject({ config: { theme: 'dark', fontSize: 14 } })
+  } finally {
+    stop()
+  }
+})
+
 it('accepts the newest cross-window preferences without echoing another window’s update', async () => {
   let commit: ((event: Event<unknown>) => void) | undefined
   const unlisten = vi.fn()

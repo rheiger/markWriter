@@ -251,9 +251,10 @@ it('writes the skip choice from the update dialog and still finds the release fr
     fireEvent.click(await screen.findByRole('button', { name: 'View update' }))
     fireEvent.click(screen.getByRole('button', { name: 'Skip This Release' }))
     await act(async () => {})
-    expect(invoke).toHaveBeenCalledWith('save_preferences', {
+    expect(invoke).toHaveBeenCalledWith('save_preferences', expect.objectContaining({
       value: { version: 1, config: defaultConfig, updateChoices: { [update.version]: { kind: 'skip' } } },
-    })
+      base: { version: 1, config: defaultConfig },
+    }))
     expect(screen.queryByRole('button', { name: 'View update' })).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(useAppStore.getState().currentDocument).toBe(source)
