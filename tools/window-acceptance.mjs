@@ -114,9 +114,22 @@ export async function verifyMultiWindow({
   assert.equal((await handles()).length, 2)
   const remaining = (await snapshot()).documents
   assert.ok(drafts.every(draft => remaining.some(doc => doc.id === draft.id && doc.isDirty)))
+
+  await menu('File', 'Quit')
+  const reviewWindow = await wait(async () => {
+    for (const handle of await handles()) {
+      await switchTo(handle)
+      if (await run('return !!document.querySelector(\'dialog[aria-label="Unsaved changes"][open]\')')) return handle
+    }
+    return null
+  }, 'app Quit asks a window to review its dirty documents')
+  await switchTo(reviewWindow)
+  await click('//dialog//button[normalize-space(.)="Cancel"]')
+  await wait(() => run('return !document.querySelector("dialog[open]")'), 'coordinated app Quit canceled')
+  assert.equal((await handles()).length, 2)
   return [
     'independent windows, window list and shared default editor preference',
     'dirty tab moves preserve ownership and Markdown/WYSIWYG Undo and Redo',
-    'dirty moved drafts recover in their destination window after interruption; Cancel keeps the window open',
+    'dirty moved drafts recover in their destination window after interruption; Cancel preserves the window and app',
   ]
 }
