@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { useAppStore, type AppState, type Document } from '../store/useAppStore'
-import { parsePreferences, parseUpdateChoices, type AppConfig, type UpdateChoice } from './preferences'
+import { defaultConfig, parsePreferences, parseUpdateChoices, type AppConfig, type UpdateChoice, type UpdateChoices } from './preferences'
 
 let preferencesBlocked = false
 let workspaceBlocked = false
@@ -8,7 +9,13 @@ async function retainRejected(kind: 'preferences' | 'workspace') {
   await invoke('retain_rejected_storage', { kind })
 }
 let preferenceWrites: Promise<void> = Promise.resolve()
-let lastStoredConfig: AppConfig | undefined
+let storedConfig: AppConfig = defaultConfig
+let storedChoices: UpdateChoices = {}
+let generation = -1
+let publishingPreferences = false
+let repairPreferences = false
+const optimisticEdits = new Set<Partial<AppConfig>>()
+
 function enqueuePreferenceWrite(write: () => Promise<void>) {
   const pending = preferenceWrites.catch(() => {}).then(write)
   preferenceWrites = pending
@@ -19,34 +26,75 @@ async function allowPreferenceWrite() {
   await retainRejected('preferences')
   preferencesBlocked = false
 }
-async function writePreferences(config: AppConfig, updateChoices = useAppStore.getState().updateChoices) {
-  const value = { version: 1, config, ...(Object.keys(updateChoices).length ? { updateChoices } : {}) }
-  await invoke('save_preferences', { value })
-  lastStoredConfig = config
+
+function changedFields(config: AppConfig, base: AppConfig): Partial<AppConfig> {
+  return Object.fromEntries(Object.entries(config).filter(([key, value]) => value !== base[key as keyof AppConfig]))
 }
-export async function applyPreferences(value: AppConfig) {
+function preferenceRecord(config: AppConfig, updateChoices: UpdateChoices) {
+  return { version: 1, config, ...(Object.keys(updateChoices).length ? { updateChoices } : {}) }
+}
+function acceptPreferences(value: unknown) {
+  if (!value || typeof value !== 'object') return
+  const received = (value as { generation?: number }).generation
+  if ((received ?? -1) <= generation && generation >= 0) return
+  const config = parsePreferences(value)
+  const choices = parseUpdateChoices(value)
+  if (received !== undefined) generation = received
+  storedConfig = config
+  storedChoices = choices
+  repairPreferences = false
+  publishPreferences()
+}
+function publishPreferences() {
+  const local = useAppStore.getState()
+  const next = { ...storedConfig, ...Object.assign({}, ...optimisticEdits) }
+  const configChanged = Object.keys(changedFields(next, local.config)).length > 0
+  const choicesChanged = JSON.stringify(storedChoices) !== JSON.stringify(local.updateChoices)
+  if (!configChanged && !choicesChanged) return
+  publishingPreferences = true
+  try {
+    useAppStore.setState({
+      ...(configChanged ? { config: next } : {}),
+      ...(choicesChanged ? { updateChoices: storedChoices } : {}),
+    })
+  } finally {
+    publishingPreferences = false
+  }
+}
+
+async function writePreferences(
+  config: AppConfig,
+  baseConfig: AppConfig,
+  updateChoices: UpdateChoices,
+  baseChoices: UpdateChoices,
+  optimisticEdit?: Partial<AppConfig>,
+) {
+  const value = preferenceRecord(config, updateChoices)
+  const base = repairPreferences ? undefined : preferenceRecord(baseConfig, baseChoices)
+  const committed = await invoke('save_preferences', { value, ...(base ? { base } : {}) })
+  if (optimisticEdit) optimisticEdits.delete(optimisticEdit)
+  // Native acknowledges the full merged record. Local test doubles may omit the reply.
+  acceptPreferences(committed && typeof committed === 'object' ? committed : value)
+  if (optimisticEdit) publishPreferences()
+}
+export async function applyPreferences(value: AppConfig, base = useAppStore.getState().config) {
   const config = parsePreferences({ version: 1, config: value })
+  const patch = changedFields(config, base)
   if (!isTauri()) {
-    useAppStore.getState().updateConfig(config)
+    useAppStore.getState().updateConfig(patch)
     return
   }
-  const prior = useAppStore.getState().config
   await enqueuePreferenceWrite(async () => {
     await allowPreferenceWrite()
-    await writePreferences(config)
-    const current = useAppStore.getState().config
-    // Preserve fields changed by a later immediate control while Apply was pending.
-    const changes = Object.entries(current).filter(([key, value]) => value !== prior[key as keyof AppConfig])
-    useAppStore.setState({ config: changes.length ? { ...config, ...Object.fromEntries(changes) } : config })
+    const current = useAppStore.getState()
+    await writePreferences({ ...current.config, ...patch }, current.config, current.updateChoices, current.updateChoices)
   })
 }
 export function saveUpdateChoice(version: string, choice: UpdateChoice) {
   const pending = enqueuePreferenceWrite(async () => {
     const { config, updateChoices } = useAppStore.getState()
-    const next = { ...updateChoices, [version]: choice }
     await allowPreferenceWrite()
-    await writePreferences(config, next)
-    useAppStore.setState({ updateChoices: next })
+    await writePreferences(config, config, { ...updateChoices, [version]: choice }, updateChoices)
   })
   // The dialog reports this save failure. It must not block workspace recovery on quit.
   preferenceWrites = pending.catch(() => {})
@@ -54,28 +102,50 @@ export function saveUpdateChoice(version: string, choice: UpdateChoice) {
 }
 export async function loadPreferences() {
   if (!isTauri()) return
-  lastStoredConfig = undefined
   try {
     const value = await invoke('load_preferences')
-    if (value) useAppStore.setState({ config: parsePreferences(value), updateChoices: parseUpdateChoices(value) })
-    else useAppStore.setState({ updateChoices: {} })
+    if (value) acceptPreferences(value)
+    else if (generation < 0) useAppStore.setState({ updateChoices: {} })
   } catch (error) {
     try { await retainRejected('preferences') } catch { preferencesBlocked = true }
+    repairPreferences = true
     useAppStore.setState({ updateChoices: {} })
     useAppStore.getState().setError(`Preferences could not be loaded. Defaults remain usable; rejected storage is retained. ${String(error)}`)
   }
 }
 
-// Toolbar/theme/zoom changes share the same native storage queue as Settings Apply.
-export function watchPreferences() {
-  return useAppStore.subscribe((state, prior) => {
-    if (state.config === prior.config || !isTauri() || preferencesBlocked) return
+// Toolbar/theme/zoom changes and Settings Apply share a local queue. The
+// native queue merges field-level changes across all editor windows.
+export function watchPreferences(syncWindows = false) {
+  const stop = useAppStore.subscribe((state, prior) => {
+    if (state.config === prior.config || publishingPreferences || !isTauri() || preferencesBlocked) return
+    const patch = changedFields(state.config, prior.config)
+    if (!Object.keys(patch).length) return
+    optimisticEdits.add(patch)
     void enqueuePreferenceWrite(async () => {
-      const { config, setError } = useAppStore.getState()
-      if (config === lastStoredConfig) return
-      await writePreferences(config).catch(error => setError(`Preferences could not be saved: ${String(error)}`))
+      try {
+        const { config, updateChoices } = useAppStore.getState()
+        // The base excludes this edit even if the optimistic UI has already applied it.
+        const base = { ...config, ...Object.fromEntries(Object.keys(patch).map(key => [key, prior.config[key as keyof AppConfig]])) }
+        await writePreferences({ ...base, ...patch }, base, updateChoices, updateChoices, patch)
+      } catch (error) {
+        useAppStore.getState().setError(`Preferences could not be saved: ${String(error)}`)
+      } finally {
+        optimisticEdits.delete(patch)
+      }
     })
   })
+  let disposed = false
+  let unlisten: (() => void) | undefined
+  if (syncWindows && isTauri()) {
+    void listen('preferences-committed', event => { if (!disposed) acceptPreferences(event.payload) }).then(unsubscribe => {
+      if (disposed) { unsubscribe(); return }
+      unlisten = unsubscribe
+      // Cover the interval between initial load and event registration.
+      if (!repairPreferences) void loadPreferences()
+    }).catch(error => useAppStore.getState().setError(`Could not synchronize preferences: ${String(error)}`))
+  }
+  return () => { disposed = true; stop(); unlisten?.() }
 }
 
 let workspaceWrites: Promise<unknown> = Promise.resolve()
@@ -145,7 +215,8 @@ export async function flushPreferences() { await preferenceWrites }
 export function persistPreferencesForCheckpoint() {
   const pending = enqueuePreferenceWrite(async () => {
     await allowPreferenceWrite()
-    await writePreferences(useAppStore.getState().config)
+    const { config, updateChoices } = useAppStore.getState()
+    await writePreferences(config, storedConfig, updateChoices, storedChoices)
   })
   const settled = pending.catch(() => {})
   preferenceWrites = settled

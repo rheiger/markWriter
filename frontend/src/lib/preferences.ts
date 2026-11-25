@@ -15,6 +15,7 @@ export interface AppConfig {
   collapseSource: boolean
   restoreSession: boolean
   automaticUpdateChecks: boolean
+  defaultEditorMode: 'markdown' | 'wysiwyg'
   defaultDocumentFolder: string
   defaultHtmlExportFolder: string
 }
@@ -22,7 +23,7 @@ export const defaultConfig: AppConfig = {
   theme: 'system', syntaxHighlighting: true, fontSize: 14, fontFamily: 'Monaco, Menlo, Consolas, monospace',
   renderedFontSize: 16, renderedFontFamily: 'system-ui, sans-serif', renderedLineHeight: 1.6,
   tabWidth: 4, wordWrap: true, wrapContinuation: true, syncPreview: true, collapseSource: true, restoreSession: true,
-  automaticUpdateChecks: true,
+  automaticUpdateChecks: true, defaultEditorMode: 'wysiwyg',
   defaultDocumentFolder: '', defaultHtmlExportFolder: '',
 }
 export function parsePreferences(value: unknown): AppConfig {
@@ -37,6 +38,7 @@ export function parsePreferences(value: unknown): AppConfig {
     if (field === undefined) continue
     let valid = typeof field === typeof defaultConfig[key]
     if (key === 'theme') valid = typeof field === 'string' && ['light', 'dark', 'system'].includes(field)
+    if (key === 'defaultEditorMode') valid = field === 'markdown' || field === 'wysiwyg'
     if (key === 'fontSize' || key === 'renderedFontSize') valid = Number.isInteger(field) && Number(field) >= 10 && Number(field) <= 32
     if (key === 'tabWidth') valid = [2, 4, 8].includes(Number(field)) && typeof field === 'number'
     if (key === 'renderedLineHeight') valid = typeof field === 'number' && Number.isFinite(field) && field >= 1 && field <= 2.5

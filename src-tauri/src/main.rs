@@ -14,6 +14,7 @@ mod update_policy;
 mod update_trust;
 mod sql_import;
 mod settings_profile;
+mod window_preferences;
 #[cfg(target_os = "windows")]
 mod windows_install;
 #[cfg(target_os = "windows")]
@@ -48,12 +49,19 @@ fn storage_file(app: &tauri::AppHandle, kind: &str) -> Result<std::path::PathBuf
 // Native path resolver is scoped to the current app identity.
 // https://docs.rs/tauri/2/tauri/path/struct.PathResolver.html
 #[tauri::command]
-fn load_preferences(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    persistence::read_json(&storage_file(&app, "preferences")?)
+fn load_preferences(app: tauri::AppHandle, state: tauri::State<window_preferences::PreferenceState>) -> Result<Option<serde_json::Value>, String> {
+    state.load(&storage_file(&app, "preferences")?)
 }
 #[tauri::command]
-fn save_preferences(app: tauri::AppHandle, value: serde_json::Value) -> Result<(), String> {
-    persistence::write_json(&storage_file(&app, "preferences")?, &value)
+fn save_preferences(
+    app: tauri::AppHandle,
+    state: tauri::State<window_preferences::PreferenceState>,
+    value: serde_json::Value,
+    base: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    state.save(&storage_file(&app, "preferences")?, value, base.as_ref(), |update| {
+        let _ = app.emit("preferences-committed", update);
+    })
 }
 #[tauri::command]
 fn load_workspace(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
@@ -295,6 +303,7 @@ fn main() {
     tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(os_open::OpenQueue::default())
+        .manage(window_preferences::PreferenceState::default())
         .manage(sql_import::SqlPicker::default())
         .manage(settings_profile::SettingsProfilePicker::default())
         .plugin(tauri_plugin_fs::init())

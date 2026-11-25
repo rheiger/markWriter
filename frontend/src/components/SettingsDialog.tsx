@@ -14,7 +14,8 @@ const folderSettings = [
 ] as const
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const [draft, setDraft] = useState(() => ({ ...useAppStore.getState().config }))
+  const original = useRef(useAppStore.getState().config).current
+  const [draft, setDraft] = useState(() => ({ ...original }))
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -41,7 +42,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         const exported = await invoke<boolean>('export_settings_profile', { profile: encodeSettingsProfile(draft) })
         if (operation.current === token && exported) setStatus('Settings exported.')
       } else if (action === 'apply') {
-        await applyPreferences(draft)
+        await applyPreferences(draft, original)
         if (operation.current === token) onClose()
       } else {
         const title = action === 'defaultDocumentFolder' ? 'Choose Document Folder' : 'Choose HTML Export Folder'
@@ -68,6 +69,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     <fieldset className="settings-fields" disabled={busy}>
       <label>Theme<select value={draft.theme} onChange={e => field('theme', e.target.value as AppConfig['theme'])}>
         <option value="system">Auto (System)</option><option value="light">Light</option><option value="dark">Dark</option>
+      </select></label>
+      <label>Default editor for new documents<select value={draft.defaultEditorMode}
+        onChange={e => field('defaultEditorMode', e.target.value as AppConfig['defaultEditorMode'])}>
+        <option value="wysiwyg">WYSIWYG</option><option value="markdown">Markdown with Preview</option>
       </select></label>
       <label>Source font<input value={draft.fontFamily} maxLength={200} onChange={e => field('fontFamily', e.target.value)} /></label>
       {size('fontSize', 'Source text size')}
