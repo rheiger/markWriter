@@ -1,0 +1,153 @@
+name: Qualify self-signed MarkWriter 2.15.4 Windows installer
+on:
+  push:
+    branches: [codex/pi-2.15-windows-finalize]
+    paths: [.github/workflows/pi-215-windows-finalize.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  qualify:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CANDIDATE_SOURCE: 37f1402d20a0dbd8eec55e53d93ee41708708839
+      CANDIDATE_INSTALLER_SHA256: 738f55d5c42c3836bc3d055ef845389dc05e96597f8fedb2d15b5f0331a1849e
+      CANDIDATE_DLL_SHA256: 059670c2a130d4493e271108899cd66bed21b15da8bb4a8b60cc66a0f66fa1f1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.CANDIDATE_SOURCE }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.22.2'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Sign the qualified NSIS installer with a disposable test certificate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh run download 45645439065 --repo rheiger/markWriter -n package-windows-x64 -D unsigned-candidate
+          if ($LASTEXITCODE) { throw 'Cannot retrieve the original package' }
+          $unsigned = (Get-Item unsigned-candidate/MarkWriter-2.15.4-windows-x64.exe).FullName
+          $original = Get-Content -Raw unsigned-candidate/windows-x64.manifest.json | ConvertFrom-Json
+          if ($original.source -cne $env:CANDIDATE_SOURCE -or !$original.acceptance.passed -or
+              (Get-FileHash -LiteralPath $unsigned).Hash -ine $env:CANDIDATE_INSTALLER_SHA256) {
+            throw 'Unqualified candidate payload'
+          }
+          $dir = 'src-tauri/target/release/bundle/nsis'
+          New-Item -ItemType Directory -Force $dir, 'src-tauri/windows', 'final-package' | Out-Null
+          $installer = Join-Path (Resolve-Path $dir) 'MarkWriter_2.15.4_x64-setup.exe'
+          Copy-Item -LiteralPath $unsigned -Destination $installer
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip/7z.exe'
+          & $sevenZip e $unsigned '-osrc-tauri/windows' MarkWriterPreview.dll -y | Out-Host
+          if ($LASTEXITCODE -or (Get-FileHash src-tauri/windows/MarkWriterPreview.dll).Hash -ine $env:CANDIDATE_DLL_SHA256) {
+            throw 'The extracted preview DLL differs from the qualified candidate'
+          }
+          $certificate = New-SelfSignedCertificate -Subject 'CN=MarkWriter 2.15.4 Testing' -Type CodeSigningCert -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddYears(1)
+          $personal = "Cert:\CurrentUser\My\$($certificate.Thumbprint)"
+          $anchor = "Cert:\CurrentUser\Root\$($certificate.Thumbprint)"
+          $public = Join-Path $env:RUNNER_TEMP 'markwriter-2154-testing.cer'
+          try {
+            Export-Certificate -Cert $certificate -FilePath $public | Out-Null
+            Import-Certificate -FilePath $public -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
+            Set-AuthenticodeSignature -LiteralPath $installer -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
+            $verified = Get-AuthenticodeSignature -LiteralPath $installer
+            if ($verified.Status -ne 'Valid' -or $verified.SignerCertificate.Thumbprint -cne $certificate.Thumbprint) {
+              throw "Test-root verification failed ($($verified.Status)): $($verified.StatusMessage)"
+            }
+          } finally {
+            if (Test-Path $anchor) { Remove-Item -LiteralPath $anchor }
+            if (Test-Path $personal) { Remove-Item -LiteralPath $personal -DeleteKey }
+            if (Test-Path $public) { Remove-Item -LiteralPath $public }
+          }
+          $publicView = Get-AuthenticodeSignature -LiteralPath $installer
+          if (!$publicView.SignerCertificate -or $publicView.SignerCertificate.Thumbprint -cne $certificate.Thumbprint -or $publicView.Status -notin @('NotTrusted','UnknownError')) {
+            throw "Unexpected external trust status: $($publicView.Status) $($publicView.StatusMessage)"
+          }
+          $certificateSha = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
+          @{
+            status = 'self-signed-test'
+            trusted = $false
+            hashAlgorithm = 'SHA256'
+            timestamped = $false
+            validatedInTemporaryTrustStore = $true
+            authenticode = $publicView.Status.ToString()
+            subject = $certificate.Subject
+            certificateSha256 = $certificateSha
+            expiresUtc = $certificate.NotAfter.ToUniversalTime().ToString('o')
+          } | ConvertTo-Json | Set-Content -Encoding utf8 final-package/signing.json
+          $signedHash = (Get-FileHash -LiteralPath $installer).Hash
+          if ($signedHash -ieq $env:CANDIDATE_INSTALLER_SHA256) { throw 'Signer did not change the installer' }
+          "FINAL_INSTALLER_SHA256=$signedHash" >> $env:GITHUB_ENV
+      - name: Build the exact source frontend and prepare native acceptance
+        run: |
+          npm ci --prefix frontend
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          npm run build --prefix frontend
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tools/release-metadata.mjs --check-frontend
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          rustup toolchain install 1.90.0 --profile minimal
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +1.90.0 install tauri-driver --version 2.1.0 --locked
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./tools/setup-edge-driver.ps1
+          ./tools/setup-windows-acceptance.ps1
+      - name: Install the exact self-signed package without trusting its certificate
+        run: ./tools/install-package-windows.ps1
+      - name: Exercise packaged Explorer preview
+        run: ./tools/test-windows-preview-package.ps1
+      - name: Exercise installed editor at ordinary privilege
+        run: |
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
+          exit $LASTEXITCODE
+      - name: Check installed binary and icon before uninstall
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = Get-Content -Raw unsigned-candidate/windows-x64.manifest.json | ConvertFrom-Json
+          if ((Get-FileHash -LiteralPath $env:MARKWRITER_BINARY).Hash -ine $candidate.binaryInspection.sha256) {
+            throw 'The installed editor differs from the qualified candidate'
+          }
+          pwsh -NoProfile -File tools/verify-installed-icon-windows.ps1 -Binary $env:MARKWRITER_BINARY -Reference src-tauri/icons/32x32.png -Output package-acceptance-results/native-associated-icon.png |
+            Set-Content -Encoding utf8 package-acceptance-results/final-icon.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (!(Get-Content -Raw package-acceptance-results/final-icon.json | ConvertFrom-Json).verified) {
+            throw 'Installed icon was not verified'
+          }
+      - name: Verify uninstall and bind the final bytes to the qualification receipts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./tools/test-windows-uninstall.ps1
+          $installer = 'src-tauri/target/release/bundle/nsis/MarkWriter_2.15.4_x64-setup.exe'
+          $releaseFile = 'final-package/MarkWriter-2.15.4-windows-x64.exe'
+          if ((Get-FileHash -LiteralPath $installer).Hash -cne $env:FINAL_INSTALLER_SHA256) { throw 'Installer changed during acceptance' }
+          Copy-Item -LiteralPath $installer -Destination $releaseFile
+          $manifest = Get-Content -Raw unsigned-candidate/windows-x64.manifest.json | ConvertFrom-Json
+          $manifest.asset.sha256 = $env:FINAL_INSTALLER_SHA256.ToLowerInvariant()
+          $manifest.asset.size = (Get-Item -LiteralPath $releaseFile).Length
+          $manifest.signing = Get-Content -Raw final-package/signing.json | ConvertFrom-Json
+          $manifest.acceptance = Get-Content -Raw package-acceptance-results/result.json | ConvertFrom-Json
+          if (!$manifest.acceptance.passed) { throw 'Installed acceptance did not pass' }
+          $manifest | Add-Member -NotePropertyName finalQualificationRun -NotePropertyValue "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          $manifest | ConvertTo-Json -Depth 50 | Set-Content -Encoding utf8 final-package/windows-x64.manifest.json
+          $env:GITHUB_SHA = $env:CANDIDATE_SOURCE
+          node tools/shell-preview-assets.mjs explorer final-package package-acceptance-results/explorer-preview.json
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: final-self-signed-windows-2.15.4
+          path: final-package/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && hashFiles('package-acceptance-results/**') != ''
+        with:
+          name: signed-windows-acceptance-2.15.4
+          path: package-acceptance-results/
+          retention-days: 14
