@@ -10,11 +10,12 @@ import { searchKeymap } from '@codemirror/search'
 import { registerActiveViewCapture, useAppStore } from '../store/useAppStore'
 import { renderedEditorExtensions } from '../lib/renderedEditorExtensions'
 import {
-  captureRenderedJournal, captureSourceEngine, registerEditorTransfer,
+  captureRenderedJournal, captureSourceEngine,
   restoreRenderedJournal, restoreSourceEngine, stagedEditorTransfer,
   type EditorTransfer, type RenderedJournal,
 } from '../lib/editorTransfer'
 import { captureRenderedEngine, restoreRenderedEngine } from '../lib/renderedHistoryTransfer'
+import { registerEditorTransfer } from '../lib/editorComposition'
 import './EditorView.css'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -340,6 +341,9 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
   const captureForTransfer = useRef<(document: import('../store/useAppStore').Document) => EditorTransfer>(() => {
     throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
   })
+  const isComposing = useRef(() => false)
+  isComposing.current = () => Boolean(editorViewRef.current?.compositionStarted ||
+    (tiptap && !tiptap.isDestroyed && tiptap.view.composing))
   captureForTransfer.current = requested => {
     const sourceEditor = editorViewRef.current
     const current = useAppStore.getState().documents.find(doc => doc.id === documentId)
@@ -351,7 +355,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
         (editorMode === 'markdown' && !sourceEditor) || isUpdatingFromMarkdown.current || isSwitchingModeRef.current) {
       throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
     }
-    if (tiptap.view.composing || sourceEditor?.compositionStarted) {
+    if (isComposing.current()) {
       throw new Error('Finish entering the current text, then try moving this tab again.')
     }
     const view = { ...current.viewState }
@@ -381,7 +385,10 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     }
   }
   useEffect(() => {
-    if (documentId) return registerEditorTransfer(documentId, doc => captureForTransfer.current(doc))
+    if (documentId) return registerEditorTransfer(documentId, {
+      capture: doc => captureForTransfer.current(doc),
+      isComposing: () => isComposing.current(),
+    })
   }, [documentId])
 
   // Compute formatting state for WYSIWYG toolbar label

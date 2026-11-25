@@ -7,6 +7,7 @@ import type { Document } from '../store/useAppStore'
 import { renderedEditorExtensions } from './renderedEditorExtensions'
 import { restoreRenderedEngine, validInteger, type RenderedEngineTransfer } from './renderedHistoryTransfer'
 import { editorText } from './sourceCoordinates'
+import { editorTransferSession } from './editorComposition'
 
 const transferLimit = 8 * 1024 * 1024
 const fields = { history: historyField, folds: foldState }
@@ -127,27 +128,21 @@ export function validateEditorTransfer(document: Document, payload: unknown): Ed
   return data
 }
 
-const sessions = new Map<string, (document: Document) => EditorTransfer>()
 const staged = new Map<string, {
   data: EditorTransfer
   hydrated: () => void
   failed: (cause: unknown) => void
 }>()
 
-export function registerEditorTransfer(id: string, capture: (document: Document) => EditorTransfer) {
-  sessions.set(id, capture)
-  return () => { if (sessions.get(id) === capture) sessions.delete(id) }
-}
-
 export function captureEditorTransfer(document: Document): EditorTransfer {
-  const capture = sessions.get(document.id)
+  const capture = editorTransferSession(document.id)?.capture
   if (!capture) throw new Error('Wait for this tab’s editor to finish loading, then try moving it again.')
   return validateEditorTransfer(document, capture(document))
 }
 
 /** Stage before mounting the imported tab. The caller owns rollback until ready resolves. */
 export function stageEditorTransfer(document: Document, payload: unknown, options: { remount?: true } = {}) {
-  if (staged.has(document.id) || (sessions.has(document.id) && !options.remount)) {
+  if (staged.has(document.id) || (editorTransferSession(document.id) && !options.remount)) {
     throw new Error('An editor for this tab already exists in the destination window.')
   }
   const data = validateEditorTransfer(document, payload)
