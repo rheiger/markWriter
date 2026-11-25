@@ -85,6 +85,40 @@ let quotedYAML = PreviewRenderer.render(data: Data("name: \\\"quoted\\\"".utf8),
 check(quotedYAML.contains("Literal text"), "quoted YAML falls back")
 print("Nested YAML tests passed")
 
+// Reuse the synthetic Finder acceptance fixtures at the Swift renderer layer.
+let structuredFixtures = URL(fileURLWithPath: "native/quicklook/tests/fixtures/structured", isDirectory: true)
+let expectedStructuredFragments: [(name: String, fragments: [String])] = [
+    ("compact.json", ["data-language=\"json\"", "\n  &quot;key&quot; : 9007199254740993",
+                      "\n    &quot;ready&quot; : true", "JSON-FINAL Grüße &lt;item&gt; &amp; 日本語"]),
+    ("partial.jsonl", ["JSON Lines", "Line 2: invalid JSON", "broken &lt;record&gt;&amp;",
+                       "Line 3</p><pre data-language=\"json\">", "JSONL-FINAL Grüße &lt;item&gt; &amp; 日本語"]),
+    ("element.xml", ["Formatted XML", "data-language=\"xml\"", "\n  &lt;first&gt;ready&lt;/first&gt;",
+                     "XML-ELEMENT-FINAL Grüße 日本語"]),
+    ("mixed.xml", ["Literal text", "data-language=\"xml\"", "&lt;node&gt;inside&lt;/node&gt;",
+                   "XML-MIXED-FINAL Grüße &amp;amp; 日本語"]),
+    ("multi-document.yaml", ["Formatted YAML", "data-language=\"yaml\"", "short : 0001",
+                             "\n---\n", "  ready   : true", "YAML-BLOCK-FINAL 日本語", "  - Café"]),
+    ("flow-anchor.yml", ["Literal text", "data-language=\"yaml\"", "\nbase: &amp;base [one, two]",
+                         "\ncopy: *base\n---\n", "YAML-LITERAL-FINAL Grüße &lt;item&gt; &amp; 日本語"]),
+]
+for (name, fragments) in expectedStructuredFragments {
+    let fixture = structuredFixtures.appendingPathComponent(name)
+    let data = try Data(contentsOf: fixture)
+    let suffixes = name == "partial.jsonl" ? ["jsonl", "ndjson"] : [fixture.pathExtension]
+    for suffix in suffixes {
+        let page = PreviewRenderer.render(data: data, extension: suffix)
+        for fragment in fragments {
+            check(page.contains(fragment), "\(name) as \(suffix) retains expected preview fragment: \(fragment)")
+        }
+    }
+}
+let overBudgetJSONLines = String(repeating: "{}\n", count: 2_000) + #"{"final":"JSONL-LIMIT-FINAL"}"#
+let overBudgetJSONLinesPage = PreviewRenderer.render(data: Data(overBudgetJSONLines.utf8), extension: "jsonl")
+check(overBudgetJSONLinesPage.contains("JSON Lines exceeds 2,000 lines; showing Literal text.") &&
+      overBudgetJSONLinesPage.contains("JSONL-LIMIT-FINAL") &&
+      !overBudgetJSONLinesPage.contains("data-language="), "over-budget JSONL stays literal with its final record")
+print("Structured Finder fixture renderer tests passed")
+
 let alignedUnicodeYAML = PreviewRenderer.render(data: Data("key  : café\nlonger: 漢字".utf8), extension: "yml")
 check(alignedUnicodeYAML.contains("Formatted YAML") && alignedUnicodeYAML.contains("key   : café") && alignedUnicodeYAML.contains("longer: 漢字"), "already aligned keys and Unicode words retain scalar text")
 

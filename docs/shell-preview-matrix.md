@@ -57,6 +57,8 @@ Use an isolated test account or VM and the ordinary staged, ad hoc sealed candid
 
 Use synthetic `.h`, `.cpp`, `.js`, `.css`, `.yml`, `.yaml` fixtures with distinctive keywords, a final sentinel, Unicode and escaped `<`, `>` and `&`; include YAML block and flow/anchor/alias forms. Record formatter notice, exact visible content, syntax color and light/dark appearance separately. Include an unknown extension, invalid UTF-8, a file over 1 MiB, selection changes and before/after source hashes. Check actual WebKit enrichment and fallback independently; record timeouts/errors without treating absence of color as proof of provider selection. Repeat after isolated upgrade and rollback, and retain evidence for provider coexistence and the exact candidate bytes. The Swift unit suite and metadata lint are not Finder acceptance.
 
+The [structured Finder qualification guide](finder-structured-qualification.md) lists reusable fixtures for JSON, JSON Lines, XML and YAML, including the record-count fallback and provider coexistence.
+
 ## PI 2.13 Finder qualification
 
 Finder Space was exercised on an isolated UTM VM running macOS 27.2.1 (26B131), arm64. The staged QA DMG combines the host from the integrated [#119 packaging run](https://github.com/rheiger/markWriter/actions/runs/45386138603) with the Quick Look extension rebuilt from the same source tree, `5413349980258e4978ef19130157ce76bdff7a25`. Both the app and extension passed strict ad hoc seal verification. The app's Mach-O text section matched the hosted artifact. The QA DMG SHA-256 was `9db526b978238093990da1157ef9ae00d917944da0a2ebdb02f96f14103bd370`. The test bundle reports 2.12.2. Qualification of the final 2.13 release bytes is separate. [#115](https://github.com/rheiger/markWriter/issues/115)
