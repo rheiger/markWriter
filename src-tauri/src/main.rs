@@ -216,15 +216,6 @@ async fn get_document_stats(content: String) -> Result<HashMap<String, usize>, S
 // Menu system temporarily disabled for Tauri 2 compatibility
 
 fn main() {
-    #[cfg(target_os = "linux")]
-    let linux_launch = match linux_open::Launch::register() {
-        Ok(Some(launch)) => launch,
-        Ok(None) => return,
-        Err(error) => {
-            eprintln!("MarkWriter could not open this window or file: {error}");
-            std::process::exit(1);
-        }
-    };
     #[cfg(target_os = "windows")]
     let mut windows_args: Vec<_> = std::env::args_os().collect();
     #[cfg(target_os = "windows")]
@@ -282,6 +273,16 @@ fn main() {
 
     #[cfg(target_os = "windows")]
     let cleanup_error = windows_install::retry_legacy_cleanup().err();
+    let context = tauri::generate_context!();
+    #[cfg(target_os = "linux")]
+    let linux_launch = match linux_open::Launch::register(&context.config().identifier) {
+        Ok(Some(launch)) => launch,
+        Ok(None) => return,
+        Err(error) => {
+            eprintln!("MarkWriter could not open this window or file: {error}");
+            std::process::exit(1);
+        }
+    };
     let app = tauri::Builder::default()
         .manage(native_menu::NativeState::default())
         .manage(window_service::WindowService::default())
@@ -346,7 +347,7 @@ fn main() {
             println!("[TAURI] Application setup completed");
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application");
     #[cfg(target_os = "linux")]
     linux_launch.listen(app.handle());

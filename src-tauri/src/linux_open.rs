@@ -19,10 +19,10 @@ pub struct Launch {
 }
 
 impl Launch {
-    pub fn register() -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    pub fn register(identifier: &str) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let profile = env::var_os("MARKWRITER_PROFILE_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|| glib::user_data_dir().join("com.markwriter.app"));
+            .unwrap_or_else(|| glib::user_data_dir().join(identifier));
         let application_id = profile_application_id(&profile)?;
         let application =
             gio::Application::new(Some(&application_id), gio::ApplicationFlags::HANDLES_OPEN);
