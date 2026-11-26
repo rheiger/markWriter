@@ -1,0 +1,36 @@
+{
+  "result": "pass",
+  "target": "Linux candidate DEB executable extracted, not installed",
+  "binary": "/tmp/mw222-deb.VcQJrb/extracted/usr/bin/markwriter",
+  "coldMs": 5183,
+  "warmMs": 3357,
+  "memory": {
+    "count": 48,
+    "peakSampledRssKiB": 873624,
+    "maxProcesses": 3,
+    "description": "sampled sum of RSS for app and descendant processes; shared pages may be double counted and short peaks missed"
+  },
+  "fixtureUnchanged": true,
+  "exportBytes": 7669,
+  "exportSha256": "79c35a52ecc342bfbcc2e37311fd42cb85907609c1bda3f5a1b6eb8da65e13d6",
+  "renderedShapeCounts": [
+    20,
+    20
+  ],
+  "shapeAndTextParity": true,
+  "export": "native application File \u2192 Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link",
+  "worker": {
+    "type": "text/javascript",
+    "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf",
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "status": 200,
+    "url": "tauri://localhost/assets/plantUmlWorker-sdgHgbmA.js"
+  },
+  "validationWorker": {
+    "type": "text/javascript",
+    "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4",
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "status": 200,
+    "url": "tauri://localhost/assets/plantUmlValidateWorker-cNWp55nD.js"
+  }
+}
