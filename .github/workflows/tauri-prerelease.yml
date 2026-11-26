@@ -1,45 +1,101 @@
-name: Disposable candidate Finder diagnostic
+name: Disposable final Finder qualification
 on:
   workflow_dispatch:
+    inputs:
+      source_run:
+        description: Package workflow run ID
+        required: true
+        type: string
+      release_commit:
+        description: Exact source commit SHA
+        required: true
+        type: string
+      package_name:
+        description: macOS DMG artifact filename
+        required: true
+        type: string
+      package_sha256:
+        description: Expected DMG SHA-256
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
 jobs:
   probe:
     runs-on: macos-26
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      SOURCE_RUN: ${{ inputs.source_run }}
+      RELEASE_COMMIT: ${{ inputs.release_commit }}
+      PACKAGE_NAME: ${{ inputs.package_name }}
+      PACKAGE_SHA256: ${{ inputs.package_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Probe direct renderer deadline
-        run: |
-          tools/test-quicklook-direct.sh probe-evidence
-      - name: Download exact candidate package artifact
+      - name: Verify package run and inputs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 45825707043 -R rheiger/markWriter --name package-macos-arm64 --dir "$RUNNER_TEMP/candidate"
-      - name: Exercise sealed candidate in Finder
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/fixture-mount" "$RUNNER_TEMP/test-app" probe-evidence
-          package="$RUNNER_TEMP/candidate/MarkWriter-2.20.2-macos-arm64.dmg"
-          echo 'da4b7d38060fecd1e289f3eca56c264e3d9b7a4581767c1aa8a3fe0e15bed36f  '"$package" | shasum -a 256 -c -
-          hdiutil attach "$package" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/fixture-mount"
-          ditto "$RUNNER_TEMP/fixture-mount/MarkWriter.app" "$RUNNER_TEMP/test-app/MarkWriter.app"
-          hdiutil detach "$RUNNER_TEMP/fixture-mount"
-          app="$RUNNER_TEMP/test-app/MarkWriter.app"
-          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
-          /usr/bin/pluginkit -a "$app/Contents/PlugIns/MarkWriterQuickLook.appex"
-          MARKWRITER_FINDER_CASES=stress tools/test-finder-dbml-package.sh "$app" "$package" probe-evidence/finder
-      - name: Exercise Finder with verified route isolation
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ && "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ && "$PACKAGE_NAME" =~ ^MarkWriter-[0-9]+\.[0-9]+\.[0-9]+-macos-arm64\.dmg$ && "$PACKAGE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          observed=$(gh run view "$SOURCE_RUN" -R rheiger/markWriter --json headSha --jq .headSha)
+          [[ "$observed" == "$RELEASE_COMMIT" ]]
+          result=$(gh run view "$SOURCE_RUN" -R rheiger/markWriter --json jobs --jq '.jobs[] | select(.name == "package (macos-26, macos-arm64, dmg)") | .conclusion')
+          [[ "$result" == success ]]
+          mkdir -p probe-evidence
+          printf 'source_run=%s\nrelease_commit=%s\npackage_name=%s\npackage_sha256=%s\ndiagnostic_commit=%s\n' "$SOURCE_RUN" "$RELEASE_COMMIT" "$PACKAGE_NAME" "$PACKAGE_SHA256" "$(git rev-parse HEAD)" > probe-evidence/provenance.txt
+      - name: Check out exact release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_commit }}
+          path: release-source
+          persist-credentials: false
+      - name: Verify direct probe source and run it
         run: |
-          tools/test-finder-offline-diagnostic.sh "$RUNNER_TEMP/test-app/MarkWriter.app" "$RUNNER_TEMP/candidate/MarkWriter-2.20.2-macos-arm64.dmg" probe-evidence/offline
-      - name: Retain candidate Finder evidence
+          cmp native/quicklook/QuickLookWebRenderer.swift release-source/native/quicklook/QuickLookWebRenderer.swift
+          tools/test-quicklook-direct.sh probe-evidence
+      - name: Download exact package artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$SOURCE_RUN" -R rheiger/markWriter --name package-macos-arm64 --dir "$RUNNER_TEMP/candidate"
+      - name: Verify and exercise sealed package
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fixture-mount" "$RUNNER_TEMP/test-app"
+          package="$RUNNER_TEMP/candidate/$PACKAGE_NAME"
+          printf '%s  %s\n' "$PACKAGE_SHA256" "$package" | shasum -a 256 -c -
+          hdiutil attach "$package" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/fixture-mount"
+          trap 'hdiutil detach "$RUNNER_TEMP/fixture-mount" >/dev/null 2>&1 || true' EXIT
+          source="$RUNNER_TEMP/fixture-mount/MarkWriter.app"
+          app="$RUNNER_TEMP/test-app/MarkWriter.app"
+          ditto "$source" "$app"
+          ext=Contents/PlugIns/MarkWriterQuickLook.appex
+          cmp "$source/$ext/Contents/Resources/quicklook-render.js" "$app/$ext/Contents/Resources/quicklook-render.js"
+          cmp "$source/$ext/Contents/MacOS/QuickLookPrototype" "$app/$ext/Contents/MacOS/QuickLookPrototype"
+          shasum -a 256 "$source/$ext/Contents/Resources/quicklook-render.js" "$app/$ext/Contents/Resources/quicklook-render.js" > probe-evidence/script-copy-hashes.txt
+          codesign --verify --deep --strict "$app"
+          codesign --verify --deep --strict "$app/$ext"
+          codesign -dvv "$app" > probe-evidence/host-signature.txt 2>&1
+          codesign -dvv "$app/$ext" > probe-evidence/extension-signature.txt 2>&1
+          grep -Fx 'Signature=adhoc' probe-evidence/host-signature.txt
+          grep -Fx 'Signature=adhoc' probe-evidence/extension-signature.txt
+          grep -Fx 'TeamIdentifier=not set' probe-evidence/host-signature.txt
+          grep -Fx 'TeamIdentifier=not set' probe-evidence/extension-signature.txt
+          hdiutil detach "$RUNNER_TEMP/fixture-mount"
+          trap - EXIT
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
+          /usr/bin/pluginkit -a "$app/$ext"
+          tools/test-finder-dbml-package.sh "$app" "$package" probe-evidence/finder
+      - name: Exercise Finder with route interfaces disabled
+        run: |
+          tools/test-finder-offline-diagnostic.sh "$RUNNER_TEMP/test-app/MarkWriter.app" "$RUNNER_TEMP/candidate/$PACKAGE_NAME" probe-evidence/offline
+      - name: Retain Finder evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: finder-candidate-diagnostic
+          name: finder-release-diagnostic
           path: probe-evidence/
           if-no-files-found: warn
           retention-days: 14
