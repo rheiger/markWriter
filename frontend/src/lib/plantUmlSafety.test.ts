@@ -96,6 +96,30 @@ describe('PlantUML callback output semantics', () => {
     expect(changed).not.toBe(classSvg)
     expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
   })
+  it('rejects an entity hidden by inherited opacity', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace('class="entity"', 'class="entity" opacity="0"')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects a hidden association multiplicity', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace(/(<text[^>]*)(>1<\/text>)/, '$1 opacity="0"$2')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects an off-canvas message label', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace(/(<text x=")[^"]+("[^>]*>Request<\/text>)/, (_, left, right) => `${left}999${right}`)
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects a zero-area arrowhead', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace(/(<polygon points=")[^"]+("[^>]*>)/, (_, left, right) => `${left}99.64,102 99.64,102 99.64,102${right}`)
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
   it('rejects error SVGs returned in a success callback', () => {
     const error = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text>Syntax Error</text></svg>'
     expect(() => checkPlantUmlSvg(error, validatePlantUml(sequence))).toThrow()

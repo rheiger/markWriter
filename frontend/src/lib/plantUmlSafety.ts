@@ -75,13 +75,24 @@ function svgBox(element: Element | null): Box {
   if (box.width <= 0 || box.height <= 0) throw new Error('Invalid PlantUML geometry')
   return box
 }
+function visibleElement(element: Element): void {
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    const style = node.getAttribute('style')
+    if (['transform', 'clip-path', 'mask', 'filter', 'display', 'visibility'].some(name => node!.hasAttribute(name)) || style !== null && !(node === element && node.localName === 'text' && style === 'white-space: pre') || ['opacity', 'stroke-opacity', 'fill-opacity'].some(name => node!.hasAttribute(name) && svgNumber(node!, name) !== 1)) throw new Error('Hidden or transformed PlantUML geometry')
+  }
+}
+function visibleText(text: Element, canvas: Box): Point {
+  visibleElement(text)
+  if (text.localName !== 'text' || Array.from(text.childNodes).some(child => child.nodeType !== 3) || (text.getAttribute('fill') ?? '').toLowerCase() !== '#000000' || (svgNumber(text, 'font-size') < 8 || svgNumber(text, 'font-size') > 32)) throw new Error('Invisible PlantUML text')
+  const point = {x:svgNumber(text, 'x'), y:svgNumber(text, 'y')}
+  if (!insideCanvas(point, canvas)) throw new Error('Out-of-bounds PlantUML text')
+  return point
+}
 function visibleStroke(element: Element): void {
   // The pinned default style emits explicit opaque RGB strokes. Reject other
   // appearances instead of guessing whether a relationship remains visible.
+  visibleElement(element)
   if ((element.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(element, 'stroke-width') !== 1) throw new Error('Invisible PlantUML relationship geometry')
-  for (let node: Element | null = element; node; node = node.parentElement) {
-    if (['transform', 'clip-path', 'mask', 'filter', 'display', 'visibility', 'style'].some(name => node.hasAttribute(name)) || ['opacity', 'stroke-opacity'].some(name => node!.hasAttribute(name) && svgNumber(node!, name) !== 1)) throw new Error('Hidden or transformed PlantUML relationship geometry')
-  }
 }
 function associationEndpoints(path: Element, canvas: Box): [Point, Point] {
   visibleStroke(path)
@@ -131,8 +142,26 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
   const ids = new Map<string, string>(), nodeByName = new Map<string, Element>()
   for (const expected of input.expectedEntities) {
     const node = nodes.find(n => n.getAttribute('data-qualified-name') === expected.name)
-    if (!node || !Array.from(node.querySelectorAll('text')).some(t => t.textContent === expected.name)) throw new Error('PlantUML entity output mismatch')
+    if (!node) throw new Error('PlantUML entity output mismatch')
+    visibleElement(node)
+    const nameText = Array.from(node.querySelectorAll('text')).find(t => t.textContent === expected.name)
+    if (!nameText) throw new Error('PlantUML entity output mismatch')
+    const namePoint = visibleText(nameText, canvas)
     if (input.kind === 'sequence' && (expected.role === 'actor' ? !node.querySelector('circle') || !node.querySelector('path') : !node.querySelector('rect') || !!node.querySelector('circle'))) throw new Error('PlantUML participant role mismatch')
+    const shape = node.querySelector(expected.role === 'actor' ? 'circle' : 'rect')
+    if (!shape) throw new Error('PlantUML entity geometry missing')
+    visibleElement(shape)
+    if ((shape.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(shape, 'stroke-width') < 0.5) throw new Error('Invisible PlantUML entity geometry')
+    if (expected.role === 'actor') {
+      const center = {x:svgNumber(shape, 'cx'), y:svgNumber(shape, 'cy')}
+      if (!insideCanvas(center, canvas) || svgNumber(shape, 'r') < 2) throw new Error('Invalid PlantUML actor geometry')
+      const body = node.querySelector('path')!
+      visibleElement(body)
+      if ((body.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(body, 'stroke-width') < 0.5 || !body.getAttribute('d')) throw new Error('Invisible PlantUML actor geometry')
+    } else {
+      const box = svgBox(shape)
+      if (!insideCanvas({x:box.x,y:box.y}, canvas) || !insideCanvas({x:box.x+box.width,y:box.y+box.height}, canvas) || !insideCanvas(namePoint, box)) throw new Error('Invalid PlantUML entity geometry')
+    }
     const uid = node.getAttribute(input.kind === 'sequence' ? 'data-entity-uid' : 'id')
     if (!uid || [...ids.values()].includes(uid)) throw new Error('PlantUML entity identity mismatch')
     ids.set(expected.name, uid); nodeByName.set(expected.name, node)
@@ -143,6 +172,13 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       const visibility = field.visibility === '+' ? 'PUBLIC_FIELD' : 'PRIVATE_FIELD'
       const label = glyph.nextElementSibling
       if (glyph.getAttribute('data-visibility-modifier') !== visibility || label?.localName !== 'text' || label.textContent !== `${field.name}: ${field.type}`) throw new Error('PlantUML member output mismatch')
+      visibleElement(glyph)
+      const fieldPoint = visibleText(label, canvas)
+      const box = svgBox(shape)
+      if (!insideCanvas(fieldPoint, box) || !glyph.querySelector('circle')) throw new Error('PlantUML member geometry mismatch')
+      const mark = glyph.querySelector('circle')!
+      visibleElement(mark)
+      if (!/^#[0-9a-f]{6}$/i.test(mark.getAttribute('stroke') ?? '') || (mark.getAttribute('stroke') ?? '').toLowerCase() === '#ffffff' || svgNumber(mark, 'stroke-width') < 0.5 || svgNumber(mark, 'r') < 1.5 || !insideCanvas({x:svgNumber(mark,'cx'),y:svgNumber(mark,'cy')}, box)) throw new Error('Invisible PlantUML member geometry')
     }
   }
   const edges = Array.from(doc.querySelectorAll('g')).filter(g => g.getAttribute('class') === (input.kind === 'sequence' ? 'message' : 'link') && (input.kind === 'class' || g.querySelector('text')))
@@ -151,7 +187,9 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
     const edge = edges[i], expected = input.expectedRelations[i]
     if (edge.getAttribute('data-entity-1') !== ids.get(expected.from) || edge.getAttribute('data-entity-2') !== ids.get(expected.to)) throw new Error('PlantUML relationship endpoints mismatch')
     const texts = Array.from(edge.querySelectorAll('text'))
-    if (!texts.some(t => t.textContent === expected.label)) throw new Error('PlantUML relationship label mismatch')
+    const label = texts[0]
+    if (!label || label.textContent !== expected.label || texts.length !== 1 + expected.cardinalities.filter(Boolean).length) throw new Error('PlantUML relationship label mismatch')
+    const labelPoint = visibleText(label, canvas)
     if (input.kind === 'class') {
       const paths = edge.querySelectorAll('path')
       if (paths.length !== 1 || expected.from === expected.to) throw new Error('Missing or unsupported PlantUML association geometry')
@@ -159,6 +197,7 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       const fromBox = svgBox(nodeByName.get(expected.from)?.querySelector('rect') ?? null)
       const toBox = svgBox(nodeByName.get(expected.to)?.querySelector('rect') ?? null)
       if (!nearBoxBoundary(start, fromBox) || !nearBoxBoundary(end, toBox)) throw new Error('Disconnected PlantUML association geometry')
+      if (labelPoint.x < Math.min(start.x, end.x) - 50 || labelPoint.x > Math.max(start.x, end.x) + 50 || labelPoint.y < Math.min(start.y, end.y) - 30 || labelPoint.y > Math.max(start.y, end.y) + 30) throw new Error('Misplaced PlantUML association text')
     }
     if (input.kind === 'class' && expected.cardinalities.some(Boolean)) {
       if (expected.from === expected.to) throw new Error('PlantUML self-association multiplicity is unsupported')
@@ -176,8 +215,7 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
         if (!value) continue
         const at = cardinalities.findIndex(t => {
           if (t.textContent !== value) return false
-          const x = Number(t.getAttribute('x')), y = Number(t.getAttribute('y'))
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+          const {x,y} = visibleText(t, canvas)
           const distance = (i: number) => (x - ends[i].x) ** 2 + (y - ends[i].y) ** 2
           return distance(side) < distance(1 - side)
         })
@@ -200,8 +238,16 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       const x1 = svgNumber(line, 'x1'), x2 = svgNumber(line, 'x2'), y1 = svgNumber(line, 'y1'), y2 = svgNumber(line, 'y2')
       const lineEnds = [x1, x2].sort((a,b) => a-b), lifelines = [fromX, toX].sort((a,b) => a-b)
       if (!insideCanvas({x:x1,y:y1}, canvas) || !insideCanvas({x:x2,y:y2}, canvas) || expected.from === expected.to || Math.abs(y1-y2) > 1 || Math.abs(lineEnds[0]-lifelines[0]) > 12 || Math.abs(lineEnds[1]-lifelines[1]) > 12 || [from,to].some(box => y1 < box.y - 1 || y1 > box.y + box.height + 1)) throw new Error('Disconnected PlantUML message geometry')
+      if (labelPoint.x < lifelines[0] - 12 || labelPoint.x > lifelines[1] + 12 || labelPoint.y < y1 - 30 || labelPoint.y > y1 + 5) throw new Error('Misplaced PlantUML message text')
       const coordinates = (arrow.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number)
       if (coordinates.length < 6 || coordinates.length % 2 || coordinates.some(n => !Number.isFinite(n) || Math.abs(n) > 100000) || coordinates.some((n, i) => i % 2 === 0 && !insideCanvas({x:n, y:coordinates[i+1]}, canvas)) || Math.abs(coordinates[2] - toX) > 12 || Math.abs(coordinates[3] - y1) > 1 || Math.abs(coordinates[2] - toX) >= Math.abs(coordinates[2] - fromX)) throw new Error('PlantUML arrow geometry direction mismatch')
+      let twiceArea = 0
+      for (let j = 0; j < coordinates.length; j += 2) {
+        const next = (j + 2) % coordinates.length
+        twiceArea += coordinates[j] * coordinates[next + 1] - coordinates[next] * coordinates[j + 1]
+      }
+      const xs = coordinates.filter((_,i) => i % 2 === 0), ys = coordinates.filter((_,i) => i % 2 === 1)
+      if (Math.abs(twiceArea) < 8 || Math.max(...xs) - Math.min(...xs) < 4 || Math.max(...ys) - Math.min(...ys) < 4) throw new Error('Degenerate PlantUML arrow geometry')
     }
   }
 }
