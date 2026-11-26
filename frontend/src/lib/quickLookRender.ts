@@ -1,6 +1,7 @@
 import mermaid from 'mermaid'
 import { instance } from '@viz-js/viz'
 import { validateDot, sanitizeDotSvg, checkedDotErrors } from './dotSafety'
+import { dbmlToDot } from './dbml'
 import { createQuickLookHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE } from './codeHighlight'
 import { renderQuickLookMarkdown } from './quickLookMarkdown'
 import tokenCss from './codeHighlight.css?inline'
@@ -110,7 +111,7 @@ export async function quickLookRender(html: string, markdown?: string | null): P
     const target = code ?? pre
     const language = (target.getAttribute('data-language') ?? '').toLowerCase()
     const source = target.textContent ?? ''
-    if (language === 'mermaid' || language === 'dot' || language === 'graphviz') {
+    if (language === 'mermaid' || language === 'dot' || language === 'graphviz' || language === 'dbml') {
       if (++diagrams > MERMAID_BLOCKS || (diagramChars += source.length) > MERMAID_TOTAL_CHARS || source.length > MERMAID_BLOCK_CHARS) continue
       try {
         let svg: string
@@ -119,14 +120,16 @@ export async function quickLookRender(html: string, markdown?: string | null): P
           if (!safeSource) continue
           svg = (await mermaid.render(`mwql-${diagrams}`, safeSource)).svg
         } else {
-          validateDot(source)
+          const dot = language === 'dbml' ? dbmlToDot(source) : source
+          validateDot(dot)
           const viz = await instance()
-          const rendered = viz.render(source, { format: 'svg', engine: 'dot' })
+          const rendered = viz.render(dot, { format: 'svg', engine: 'dot' })
           if (rendered.status !== 'success' || checkedDotErrors(rendered.errors).length) throw new Error('DOT render failed')
-          svg = sanitizeDotSvg(rendered.output)
+          svg = sanitizeDotSvg(rendered.output, { rejectLossy: language === 'dbml' })
         }
         const png = await rasterize(svg)
-        const img = parsed.createElement('img'); img.src = png; img.alt = language === 'mermaid' ? 'Mermaid diagram' : 'DOT diagram'
+        const img = parsed.createElement('img'); img.src = png; img.alt = language === 'mermaid' ? 'Mermaid diagram' : language === 'dbml' ? 'DBML diagram' : 'DOT diagram'
+        img.style.maxWidth = '100%'; img.style.height = 'auto'
         const details = parsed.createElement('details'), summary = parsed.createElement('summary')
         summary.textContent = 'Diagram source'; details.append(summary, pre.cloneNode(true))
         pre.replaceWith(img, details)

@@ -193,3 +193,71 @@ it('explains SQL fallback in Finder enrichment without changing the code', async
   expect(output.querySelector('pre')!.getAttribute('aria-description')).toContain('original text is preserved')
   expect(output.querySelector('pre')!.textContent).toBe(code)
 })
+
+describe('Finder DBML diagrams', () => {
+  const schema = 'Table customers {\n  id int [pk]\n}\nTable orders {\n  id int [pk]\n  customer_id int [not null, ref: > customers.id]\n}\n'
+  function fixture(source: string) {
+    return '```dbml\n' + source + '```\n'
+  }
+  async function render(source: string) {
+    return new DOMParser().parseFromString(await quickLookRender(doc(''), source), 'text/html')
+  }
+  it('renders a supported schema and retains its exact source', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAAA')
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const output = await render(fixture(schema))
+      expect(output.querySelector('img')?.getAttribute('alt')).toBe('DBML diagram')
+      expect(output.querySelector('img')?.style.maxWidth).toBe('100%')
+      expect(output.querySelector('img')?.style.height).toBe('auto')
+      expect(output.querySelector('details code')?.textContent).toBe(schema)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+  it.each([
+    'Table t {\n  x int [default: 1]\n}\n',
+    'Table t {\n  x int\n}\nRef: t.x > missing.id\n',
+    'Table t {\n  x int\n}\n' + '// oversized\n'.repeat(800),
+  ])('keeps unsupported, invalid or oversized schemas as source', async source => {
+    const output = await render(fixture(source))
+    expect(output.querySelector('img')).toBeNull()
+    expect(output.querySelector('code')?.textContent).toBe(source)
+  })
+  it('shares the four-diagram budget with DOT and Mermaid', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAAA')
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const output = await render('```dot\ndigraph { A -> B }\n```\n' + fixture(schema).repeat(4))
+      expect(output.querySelectorAll('img')).toHaveLength(4)
+      expect(output.querySelectorAll('details')).toHaveLength(4)
+      expect(output.querySelectorAll('pre > code')).toHaveLength(5)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+  it('keeps the diagram exceeding the shared aggregate source budget', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAAA')
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const longSchema = schema + '// padding\n'.repeat(540)
+      const output = await render(fixture(longSchema).repeat(3))
+      expect(output.querySelectorAll('img')).toHaveLength(2)
+      expect(output.querySelectorAll('pre > code')).toHaveLength(3)
+      expect(output.querySelectorAll('pre > code')[2].textContent).toBe(longSchema)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+  it('keeps source when the rasterized diagram exceeds the output limit', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,' + 'A'.repeat(3 * 1024 * 1024))
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const output = await render(fixture(schema))
+      expect(output.querySelector('img')).toBeNull()
+      expect(output.querySelector('code')?.textContent).toBe(schema)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+})

@@ -53,3 +53,15 @@ it('accepts only the known approximate Unicode metric warning, retaining all oth
   expect(checkedDotErrors([{level:'warning',message:'Warning: unsupported style url(https://bad)'}])).toHaveLength(1)
   expect(checkedDotErrors([{level:'error',message:'Warning: no value for width of non-ASCII character 195. Falling back to width of space character'}])).toHaveLength(1)
 })
+
+it('rejects SVG changes that could hide DBML schema content', () => {
+  const root = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${body}</svg>`
+  expect(() => sanitizeDotSvg(root('<foreignObject><text>hidden</text></foreignObject>'), { rejectLossy: true })).toThrow()
+  expect(() => sanitizeDotSvg(root('<text x="1" y="2" display="none">hidden</text>'), { rejectLossy: true })).toThrow()
+})
+
+it('preserves negative Graphviz path coordinates and rejects non-path characters', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M54.36,-20.8C129.34,-20.8 345.57,-20.8 456.85,-20.8"/></svg>'
+  expect(sanitizeDotSvg(svg)).toContain('d="M54.36,-20.8C129.34,-20.8 345.57,-20.8 456.85,-20.8"')
+  expect(() => sanitizeDotSvg(svg.replace('M54.36', 'M54.36G'), { rejectLossy: true })).toThrow()
+})

@@ -64,6 +64,7 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
   let dirty = true, anchors: Anchor[] = [], leader: Pane = 'source', pending: Pane | null = null
   let guard: { pane: Pane; target: number } | null = null
   let previewPointer = false
+  let ignoredCaret: { node: Node; offset: number } | null = null
   let coordinateSource = getSource(), coordinates = sourceCoordinates(coordinateSource)
   const coordinateMap = () => {
     const source = getSource()
@@ -180,14 +181,35 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
     leader = 'preview'; pending = 'preview'; if (effects.length) dirty = true
     schedule()
   }
-  const selectionChanged = () => { if (previewPointer || root.contains(document.activeElement)) mirrorPreview() }
-  const down = () => { previewPointer = true; previewIntent() }
-  const up = (event: PointerEvent) => { if (previewPointer) mirrorPreview(event.target instanceof Element ? event.target : null); previewPointer = false }
+  const selectionChanged = () => {
+    const selection = window.getSelection()
+    // A WebView can report a stale SVG caret after an atom pointerup. Ignore
+    // only that exact snapshot; subsequent keyboard/pointer input or a changed
+    // selection restores ordinary correspondence, including SVG labels.
+    if (selection?.isCollapsed && ignoredCaret?.node === selection.anchorNode && ignoredCaret.offset === selection.anchorOffset) return
+    ignoredCaret = null
+    if (previewPointer || root.contains(document.activeElement)) mirrorPreview()
+  }
+  const down = () => { ignoredCaret = null; previewPointer = true; previewIntent() }
+  const keyIntent = () => { ignoredCaret = null }
+  const up = (event: PointerEvent) => {
+    if (previewPointer) {
+      const target = event.target instanceof Element ? event.target : null
+      mirrorPreview(target)
+      const selection = window.getSelection(), node = selection?.anchorNode
+      const element = node instanceof Element ? node : node?.parentElement
+      if (target?.closest('[data-type="mermaid"],[data-type="dot"],[data-type="dbml"],[data-type="math"]') && selection?.isCollapsed && node && element?.closest('svg')) {
+        ignoredCaret = { node, offset: selection.anchorOffset }
+      }
+    }
+    previewPointer = false
+  }
   const click = (event: MouseEvent) => { if ((event.target as Element)?.closest('a')) event.preventDefault() }
   cm.addEventListener('scroll', sourceScroll); pv.addEventListener('scroll', previewScroll)
   cm.addEventListener('wheel', sourceIntent, { passive: true }); pv.addEventListener('wheel', previewIntent, { passive: true })
   cm.addEventListener('pointerdown', sourceIntent); root.addEventListener('pointerdown', down); document.addEventListener('pointerup', up)
   cm.addEventListener('focusin', sourceIntent); cm.addEventListener('keydown', sourceIntent); root.addEventListener('focusin', previewIntent)
+  root.addEventListener('keydown', keyIntent)
   root.addEventListener('click', click); document.addEventListener('selectionchange', selectionChanged)
   const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(invalidate) : null
   observer?.observe(root); observer?.observe(cm); observer?.observe(pv)
@@ -203,6 +225,7 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
       cm.removeEventListener('wheel', sourceIntent); pv.removeEventListener('wheel', previewIntent)
       cm.removeEventListener('pointerdown', sourceIntent); root.removeEventListener('pointerdown', down); document.removeEventListener('pointerup', up)
       cm.removeEventListener('focusin', sourceIntent); cm.removeEventListener('keydown', sourceIntent); root.removeEventListener('focusin', previewIntent)
+      root.removeEventListener('keydown', keyIntent)
       root.removeEventListener('click', click); document.removeEventListener('selectionchange', selectionChanged); root.removeEventListener('load', images, true)
       document.fonts?.removeEventListener('loadingdone', invalidate)
     },

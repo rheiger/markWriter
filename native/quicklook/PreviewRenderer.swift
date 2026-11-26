@@ -24,7 +24,18 @@ enum PreviewRenderer {
     }
 
     static func render(data: Data, extension ext: String, filename: String? = nil) -> String {
-        guard data.count <= limit else { return page("<p>File exceeds the 1 MiB preview limit.</p>") }
+        if data.count > limit {
+            guard isMarkdown(ext) else { return page("<p>File exceeds the 1 MiB preview limit.</p>") }
+            // Show an explicitly truncated literal prefix, never a partially
+            // rendered fence. Trim at most three bytes if the cap splits UTF-8.
+            let prefix = data.prefix(65_536)
+            for trim in 0...3 {
+                if let text = String(data: prefix.dropLast(trim), encoding: .utf8) {
+                    return literal(text, notice: "File exceeds the 1 MiB preview limit. Only the beginning is shown as truncated source; open the file to read it all.")
+                }
+            }
+            return page("<p>File exceeds the 1 MiB preview limit. Only UTF-8 text is supported.</p>")
+        }
         let suffix = ext.lowercased()
         if suffix == "plist" && data.starts(with: "bplist00".utf8) {
             return page("<p>Binary property lists are not supported.</p>")

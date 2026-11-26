@@ -44,7 +44,7 @@ it('renders escaped schema labels through the real offline DOT engine and saniti
   const result = viz.render(dot, { format: 'svg', engine: 'dot' })
   expect(result.status).toBe('success')
   expect(checkedDotErrors(result.errors)).toHaveLength(0)
-  const clean = sanitizeDotSvg(result.output)
+  const clean = sanitizeDotSvg(result.output, { rejectLossy: true })
   expect(clean).not.toContain('<script>')
   expect(new DOMParser().parseFromString(clean, 'image/svg+xml').documentElement.textContent).toContain('unsafe <script>')
   expect(clean).toContain('many to one')
