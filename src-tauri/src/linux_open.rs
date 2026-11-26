@@ -19,7 +19,7 @@ mod imp {
 
     #[derive(Default)]
     pub struct ShellApplication {
-        pub activation_token: RefCell<Option<String>>,
+        pub(super) startup: RefCell<StartupNotification>,
     }
 
     #[glib::object_subclass]
@@ -34,12 +34,12 @@ mod imp {
     impl ApplicationImpl for ShellApplication {
         fn before_emit(&self, platform_data: &glib::Variant) {
             self.parent_before_emit(platform_data);
-            self.activation_token
-                .replace(activation_token(platform_data));
+            self.startup
+                .replace(StartupNotification::from_platform(platform_data));
         }
 
         fn after_emit(&self, platform_data: &glib::Variant) {
-            self.activation_token.take();
+            self.startup.take();
             self.parent_after_emit(platform_data);
         }
     }
@@ -82,20 +82,20 @@ impl Launch {
     pub fn listen(&self, app: &AppHandle) {
         let open_app = app.clone();
         self.application.connect_open(move |application, files, _| {
-            let token = application.imp().activation_token.take();
+            let startup = application.imp().startup.take();
             window_service::enqueue_os_open_with_present(
                 &open_app,
                 |queue| enqueue(queue, files),
-                |window| present_with_token(window, token.as_deref()),
+                |window| present_startup(window, &startup),
             );
         });
         let activate_app = app.clone();
         self.application.connect_activate(move |application| {
-            let token = application.imp().activation_token.take();
+            let startup = application.imp().startup.take();
             window_service::enqueue_os_open_with_present(
                 &activate_app,
                 |_| {},
-                |window| present_with_token(window, token.as_deref()),
+                |window| present_startup(window, &startup),
             );
         });
         if !self.files.is_empty() {
@@ -104,30 +104,62 @@ impl Launch {
     }
 }
 
-fn activation_token(platform_data: &glib::Variant) -> Option<String> {
-    glib::VariantDict::new(Some(platform_data))
-        .lookup::<String>("activation-token")
-        .ok()
-        .flatten()
-        .filter(|token| !token.is_empty())
+#[derive(Default)]
+struct StartupNotification {
+    wayland_token: Option<String>,
+    x11_id: Option<String>,
 }
 
-fn present_with_token(window: &WebviewWindow, token: Option<&str>) -> bool {
-    let Some(token) = token else { return false };
+impl StartupNotification {
+    fn from_platform(platform_data: &glib::Variant) -> Self {
+        let platform = glib::VariantDict::new(Some(platform_data));
+        let string = |key| {
+            platform
+                .lookup::<String>(key)
+                .ok()
+                .flatten()
+                .filter(|value| !value.is_empty())
+        };
+        Self {
+            wayland_token: string("activation-token"),
+            x11_id: string("desktop-startup-id"),
+        }
+    }
+}
+
+fn present_startup(window: &WebviewWindow, startup: &StartupNotification) -> bool {
+    if startup.wayland_token.is_none() && startup.x11_id.is_none() {
+        return false;
+    }
     let Ok(gtk_window) = window.gtk_window() else {
         return false;
     };
-    let wayland = gtk_window
-        .property::<Option<glib::Object>>("screen")
-        .is_some_and(|screen| screen.type_().name() == "GdkWaylandScreen");
-    if !wayland || !gtk_window.property::<bool>("visible") {
+    if !gtk_window.property::<bool>("visible") {
         return false;
     }
-    let _ = window.unminimize();
-    // On a mapped GTK 3 Wayland window this property sends xdg_activation_v1.activate
-    // for that surface using the launcher's token. The compositor decides whether to focus it.
-    gtk_window.set_property("startup-id", token);
-    true
+    let Some(screen) = gtk_window.property::<Option<glib::Object>>("screen") else {
+        return false;
+    };
+    match screen.type_().name() {
+        "GdkWaylandScreen" => {
+            let Some(token) = startup.wayland_token.as_deref() else {
+                return false;
+            };
+            let _ = window.unminimize();
+            // GTK sends this request to the compositor for the existing surface.
+            gtk_window.set_property("startup-id", token);
+            true
+        }
+        "GdkX11Screen" => {
+            if let Some(id) = startup.x11_id.as_deref() {
+                // Complete the notification even though the secondary process has
+                // no surface to map. Keep the usual X11 focus call.
+                gtk_window.set_property("startup-id", id);
+            }
+            false
+        }
+        _ => false,
+    }
 }
 
 fn profile_application_id(profile: &Path) -> String {
@@ -237,19 +269,21 @@ mod tests {
         let platform = platform.end();
         application.imp().before_emit(&platform);
         assert_eq!(
-            application.imp().activation_token.take().as_deref(),
+            application.imp().startup.take().wayland_token.as_deref(),
             Some("launch-token")
         );
-        assert!(application.imp().activation_token.take().is_none());
+        assert!(application.imp().startup.take().wayland_token.is_none());
 
         application.imp().before_emit(&platform);
         application.imp().after_emit(&platform);
-        assert!(application.imp().activation_token.take().is_none());
+        assert!(application.imp().startup.take().wayland_token.is_none());
 
         let next_request = glib::VariantDict::new(None);
         next_request.insert("desktop-startup-id", "x11-startup-id");
         application.imp().before_emit(&next_request.end());
-        assert!(application.imp().activation_token.take().is_none());
+        let next = application.imp().startup.take();
+        assert!(next.wayland_token.is_none());
+        assert_eq!(next.x11_id.as_deref(), Some("x11-startup-id"));
     }
 
     #[test]
