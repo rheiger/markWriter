@@ -48,6 +48,6 @@ test "$(cat "$results/requests.txt")" = /control
 /usr/bin/python3 - "$results/direct-probe.json" <<'PY'
 import json, sys
 rows = json.load(open(sys.argv[1]))['cases']
-assert len(rows) == 10 and all(row['matched'] for row in rows), rows
+assert len(rows) == 11 and all(row['matched'] for row in rows), rows
 PY
 echo "Direct WKWebView observations: $results"

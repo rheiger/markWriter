@@ -35,6 +35,7 @@ describe('PlantUML supported subset', () => {
 
 import sequenceSvg from './fixtures/plantuml/sequence.svg?raw'
 import classSvg from './fixtures/plantuml/class.svg?raw'
+import privateSvg from './fixtures/plantuml/private.svg?raw'
 import sequenceReturnSvg from './fixtures/plantuml/sequence-return.svg?raw'
 import { checkPlantUmlSvg } from './plantUmlSafety'
 
@@ -121,6 +122,34 @@ describe('PlantUML callback output semantics', () => {
   it('rejects a zero-area arrowhead', () => {
     const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
     const changed = sequenceSvg.replace(/(<polygon points=")[^"]+("[^>]*>)/, (_, left, right) => `${left}99.64,102 99.64,102 99.64,102${right}`)
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('accepts an actual Worker private field with a private visibility mark', () => {
+    const src = '@startuml\nclass User {\n -id: int\n}\n@enduml'
+    expect(() => checkPlantUmlSvg(privateSvg, validatePlantUml(src))).not.toThrow()
+  })
+  it('rejects a reversed arrowhead despite matching destination metadata', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace('89.64,98 99.64,102 89.64,106 93.64,102', '109.64,98 99.64,102 109.64,106 105.64,102')
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects a hidden participant lifeline', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace('class="participant-lifeline"', 'class="participant-lifeline" opacity="0"')
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects a public visibility mark recolored to the class background', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace('stroke="#038048"', 'stroke="#F1F1F1"')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
+  })
+  it('rejects a displaced actor body', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace('M24.83,21.5 L24.83,48.5', 'M124.83,21.5 L124.83,48.5')
     expect(changed).not.toBe(sequenceSvg)
     expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow()
   })

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@plantuml/core', async () => {
   const sequence = await import('./fixtures/plantuml/sequence.svg?raw')
   const classes = await import('./fixtures/plantuml/class.svg?raw')
-  return { renderToString: vi.fn((lines: string[], success: (svg: string) => void) => success(lines.some(line => line.startsWith('class ')) ? classes.default : sequence.default)) }
+  const privateClass = await import('./fixtures/plantuml/private.svg?raw')
+  return { renderToString: vi.fn((lines: string[], success: (svg: string) => void) => success(lines.some(line => line.trim().startsWith('-id:')) ? privateClass.default : lines.some(line => line.startsWith('class ')) ? classes.default : sequence.default)) }
 })
 import { quickLookRender } from './quickLookRender'
 import { renderToString } from '@plantuml/core'
@@ -11,6 +12,7 @@ import sequenceSvg from './fixtures/plantuml/sequence.svg?raw'
 const empty = '<!doctype html><html><head></head><body></body></html>'
 const sequence = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml\n'
 const classes = '@startuml\nclass User {\n  +id: int\n}\nclass Order {\n  +id: int\n}\nUser "1" -- "*" Order: owns\n@enduml\n'
+const privateClass = '@startuml\nclass User {\n -id: int\n}\n@enduml\n'
 const fence = (source: string) => '```plantuml\n' + source + '```\n'
 
 function stubRasterizer() {
@@ -23,7 +25,7 @@ function stubRasterizer() {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('Finder PlantUML evidence', () => {
-  it.each([sequence, classes])('renders a supported diagram and retains its exact source', async source => {
+  it.each([sequence, classes, privateClass])('renders a supported diagram and retains its exact source', async source => {
     stubRasterizer()
     const result = new DOMParser().parseFromString(await quickLookRender(empty, fence(source)), 'text/html')
     expect(result.querySelector('img')?.getAttribute('alt')).toBe('PlantUML diagram')

@@ -1,0 +1,2 @@
+/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//markwriter-pi222-direct.x9Sim0/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk
+/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//markwriter-pi222-direct.x9Sim0/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement

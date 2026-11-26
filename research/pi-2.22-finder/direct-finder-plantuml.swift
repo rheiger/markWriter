@@ -16,6 +16,7 @@ import Darwin
       ("sequence-first", "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml\n", true),
       ("sequence-warm", "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml\n", true),
       ("class", "@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser \"1\" -- \"*\" Order: owns\n@enduml\n", true),
+      ("class-private-field", "@startuml\nclass User {\n -id: int\n}\n@enduml\n", true),
       ("local-include", "@startuml\n!include " + secret + "\n@enduml\n", false),
       ("network-include", "@startuml\n!include " + server + "/synthetic.puml\n@enduml\n", false),
       ("remote-image", "@startuml\nAlice -> Bob: <img:" + server + "/synthetic.png>\n@enduml\n", false),

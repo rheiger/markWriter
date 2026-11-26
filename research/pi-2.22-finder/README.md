@@ -3,7 +3,7 @@
 This is an **experimental research branch**, not a production implementation or
 a Finder acceptance. The repository baseline is `6fd2c22e4acca40ef5318cc58c0a63747cf258a1`.
 The Finder integration uses the pinned `@plantuml/core@1.2026.10`, Smetana, and
-the validator and semantic checker from candidate revision `fb7fcdf401be1b4421c6b554d9dc4d5d140b4662`.
+the validator and semantic checker from candidate revision `19bd83626d655d73da169e160ba8dba46e15c2e2`.
 The separate Worker probe uses candidate revision `fba2315`. These snapshots
 must be refreshed and independently reviewed before any integration.
 
@@ -32,7 +32,15 @@ and size 14,235,500 bytes. Its 9,827,672-byte script has SHA-256
 Strict seal and direct-probe receipts are in `results-fb7fcdf/`. These are
 also interim: subsequent independent review identified unchecked mutations of
 arrowhead direction, participant lifelines, visibility markers and actor body
-geometry. No claim is made that the natural engine emitted those defects.
+geometry. Revision `19bd836` adds checks for these mutations; it still requires
+independent review. No claim is made that the natural engine emitted those defects.
+
+The next research DMG with checker `19bd836` has SHA-256
+`5d44084cd7563357c671259a11dad8e40747a1cac24feb4ee17fef26e45946d1`
+and size 14,235,942 bytes. Its 9,829,675-byte script has SHA-256
+`e1df0b12ba83249f00965f2251714b80fda9418a97f7646e6b5a1a43fc1fddd9`.
+The mounted-package direct probe, hashes and strict seal receipts are in
+`results-19bd836/`; this remains a Finder-only research package.
 
 ## Direct WebKit renderer
 
@@ -47,6 +55,10 @@ content processes and is not total or peak system memory.
 For the `fb7fcdf` package, the same probe passed all ten cases, with first and
 second sequence calls at 1,114 and 414 ms, class at 453 ms, and probe-only
 peak RSS 163,414,016 bytes. These are also single non-cold observations.
+The `19bd836` probe passed eleven cases including a private-field class. First
+and second sequence calls were 536 and 386 ms, class 439 ms, private class
+392 ms, and probe-only peak RSS 163,299,328 bytes. These are single observations,
+without a verified cold-start condition and excluding WebKit child processes.
 
 Sequence/class produced images and retained source. Rejected local include,
 loopback include, external image, missing theme, malformed and oversized cases
@@ -88,6 +100,8 @@ IIFE in a direct WKWebView under the experiment's app-page and Worker response
 CSPs. The worker was built from candidate `fba2315` and its 2,965,462-byte
 bundle had SHA-256
 `96a210de1f16607167b1195c1153b275b9a7003ee57b2759c93e263a01eae275`.
+The Worker rebuilt from `19bd836` has the same hash; the changed semantic
+checker executes in its host, so this equivalence does not qualify that host.
 Build it using that revision's `tools/plantuml-worker-vite.config.mjs`; the
 bundle itself is not committed here. Place it as `worker.js` in a temporary
 directory, start `worker-server.py DIRECTORY PORT_FILE REQUEST_FILE`, compile
