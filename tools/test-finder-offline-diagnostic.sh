@@ -13,14 +13,14 @@ printf 'default_interface=%s\n' "$interface" > "$results/network.txt"
 # Retain only interface names/flags and route classes, not addresses or gateways.
 inventory() {
   local phase=$1 family
-  /sbin/ifconfig -a | /usr/bin/awk '/^[^[:space:]].*: flags=/ { sub(/ mtu.*/, ""); print }' > "$results/interfaces-$phase.txt"
+  /sbin/ifconfig -a | /usr/bin/awk '/^[^[:space:]].*: flags=/ { sub(/ mtu.*/, ""); print }' > "$results/interfaces-$phase.txt" || return 1
   for family in inet inet6; do
     /usr/sbin/netstat -rn -f "$family" | /usr/bin/awk -v family="$family" '
       $1 == "Destination" { for (i=1; i<=NF; i++) if ($i == "Netif") col=i; next }
       !col || NF < col || $col ~ /^lo/ { next }
       { print ($1 == "default" ? "default" : "nonlocal") " " $col }
       END { if (!col) exit 2 }
-    ' | /usr/bin/sort -u > "$results/routes-$family-$phase.txt"
+    ' | /usr/bin/sort -u > "$results/routes-$family-$phase.txt" || return 1
   done
 }
 # A stale route through a DOWN interface is recorded but cannot use an UP path.
@@ -28,6 +28,7 @@ inventory() {
 verify_routes_down() {
   local phase=$1 device flags
   : > "$results/routed-interface-flags-$phase.txt"
+  cat "$results/routes-inet-$phase.txt" "$results/routes-inet6-$phase.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u > "$results/routed-interfaces-$phase.txt" || return 1
   while IFS= read -r device; do
     [[ -n "$device" ]] || continue
     flags=$(/sbin/ifconfig "$device" | /usr/bin/awk 'NR == 1 { sub(/ mtu.*/, ""); print }') || return 1
@@ -37,7 +38,7 @@ verify_routes_down() {
       if ($0 !~ /flags=[^<]*<[^>]*>/) exit 2
       if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 1
     }' || return 1
-  done < <(cat "$results/routes-inet-$phase.txt" "$results/routes-inet6-$phase.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u)
+  done < "$results/routed-interfaces-$phase.txt"
 }
 inventory before
 controls=(https://github.com/ https://www.cloudflare.com/)
@@ -45,11 +46,12 @@ for url in "${controls[@]}"; do /usr/bin/curl -fsS --connect-timeout 5 --max-tim
 printf 'online_before_controls=2\n' >> "$results/network.txt"
 # Only operate on known, originally-UP route interfaces in this disposable VM.
 devices=()
+cat "$results/routes-inet-before.txt" "$results/routes-inet6-before.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u > "$results/routed-interfaces-before.txt"
 while IFS= read -r device; do
   [[ "$device" =~ ^(en|utun)[0-9]+$ ]] || { echo "Unexpected routed interface: $device" >&2; exit 1; }
   /sbin/ifconfig "$device" | /usr/bin/awk 'NR==1 { if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 0; exit 1 }'
   devices+=("$device")
-done < <(cat "$results/routes-inet-before.txt" "$results/routes-inet6-before.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u)
+done < "$results/routed-interfaces-before.txt"
 [[ ${#devices[@]} -gt 0 ]] || { echo 'No routed interfaces found' >&2; exit 1; }
 printf 'interfaces_to_disable=%s\n' "${devices[*]}" >> "$results/network.txt"
 # Restore all originally-UP interfaces on error and from a separate watchdog.
@@ -89,7 +91,10 @@ printf 'all_routed_interfaces_down=true\n' >> "$results/network.txt"
       exit 1
     fi
     printf 'sample=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-    cat "$results/routed-interface-flags-monitor.txt"
+    if ! cat "$results/routed-interface-flags-monitor.txt"; then
+      printf 'routed_interface_monitor_failed=true\n' > "$results/monitor-failed.txt"
+      exit 1
+    fi
     sleep 1
   done
 ) > "$results/interface-samples.txt" 2>&1 &
