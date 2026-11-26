@@ -34,6 +34,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6.0.0
+        with:
+          node-version: 24
       - name: Verify package run and inputs
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,6 +58,7 @@ jobs:
       - name: Verify direct probe source and run it
         run: |
           cmp native/quicklook/QuickLookWebRenderer.swift release-source/native/quicklook/QuickLookWebRenderer.swift
+          cmp frontend/src/lib/dbml.ts release-source/frontend/src/lib/dbml.ts
           tools/test-quicklook-direct.sh probe-evidence
       - name: Download exact package artifact
         env:
