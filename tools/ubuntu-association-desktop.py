@@ -132,15 +132,20 @@ def select_pattern(window, pattern):
     visible_point(r".*Select Items Matching.*", EVIDENCE / "selection.png", disappear=True)
 
 
+def fixture_tile(window, path, label):
+    # Use the ASCII prefix printed by Files, independent of the Unicode glyphs
+    # or the accessibility role GTK uses for the grid tile.
+    prefix = path.name.split(maxsplit=1)[0]
+    x, y, width, _ = window_geometry(window)
+    return visible_point(rf"{re.escape(prefix)}(?:\s+.*)?",
+                         EVIDENCE / f"{label}-selected-tile.png",
+                         (x + 190, y + 148, width - 205, 84), psm="11")
+
+
 def choose_markwriter(window, path, label, multiple=False):
     prefix = path.name.split(maxsplit=1)[0]
     select_pattern(window, "*" if multiple else prefix + " *")
-    # Identify the painted tile by its ASCII prefix rather than relying on
-    # the translated filename or the file-grid accessibility role.
-    x, y, width, _ = window_geometry(window)
-    tile_x, tile_y = visible_point(rf"{re.escape(prefix)}(?:\s+.*)?",
-                                   EVIDENCE / f"{label}-selected-tile.png",
-                                   (x + 190, y + 148, width - 205, 84), psm="11")
+    tile_x, tile_y = fixture_tile(window, path, label)
     # Right-clicking an already selected tile leaves the whole batch selected.
     command("xdotool", "mousemove", str(tile_x), str(tile_y), "click", "3")
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
@@ -248,7 +253,9 @@ def audit(mode):
     window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
     if mode == "existing":
         select_pattern(window, "A *")
-        command("xdotool", "key", "Return")
+        tile_x, tile_y = fixture_tile(window, first, "incumbent")
+        command("xdotool", "mousemove", str(tile_x), str(tile_y),
+                "click", "--repeat", "2", "--delay", "100", "1")
         log = ROOT / "incumbent-paths.txt"
         wait("double-click dispatch to the incumbent", lambda: log.read_text().strip() == str(first))
     choose_markwriter(window, first, mode)

@@ -15,7 +15,11 @@ cat > "$MARKWRITER_ASSOCIATION_ROOT/record-launch" <<'SCRIPT'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$MARKWRITER_ASSOCIATION_ROOT/argv"
 SCRIPT
-chmod +x "$MARKWRITER_ASSOCIATION_ROOT/record-launch"
+cat > "$MARKWRITER_ASSOCIATION_ROOT/record-incumbent" <<'SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$MARKWRITER_ASSOCIATION_ROOT/incumbent-argv"
+SCRIPT
+chmod +x "$MARKWRITER_ASSOCIATION_ROOT"/record-{launch,incumbent}
 cat > "$XDG_DATA_HOME/applications/MarkWriter.desktop" <<DESKTOP
 [Desktop Entry]
 Name=MarkWriter
@@ -24,7 +28,7 @@ MimeType=text/markdown;
 Terminal=false
 Type=Application
 DESKTOP
-sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's|^Exec=.*|Exec=/usr/bin/false %F|' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
+sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's/record-launch/record-incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
 update-desktop-database "$XDG_DATA_HOME/applications"
 gio mime text/markdown incumbent.desktop
 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -c '
