@@ -100,6 +100,6 @@ cp "$evidence/dirty-workspace.json" "$MARKWRITER_PROFILE_DIR/workspace.json"
 check_desktop rollback
 cmp "$workspace/mimeapps-before-removal" "$XDG_CONFIG_HOME/mimeapps.list"
 
-printf '%s\n' "$PRETTY_NAME" "$(nautilus --version)" "$(id -u) ordinary-user desktop" > "$evidence/platform.txt"
+printf '%s\n' "$PRETTY_NAME" "$(dpkg-query -W nautilus)" "$(id -u) ordinary-user desktop" > "$evidence/platform.txt"
 printf '%s  %s\n%s  %s\n' "$control_digest" "$control" "$candidate_digest" "$(basename "$candidate")" > "$evidence/packages.sha256"
 printf '%s\n' "$candidate_version" > "$evidence/candidate-version.txt"
