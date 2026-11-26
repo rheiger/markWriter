@@ -72,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent_open_rows=False, psm=None):
+def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False, psm=None):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -107,9 +107,6 @@ def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent
                 return int(first["left"]) + int(first["width"]) // 2, int(first["top"]) + int(first["height"]) // 2
         return None
 
-    if disappear:
-        wait(f"{pattern} from the closed dialog", lambda: find() is None, 12)
-        return None
     x, y = wait(pattern, find, 12)
     if region:
         x, y = x + region[0], y + region[1]
@@ -121,20 +118,10 @@ def click_visible_text(pattern, screenshot, region=None):
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
 
 
-def select_pattern(window, pattern):
-    # GTK versions expose Nautilus grid items with different AT-SPI roles.
-    # Select by the ASCII fixture prefix in Nautilus's own pattern dialog.
-    command("xdotool", "windowactivate", "--sync", window)
-    command("xdotool", "key", "ctrl+s")
-    visible_point(r".*Select Items Matching.*", EVIDENCE / "select-pattern.png")
-    command("xdotool", "type", "--clearmodifiers", pattern)
-    command("xdotool", "key", "Return")
-    visible_point(r".*Select Items Matching.*", EVIDENCE / "selection.png", disappear=True)
-
-
 def fixture_tile(window, path, label):
     # Use the ASCII prefix printed by Files, independent of the Unicode glyphs
     # or the accessibility role GTK uses for the grid tile.
+    command("xdotool", "windowactivate", "--sync", window)
     prefix = path.name.split(maxsplit=1)[0]
     x, y, width, _ = window_geometry(window)
     return visible_point(rf"{re.escape(prefix)}(?:\s+.*)?",
@@ -143,11 +130,12 @@ def fixture_tile(window, path, label):
 
 
 def choose_markwriter(window, path, label, multiple=False):
-    prefix = path.name.split(maxsplit=1)[0]
-    select_pattern(window, "*" if multiple else prefix + " *")
     tile_x, tile_y = fixture_tile(window, path, label)
+    command("xdotool", "mousemove", str(tile_x), str(tile_y), "click", "1")
+    if multiple:
+        command("xdotool", "key", "ctrl+a")
     # Right-clicking an already selected tile leaves the whole batch selected.
-    command("xdotool", "mousemove", str(tile_x), str(tile_y), "click", "3")
+    command("xdotool", "click", "3")
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
                          adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
@@ -252,7 +240,6 @@ def audit(mode):
         subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
     window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
     if mode == "existing":
-        select_pattern(window, "A *")
         tile_x, tile_y = fixture_tile(window, first, "incumbent")
         command("xdotool", "mousemove", str(tile_x), str(tile_y),
                 "click", "--repeat", "2", "--delay", "100", "1")

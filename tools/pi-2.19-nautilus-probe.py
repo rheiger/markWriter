@@ -17,7 +17,6 @@ with (desktop.EVIDENCE / "nautilus.log").open("w") as log:
     subprocess.Popen(["nautilus", "--new-window", str(fixtures)], stdout=log, stderr=log)
 window = desktop.wait("Nautilus fixture window", lambda: desktop.window_id(r"^association-fixtures$"))
 try:
-    desktop.select_pattern(window, "A *")
     x, y = desktop.fixture_tile(window, first, "incumbent")
     desktop.command("xdotool", "mousemove", str(x), str(y), "click", "--repeat", "2", "--delay", "100", "1")
     incumbent = desktop.ROOT / "incumbent-argv"
