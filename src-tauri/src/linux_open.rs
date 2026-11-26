@@ -1,20 +1,57 @@
 //! Route GNOME Files launches to the editor that owns the current profile.
-use gio::{glib, prelude::*};
+use gio::{glib, prelude::*, subclass::prelude::*};
 use std::{
     collections::HashMap,
     env,
     os::unix::ffi::OsStrExt,
     path::{Component, Path, PathBuf},
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, WebviewWindow};
 
 use crate::{
     os_open::{OpenQueue, LIMIT},
     window_service,
 };
 
+mod imp {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[derive(Default)]
+    pub struct ShellApplication {
+        pub activation_token: RefCell<Option<String>>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for ShellApplication {
+        const NAME: &'static str = "MarkWriterShellApplication";
+        type Type = super::ShellApplication;
+        type ParentType = gio::Application;
+    }
+
+    impl ObjectImpl for ShellApplication {}
+
+    impl ApplicationImpl for ShellApplication {
+        fn before_emit(&self, platform_data: &glib::Variant) {
+            self.parent_before_emit(platform_data);
+            self.activation_token
+                .replace(activation_token(platform_data));
+        }
+
+        fn after_emit(&self, platform_data: &glib::Variant) {
+            self.activation_token.take();
+            self.parent_after_emit(platform_data);
+        }
+    }
+}
+
+glib::wrapper! {
+    pub struct ShellApplication(ObjectSubclass<imp::ShellApplication>)
+        @extends gio::Application, @implements gio::ActionGroup, gio::ActionMap;
+}
+
 pub struct Launch {
-    application: gio::Application,
+    application: ShellApplication,
     files: Vec<gio::File>,
 }
 
@@ -24,8 +61,10 @@ impl Launch {
             .map(PathBuf::from)
             .unwrap_or_else(|| glib::user_data_dir().join(identifier));
         let application_id = profile_application_id(&profile);
-        let application =
-            gio::Application::new(Some(&application_id), gio::ApplicationFlags::HANDLES_OPEN);
+        let application: ShellApplication = glib::Object::builder()
+            .property("application-id", &application_id)
+            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
+            .build();
         application.register(gio::Cancellable::NONE)?;
         let files: Vec<_> = env::args_os()
             .skip(1)
@@ -33,7 +72,7 @@ impl Launch {
             .map(gio::File::for_commandline_arg)
             .collect();
         if application.is_remote() {
-            forward(&application, &application_id, &files)?;
+            forward(application.upcast_ref(), &application_id, &files)?;
             Ok(None)
         } else {
             Ok(Some(Self { application, files }))
@@ -42,17 +81,53 @@ impl Launch {
 
     pub fn listen(&self, app: &AppHandle) {
         let open_app = app.clone();
-        self.application.connect_open(move |_, files, _| {
-            window_service::enqueue_os_open(&open_app, |queue| enqueue(queue, files));
+        self.application.connect_open(move |application, files, _| {
+            let token = application.imp().activation_token.take();
+            window_service::enqueue_os_open_with_present(
+                &open_app,
+                |queue| enqueue(queue, files),
+                |window| present_with_token(window, token.as_deref()),
+            );
         });
         let activate_app = app.clone();
-        self.application.connect_activate(move |_| {
-            window_service::enqueue_os_open(&activate_app, |_| {});
+        self.application.connect_activate(move |application| {
+            let token = application.imp().activation_token.take();
+            window_service::enqueue_os_open_with_present(
+                &activate_app,
+                |_| {},
+                |window| present_with_token(window, token.as_deref()),
+            );
         });
         if !self.files.is_empty() {
             window_service::enqueue_os_open(app, |queue| enqueue(queue, &self.files));
         }
     }
+}
+
+fn activation_token(platform_data: &glib::Variant) -> Option<String> {
+    glib::VariantDict::new(Some(platform_data))
+        .lookup::<String>("activation-token")
+        .ok()
+        .flatten()
+        .filter(|token| !token.is_empty())
+}
+
+fn present_with_token(window: &WebviewWindow, token: Option<&str>) -> bool {
+    let Some(token) = token else { return false };
+    let Ok(gtk_window) = window.gtk_window() else {
+        return false;
+    };
+    let wayland = gtk_window
+        .property::<Option<glib::Object>>("screen")
+        .is_some_and(|screen| screen.type_().name() == "GdkWaylandScreen");
+    if !wayland || !gtk_window.property::<bool>("visible") {
+        return false;
+    }
+    let _ = window.unminimize();
+    // On a mapped GTK 3 Wayland window this property sends xdg_activation_v1.activate
+    // for that surface using the launcher's token. The compositor decides whether to focus it.
+    gtk_window.set_property("startup-id", token);
+    true
 }
 
 fn profile_application_id(profile: &Path) -> String {
@@ -153,6 +228,29 @@ fn enqueue(queue: &OpenQueue, files: &[gio::File]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn startup_token_is_read_from_the_current_dbus_request() {
+        let application: ShellApplication = glib::Object::new();
+        let platform = glib::VariantDict::new(None);
+        platform.insert("activation-token", "launch-token");
+        let platform = platform.end();
+        application.imp().before_emit(&platform);
+        assert_eq!(
+            application.imp().activation_token.take().as_deref(),
+            Some("launch-token")
+        );
+        assert!(application.imp().activation_token.take().is_none());
+
+        application.imp().before_emit(&platform);
+        application.imp().after_emit(&platform);
+        assert!(application.imp().activation_token.take().is_none());
+
+        let next_request = glib::VariantDict::new(None);
+        next_request.insert("desktop-startup-id", "x11-startup-id");
+        application.imp().before_emit(&next_request.end());
+        assert!(application.imp().activation_token.take().is_none());
+    }
 
     #[test]
     fn an_uncreated_profile_and_its_alias_share_the_same_session() {
