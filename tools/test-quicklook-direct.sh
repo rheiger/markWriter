@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Direct synthetic WebKit checks; no Finder or packaged extension is involved.
+set -euo pipefail
+results=$1
+mkdir -p "$results"
+work=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-quicklook-probe.XXXXXX")
+server_pid=
+cleanup() {
+  if [[ -n "$server_pid" ]]; then kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; fi
+  rm -rf -- "$work"
+}
+trap cleanup EXIT
+node tools/quicklook-probe-server.mjs "$work/port" "$work/requests" &
+server_pid=$!
+for ((i=0;i<100;i++)); do [[ -s "$work/port" ]] && break; sleep 0.1; done
+test -s "$work/port"
+url="http://127.0.0.1:$(cat "$work/port")"
+curl -fsS --max-time 5 "$url/control" > "$work/control"
+test "$(cat "$work/control")" = SYNTHETIC-NETWORK-SENTINEL
+printf 'SYNTHETIC-LOCAL-FILE-SECRET' > "$work/secret.txt"
+xcrun swiftc native/quicklook/QuickLookWebRenderer.swift tools/quicklook-deadline-probe.swift -o "$work/probe"
+"$work/probe" "$url" "$work/secret.txt" | tee "$results/quicklook-direct.json"
+cp "$work/requests" "$results/quicklook-direct-requests.txt"
+# The positive control must be the only HTTP request received.
+test "$(cat "$work/requests")" = /control

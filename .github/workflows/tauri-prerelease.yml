@@ -14,9 +14,7 @@ jobs:
           persist-credentials: false
       - name: Probe direct renderer deadline
         run: |
-          mkdir -p probe-evidence
-          xcrun swiftc native/quicklook/QuickLookWebRenderer.swift tools/quicklook-deadline-probe.swift -o "$RUNNER_TEMP/quicklook-deadline-probe"
-          "$RUNNER_TEMP/quicklook-deadline-probe" | tee probe-evidence/quicklook-deadline.json
+          tools/test-quicklook-direct.sh probe-evidence
       - name: Download exact candidate package artifact
         env:
           GH_TOKEN: ${{ github.token }}
