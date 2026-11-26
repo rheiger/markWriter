@@ -19,8 +19,10 @@ jobs:
             nautilus at-spi2-core python3-pyatspi desktop-file-utils tesseract-ocr \
             xvfb xauth xdotool openbox dbus-x11 scrot
           dpkg-query -W nautilus
-      - name: Drive the stock Nautilus UI
-        run: bash tools/pi-2.19-nautilus-probe.sh
+      - name: Drive the stock Nautilus UI with an incumbent default
+        run: bash tools/pi-2.19-nautilus-probe.sh existing
+      - name: Drive the stock Nautilus UI with an unconfigured default
+        run: bash tools/pi-2.19-nautilus-probe.sh fresh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

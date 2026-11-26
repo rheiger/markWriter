@@ -151,9 +151,8 @@ def choose_markwriter(window, path, label, multiple=False):
         command("xdotool", "key", "ctrl+a")
     # Right-clicking an already selected tile leaves the whole batch selected.
     command("xdotool", "click", "3")
-    x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context-labels.png",
-                         (tile_x + 12, tile_y + 8, 208, 116), adjacent_open_rows=True)
-    command("scrot", str(EVIDENCE / f"{label}-context.png"))
+    x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
+                         adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
     try:
         dialog = wait("Open File dialog window", lambda: window_id(r"^Open (?:File|Items)"), 2)

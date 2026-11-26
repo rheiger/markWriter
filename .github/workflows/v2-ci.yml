@@ -10,7 +10,7 @@ on:
       - 'tests/test_update_markwriter_macos.py'
       - 'tests/test_uninstall_markwriter_macos.py'
   push:
-    branches: [main, v2-development, 'codex/**']
+    branches: [main, v2-development, 'codex/**', '!codex/pi-2.19-nautilus-probe']
     paths:
       - 'frontend/**'
       - 'src-tauri/**'

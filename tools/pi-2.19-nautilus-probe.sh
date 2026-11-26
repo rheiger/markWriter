@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export MARKWRITER_PROBE_MODE="${1:?Use fresh or existing}"
 export MARKWRITER_ASSOCIATION_ROOT
 MARKWRITER_ASSOCIATION_ROOT=$(mktemp -d "$RUNNER_TEMP/markwriter-chooser.XXXXXX")
-export MARKWRITER_ASSOCIATION_EVIDENCE="$PWD/nautilus-probe-evidence"
+export MARKWRITER_ASSOCIATION_EVIDENCE="$PWD/nautilus-probe-evidence/$MARKWRITER_PROBE_MODE"
 export XDG_DATA_HOME="$MARKWRITER_ASSOCIATION_ROOT/data"
 export XDG_CONFIG_HOME="$MARKWRITER_ASSOCIATION_ROOT/config"
 export XDG_CACHE_HOME="$MARKWRITER_ASSOCIATION_ROOT/cache"
@@ -28,9 +29,15 @@ MimeType=text/markdown;
 Terminal=false
 Type=Application
 DESKTOP
-sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's/record-launch/record-incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
+if [[ "$MARKWRITER_PROBE_MODE" == existing ]]; then
+  sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's/record-launch/record-incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
+fi
 update-desktop-database "$XDG_DATA_HOME/applications"
-gio mime text/markdown incumbent.desktop
+if [[ "$MARKWRITER_PROBE_MODE" == existing ]]; then
+  gio mime text/markdown incumbent.desktop
+else
+  test ! -e "$XDG_CONFIG_HOME/mimeapps.list"
+fi
 xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -c '
   openbox >"$MARKWRITER_ASSOCIATION_EVIDENCE/openbox.log" 2>&1 &
   probe_wm=$!
