@@ -94,6 +94,28 @@ function visibleStroke(element: Element): void {
   visibleElement(element)
   if ((element.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(element, 'stroke-width') !== 1) throw new Error('Invisible PlantUML relationship geometry')
 }
+// The narrow actor subset uses PlantUML's four straight body segments.
+// Fail closed when a future engine changes those shapes instead of trusting metadata.
+function verifyActorBody(path: Element, center: Point, radius: number, canvas: Box): void {
+  visibleElement(path)
+  if ((path.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(path, 'stroke-width') < 0.5) throw new Error('Invisible PlantUML actor geometry')
+  const d = path.getAttribute('d') ?? '', tokens = d.match(new RegExp(`${SVG_NUMBER}|[A-Za-z]`, 'g')) ?? []
+  if (d.replace(new RegExp(`${SVG_NUMBER}|[ML]|[\\s,]`, 'g'), '')) throw new Error('Unsupported PlantUML actor geometry')
+  const number = () => { const v=tokens.shift(); if (!v || !new RegExp(`^${SVG_NUMBER}$`).test(v) || !Number.isFinite(Number(v))) throw new Error('Invalid PlantUML actor geometry'); return Number(v) }
+  const point = (): Point => { const result={x:number(),y:number()}; if (!insideCanvas(result, canvas)) throw new Error('Out-of-bounds PlantUML actor geometry'); return result }
+  const segments: [Point,Point][] = []
+  while (tokens.length) {
+    if (tokens.shift() !== 'M') throw new Error('Unsupported PlantUML actor geometry')
+    const start = point()
+    if (tokens.shift() !== 'L') throw new Error('Unsupported PlantUML actor geometry')
+    segments.push([start,point()])
+  }
+  if (segments.length !== 4) throw new Error('Incomplete PlantUML actor geometry')
+  const [[head,waist],[armLeft,armRight],[leftStart,leftEnd],[rightStart,rightEnd]] = segments
+  const near = (a: number,b: number) => Math.abs(a-b) <= 1.5
+  if (!near(head.x,center.x) || !near(head.y,center.y+radius) || !near(waist.x,center.x) || waist.y-head.y < 8 || armLeft.x >= center.x-4 || armRight.x <= center.x+4 || !near(armLeft.y,armRight.y) || armLeft.y < head.y || armLeft.y > waist.y || !near(leftStart.x,waist.x) || !near(rightStart.x,waist.x) || !near(leftStart.y,waist.y) || !near(rightStart.y,waist.y) || leftEnd.x >= center.x-4 || rightEnd.x <= center.x+4 || leftEnd.y <= waist.y+4 || rightEnd.y <= waist.y+4) throw new Error('Disconnected PlantUML actor geometry')
+}
+
 function associationEndpoints(path: Element, canvas: Box): [Point, Point] {
   visibleStroke(path)
   if (path.hasAttribute('stroke-dasharray')) throw new Error('Unsupported PlantUML association geometry')
@@ -153,11 +175,9 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
     visibleElement(shape)
     if ((shape.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(shape, 'stroke-width') < 0.5) throw new Error('Invisible PlantUML entity geometry')
     if (expected.role === 'actor') {
-      const center = {x:svgNumber(shape, 'cx'), y:svgNumber(shape, 'cy')}
-      if (!insideCanvas(center, canvas) || svgNumber(shape, 'r') < 2) throw new Error('Invalid PlantUML actor geometry')
-      const body = node.querySelector('path')!
-      visibleElement(body)
-      if ((body.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(body, 'stroke-width') < 0.5 || !body.getAttribute('d')) throw new Error('Invisible PlantUML actor geometry')
+      const center = {x:svgNumber(shape, 'cx'), y:svgNumber(shape, 'cy')}, radius = svgNumber(shape, 'r')
+      if (!insideCanvas(center, canvas) || radius < 2) throw new Error('Invalid PlantUML actor geometry')
+      verifyActorBody(node.querySelector('path')!, center, radius, canvas)
     } else {
       const box = svgBox(shape)
       if (!insideCanvas({x:box.x,y:box.y}, canvas) || !insideCanvas({x:box.x+box.width,y:box.y+box.height}, canvas) || !insideCanvas(namePoint, box)) throw new Error('Invalid PlantUML entity geometry')
@@ -175,10 +195,19 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       visibleElement(glyph)
       const fieldPoint = visibleText(label, canvas)
       const box = svgBox(shape)
-      if (!insideCanvas(fieldPoint, box) || !glyph.querySelector('circle')) throw new Error('PlantUML member geometry mismatch')
-      const mark = glyph.querySelector('circle')!
+      if (!insideCanvas(fieldPoint, box)) throw new Error('PlantUML member geometry mismatch')
+      const mark = glyph.querySelector(field.visibility === '+' ? 'circle' : 'rect')
+      if (!mark || glyph.children.length !== 1) throw new Error('PlantUML member geometry mismatch')
       visibleElement(mark)
-      if (!/^#[0-9a-f]{6}$/i.test(mark.getAttribute('stroke') ?? '') || (mark.getAttribute('stroke') ?? '').toLowerCase() === '#ffffff' || svgNumber(mark, 'stroke-width') < 0.5 || svgNumber(mark, 'r') < 1.5 || !insideCanvas({x:svgNumber(mark,'cx'),y:svgNumber(mark,'cy')}, box)) throw new Error('Invisible PlantUML member geometry')
+      const color = field.visibility === '+' ? '#038048' : '#c82930'
+      if ((mark.getAttribute('stroke') ?? '').toLowerCase() !== color || svgNumber(mark, 'stroke-width') < 0.5) throw new Error('Invisible PlantUML member geometry')
+      if (field.visibility === '+') {
+        const radius = svgNumber(mark, 'r'), x = svgNumber(mark,'cx'), y = svgNumber(mark,'cy')
+        if (radius < 1.5 || !insideCanvas({x:x-radius,y:y-radius}, box) || !insideCanvas({x:x+radius,y:y+radius}, box)) throw new Error('PlantUML member geometry mismatch')
+      } else {
+        const markBox = svgBox(mark)
+        if (markBox.width < 3 || markBox.height < 3 || !insideCanvas({x:markBox.x,y:markBox.y},box) || !insideCanvas({x:markBox.x+markBox.width,y:markBox.y+markBox.height},box)) throw new Error('PlantUML member geometry mismatch')
+      }
     }
   }
   const edges = Array.from(doc.querySelectorAll('g')).filter(g => g.getAttribute('class') === (input.kind === 'sequence' ? 'message' : 'link') && (input.kind === 'class' || g.querySelector('text')))
@@ -231,7 +260,14 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       const lifelineBox = (name: string) => {
         const uid = ids.get(name)
         const lifeline = Array.from(doc.querySelectorAll('g')).find(g => g.getAttribute('class') === 'participant-lifeline' && g.getAttribute('data-entity-uid') === uid)
-        return svgBox(lifeline?.querySelector('rect') ?? null)
+        if (!lifeline) throw new Error('PlantUML lifeline missing')
+        visibleElement(lifeline)
+        const box = svgBox(lifeline.querySelector('rect')), stroke = lifeline.querySelector('line')
+        if (!stroke) throw new Error('PlantUML lifeline geometry missing')
+        visibleElement(stroke)
+        const x = box.x + box.width / 2
+        if ((stroke.getAttribute('stroke') ?? '').toLowerCase() !== '#181818' || svgNumber(stroke, 'stroke-width') < 0.5 || stroke.getAttribute('stroke-dasharray') !== '5,5' || Math.abs(svgNumber(stroke,'x1')-x) > 1 || Math.abs(svgNumber(stroke,'x2')-x) > 1 || Math.abs(svgNumber(stroke,'y1')-box.y) > 1 || Math.abs(svgNumber(stroke,'y2')-box.y-box.height) > 1) throw new Error('Invalid PlantUML lifeline geometry')
+        return box
       }
       const from = lifelineBox(expected.from), to = lifelineBox(expected.to)
       const fromX = from.x + from.width / 2, toX = to.x + to.width / 2
@@ -248,6 +284,8 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       }
       const xs = coordinates.filter((_,i) => i % 2 === 0), ys = coordinates.filter((_,i) => i % 2 === 1)
       if (Math.abs(twiceArea) < 8 || Math.max(...xs) - Math.min(...xs) < 4 || Math.max(...ys) - Math.min(...ys) < 4) throw new Error('Degenerate PlantUML arrow geometry')
+      const direction = Math.sign(toX-fromX), tipX = coordinates[2]
+      if (coordinates.length !== 8 || [coordinates[0],coordinates[4],coordinates[6]].some(x => direction*(tipX-x) < 1 || direction*(tipX-x) > 20) || coordinates[1] >= y1-1 || coordinates[5] <= y1+1 || Math.abs(coordinates[7]-y1) > 1) throw new Error('Reversed PlantUML arrow geometry')
     }
   }
 }
