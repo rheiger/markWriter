@@ -23,6 +23,21 @@ inventory() {
     ' | /usr/bin/sort -u > "$results/routes-$family-$phase.txt"
   done
 }
+# A stale route through a DOWN interface is recorded but cannot use an UP path.
+# Refuse if any routed interface is active or cannot be inspected.
+verify_routes_down() {
+  local phase=$1 device flags
+  while IFS= read -r device; do
+    [[ -n "$device" ]] || continue
+    flags=$(/sbin/ifconfig "$device" | /usr/bin/awk 'NR == 1 { sub(/ mtu.*/, ""); print }') || return 1
+    [[ -n "$flags" ]] || return 1
+    printf '%s\n' "$flags" >> "$results/routed-interface-flags-$phase.txt"
+    printf '%s\n' "$flags" | /usr/bin/awk 'NR == 1 {
+      if ($0 !~ /flags=[^<]*<[^>]*>/) exit 2
+      if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 1
+    }' || return 1
+  done < <(cat "$results/routes-inet-$phase.txt" "$results/routes-inet6-$phase.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u)
+}
 inventory before
 controls=(https://github.com/ https://raw.githubusercontent.com/rheiger/markWriter/main/README.md)
 for url in "${controls[@]}"; do /usr/bin/curl -fsS --connect-timeout 5 --max-time 10 "$url" -o /dev/null; done
@@ -39,11 +54,13 @@ printf 'interfaces_to_disable=%s\n' "${devices[*]}" >> "$results/network.txt"
 # Restore all originally-UP interfaces on error and from a separate watchdog.
 watchdog=
 restore_interfaces() {
-  local device
-  for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" up || true; done
+  local device failed=0
+  for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" up || failed=1; done
+  return "$failed"
 }
 restore() {
-  restore_interfaces
+  if restore_interfaces; then printf 'exit_restore_commands_succeeded=true\n' >> "$results/network.txt"; else printf 'exit_restore_commands_succeeded=false\n' >> "$results/network.txt"; fi
+  inventory exit-restored || true
   if [[ -n "$watchdog" ]]; then kill "$watchdog" 2>/dev/null || true; wait "$watchdog" 2>/dev/null || true; fi
 }
 trap restore EXIT INT TERM
@@ -58,14 +75,13 @@ for url in "${controls[@]}"; do
 done
 printf 'offline_controls_failed_as_expected=2\n' >> "$results/network.txt"
 inventory offline
-[[ ! -s "$results/routes-inet-offline.txt" && ! -s "$results/routes-inet6-offline.txt" ]] || {
-  echo 'Nonloopback route remains after disabling routed interfaces' >&2; exit 1;
-}
-printf 'no_nonlocal_routes=true\n' >> "$results/network.txt"
+verify_routes_down offline || { echo 'A routed interface is UP or cannot be inspected' >&2; exit 1; }
+printf 'all_routed_interfaces_down=true\n' >> "$results/network.txt"
 MARKWRITER_FINDER_CASES=offline tools/test-finder-dbml-package.sh "$app" "$package" "$results/finder"
 # Verify the watchdog or another service did not restore networking mid-test.
 inventory offline-end
-[[ ! -s "$results/routes-inet-offline-end.txt" && ! -s "$results/routes-inet6-offline-end.txt" ]] || { echo 'Nonlocal route returned during the Finder trial' >&2; exit 1; }
+verify_routes_down offline-end || { echo 'A routed interface became UP or cannot be inspected during Finder trial' >&2; exit 1; }
+printf 'all_routed_interfaces_down_at_end=true\n' >> "$results/network.txt"
 for url in "${controls[@]}"; do
   if /usr/bin/curl -fsS --connect-timeout 3 --max-time 5 "$url" -o /dev/null; then
     echo 'Connectivity returned during the Finder trial' >&2; exit 1
