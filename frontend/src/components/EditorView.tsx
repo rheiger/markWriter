@@ -30,6 +30,7 @@ import { parseInlineCodeDocument, createInlineCodeClipboardParser } from '../lib
 import { TableTools } from './TableTools'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
 import { plantumlRenderer } from '../lib/plantumlRenderer'
+import { addPlantUmlBytes, PLANTUML_DOCUMENT_LIMITS } from '../lib/plantumlBudget'
 import { dotRenderer } from '../lib/dotRenderer'
 import { mathRenderer, createMathBudget } from '../lib/mathRenderer'
 import { FindReplace } from './FindReplace'
@@ -941,15 +942,16 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
       const isPlantUml = element.dataset.type === 'plantuml'
       const label = isPlantUml ? 'PlantUML' : isDbml ? 'DBML' : 'DOT'
       const renderer = isPlantUml ? plantumlRenderer : isDbml ? dbmlRenderer : dotRenderer
-      if (isPlantUml) { plantUmlBlocks++; plantUmlBytes += new TextEncoder().encode(chart).length }
+      if (isPlantUml) { plantUmlBlocks++; plantUmlBytes = addPlantUmlBytes(plantUmlBytes, chart) }
       element.textContent = `Rendering ${label}…`
+      if (isPlantUml) { const source = document.createElement('pre'); source.textContent = chart; element.append(source) }
       const owner = `${documentId}:${doc?.revision ?? 0}:${generation}`
       const ownsPreview = () => {
         const current = useAppStore.getState().currentDocument
         return !abort.signal.aborted && generation === previewGeneration.current && element.isConnected &&
           current?.id === documentId && (current?.revision ?? 0) === map.owner.revision
       }
-      const rendered = isPlantUml && (plantUmlBlocks > 4 || plantUmlBytes > 16_384)
+      const rendered = isPlantUml && (plantUmlBlocks > PLANTUML_DOCUMENT_LIMITS.blocks || plantUmlBytes > PLANTUML_DOCUMENT_LIMITS.inputBytes)
         ? Promise.reject(new Error('PlantUML document budget exceeded'))
         : renderer.render(chart, owner, abort.signal)
       rendered.then(svg => {

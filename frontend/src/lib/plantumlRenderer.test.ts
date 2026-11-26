@@ -9,6 +9,7 @@ class FakeWorker {
   terminated = false
   postMessage(message: { id: number; owner: string; source: string }) { this.message = message }
   terminate() { this.terminated = true }
+  ready() { this.onmessage?.({ data: { ready: true } } as MessageEvent) }
   respond(data: Record<string, unknown>) { this.onmessage?.({ data: { ...this.message, ...data } } as MessageEvent) }
 }
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>Alice</text></svg>'
@@ -28,6 +29,7 @@ it('terminates an over-deadline worker and permits the next request', async () =
   await vi.advanceTimersByTimeAsync(PLANTUML_LIMITS.deadlineMs)
   await failed
   expect(workers[0].terminated).toBe(true)
+  workers[1].ready()
   workers[1].respond({ svg })
   expect(await next).toContain('Alice')
   expect(workers[1].terminated).toBe(true)
@@ -36,11 +38,13 @@ it('ignores a response for another owner and rejects unsafe or oversized output'
   const workers: FakeWorker[] = []
   const renderer = new PlantUmlRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
   const first = renderer.render('one', 'doc:1')
+  workers[0].ready()
   workers[0].respond({ owner: 'doc:other', svg })
   expect(workers[0].terminated).toBe(false)
   workers[0].respond({ svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><script/></svg>' })
   await expect(first).rejects.toThrow()
   const next = renderer.render('two', 'doc:2')
+  workers[1].ready()
   workers[1].respond({ svg: 'x'.repeat(PLANTUML_LIMITS.outputBytes + 1) })
   await expect(next).rejects.toThrow('oversized')
 })

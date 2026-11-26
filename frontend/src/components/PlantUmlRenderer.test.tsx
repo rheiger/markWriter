@@ -11,6 +11,7 @@ it('cancels stale owners and shows failed input as literal source', async () => 
     .mockRejectedValueOnce(new Error('Unsupported syntax'))
   try {
     const view = render(<PlantUmlRenderer chart="old" owner="A:1" />)
+    expect(view.container.querySelector('pre')?.textContent).toBe('old')
     view.rerender(<PlantUmlRenderer chart="<script>source</script>" owner="B:2" />)
     expect(signals[0]?.aborted).toBe(true)
     await act(async () => resolveOld('<svg><text>stale</text></svg>'))

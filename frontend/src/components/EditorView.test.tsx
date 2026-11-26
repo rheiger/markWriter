@@ -53,6 +53,24 @@ describe('document fidelity with real editors', () => {
     } finally { spy.mockRestore() }
   })
 
+  it('enforces the same document block budget in WYSIWYG and Preview after mode changes', async () => {
+    const { plantumlRenderer } = await import('../lib/plantumlRenderer')
+    const spy = vi.spyOn(plantumlRenderer, 'render').mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>rendered</text></svg>')
+    try {
+      const source = Array.from({ length: 5 }, (_, i) => `\`\`\`plantuml\n@startuml\nAlice -> Bob : ${i}\n@enduml\n\`\`\``).join('\n\n')
+      const { ref, container } = await mount(source)
+      await waitFor(() => expect(container.querySelectorAll('.tiptap [data-type="plantuml"] svg')).toHaveLength(4))
+      expect(container.querySelectorAll('.tiptap [data-type="plantuml"]')[4].querySelector('pre')?.textContent).toContain('Alice -> Bob : 4')
+      await markdown(ref)
+      await waitFor(() => expect(container.querySelectorAll('.markwriter-preview [data-type="plantuml"] svg')).toHaveLength(4))
+      expect(container.querySelectorAll('.markwriter-preview [data-type="plantuml"]')[4].querySelector('pre')?.textContent).toContain('Alice -> Bob : 4')
+      await wysiwyg(ref)
+      await waitFor(() => expect(container.querySelectorAll('.tiptap [data-type="plantuml"] svg')).toHaveLength(4))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    } finally { spy.mockRestore() }
+  })
+
   it('keeps live math source edits across mode/tab navigation and supports Undo', async () => {
     const {mathRenderer}=await import('../lib/mathRenderer')
     const spy=vi.spyOn(mathRenderer,'render').mockImplementation(async()=>({html:'<span class="katex">ready</span>',release:()=>{}}))

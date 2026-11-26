@@ -4,6 +4,7 @@ import { dotRenderer } from './dotRenderer'
 import { dbmlRenderer } from './dbmlRenderer'
 import { mathRenderer, createMathBudget } from './mathRenderer'
 import { plantumlRenderer } from './plantumlRenderer'
+import { addPlantUmlBytes, PLANTUML_DOCUMENT_LIMITS } from './plantumlBudget'
 import tokenCss from './codeHighlight.css?inline'
 
 // Use the same parser as Preview; diagrams become inline SVG for offline viewing.
@@ -26,10 +27,10 @@ export async function createHtmlExport(source: string, owner = `export:${crypto.
     try {
       for (const [index, element] of plantuml.entries()) {
         const source = element.getAttribute('data-chart') ?? ''
-        aggregateBytes += new TextEncoder().encode(source).length
+        aggregateBytes = addPlantUmlBytes(aggregateBytes, source)
         element.className = 'plantuml-diagram'
         try {
-          if (abort.signal.aborted || index >= 4 || aggregateBytes > 16_384) throw new Error('PlantUML export budget exceeded')
+          if (abort.signal.aborted || index >= PLANTUML_DOCUMENT_LIMITS.blocks || aggregateBytes > PLANTUML_DOCUMENT_LIMITS.inputBytes) throw new Error('PlantUML export budget exceeded')
           element.innerHTML = await plantumlRenderer.render(source, owner, abort.signal)
         } catch (error) {
           element.replaceChildren()

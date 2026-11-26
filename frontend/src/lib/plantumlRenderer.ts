@@ -44,11 +44,20 @@ export class PlantUmlRenderer {
     const job = this.queue.shift()!; this.active = job
     try {
       const worker = this.worker = this.createWorker()
+      let ready = false
       this.timer = setTimeout(() => this.finish(job, new Error('PlantUML rendering timed out')), PLANTUML_LIMITS.deadlineMs)
       worker.onerror = () => this.finish(job, new Error('PlantUML worker failed'))
       worker.onmessage = event => {
         if (this.active !== job || this.worker !== worker) return
         const data = event.data
+        if (data?.startupError) { this.finish(job, new Error(String(data.startupError).slice(0, 200))); return }
+        if (data?.ready && !ready) {
+          ready = true
+          try { worker.postMessage({ id: job.id, owner: job.owner, source: job.source }) }
+          catch { this.finish(job, new Error('Cannot send PlantUML to the local worker')) }
+          return
+        }
+        if (!ready) return
         if (data?.id !== job.id || data?.owner !== job.owner) return
         try {
           if (data.error) throw new Error(String(data.error).slice(0, 200))
@@ -56,7 +65,6 @@ export class PlantUmlRenderer {
           this.finish(job, undefined, sanitizePlantUmlSvg(data.svg))
         } catch (error) { this.finish(job, error instanceof Error ? error : new Error('PlantUML rendering failed')) }
       }
-      worker.postMessage({ id: job.id, owner: job.owner, source: job.source })
     } catch { this.finish(job, new Error('Cannot start the local PlantUML worker')) }
   }
 }
