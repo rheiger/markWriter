@@ -179,7 +179,8 @@ try {
     const workspace=document.querySelector('.app-workspace')
     return !!bridge?.snapshot().document && bridge.canReviewQuit() && !!workspace && !workspace.inert`
   ), 'initial workspace ready for document operations')
-  assert.equal((await action('open', sourcePath)).document.content, source)
+  const originalTab = (await action('open', sourcePath)).document
+  assert.equal(originalTab.content, source)
 
   // Exercise the desktop menu against a separate CRLF draft. Keep the
   // original fixture and its window-mode baseline for the remaining checks.
@@ -240,7 +241,6 @@ try {
   assert.equal((await snapshot()).document.isDirty, false)
   assert.deepEqual(await readFile(viewPath), Buffer.from(viewSource))
   await action('close', viewDoc.id)
-  const originalTab = (await snapshot()).documents.find(doc => doc.path === sourcePath)
   await action('activate', originalTab.id)
   alpha3Cases.push('View menu checked states, pane focus, read-only Preview, retained source selection/scroll, dirty Close Cancel and byte-exact Undo')
   const expectedVersion = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8')).version
