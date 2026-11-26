@@ -72,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False):
+def visible_point(pattern, screenshot, region=None):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -88,18 +88,6 @@ def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False)
             if row["text"]:
                 key = tuple(row[column] for column in ("block_num", "par_num", "line_num"))
                 lines.setdefault(key, []).append(row)
-        if adjacent_open_rows:
-            # Tesseract can split "With..." from "Open". Pair the aligned
-            # first words of the top two actions in the same context menu.
-            entries = sorted(
-                (int(words[0]["left"]), int(words[0]["top"]), int(words[0]["width"]),
-                 int(words[0]["height"]))
-                for words in lines.values() if words[0]["text"].casefold() == "open"
-            )
-            for x, y, width, height in entries:
-                if any(abs(x - earlier_x) <= 5 and 22 <= y - earlier_y <= 45
-                       for earlier_x, earlier_y, _, _ in entries):
-                    return x + width // 2, y + height // 2
         for words in lines.values():
             label = " ".join(word["text"] for word in words)
             if re.fullmatch(pattern, label, re.IGNORECASE):
@@ -150,10 +138,12 @@ def choose_markwriter(window, path, label, multiple=False):
     if multiple:
         command("xdotool", "key", "ctrl+a")
     # Right-clicking an already selected tile leaves the whole batch selected.
-    command("xdotool", "click", "3")
-    x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
-                         adjacent_open_rows=True)
-    command("xdotool", "mousemove", str(x), str(y), "click", "1")
+    command("xdotool", "click", "3", "sleep", "0.3")
+    command("scrot", str(EVIDENCE / f"{label}-context.png"))
+    # Nautilus puts the chooser under the default open action. A multi-file
+    # selection adds a New Folder row and separator above both open actions.
+    chooser_row_offset = 100 if multiple else 54
+    command("xdotool", "mousemove", str(tile_x + 45), str(tile_y + chooser_row_offset), "click", "1")
     try:
         dialog = wait("Open File dialog window", lambda: window_id(r"^Open (?:File|Items)"), 2)
     except RuntimeError:
