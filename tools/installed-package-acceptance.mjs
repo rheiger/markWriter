@@ -155,7 +155,20 @@ async function verifyDesktopViewControls() {
  const focus = selector => wait(() => run(
   'const e=document.activeElement;return e?.matches(arguments[0]) && e.getBoundingClientRect().height>0', selector), selector + ' focus')
  const dirty = () => run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")')
- const dimensions = () => run('return {width:innerWidth,height:innerHeight}')
+ // Read the actual native flags. Windows can restore a different viewport
+ // than WebDriver requested when resizing against the desktop work area.
+ const stateHistory = {}
+ const expectWindowState = (phase, maximized, fullscreen) => wait(async () => {
+  const state = await run(`
+   const window = globalThis;
+   const { invoke } = window.__TAURI_INTERNALS__;
+   return Promise.all([invoke('plugin:window|is_maximized', {label:'main'}),
+     invoke('plugin:window|is_fullscreen', {label:'main'})]).then(([maximized, fullscreen]) =>
+     ({maximized, fullscreen, width:innerWidth, height:innerHeight}));`)
+  stateHistory[phase] = state
+  await writeFile(join(artifacts, 'desktop-view-window.json'), JSON.stringify(stateHistory, null, 2))
+  return state.maximized === maximized && state.fullscreen === fullscreen
+ }, phase)
  await menu('View', 'Source'); await focus('.cm-content')
  assert.equal(await run('return document.querySelector("[data-active=true] .markwriter-preview").getBoundingClientRect().height'), 0)
  await run(`return document.execCommand('insertText',false,'Dirty ')`)
@@ -168,51 +181,29 @@ async function verifyDesktopViewControls() {
  await closeMenu()
  await menu('View', 'Split'); await focus('.cm-content')
  await wait(() => run(`return document.querySelector('[data-active=true] .markwriter-preview').getBoundingClientRect().height>0`), 'Split displays both panes')
- const rectPath = `/session/${session}/window/rect`
- const before = await dimensions()
- const beforeRect = await request('GET', rectPath)
- const resizedRect = await request('POST', rectPath, { width: 900, height: 650 })
- const bounds = await wait(async () => {
-  const size = await dimensions()
-  return size.width === resizedRect.width - (beforeRect.width - before.width) &&
-    size.height === resizedRect.height - (beforeRect.height - before.height) && size
- }, 'settled unmaximized viewport')
+ await expectWindowState('initial window', false, false)
  await click('//button[normalize-space(.)="Window"]')
  await wait(() => run(`return [...document.querySelectorAll('.menu-dropdown button')].some(b=>!b.disabled&&b.textContent.includes('Enter Full Screen'))`), 'enabled Window fullscreen')
  assert.equal(await run(`return [...document.querySelectorAll('.menu-dropdown button')].find(b=>b.textContent.trim()==='Minimize').disabled`), false)
  await click('//button[normalize-space(.)="Maximize / Restore"]')
- await wait(async () => {
-  const size = await dimensions()
-  return size.width > bounds.width || size.height > bounds.height
- }, 'maximize changes the native viewport')
+ await expectWindowState('native maximize', true, false)
  await focus('.cm-content')
  await menu('Window', 'Maximize / Restore')
- await wait(async () => {
-  const size = await dimensions()
-  return size.width === bounds.width && size.height === bounds.height
- }, 'restore recovers the native viewport')
+ await expectWindowState('native restore', false, false)
  await menu('Window', 'Enter Full Screen')
+ await expectWindowState('native fullscreen', false, true)
  await click('//button[normalize-space(.)="Window"]')
- await wait(() => run(`return [...document.querySelectorAll('.menu-dropdown button')].some(b=>!b.disabled&&b.textContent.includes('Exit Full Screen'))`), 'native fullscreen state entered')
+ await wait(() => run(`return [...document.querySelectorAll('.menu-dropdown button')].some(b=>!b.disabled&&b.textContent.includes('Exit Full Screen'))`), 'fullscreen menu offers exit')
  await click('//button[normalize-space(.)="Exit Full Screen" or .//span[normalize-space(.)="Exit Full Screen"]]')
- await wait(async () => {
-  const size = await dimensions()
-  return size.width === bounds.width && size.height === bounds.height
- }, 'fullscreen exit recovers the native viewport')
+ await expectWindowState('native fullscreen exit', false, false)
  // Press the production shortcut from the editor with the X11/Windows driver.
  const f11 = () => request('POST', `/session/${session}/actions`, { actions: [{ type: 'key', id: 'fullscreen', actions: [
   { type: 'keyDown', value: '\uE03B' }, { type: 'keyUp', value: '\uE03B' },
  ] }] })
  await focus('.cm-content'); await f11()
- await wait(async () => {
-  const size = await dimensions()
-  return size.width > bounds.width || size.height > bounds.height
- }, 'F11 enters fullscreen from editor focus')
+ await expectWindowState('F11 enters fullscreen from editor focus', false, true)
  await f11()
- await wait(async () => {
-  const size = await dimensions()
-  return size.width === bounds.width && size.height === bounds.height
- }, 'F11 exits fullscreen with dirty tab retained')
+ await expectWindowState('F11 exits fullscreen', false, false)
  assert.equal(await dirty(), true)
  await menu('Edit', 'Undo')
  await wait(async () => !(await dirty()), 'source Undo after ordinary view/window commands')
