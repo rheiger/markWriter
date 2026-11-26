@@ -3,7 +3,7 @@
 This is an **experimental research branch**, not a production implementation or
 a Finder acceptance. The repository baseline is `6fd2c22e4acca40ef5318cc58c0a63747cf258a1`.
 The Finder integration uses the pinned `@plantuml/core@1.2026.10`, Smetana, and
-the validator and semantic checker from candidate revision `179ec568bbe993c0bc455f137ca9fc66091ee3b1`.
+the validator and semantic checker from candidate revision `fb7fcdf401be1b4421c6b554d9dc4d5d140b4662`.
 The separate Worker probe uses candidate revision `fba2315`. These snapshots
 must be refreshed and independently reviewed before any integration.
 
@@ -25,6 +25,15 @@ installed provider remained `/Applications/MarkWriter.app/.../MarkWriterQuickLoo
 version 2.19.3. The exact research DMG exists only in the task-owned Mac
 temporary directory unless explicitly retained elsewhere.
 
+A later research DMG with checker `fb7fcdf` has SHA-256
+`dd42b25d0a68580dc0710c140a5bc75aa42a01189ffe1941e7bda413c5772690`
+and size 14,235,500 bytes. Its 9,827,672-byte script has SHA-256
+`bce6606957cca6883fa2e236e5aa92356f36ddae5e87339dd2c7d99960e81d6d`.
+Strict seal and direct-probe receipts are in `results-fb7fcdf/`. These are
+also interim: subsequent independent review identified unchecked mutations of
+arrowhead direction, participant lifelines, visibility markers and actor body
+geometry. No claim is made that the natural engine emitted those defects.
+
 ## Direct WebKit renderer
 
 On arm64 macOS 27.2.1, `direct-finder-plantuml.swift` called the unchanged
@@ -35,6 +44,9 @@ in `results-f51ba5d/`. Sequence first/second calls took 480/358 ms and class
 385 ms. These are single observations with no verified cold-start condition.
 The probe's high-water RSS was 163,774,464 bytes; it excludes separate WebKit
 content processes and is not total or peak system memory.
+For the `fb7fcdf` package, the same probe passed all ten cases, with first and
+second sequence calls at 1,114 and 414 ms, class at 453 ms, and probe-only
+peak RSS 163,414,016 bytes. These are also single non-cold observations.
 
 Sequence/class produced images and retained source. Rejected local include,
 loopback include, external image, missing theme, malformed and oversized cases

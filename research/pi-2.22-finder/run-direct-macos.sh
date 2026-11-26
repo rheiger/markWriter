@@ -13,7 +13,10 @@ pid=
 mounted=false
 cleanup() {
   if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
-  if [[ "$mounted" == true ]]; then hdiutil detach -quiet "$work/mount" || true; fi
+  if [[ "$mounted" == true ]] && ! hdiutil detach -quiet "$work/mount"; then
+    echo "Could not detach read-only research image; retained $work" >&2
+    return 1
+  fi
   rm -rf -- "$work"
 }
 trap cleanup EXIT
