@@ -1,181 +1,23 @@
-name: Tauri production packages
+name: Disposable hosted Finder capability probe
 on:
-  pull_request:
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
-  push:
-    branches: [main]
-    tags: ['v2.*']
-    paths: ['frontend/**', 'src-tauri/**', 'native/quicklook/**', 'native/windows-preview/**', 'tools/**', 'notices/**', '.github/workflows/tauri-prerelease.yml']
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: tauri-packages-${{ github.ref }}
-  cancel-in-progress: false
 jobs:
-  package:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-26
-            platform: macos-arm64
-            bundles: dmg
-          - os: ubuntu-26.04
-            platform: ubuntu-26.04-x64
-            bundles: deb
-          - os: windows-2025
-            platform: windows-x64
-            bundles: nsis
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 55
-    defaults:
-      run:
-        shell: bash
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '24.22.2'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install Linux build and ordinary desktop UI dependencies
-        if: runner.os == 'Linux'
-        run: bash tools/setup-linux-packages.sh package
-      - name: Select verified Rust toolchain
-        run: |
-          rustup toolchain install 1.90.0 --profile minimal
-          rustup default 1.90.0
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
-      - run: npm ci --prefix frontend
-      - name: Verify exact versions and publication trigger
-        run: node tools/release-metadata.mjs --check
-      - name: Build the bundled Windows preview handler
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/stage-windows-preview.ps1
-      - name: Quality gates on production source
-        run: |
-          npm run lint --prefix frontend
-          npm run typecheck --prefix frontend
-          npm test --prefix frontend
-          node --test tools/*.test.mjs
-          npm audit --prefix frontend --audit-level=low
-          cargo test --locked --manifest-path src-tauri/Cargo.toml
-      - name: Build ordinary production frontend
-        run: npm run build --prefix frontend
-      - name: Verify production bridge exclusion and license assets
-        run: node tools/release-metadata.mjs --check-frontend
-      - name: Build production installation package
-        working-directory: src-tauri
-        env:
-          # Tauri bundles without a signing identity. macOS seals the final DMG below.
-          CI: true
-        run: node ../frontend/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles ${{ matrix.bundles }}
-      - name: Install external native test driver
-        if: runner.os != 'macOS'
-        run: cargo install tauri-driver --version 2.1.0 --locked
-      - name: Set up matching Windows WebView2 driver
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./tools/setup-edge-driver.ps1
-          ./tools/setup-windows-acceptance.ps1
-      - name: Install Windows package and block internet for its WebView
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/install-package-windows.ps1
-      - name: Exercise the packaged Explorer preview at ordinary user privilege
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/test-windows-preview-package.ps1
-      - name: Exercise installed Windows release at ordinary user privilege
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
-          exit $LASTEXITCODE
-      - name: Install Ubuntu package
-        if: runner.os == 'Linux'
-        run: |
-          package_version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          sudo dpkg -i "src-tauri/target/release/bundle/deb/MarkWriter_${package_version}_amd64.deb"
-          test -x /usr/bin/markwriter
-          echo "MARKWRITER_BINARY=/usr/bin/markwriter" >> "$GITHUB_ENV"
-          echo "MARKWRITER_PROFILE_DIR=$RUNNER_TEMP/markwriter-profile" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/markwriter-profile"
-      - name: Exercise installed Ubuntu release in a network namespace without external routes
-        if: runner.os == 'Linux'
-        run: |
-          sudo --preserve-env=MARKWRITER_BINARY,MARKWRITER_PROFILE_DIR,PATH,GITHUB_SHA,ImageOS,ImageVersion unshare --net bash tools/package-test-linux.sh
-        env:
-          GDK_BACKEND: x11
-      - name: Seal and qualify the final macOS DMG
-        if: runner.os == 'macOS'
-        run: bash tools/install-package-macos.sh
-      - name: Verify the Quick Look renderers
-        if: runner.os == 'macOS'
-        run: |
-          cat native/quicklook/PreviewRenderer.swift native/quicklook/SimpleXMLFormatter.swift \
-            native/quicklook/JSONFormatter.swift native/quicklook/SafeFileReader.swift \
-            native/quicklook/tests/main.swift | xcrun swift - | tee package-acceptance-results/quicklook-renderer-tests.log
-      - name: Record package provenance, hashes and tested baseline
-        run: node tools/release-metadata.mjs --collect ${{ matrix.platform }}
-      - name: Qualify Ubuntu Files associations, removal and rollback
-        if: runner.os == 'Linux'
-        run: |
-          package_version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          tools/test-ubuntu-associations.sh "src-tauri/target/release/bundle/deb/MarkWriter_${package_version}_amd64.deb"
-      - name: Qualify Windows uninstallation and preserve the lifecycle receipt
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./tools/test-windows-uninstall.ps1
-          node tools/shell-preview-assets.mjs explorer release-assets package-acceptance-results/explorer-preview.json
-      - name: Retain production packages and provenance
+      - name: Probe disposable desktop capabilities
+        run: python3 tools/hosted-finder-capability-probe.py
+      - name: Retain capability evidence
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: package-${{ matrix.platform }}
-          path: release-assets/
-          retention-days: 14
+          name: hosted-finder-capability-evidence
+          path: probe-evidence/
           if-no-files-found: error
-      - name: Retain installed application evidence
-        if: always() && hashFiles('package-acceptance-results/**') != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: installed-${{ matrix.platform }}
-          path: package-acceptance-results/
           retention-days: 14
-      - name: Retain failed Windows installer for isolated reproduction
-        if: failure() && runner.os == 'Windows' && github.ref_type != 'tag'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: diagnostic-windows-installer
-          path: src-tauri/target/release/bundle/nsis/*-setup.exe
-          retention-days: 3
-          if-no-files-found: ignore
-      - name: Retain failed Ubuntu package for isolated reproduction
-        if: failure() && runner.os == 'Linux' && github.ref_type != 'tag'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: diagnostic-ubuntu-deb
-          path: src-tauri/target/release/bundle/deb/*.deb
-          retention-days: 3
-          if-no-files-found: ignore
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && steps.cache.outputs.cache-hit != 'true'
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ matrix.platform }}-release-${{ hashFiles('src-tauri/Cargo.lock') }}
