@@ -109,14 +109,16 @@ kill -0 "$monitor_pid" 2>/dev/null || { echo 'Route monitor stopped unexpectedly
 kill "$monitor_pid" 2>/dev/null || true
 wait "$monitor_pid" 2>/dev/null || true
 monitor_pid=
-# Disarm the watchdog before checking its marker, closing the restore/check race.
-kill "$watchdog" 2>/dev/null || true
-wait "$watchdog" 2>/dev/null || true
-watchdog=
-[[ ! -e "$results/monitor-failed.txt" && ! -e "$results/watchdog-fired.txt" ]] || { echo 'Route monitor failed or watchdog fired' >&2; exit 1; }
+[[ ! -e "$results/monitor-failed.txt" ]] || { echo 'Route monitor failed' >&2; exit 1; }
 [[ $(/usr/bin/grep -c '^sample=' "$results/interface-samples.txt") -ge 2 ]] || { echo 'Insufficient route-monitor samples' >&2; exit 1; }
 printf 'route_monitor_completed_without_failure=true\n' >> "$results/network.txt"
 restore_interfaces
+# The watchdog remains armed until restoration commands finish. Its marker
+# invalidates evidence if it fired, including while restoration was underway.
+kill "$watchdog" 2>/dev/null || true
+wait "$watchdog" 2>/dev/null || true
+watchdog=
+[[ ! -e "$results/watchdog-fired.txt" ]] || { echo 'Watchdog fired during the offline trial' >&2; exit 1; }
 printf 'interfaces_restore_attempted=true\n' >> "$results/network.txt"
 for ((attempt=0; attempt<20; attempt++)); do
   recovered=true
