@@ -1,0 +1,126 @@
+{
+  "cases" : [
+    {
+      "case" : "sequence-first",
+      "elapsedMs" : 713,
+      "expectedImage" : true,
+      "image" : true,
+      "matched" : true,
+      "probePeakRssBytes" : 142360576,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "sequence-warm",
+      "elapsedMs" : 391,
+      "expectedImage" : true,
+      "image" : true,
+      "matched" : true,
+      "probePeakRssBytes" : 162988032,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "class",
+      "elapsedMs" : 414,
+      "expectedImage" : true,
+      "image" : true,
+      "matched" : true,
+      "probePeakRssBytes" : 163217408,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "class-private-field",
+      "elapsedMs" : 399,
+      "expectedImage" : true,
+      "image" : true,
+      "matched" : true,
+      "probePeakRssBytes" : 163282944,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "local-include",
+      "elapsedMs" : 279,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163332096,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "network-include",
+      "elapsedMs" : 276,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163414016,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "remote-image",
+      "elapsedMs" : 272,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163463168,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "missing-theme",
+      "elapsedMs" : 279,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163577856,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "malformed",
+      "elapsedMs" : 284,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163627008,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "oversized",
+      "elapsedMs" : 282,
+      "expectedImage" : false,
+      "image" : false,
+      "matched" : true,
+      "probePeakRssBytes" : 163692544,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    },
+    {
+      "case" : "sequence-after-rejections",
+      "elapsedMs" : 382,
+      "expectedImage" : true,
+      "image" : true,
+      "matched" : true,
+      "probePeakRssBytes" : 163758080,
+      "renderReturned" : true,
+      "secretLeaked" : false,
+      "sourcePreserved" : true
+    }
+  ],
+  "scope" : "Direct WKWebView using a script copied from an experimental staged app; not packaged-provider or Finder acceptance"
+}
