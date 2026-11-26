@@ -99,12 +99,13 @@ for ((attempt=0; attempt<20; attempt++)); do
   if [[ "$recovered" == true ]]; then
     printf 'online_after_controls=2\n' >> "$results/network.txt"
     inventory after
+    cmp "$results/interfaces-before.txt" "$results/interfaces-after.txt"
     cmp "$results/routes-inet-before.txt" "$results/routes-inet-after.txt"
     cmp "$results/routes-inet6-before.txt" "$results/routes-inet6-after.txt"
     for device in "${devices[@]}"; do
       /sbin/ifconfig "$device" | /usr/bin/awk 'NR==1 { if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 0; exit 1 }'
     done
-    printf 'route_inventory_and_up_flags_restored=true\n' >> "$results/network.txt"
+    printf 'route_inventory_and_interface_flags_restored=true\n' >> "$results/network.txt"
     exit 0
   fi
   sleep 1
