@@ -129,6 +129,60 @@ try {
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
   await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'post-timeout preview succeeds')
   console.error('post-timeout preview rendered')
+  // Acceptance-only transport interception. The real emitted validation Worker
+  // is constructed and signals ready, but two uniquely marked messages are
+  // withheld. This tests controller timeout/cancellation and visible source
+  // without modifying production worker bytes or claiming busy-worker timing.
+  await run(`{
+    const Original=window.Worker; window.__mwValidatorProbe={events:[],Original}; let serial=0;
+    function Wrapped(...args) {
+      const worker=new Original(...args), url=String(args[0]);
+      if (url.includes('plantUmlValidateWorker-')) {
+        const instance=++serial, post=worker.postMessage.bind(worker), terminate=worker.terminate.bind(worker);
+        let withheld=false;
+        worker.postMessage=function(data,...rest) {
+          const source=typeof data?.source==='string'?data.source:'';
+          const label=source.includes('MWValidatorTimeout')?'timeout':source.includes('MWValidatorCancel')?'cancel':null;
+          if(label){withheld=true;window.__mwValidatorProbe.events.push({event:'withheld',instance,label,id:data.id,owner:data.owner,url});return}
+          return post(data,...rest)
+        };
+        worker.terminate=function(){if(withheld)window.__mwValidatorProbe.events.push({event:'terminated',instance});return terminate()}
+      }
+      return worker
+    }
+    Wrapped.prototype=Original.prototype;window.Worker=Wrapped;
+  }`)
+  const validatorSource = label => `@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: MWValidator${label}\n@enduml`
+  const validatorFixture = join(temp, 'validator-timeout.md')
+  await writeFile(validatorFixture, '```plantuml\n' + validatorSource('Timeout') + '\n```\n')
+  const validatorStart = Date.now()
+  await action('open', validatorFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === validatorFixture, 'validator timeout document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  const validatorRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='timeout')`), 'validator request withheld')
+  assert.ok(validatorRequest.url.includes('plantUmlValidateWorker-'))
+  await wait(() => run(`const e=document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml]');return e?.textContent.includes('timed out')&&e.querySelector('pre')?.textContent.includes('MWValidatorTimeout')`), 'validator timeout shows source fallback', 15000)
+  const validatorTimeoutMs = Date.now() - validatorStart
+  assert.ok(validatorTimeoutMs >= 4000 && validatorTimeoutMs < 15000, `Validator timeout took ${validatorTimeoutMs} ms`)
+  assert.equal(await run(`return window.__mwValidatorProbe.events.some(e=>e.event==='terminated'&&e.instance===arguments[0])`, validatorRequest.instance), true)
+  await action('open', nextFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === nextFixture, 'post-validator-timeout document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'preview succeeds after validator timeout')
+  const cancelFixture = join(temp, 'validator-cancel.md')
+  await writeFile(cancelFixture, '```plantuml\n' + validatorSource('Cancel') + '\n```\n')
+  await action('open', cancelFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === cancelFixture, 'validator cancellation document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  const cancelRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='cancel')`), 'validator cancellation request withheld')
+  assert.equal(await run(`return document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] pre')?.textContent.includes('MWValidatorCancel')`), true)
+  await action('open', nextFixture)
+  await wait(() => run(`return window.__mwValidatorProbe.events.some(e=>e.event==='terminated'&&e.instance===arguments[0])`, cancelRequest.instance), 'cancelled validator terminated')
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === nextFixture, 'post-cancellation document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'preview succeeds after validator cancellation')
+  await run(`window.Worker=window.__mwValidatorProbe.Original`)
+  console.error('validator timeout and cancellation fallback verified')
   const hostile = [
     '@startuml\n!theme missing\n@enduml',
     `@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: <img:${canaryBase}/image>\n@enduml`,
@@ -178,7 +232,7 @@ try {
     return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + 'RecoveryMarker')
   }, 'synthetic draft recovered')
   assert.ok(recovered)
-  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, validationWorker:validationPolicy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous worker delay; fallback displayed, next preview succeeded', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
+  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs,validatorTimeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, validationWorker:validationPolicy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous renderer Worker delay; fallback displayed, next preview succeeded', controlledValidator:'test harness withheld a specific request after the real validation Worker signalled ready; timeout and document-switch cancellation terminated the correlated Worker, source remained visible and next previews succeeded; no validator execution-time claim', pageControl, resourceCanary:'acceptance-instrumented renderer Worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to renderer CSP.' }, null, 2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE', `/session/${session}`).catch(() => {})
