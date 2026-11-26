@@ -1,0 +1,34 @@
+{
+  "source": "ce882d781441c8376f69f52da5b27bf3f3a5f83e",
+  "buildRun": "45878938169",
+  "platform": "ubuntu-26.04-x64",
+  "asset": {
+    "name": "MarkWriter-2.21.1-ubuntu-26.04-x64.deb",
+    "size": 10130394,
+    "sha256": "9d4883830c9690ae0e541d4ff03c48eeac2344a4d6d31aa80badb3b1aae61344"
+  },
+  "binaryInspection": {
+    "format": "ELF",
+    "architecture": "x64",
+    "sha256": "710029ef671df8597e80bdc523f635f01497485b4bbd414b211ca10149fc9abf",
+    "details": "ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=732e674630d99445be6aedc410c3c50fc4d3106e, not stripped"
+  },
+  "signing": {
+    "status": "unsigned",
+    "trusted": false
+  },
+  "frontend": [
+    {
+      "path": "THIRD_PARTY_NOTICES.txt",
+      "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+    },
+    {
+      "path": "assets/plantUmlValidateWorker-cNWp55nD.js",
+      "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4"
+    },
+    {
+      "path": "assets/plantUmlWorker-sdgHgbmA.js",
+      "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf"
+    }
+  ]
+}
