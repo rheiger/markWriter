@@ -1,0 +1,95 @@
+native app ready
+worker response policy verified
+worker resource probes rejected
+validation Worker rejects external-resource and error SVG cases
+synthetic fixture opened
+WYSIWYG diagrams rendered
+Preview diagrams rendered
+self-contained HTML exported
+controlled timeout fixture opened
+controlled timeout fallback displayed
+post-timeout preview rendered
+validator timeout and cancellation fallback verified
+hostile and oversized source preserved
+synthetic recovery edit made
+synthetic recovery checkpoint captured
+{
+  "result": "pass",
+  "target": "Linux WebKitGTK native acceptance build, not installed package",
+  "binary": "/home/rheiger/Dev/markwriter-pi222-validation-artifacts/build-target/debug/markwriter",
+  "timingsMs": {
+    "wysiwygMs": 3044,
+    "previewMs": 3587,
+    "exportMs": 3369,
+    "timeoutMs": 5318,
+    "validatorTimeoutMs": 5348
+  },
+  "memory": {
+    "count": 159,
+    "peakSampledRssKiB": 918936,
+    "maxProcesses": 3,
+    "description": "sampled sum of RSS for app and descendant processes; shared pages may be double counted and short peaks missed"
+  },
+  "exportBytes": 7694,
+  "worker": {
+    "type": "text/javascript",
+    "sha256": "c6f1e44b93443b5d5c80dfd21bfec5499c96afa7ae56ac27973b00db0edb4705",
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "status": 200,
+    "url": "tauri://localhost/assets/plantUmlWorker-B42-jeyT.js"
+  },
+  "validationWorker": {
+    "type": "text/javascript",
+    "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4",
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "status": 200,
+    "url": "tauri://localhost/assets/plantUmlValidateWorker-cNWp55nD.js"
+  },
+  "validationNegativeCases": [
+    "network-image",
+    "local-image",
+    "error-svg-success"
+  ],
+  "fixtureUnchanged": true,
+  "undoAndRecovery": "isolated synthetic buffer",
+  "controlledTimeout": "one acceptance-only synchronous renderer Worker delay; fallback displayed, next preview succeeded",
+  "controlledValidator": "test harness withheld a specific request after the real validation Worker signalled ready; timeout and document-switch cancellation terminated the correlated Worker, source remained visible and next previews succeeded; no validator execution-time claim",
+  "validatorCorrelation": {
+    "timeout": {
+      "instance": 1,
+      "label": "timeout",
+      "url": "/assets/plantUmlValidateWorker-cNWp55nD.js",
+      "event": "withheld",
+      "id": 17,
+      "owner": "2c73e5dd-a643-4b0d-8c7b-751d9943cc15:0:3"
+    },
+    "cancellation": {
+      "instance": 3,
+      "label": "cancel",
+      "url": "/assets/plantUmlValidateWorker-cNWp55nD.js",
+      "event": "withheld",
+      "id": 21,
+      "owner": "e062ac65-f7c0-42e0-9b30-cfe6201e921f:0:3"
+    }
+  },
+  "pageControl": {
+    "origin": "tauri://localhost",
+    "protocol": "tauri:",
+    "secure": true,
+    "requests": [
+      {
+        "type": "cors",
+        "httpStatus": 200,
+        "status": "fulfilled"
+      },
+      {
+        "type": "opaque",
+        "httpStatus": 0,
+        "status": "fulfilled"
+      }
+    ],
+    "violations": [],
+    "serverReceipts": 2
+  },
+  "resourceCanary": "acceptance-instrumented renderer Worker HTTP, file and same-origin asset fetch rejected; validation Worker rejected external-image SVG without server receipt; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to renderer CSP."
+}
