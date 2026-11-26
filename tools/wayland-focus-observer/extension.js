@@ -30,6 +30,7 @@ export default class FocusObserver extends Extension {
                 time: GLib.get_monotonic_time() / 1000000,
                 title: window?.get_title(),
                 app: window?.get_wm_class(),
+                pid: window?.get_pid(),
                 wayland: window?.get_client_type() === Meta.WindowClientType.WAYLAND,
             });
             GLib.file_set_contents(path, JSON.stringify(history, null, 2));

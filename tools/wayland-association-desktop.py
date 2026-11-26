@@ -7,7 +7,6 @@ The focus observer records which native surface has keyboard focus.
 import csv
 import io
 import json
-import os
 import re
 import subprocess
 import time
@@ -147,7 +146,7 @@ def raise_files():
 
 def launch_files(directory, label):
     with (EVIDENCE / f"{label}-files.log").open("w") as log:
-        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log, env=dict(os.environ, WAYLAND_DEBUG="client"))
+        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
     time.sleep(2)
     screenshot(f"{label}-startup")
     if not is_files(current_focus()):
@@ -163,6 +162,11 @@ def click_label(pattern, label, region=None):
     x, y = visible_point(pattern, label, region)
     seat.move(x, y)
     seat.click()
+
+
+def forwarded_activation_count():
+    trace = (ROOT / "handoff-dbus.log").read_text()
+    return trace.count('string "activation-token"')
 
 
 def dispatch(path, label, check, *, multiple=False):
@@ -186,6 +190,7 @@ def dispatch(path, label, check, *, multiple=False):
     seat.move(title_x + 175, title_y)
     before = current_focus()
     assert is_files(before), before
+    token_count = forwarded_activation_count()
     dispatched_at = time.monotonic()
     seat.click()
     result = wait(f"{label} delivery", check)
@@ -196,6 +201,7 @@ def dispatch(path, label, check, *, multiple=False):
     phase = {
         "sentWithFilesFocused": True,
         "delivered": True,
+        "activationTokenForwarded": forwarded_activation_count() > token_count,
         "editorEverFocused": any(is_editor(window) for window in transitions),
         "editorInForeground": bool(is_editor(after)),
         "focusBefore": before,
@@ -269,6 +275,9 @@ def audit():
     for path, content in originals.items():
         assert path.read_bytes() == content and path.stat().st_mtime_ns == mtimes[path]
     assert mime_state()["default"] == baseline["default"], mime_state()
+    for phase in (warm_focus, dirty_reopen, batch):
+        if phase["editorInForeground"]:
+            assert phase["focusAfter"]["pid"] == editor_focus["pid"], phase
     return {
         "compositor": "GNOME Shell headless Wayland",
         "nativeWaylandClients": True,
@@ -285,7 +294,17 @@ def audit():
 
 if __name__ == "__main__":
     seat = WaylandSeat()
+    trace = ROOT / "handoff-dbus.log"
+    # Keep opaque activation tokens in the disposable profile. The retained
+    # receipt records their presence without including the token values.
+    with trace.open("w") as output:
+        monitor = subprocess.Popen([
+            "dbus-monitor", "--session",
+            "type='method_call',interface='org.freedesktop.Application',"
+            "path_namespace='/com/markwriter/app/Shell'",
+        ], stdout=output)
     try:
+        wait("private handoff monitor", lambda: "member=NameAcquired" in trace.read_text())
         install_incumbent()
         result = audit()
         (EVIDENCE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -296,3 +315,6 @@ if __name__ == "__main__":
         except GLib.Error:
             pass
         raise
+    finally:
+        monitor.terminate()
+        monitor.wait(timeout=5)
