@@ -106,5 +106,16 @@ it('keeps the clicked diagram block when a later collapsed SVG caret points into
     expect(view.state.selection.main.from).toBe(source.indexOf('```dot'))
     document.dispatchEvent(new Event('selectionchange'))
     expect(view.state.selection.main.from).toBe(source.indexOf('```dot'))
+    root.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }))
+    document.dispatchEvent(new Event('selectionchange'))
+    expect(view.state.selection.main.from).toBe(source.lastIndexOf('```dot'))
+    // A noncollapsed selection is also a real selection change, not the
+    // collapsed post-click caret that needs suppression.
+    first.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    first.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    range.setStart(secondText, 0); range.setEnd(secondText, 3)
+    selection.removeAllRanges(); selection.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+    expect(view.state.selection.main.from).toBe(source.lastIndexOf('```dot'))
   } finally { sync.dispose(); scroller.remove(); window.getSelection()?.removeAllRanges(); vi.unstubAllGlobals() }
 })
