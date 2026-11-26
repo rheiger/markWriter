@@ -45,7 +45,12 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
 /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook > "$results/registration.txt" 2>&1 || true
 # Record the process state before the first request; do not claim cold start if present.
 /bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable) && $0 !~ /awk/' > "$results/process-before.txt"
-for name in representative multiple fallback oversized; do
+case "${MARKWRITER_FINDER_CASES:-all}" in
+  all) cases=(representative multiple fallback oversized) ;;
+  offline) cases=(representative fallback) ;;
+  *) echo 'Unknown Finder fixture set' >&2; exit 1 ;;
+esac
+for name in "${cases[@]}"; do
   # An existing window could otherwise be mistaken for the new preview.
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder"' -e 'if exists window "Quick Look" then key code 53' -e 'end tell'
   sleep 1
