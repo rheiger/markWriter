@@ -32,15 +32,27 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
   printf '// FINAL-SENTINEL\n```\n'
 } > "$work/oversized.md"
 {
-  printf '# Bounded dense Finder DBML\n\n```dbml\n'
-  for ((i=0;i<40;i++)); do printf 'Table t%d { id int [pk] }\n' "$i"; done
-  for ((i=0;i<100;i++)); do
-    left=$((i % 40)); right=$(((left + 1 + 13 * (i / 40)) % 40))
-    printf 'Ref: t%d.id > t%d.id\n' "$left" "$right"
+  printf '# Bounded dense Finder DBML stress\n\n'
+  for ((diagram=0;diagram<4;diagram++)); do
+    printf '```dbml\n'
+    for ((i=0;i<40;i++)); do printf 'Table d%dt%d { id int [pk] }\n' "$diagram" "$i"; done
+    for ((i=0;i<120;i++)); do
+      left=$((i % 40)); right=$(((left + 1 + 13 * (i / 40)) % 40))
+      printf 'Ref: d%dt%d.id > d%dt%d.id\n' "$diagram" "$left" "$diagram" "$right"
+    done
+    printf '// DIAGRAM-%d-FINAL-STRESS-SENTINEL\n```\n\n' "$diagram"
   done
-  printf '// FINAL-STRESS-SENTINEL\n```\n'
 } > "$work/stress.md"
-[[ $(wc -c < "$work/stress.md") -lt 8192 ]] || { echo 'Stress fixture exceeds Finder per-block limit' >&2; exit 1; }
+# ASCII fixture: bytes equal UTF-16 code units. Bound each code block and aggregate.
+/usr/bin/python3 - "$work/stress.md" > "$results/stress-limits.txt" <<'PYLIMITS'
+import pathlib, sys
+text = pathlib.Path(sys.argv[1]).read_text()
+blocks = [part.split('\n```', 1)[0] for part in text.split('```dbml\n')[1:]]
+sizes = [len(b.encode('utf-16-le')) // 2 for b in blocks]
+print(f'block_utf16_units={sizes} aggregate_utf16_units={sum(sizes)}')
+assert len(sizes) == 4 and all(n <= 8192 for n in sizes) and sum(sizes) <= 16384
+PYLIMITS
+cp "$work/stress.md" "$results/stress-fixture.md"
 /usr/bin/sw_vers > "$results/system.txt"
 /usr/bin/uname -m >> "$results/system.txt"
 /usr/bin/shasum -a 256 "$package" "$executable" "$script" > "$results/package-hashes.txt"

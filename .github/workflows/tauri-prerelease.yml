@@ -87,10 +87,7 @@ jobs:
           trap - EXIT
           /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
           /usr/bin/pluginkit -a "$app/$ext"
-          tools/test-finder-dbml-package.sh "$app" "$package" probe-evidence/finder
-      - name: Exercise Finder with route interfaces disabled
-        run: |
-          tools/test-finder-offline-diagnostic.sh "$RUNNER_TEMP/test-app/MarkWriter.app" "$RUNNER_TEMP/candidate/$PACKAGE_NAME" probe-evidence/offline
+          MARKWRITER_FINDER_CASES=stress tools/test-finder-dbml-package.sh "$app" "$package" probe-evidence/finder
       - name: Retain Finder evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
