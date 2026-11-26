@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.20.2
+
+- Choose Source, Split, read-only Preview or WYSIWYG from the View menu. Switch views on the active tab while keeping its Markdown, unsaved edits and editor histories. The offline User Guide explains each view. [#171](https://github.com/rheiger/markWriter/issues/171)
+- On Windows and Linux, use the Window menu to minimize, maximize or restore, and enter or exit full screen. F11 toggles full screen. On macOS, use the system Window menu. [#171](https://github.com/rheiger/markWriter/issues/171)
+- Pass the activation request through when Ubuntu Files opens Markdown into an existing MarkWriter instance under GNOME Wayland. [#177](https://github.com/rheiger/markWriter/issues/177)
+
+[Release notes](docs/releases/2.20.2.md) · [Installation and rollback](docs/install-2.20.2.md)
+
 ## 2.19.3
 
 - Open local Markdown files in the existing MarkWriter profile from Ubuntu GNOME Files. [#169](https://github.com/rheiger/markWriter/issues/169)
