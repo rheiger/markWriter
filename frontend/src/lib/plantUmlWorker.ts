@@ -18,6 +18,12 @@ try {
     try {
       if (typeof source !== 'string' || typeof owner !== 'string' || !Number.isSafeInteger(id)) throw new Error('Invalid PlantUML request')
       validatePlantUml(source)
+      // Acceptance-only synthetic request: prove that the host terminates a
+      // busy worker at its deadline and subsequently handles another diagram.
+      if (import.meta.env.MODE === 'acceptance' && source === '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: MWTimeoutProbe\n@enduml\n') {
+        const end = Date.now() + 8000
+        while (Date.now() < end) { /* deliberately block this test worker */ }
+      }
       renderToString(source.split(/\r?\n/), svg => {
         if (typeof svg !== 'string' || svg.length > PLANTUML_LIMITS.outputBytes || new TextEncoder().encode(svg).length > PLANTUML_LIMITS.outputBytes) {
           scope.postMessage({id, owner, error:'PlantUML output limit exceeded'}); return

@@ -106,6 +106,22 @@ try {
   assert.equal(hits, 0, 'Unsupported document URL did not reach the canary server')
   const positive = await fetch(`http://127.0.0.1:${port}/positive`)
   assert.equal(await positive.text(), 'synthetic-canary'); assert.equal(hits, 1)
+  const timeoutChart = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: MWTimeoutProbe\n@enduml'
+  const timeoutFixture = join(temp, 'timeout.md'), nextFixture = join(temp, 'next.md')
+  await writeFile(timeoutFixture, '```plantuml\n' + timeoutChart + '\n```\n')
+  await writeFile(nextFixture, '```plantuml\n' + sequence + '\n```\n')
+  const timeoutStart = Date.now()
+  await action('open', timeoutFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === timeoutFixture, 'controlled timeout document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  await wait(() => run(`const e=document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml]');return e?.textContent.includes('timed out') && e.querySelector('pre')?.textContent.includes('MWTimeoutProbe')`), 'controlled timeout shows source fallback', 15000)
+  const timeoutMs = Date.now() - timeoutStart
+  assert.ok(timeoutMs >= 4000 && timeoutMs < 15000, `Controlled timeout took ${timeoutMs} ms`)
+  await action('open', nextFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === nextFixture, 'post-timeout document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'post-timeout preview succeeds')
+  await action('activate', state.id)
   // Dirty only the isolated synthetic fixture's editor buffer, verify Undo,
   // checkpoint it, and kill/restart only the app owned by this test driver.
   const edit = async () => {
@@ -128,7 +144,7 @@ try {
     return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + '\nRecovery marker')
   }, 'synthetic draft recovered')
   assert.ok(recovered)
-  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
+  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous worker delay; fallback displayed, next preview succeeded', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE', `/session/${session}`).catch(() => {})
