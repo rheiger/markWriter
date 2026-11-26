@@ -1,4 +1,46 @@
 {
+  "@plantuml/core@1.2026.10": [
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/EPL-1.0.txt",
+      "sha256": "f3d8dc494be2e7ea9cd31ac2fb902e35dce7ff8181b9b30d05861b47c339cb25",
+      "path": "notices/upstream/f3d8dc494be2e7ea9cd31ac2fb902e35dce7ff8181b9b30d05861b47c339cb25.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "path": "notices/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/NOTICE",
+      "sha256": "6c2b3372a6beee7fbaad482248ac0f5ad2b099d92ff2a528c04261cc9c0636f4",
+      "path": "notices/upstream/6c2b3372a6beee7fbaad482248ac0f5ad2b099d92ff2a528c04261cc9c0636f4.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ymnk/jzlib/9d0fcb95caad5f205d849928087b2efa202be4d4/LICENSE.txt",
+      "sha256": "9aa93e9bc58ae423a9e6476f608ee8f46063f5679e3bac0bc55f2f4b10d243ee",
+      "path": "notices/upstream/9aa93e9bc58ae423a9e6476f608ee8f46063f5679e3bac0bc55f2f4b10d243ee.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madler/zlib/14763ac7c6c03bca62c39e35c03cf5bfc7728802/README",
+      "sha256": "a3dca6792d71e5439b49bd7d50b4fd1972d5712195e87286e08fca18fcfcf93a",
+      "path": "notices/upstream/a3dca6792d71e5439b49bd7d50b4fd1972d5712195e87286e08fca18fcfcf93a.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/plantuml/plantuml/a00eddaf700c0681a642ddd11c4f95e0ade8cdc9/src/main/java/org/openpdf/LICENSE.md",
+      "sha256": "2871df1214ef307b156fec26e82bb42647227994db859da516a3672b9f65da8d",
+      "path": "notices/upstream/2871df1214ef307b156fec26e82bb42647227994db859da516a3672b9f65da8d.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/MPL-1.1.txt",
+      "sha256": "6214f8b1300bb9f37b16ebc146f8f61af0187e0025042ff95c8b3030744a8795",
+      "path": "notices/upstream/6214f8b1300bb9f37b16ebc146f8f61af0187e0025042ff95c8b3030744a8795.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/MPL-2.0.txt",
+      "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172",
+      "path": "notices/upstream/66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172.txt"
+    }
+  ],
   "@viz-js/viz@3.31.0": [
     {
       "url": "https://raw.githubusercontent.com/mdaines/viz-js/c8ce050d28eb0dc1ed1629ea32ab7f3dc117db0f/LICENSE",
