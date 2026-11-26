@@ -40,7 +40,7 @@ verify_routes_down() {
   done < <(cat "$results/routes-inet-$phase.txt" "$results/routes-inet6-$phase.txt" | /usr/bin/awk '{print $2}' | /usr/bin/sort -u)
 }
 inventory before
-controls=(https://github.com/ https://raw.githubusercontent.com/rheiger/markWriter/main/README.md)
+controls=(https://github.com/ https://www.cloudflare.com/)
 for url in "${controls[@]}"; do /usr/bin/curl -fsS --connect-timeout 5 --max-time 10 "$url" -o /dev/null; done
 printf 'online_before_controls=2\n' >> "$results/network.txt"
 # Only operate on known, originally-UP route interfaces in this disposable VM.
