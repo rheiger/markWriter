@@ -21,9 +21,25 @@ function installSelectorMethods(): void {
     return next
   }})
 }
+// XML 1.0 Char production. xmldom 0.9.12 can otherwise admit illegal
+// literal controls and character references which native XML parsers reject.
+function validXmlChar(value: number): boolean {
+  return value === 0x9 || value === 0xa || value === 0xd || value >= 0x20 && value <= 0xd7ff || value >= 0xe000 && value <= 0xfffd || value >= 0x10000 && value <= 0x10ffff
+}
+function validateXmlCharacters(source: string): void {
+  for (const character of source) {
+    if (!validXmlChar(character.codePointAt(0)!)) throw new Error('Invalid XML character')
+  }
+  for (const match of source.matchAll(/&#(?:x([0-9a-fA-F]+)|([0-9]+));/g)) {
+    const value = Number.parseInt(match[1] ?? match[2], match[1] ? 16 : 10)
+    if (!validXmlChar(value)) throw new Error('Invalid XML character reference')
+  }
+}
+
 class StrictParser {
   parseFromString(source: string, type: string): Document {
     if (type !== 'image/svg+xml' || /<!DOCTYPE|<!ENTITY|<!\[CDATA\[/i.test(source) || (source.match(/<\?[\s\S]*?\?>/g) ?? []).some(pi => !/^<\?plantuml-src [\w-]*\?>$/.test(pi))) throw new Error('Unsupported XML declaration')
+    validateXmlCharacters(source)
     // application/xml does not invent an SVG namespace for an unqualified root.
     return new XmlParser({onError:onWarningStopParsing}).parseFromString(source, 'application/xml') as unknown as Document
   }

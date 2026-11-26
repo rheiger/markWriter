@@ -11,6 +11,8 @@
     ['external-image',source,inputs.sequence.replace('<defs></defs>','<image href="http://127.0.0.1:9/canary"/>'),false],
     ['entity',source,'<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///tmp/canary">]><svg>&x;</svg>',false],
     ['malformed',source,'<svg xmlns="http://www.w3.org/2000/svg"><g></svg>',false],
+    ['numeric-nul',source,inputs.sequence.replace('<title>Alice</title>','<title>Alice&#0;</title>'),false],
+    ['literal-control',source,inputs.sequence.replace('<title>Alice</title>','<title>Alice\u0001</title>'),false],
   ]
   const worker = path => new Promise((resolve,reject)=>{
     const w = new Worker(path), timer=setTimeout(()=>{w.terminate();reject(Error('startup timeout'))},8000)
@@ -26,7 +28,7 @@
   for(const [id,[name,src,svg,expected]] of fixtures.entries()){
     const t=performance.now(), output=await call(normal,id+1,src,svg)
     const ok=typeof output.svg==='string', parsed=ok?new DOMParser().parseFromString(output.svg,'image/svg+xml'):null
-    cases.push({name,expected,ok,ms:Math.round(performance.now()-t),safe:!ok||(!parsed.querySelector('parsererror,script,image')&&parsed.documentElement.namespaceURI==='http://www.w3.org/2000/svg')})
+    cases.push({name,expected,ok,ms:Math.round(performance.now()-t),nativeRejects:!!new DOMParser().parseFromString(svg,'image/svg+xml').querySelector('parsererror'),safe:!ok||(!parsed.querySelector('parsererror,script,image')&&parsed.documentElement.namespaceURI==='http://www.w3.org/2000/svg')})
   }
   normal.terminate()
   const held=await worker('/validation-hold.js')

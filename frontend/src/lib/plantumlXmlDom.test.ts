@@ -25,6 +25,25 @@ describe('strict worker XML DOM', () => {
     '<?xml-stylesheet href="https://example.test/x"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image href="https://example.test/x"/></svg>',
   ])('fails closed on malformed or unsafe XML', svg => expect(() => sanitizePlantUmlSvg(svg)).toThrow())
+  it.each([
+    ['literal NUL', '\u0000'], ['literal control', '\u0001'], ['literal backspace', '\u0008'],
+    ['literal vertical tab', '\u000b'], ['unpaired high surrogate', '\ud800'], ['unpaired low surrogate', '\udfff'],
+    ['noncharacter FFFE', '\ufffe'], ['noncharacter FFFF', '\uffff'],
+    ['numeric NUL', '&#0;'], ['numeric control', '&#1;'], ['hex control', '&#x1;'],
+    ['numeric surrogate', '&#xD800;'], ['numeric FFFE', '&#xFFFE;'], ['above Unicode', '&#x110000;'],
+  ])('matches native XML rejection for %s', (_name, invalid) => {
+    const svg = sequence.replace('<title>Alice</title>', `<title>Alice${invalid}</title>`)
+    expect(svg).not.toBe(sequence)
+    expect(new originals.DOMParser().parseFromString(svg,'image/svg+xml').querySelector('parsererror')).not.toBeNull()
+    expect(() => checkPlantUmlSvg(svg, validatePlantUml(seqSource))).toThrow()
+  })
+  it.each(['\t', '\n', '\r', '&#9;', '&#10;', '&#13;', '&#x20;', '&#xD7FF;', '&#xE000;', '&#xFFFD;', '&#x10000;', '&#x10FFFF;', '&amp;#0;', '😀'])(
+    'accepts XML-valid literal or numeric reference %s', valid => {
+      const xml = `<svg xmlns="http://www.w3.org/2000/svg"><text>${valid}</text></svg>`
+      expect(new originals.DOMParser().parseFromString(xml,'image/svg+xml').querySelector('parsererror')).toBeNull()
+      expect(() => new DOMParser().parseFromString(xml,'image/svg+xml')).not.toThrow()
+    },
+  )
   it('rejects metadata-preserving SVG with hidden entity', () => {
     expect(() => checkPlantUmlSvg(klass.replace('class="entity"','class="entity" opacity="0"'),validatePlantUml(classSource))).toThrow()
   })
