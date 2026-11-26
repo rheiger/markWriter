@@ -44,10 +44,11 @@ struct QuickLookDeadlineProbe {
         guard first == source else { throw NSError(domain: "QuickLookDeadlineProbe", code: 1, userInfo: [NSLocalizedDescriptionKey: "Success control failed"]) }
         let access = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: accessScript)
         guard access == "[\"blocked\",\"blocked\",\"blocked\"]" else { throw NSError(domain: "QuickLookDeadlineProbe", code: 5, userInfo: [NSLocalizedDescriptionKey: "Synthetic WebKit access probe was not blocked: \(access ?? "nil")"]) }
+        fputs("Synthetic access probe returned blocked for loopback fetch, local file fetch and loopback image.\n", stderr)
         let start = ProcessInfo.processInfo.systemUptime
         let timeout = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: stalledScript)
         let elapsed = ProcessInfo.processInfo.systemUptime - start
-        guard timeout == nil && elapsed >= 7 && elapsed < 20 else { throw NSError(domain: "QuickLookDeadlineProbe", code: 2, userInfo: [NSLocalizedDescriptionKey: "Deadline did not return nil within expected bounds: \(elapsed)s"]) }
+        guard timeout == nil && elapsed >= 7 && elapsed < 20 else { throw NSError(domain: "QuickLookDeadlineProbe", code: 2, userInfo: [NSLocalizedDescriptionKey: "Deadline did not return nil within expected bounds: returnedNil=\(timeout == nil), elapsed=\(elapsed)s"]) }
         let recovered = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: successScript)
         guard recovered == source else { throw NSError(domain: "QuickLookDeadlineProbe", code: 3, userInfo: [NSLocalizedDescriptionKey: "Renderer failed to recover after timeout"]) }
         let result: [String: Any] = ["successControl": true, "loopbackFetchBlocked": true, "localFileFetchBlocked": true, "loopbackImageBlocked": true, "stalledScriptReturnedNil": true, "elapsedSeconds": elapsed, "recovered": true, "scope": "Direct synthetic WebKit renderer probe, not Finder or packaged extension"]

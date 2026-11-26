@@ -5,8 +5,11 @@ results=$1
 mkdir -p "$results"
 work=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-quicklook-probe.XXXXXX")
 server_pid=
+log_pid=
 cleanup() {
   if [[ -n "$server_pid" ]]; then kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; fi
+  if [[ -n "$log_pid" ]]; then kill "$log_pid" 2>/dev/null || true; wait "$log_pid" 2>/dev/null || true; fi
+  if [[ -f "$work/requests" ]]; then cp "$work/requests" "$results/quicklook-direct-requests.txt"; fi
   rm -rf -- "$work"
 }
 trap cleanup EXIT
@@ -19,6 +22,9 @@ curl -fsS --max-time 5 "$url/control" > "$work/control"
 test "$(cat "$work/control")" = SYNTHETIC-NETWORK-SENTINEL
 printf 'SYNTHETIC-LOCAL-FILE-SECRET' > "$work/secret.txt"
 xcrun swiftc native/quicklook/QuickLookWebRenderer.swift tools/quicklook-deadline-probe.swift -o "$work/probe"
+/usr/bin/log stream --level info --style ndjson --predicate 'subsystem == "com.markwriter.app.quicklook" AND category == "renderer"' > "$results/quicklook-direct-renderer.ndjson" 2> "$results/quicklook-direct-renderer-error.txt" &
+log_pid=$!
+sleep 1
 "$work/probe" "$url" "$work/secret.txt" | tee "$results/quicklook-direct.json"
 cp "$work/requests" "$results/quicklook-direct-requests.txt"
 # The positive control must be the only HTTP request received.
