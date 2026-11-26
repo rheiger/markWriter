@@ -228,10 +228,34 @@ describe('Finder DBML diagrams', () => {
     vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
     try {
-      const output = await render(fixture(schema).repeat(5))
+      const output = await render('```dot\ndigraph { A -> B }\n```\n' + fixture(schema).repeat(4))
       expect(output.querySelectorAll('img')).toHaveLength(4)
       expect(output.querySelectorAll('details')).toHaveLength(4)
       expect(output.querySelectorAll('pre > code')).toHaveLength(5)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+  it('keeps the diagram exceeding the shared aggregate source budget', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAAA')
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const longSchema = schema + '// padding\n'.repeat(540)
+      const output = await render(fixture(longSchema).repeat(3))
+      expect(output.querySelectorAll('img')).toHaveLength(2)
+      expect(output.querySelectorAll('pre > code')).toHaveLength(3)
+      expect(output.querySelectorAll('pre > code')[2].textContent).toBe(longSchema)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
+  })
+  it('keeps source when the rasterized diagram exceeds the output limit', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,' + 'A'.repeat(3 * 1024 * 1024))
+    vi.stubGlobal('Image', class { onload?: () => void; set src(_value: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:local', revokeObjectURL: () => {} })
+    try {
+      const output = await render(fixture(schema))
+      expect(output.querySelector('img')).toBeNull()
+      expect(output.querySelector('code')?.textContent).toBe(schema)
     } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
   })
 })
