@@ -123,8 +123,10 @@ def fixture_tile(window, path, label):
     # or the accessibility role GTK uses for the grid tile.
     command("xdotool", "windowactivate", "--sync", window)
     prefix = path.name.split(maxsplit=1)[0]
-    x, y, width, _ = window_geometry(window)
-    return visible_point(rf"{re.escape(prefix)}(?:\s+.*)?",
+    x, y, width, height = window_geometry(window)
+    # Clear the previous visual selection in the blank part of the file grid.
+    command("xdotool", "mousemove", str(x + width - 50), str(y + height - 75), "click", "1")
+    return visible_point(rf"[^a-z0-9]*{re.escape(prefix)}.*",
                          EVIDENCE / f"{label}-selected-tile.png",
                          (x + 190, y + 148, width - 205, 84), psm="11")
 

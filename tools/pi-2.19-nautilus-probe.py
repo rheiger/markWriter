@@ -10,7 +10,7 @@ spec.loader.exec_module(desktop)
 fixtures = desktop.ROOT / "association-fixtures"
 fixtures.mkdir()
 first = fixtures / "A Grüße 文件.md"
-second = fixtures / "B café.md"
+second = fixtures / "B café.markdown"
 for fixture in (first, second):
     fixture.write_text("# Synthetic Markdown\n")
 with (desktop.EVIDENCE / "nautilus.log").open("w") as log:
@@ -23,8 +23,8 @@ try:
     result = desktop.wait("incumbent double-click argv", lambda: incumbent.read_text().splitlines())
     assert result == [str(first)], result
     shutil.copyfile(incumbent, desktop.EVIDENCE / "incumbent-argv.txt")
-    for label, expected in (("one", [first]), ("multiple", [first, second])):
-        desktop.choose_markwriter(window, first, label, multiple=label == "multiple")
+    for label, expected in (("one", [first]), ("different", [second]), ("multiple", [first, second])):
+        desktop.choose_markwriter(window, expected[0], label, multiple=label == "multiple")
         argv = desktop.ROOT / "argv"
         result = desktop.wait("actual launch argv", lambda: argv.read_text().splitlines())
         assert sorted(result) == sorted(str(fixture) for fixture in expected), result
