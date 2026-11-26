@@ -159,7 +159,8 @@ try {
   await action('open', validatorFixture)
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === validatorFixture, 'validator timeout document selected')
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
-  const validatorRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='timeout')`), 'validator request withheld')
+  const validatorDocument = (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document')).id
+  const validatorRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='timeout'&&e.owner.startsWith(arguments[0]+':')&&e.owner.split(':').length===3)`, validatorDocument), 'Preview validator request withheld')
   assert.ok(validatorRequest.url.includes('plantUmlValidateWorker-'))
   await wait(() => run(`const e=document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml]');return e?.textContent.includes('timed out')&&e.querySelector('pre')?.textContent.includes('MWValidatorTimeout')`), 'validator timeout shows source fallback', 15000)
   const validatorTimeoutMs = Date.now() - validatorStart
@@ -174,7 +175,8 @@ try {
   await action('open', cancelFixture)
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === cancelFixture, 'validator cancellation document selected')
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
-  const cancelRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='cancel')`), 'validator cancellation request withheld')
+  const cancelDocument = (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document')).id
+  const cancelRequest = await wait(() => run(`return window.__mwValidatorProbe.events.findLast(e=>e.event==='withheld'&&e.label==='cancel'&&e.owner.startsWith(arguments[0]+':')&&e.owner.split(':').length===3)`, cancelDocument), 'Preview validator cancellation request withheld')
   assert.equal(await run(`return document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] pre')?.textContent.includes('MWValidatorCancel')`), true)
   await action('open', nextFixture)
   await wait(() => run(`return window.__mwValidatorProbe.events.some(e=>e.event==='terminated'&&e.instance===arguments[0])`, cancelRequest.instance), 'cancelled validator terminated')
