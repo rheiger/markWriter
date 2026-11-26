@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/wayland-qualification.yml
       - tools/wayland-association-desktop.py
+      - tools/wayland-focus-observer/**
 permissions:
   contents: read
 jobs:
@@ -19,7 +20,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-shell mutter-dev-bin nautilus xvfb xauth xdotool openbox dbus-x11 at-spi2-core python3-pyatspi scrot desktop-file-utils tesseract-ocr mesa-utils
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-shell mutter-dev-bin nautilus xvfb xauth xdotool dbus-x11 at-spi2-core python3-pyatspi scrot desktop-file-utils tesseract-ocr mesa-utils
           package=MarkWriter-2.19.3-ubuntu-26.04-x64.deb
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/$package" "https://github.com/rheiger/markWriter/releases/download/v2.19.3/$package"
           echo "88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1  $RUNNER_TEMP/$package" | sha256sum --check
@@ -44,9 +45,12 @@ jobs:
           export MARKWRITER_PROFILE_DIR="$MARKWRITER_ASSOCIATION_ROOT/recovery"
           mkdir -m 700 "$XDG_RUNTIME_DIR"
           mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$MARKWRITER_PROFILE_DIR"
+          extension="$XDG_DATA_HOME/gnome-shell/extensions/focus-observer@markwriter.test"
+          mkdir -p "$extension"
+          cp tools/wayland-focus-observer/* "$extension/"
           xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -euxc '
-            export LIBGL_ALWAYS_SOFTWARE=1
-            openbox >"$MARKWRITER_ASSOCIATION_EVIDENCE/openbox.log" 2>&1 &
+            export LIBGL_ALWAYS_SOFTWARE=1 GSETTINGS_BACKEND=keyfile
+            gsettings set org.gnome.shell enabled-extensions "['"'"'focus-observer@markwriter.test'"'"']"
             gnome-shell --devkit --wayland-display=markwriter-test >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
             shell=$!
             trap "kill $shell 2>/dev/null || true" EXIT
@@ -61,16 +65,13 @@ jobs:
               kill -0 "$shell"
               sleep 0.2
             done
+            cat "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"
+            kit=$(tail -1 "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt")
+            xdotool getwindowname "$kit"
+            xdotool windowsize "$kit" 1440 900 windowmove "$kit" 0 0 windowfocus "$kit"
             export WAYLAND_DISPLAY=markwriter-test GDK_BACKEND=wayland XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
-            if test -f tools/wayland-association-desktop.py; then
-              /usr/bin/python3 tools/wayland-association-desktop.py
-            else
-              nautilus --new-window "$MARKWRITER_ASSOCIATION_ROOT" >"$MARKWRITER_ASSOCIATION_EVIDENCE/files.log" 2>&1 &
-              sleep 5
-              xdotool search --onlyvisible --name . getwindowname "%@" > "$MARKWRITER_ASSOCIATION_EVIDENCE/windows.txt"
-              scrot "$MARKWRITER_ASSOCIATION_EVIDENCE/nautilus.png"
-              gdbus introspect --session --dest org.gnome.Shell --object-path /org/gnome/Shell > "$MARKWRITER_ASSOCIATION_EVIDENCE/shell-dbus.txt"
-            fi
+            dbus-update-activation-environment WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP GDK_BACKEND MARKWRITER_PROFILE_DIR
+            /usr/bin/python3 tools/wayland-association-desktop.py
           '
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
