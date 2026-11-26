@@ -2,6 +2,22 @@
 
 The verification follows the pinned npm tarball into a clean frontend build and then into each packaged executable. The candidate is an exact Git commit. The release packaging job supplies an installer or disk image, its source manifest and a notice sidecar for comparison.
 
+## Corrected candidate result
+
+**Passed on the three exact packages.** The [packaging workflow](https://github.com/rheiger/markWriter/actions/runs/45878938169) built commit `ce882d781441c8376f69f52da5b27bf3f3a5f83e`. The producer used research metadata 2.21.1. All three downloaded sidecars and all three independently extracted host executables contained the 5,084,463-byte notice with SHA-256 `2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089`.
+
+| Package | Bytes | SHA-256 | Decoded notice at host file offset |
+| --- | ---: | --- | ---: |
+| macos-arm64 | 15,171,482 | `e47013681a00f2ed08b3e36f37fdbab37fc0475175d60618f90a1c516e92b88d` | 12,838,633 |
+| windows-x64 | 8,073,981 | `d4b44dd5c8912a94eaa35be646a0d3246cfcf8767f33d7c7190b525e0c84bc6f` | 11,764,505 |
+| ubuntu-26.04-x64 | 10,130,394 | `9d4883830c9690ae0e541d4ff03c48eeac2344a4d6d31aa80badb3b1aae61344` | 5,944,045 |
+
+Each package contained the exact 2,965,743-byte render worker and 106,602-byte validation worker from the independent lockfile build. The Finder script extracted from the macOS DMG matched the independently built 9,830,059-byte script. The actual Linux application returned its full same-origin notice as HTTP 200 text/plain under WebKitGTK. The Linux synthetic test used the extracted DEB on Debian and a fresh profile under Xvfb. [Decoded package receipts and upstream hashes](package-proof.json) · [Live notice response](live-linux.json)
+
+The npm tarball matched its pinned SHA-512 integrity and SHA-256 `00e3d2849d443dd77d6ca9bdf8aedc63bd26ff86025972b617cb96f4678655ca`. Its raw engine matched the independently installed 3,238,458-byte engine with SHA-256 `c6664799aaa464319b5e1070a69850b93a7ea23ee41a23e920a8f2086e7da21c`. The eight complete attributed texts carried their pinned URLs and hashes. The source chain includes PlantUML/Smetana, TeaVM 0.16.0, JZlib 1.1.3 with zlib credits, and OpenPDF. The receipt lists the implementation references and compiled markers. [Pinned source mapping and distribution information](https://github.com/rheiger/markWriter/blob/ce882d781441c8376f69f52da5b27bf3f3a5f83e/notices/PlantUML-1.2026.10-provenance.txt)
+
+As a control, the preceding package run was rejected when supplied to the verifier with the corrected commit and run ID. The macOS archive was ad-hoc signed in the producer workflow. Windows and Ubuntu were unsigned.
+
 ## Reproduce
 
 The verifier runs on Linux with Node 24.22.2, git, curl, tar, 7-Zip with NSIS/HFS+ support, and dpkg-deb. Start in a clean checkout of the candidate. Use a separate directory for the scripts and for downloaded artifacts.

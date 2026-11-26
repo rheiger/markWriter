@@ -36,6 +36,8 @@ assert.equal(sha(engine), 'c6664799aaa464319b5e1070a69850b93a7ea23ee41a23e920a8f
 const metadataUrl = 'https://registry.npmjs.org/@plantuml%2fcore/1.2026.10'
 const download = url => run('curl', ['--fail', '--location', '--silent', '--show-error', '--retry', '3', url])
 const metadata = JSON.parse(download(metadataUrl))
+assert.equal(metadata.name, '@plantuml/core')
+assert.equal(metadata.version, pkg.version)
 assert.equal(metadata.gitHead, 'a00eddaf700c0681a642ddd11c4f95e0ade8cdc9')
 assert.equal(metadata.dist.tarball, pkg.resolved)
 assert.equal(metadata.dist.integrity, pkg.integrity)
@@ -83,7 +85,8 @@ const upstreamNotices = sourceMap.map(({url, path, sha256}) => {
   const pinned = tracked(path)
   assert.equal(sha(pinned), sha256)
   assert.ok(download(url).equals(pinned), 'Upstream source mismatch ' + url)
-  assert.ok(notice.includes(pinned) && notice.includes(url), 'Missing packaged notice ' + url)
+  const attributed = Buffer.concat([Buffer.from('--- ' + url + ' [SHA256 ' + sha256 + '] ---\n'), pinned])
+  assert.ok(notice.includes(attributed), 'Missing complete attributed text ' + url)
   return {url,sha256,bytes:pinned.length}
 })
 for (const text of ['/EPL-1.0.txt', '/LICENSE', '/NOTICE', '/LICENSE.md', '/LICENSE.txt', '/README', '/MPL-1.1.txt', '/MPL-2.0.txt']) {
