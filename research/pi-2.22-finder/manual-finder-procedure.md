@@ -1,4 +1,10 @@
-# Manual Finder qualification procedure — prepared, not yet executed
+# Manual Finder qualification procedure
+
+**Historical procedure:** the operator-assisted attempt and its outcome are
+recorded in [results-manual](results-manual/README.md). The candidate was not
+observed in Finder, and restoring the original provider produced a new UUID,
+so the original-UUID equality check failed. Do not repeat the procedure
+without resolving those findings and reviewing the restoration behavior.
 
 This procedure uses the already-open VNC connection to `aiger.q40.richie.ch`.
 The human operator performs the Finder actions and reports what was visible;
@@ -39,6 +45,53 @@ observations in `manual-defaults-before.json`. The probe and timeout scripts
 are staged in `manual-source/`. The registration fixture baseline was produced
 with the repository's `tools/quicklook-registration-probe.swift`. No provider
 was changed while preparing this procedure.
+
+## Supervised controller
+
+The staged `manual-source/manual-finder-session.sh` supports a read-only
+`preflight` command and a persistent `start` command. Preflight has passed on
+the Mac; a simulated lost owner without any registration change also exited
+without modifying registration. The actual registration and interruption
+rollback path had not been exercised at that point. After the observed UUID
+change, the committed controller's `start` command is disabled. The exact
+controller used for the trial is retained
+as `manual-finder-session-observed.sh.txt` for review, not for execution.
+
+```sh
+ssh -tt 192.168.200.172 /bin/bash /tmp/markwriter-pi222-finder.4JogPG/manual-source/manual-finder-session.sh start
+```
+
+Keep this shell open. It reruns preflight before registration, starts an
+independent watchdog, and prints `READY` plus a new task-owned evidence
+directory only if the staged candidate is listed. It does not establish
+that Finder selected the candidate. Commands read on standard input are:
+
+* `case-start sequence`, `case-start class`, `case-start rejected`,
+  `case-start oversized`, `case-start timeout`, or `case-start recovery`:
+  start the matching log interval and wait for `ARMED` before the Finder action.
+* `timeout-arm`: after `case-start timeout`, arm the exact-process timeout
+  watcher and wait for `TIMEOUT_WATCHER_ARMED` before opening the preview.
+* `note TEXT`: record the human operator's actual observation. Do not invent
+  or infer an observation from a renderer completion.
+* `case-stop`: after the operator closes Quick Look, stop that log stream and
+  report `CORRELATED` or `INCONCLUSIVE` after exact-path/request validation.
+* `stop`: restore the original registration and report
+  `RESTORATION_VERIFIED` or `RESTORATION_UNPROVEN`.
+
+The exit trap attempts restoration on EOF, HUP, INT or TERM. An independent
+watchdog monitors the controller's PID and start time, retries restoration if
+it disappears, and ends an abandoned session after 30 minutes. It checks the
+original provider listing, synthetic file types/defaults, fixture hashes, and
+absence of the candidate host in LaunchServices. It cannot guarantee recovery
+from a powered-off Mac or a failed system service. Retain and inspect
+`restore.log`, `watchdog.log` and comparison outputs; an unsuccessful or
+interrupted restore is a required follow-up, not a pass. The timeout helper is
+adapted from the PI 2.21 harness and also verifies process start time before
+resuming, to avoid signaling a recycled PID.
+
+The following individual commands document the same procedure and serve as a
+manual recovery reference. Do not register the candidate a second time when
+using the controller.
 
 ## Before the first Finder action
 

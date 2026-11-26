@@ -128,3 +128,7 @@ open VNC session existed, but the automation surface exposed no native window;
 no alternate visual testing route was used. The research-only DMG and its
 direct-renderer result do not close these gates or authorize Finder production
 work.
+
+An operator-assisted VNC Finder attempt is recorded in
+[results-manual](results-manual/README.md). It did not establish candidate
+provider selection and the restored original provider received a new UUID.

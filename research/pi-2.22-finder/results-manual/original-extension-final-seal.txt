@@ -1,0 +1,2 @@
+/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk
+/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement

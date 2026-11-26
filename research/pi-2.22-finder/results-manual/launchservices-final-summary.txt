@@ -1,0 +1,1 @@
+lsregister_exit=0 candidate_grep_exit=1

@@ -1,0 +1,2 @@
+2026-11-26T17:00:11Z Operator reports 01-sequence.md showed readable PlantUML source not a diagram; Quick Look closed.
+2026-11-26T17:03:33Z Operator reports 07-sequence-retry.md showed readable PlantUML source and no diagram; Quick Look closed. Candidate retry log contained no request.

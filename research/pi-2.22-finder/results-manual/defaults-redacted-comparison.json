@@ -1,0 +1,188 @@
+{
+  "differentFixtures": [],
+  "fields": [
+    "contentType",
+    "defaultApplication",
+    "extensionTypes"
+  ],
+  "fingerprints": {
+    ".dockerignore": {
+      "afterSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c",
+      "beforeSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c"
+    },
+    ".gitignore": {
+      "afterSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c",
+      "beforeSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c"
+    },
+    "Dockerfile": {
+      "afterSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c",
+      "beforeSha256": "2b544f666bf44c8858870385d9ccde609c3a6e558e9e0452db8a1bed46fe106c"
+    },
+    "GNUmakefile": {
+      "afterSha256": "1dd278b6ed8bcadbc731f1081519828fba7149c1c644a7e69567f86936f5efc5",
+      "beforeSha256": "1dd278b6ed8bcadbc731f1081519828fba7149c1c644a7e69567f86936f5efc5"
+    },
+    "Makefile": {
+      "afterSha256": "1dd278b6ed8bcadbc731f1081519828fba7149c1c644a7e69567f86936f5efc5",
+      "beforeSha256": "1dd278b6ed8bcadbc731f1081519828fba7149c1c644a7e69567f86936f5efc5"
+    },
+    "binary.plist": {
+      "afterSha256": "16cfc52db636fad87b312b3dfc81c20f2c52e59b2724bb68238ffd67430c42e4",
+      "beforeSha256": "16cfc52db636fad87b312b3dfc81c20f2c52e59b2724bb68238ffd67430c42e4"
+    },
+    "example.bash": {
+      "afterSha256": "f47b30c5b00263aafb93df549f2f84595a6b8fca4389a60b9b9faf0104da350d",
+      "beforeSha256": "f47b30c5b00263aafb93df549f2f84595a6b8fca4389a60b9b9faf0104da350d"
+    },
+    "example.bat": {
+      "afterSha256": "d572025ea23208c8163835847828dbd1d06360f838f57f4bfc5df705cd815294",
+      "beforeSha256": "d572025ea23208c8163835847828dbd1d06360f838f57f4bfc5df705cd815294"
+    },
+    "example.cfg": {
+      "afterSha256": "a78efc532c318034f62247b19a4123bf5be719849c74631c2ba2e1d3e7176146",
+      "beforeSha256": "a78efc532c318034f62247b19a4123bf5be719849c74631c2ba2e1d3e7176146"
+    },
+    "example.cmd": {
+      "afterSha256": "ad329cfccf3900055e0900979209e55d10213228a69f13aea0b7830a26a1f526",
+      "beforeSha256": "ad329cfccf3900055e0900979209e55d10213228a69f13aea0b7830a26a1f526"
+    },
+    "example.config": {
+      "afterSha256": "a78efc532c318034f62247b19a4123bf5be719849c74631c2ba2e1d3e7176146",
+      "beforeSha256": "a78efc532c318034f62247b19a4123bf5be719849c74631c2ba2e1d3e7176146"
+    },
+    "example.cpp": {
+      "afterSha256": "c43164b2f5cd6b34cfaab8e9a8f599f80e7629422c2d4f0167ee0c1afe4cd55d",
+      "beforeSha256": "c43164b2f5cd6b34cfaab8e9a8f599f80e7629422c2d4f0167ee0c1afe4cd55d"
+    },
+    "example.css": {
+      "afterSha256": "836ce2e99dd9c0060a843a4bb558f9a0ffb636a06fbef74fcc719dd2a81bb19d",
+      "beforeSha256": "836ce2e99dd9c0060a843a4bb558f9a0ffb636a06fbef74fcc719dd2a81bb19d"
+    },
+    "example.h": {
+      "afterSha256": "8c38893b0754dd18b635151da64d9f357a381d1d8c86d7452357b207c79b1887",
+      "beforeSha256": "8c38893b0754dd18b635151da64d9f357a381d1d8c86d7452357b207c79b1887"
+    },
+    "example.js": {
+      "afterSha256": "74788d9cfd4a56055189f67a955a2486d4da1449731ece9221b79a9b3032a481",
+      "beforeSha256": "74788d9cfd4a56055189f67a955a2486d4da1449731ece9221b79a9b3032a481"
+    },
+    "example.json": {
+      "afterSha256": "ff168abfe2b17b07b5d78d200ae6bcbb2b57993b51ca693b5630d03c146650fc",
+      "beforeSha256": "ff168abfe2b17b07b5d78d200ae6bcbb2b57993b51ca693b5630d03c146650fc"
+    },
+    "example.jsonb": {
+      "afterSha256": "16f351258b9797b969707c650b1208919212000a64f189e62408bd19301054d3",
+      "beforeSha256": "16f351258b9797b969707c650b1208919212000a64f189e62408bd19301054d3"
+    },
+    "example.jsonl": {
+      "afterSha256": "7a70ded88ed5bd9036d8fe8b0ee84888be64cfd6ddb366bc4c998e2d287a36fc",
+      "beforeSha256": "7a70ded88ed5bd9036d8fe8b0ee84888be64cfd6ddb366bc4c998e2d287a36fc"
+    },
+    "example.lock": {
+      "afterSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2",
+      "beforeSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2"
+    },
+    "example.mak": {
+      "afterSha256": "5ac1e1f81e3c93e52ce6f20ca000d5cd34e62f59d85de8a0437b0ec50a71c4ae",
+      "beforeSha256": "5ac1e1f81e3c93e52ce6f20ca000d5cd34e62f59d85de8a0437b0ec50a71c4ae"
+    },
+    "example.markdown": {
+      "afterSha256": "4a181aaaccb43285deca7cdac76deec2825c8f9529067e3fb49ac70e6a29cd8e",
+      "beforeSha256": "4a181aaaccb43285deca7cdac76deec2825c8f9529067e3fb49ac70e6a29cd8e"
+    },
+    "example.md": {
+      "afterSha256": "4a181aaaccb43285deca7cdac76deec2825c8f9529067e3fb49ac70e6a29cd8e",
+      "beforeSha256": "4a181aaaccb43285deca7cdac76deec2825c8f9529067e3fb49ac70e6a29cd8e"
+    },
+    "example.mdown": {
+      "afterSha256": "1159c657be35f14a59d41baab6a368de0c89b1d666373264dbd54d14908f04c9",
+      "beforeSha256": "1159c657be35f14a59d41baab6a368de0c89b1d666373264dbd54d14908f04c9"
+    },
+    "example.mjs": {
+      "afterSha256": "74788d9cfd4a56055189f67a955a2486d4da1449731ece9221b79a9b3032a481",
+      "beforeSha256": "74788d9cfd4a56055189f67a955a2486d4da1449731ece9221b79a9b3032a481"
+    },
+    "example.mk": {
+      "afterSha256": "5ac1e1f81e3c93e52ce6f20ca000d5cd34e62f59d85de8a0437b0ec50a71c4ae",
+      "beforeSha256": "5ac1e1f81e3c93e52ce6f20ca000d5cd34e62f59d85de8a0437b0ec50a71c4ae"
+    },
+    "example.mkd": {
+      "afterSha256": "52f3e9e72d0a36c46f6c27884221e34f83a7e92e1740fd76a60a94378848375f",
+      "beforeSha256": "52f3e9e72d0a36c46f6c27884221e34f83a7e92e1740fd76a60a94378848375f"
+    },
+    "example.ndjson": {
+      "afterSha256": "915e7032974c8613e75b47e0704abc6560f3ea72699efac2851f410c138840cb",
+      "beforeSha256": "915e7032974c8613e75b47e0704abc6560f3ea72699efac2851f410c138840cb"
+    },
+    "example.ps1": {
+      "afterSha256": "9bfe3936334bb46f6dc12ad3b0c818b2d0129f3f05cb96c9e780a7cb37d1a08e",
+      "beforeSha256": "9bfe3936334bb46f6dc12ad3b0c818b2d0129f3f05cb96c9e780a7cb37d1a08e"
+    },
+    "example.psd1": {
+      "afterSha256": "c397a1c3dd1d10303adcbae39eef0fa5299d8c5cd19371a8baf739917c41489d",
+      "beforeSha256": "c397a1c3dd1d10303adcbae39eef0fa5299d8c5cd19371a8baf739917c41489d"
+    },
+    "example.psm1": {
+      "afterSha256": "3fdb2dccab14cb1782317485d54c763b2483ff70733354a67199d3732c82fc30",
+      "beforeSha256": "3fdb2dccab14cb1782317485d54c763b2483ff70733354a67199d3732c82fc30"
+    },
+    "example.py": {
+      "afterSha256": "518913b8c0ea535693f0fc7ced34a5f6b9e7aa02c7c18816e355c65d4128d209",
+      "beforeSha256": "518913b8c0ea535693f0fc7ced34a5f6b9e7aa02c7c18816e355c65d4128d209"
+    },
+    "example.sh": {
+      "afterSha256": "2a39367ef374c72bed2345e66424aa289a4861da1428e194a4cae08828b48379",
+      "beforeSha256": "2a39367ef374c72bed2345e66424aa289a4861da1428e194a4cae08828b48379"
+    },
+    "example.spec": {
+      "afterSha256": "0089f32224bfed3901c718bcd62a5b028c811146b3aecb547c39e29c29c8bd17",
+      "beforeSha256": "0089f32224bfed3901c718bcd62a5b028c811146b3aecb547c39e29c29c8bd17"
+    },
+    "example.sql": {
+      "afterSha256": "320335512fd3bda1a2f14a39e29f4e520fb8af0b0a6f644b9142388f0891a6d8",
+      "beforeSha256": "320335512fd3bda1a2f14a39e29f4e520fb8af0b0a6f644b9142388f0891a6d8"
+    },
+    "example.toml": {
+      "afterSha256": "85dec4e5abe9162588cb9fe7b4cc9e8d26613652e7c58b9272caf33384272012",
+      "beforeSha256": "85dec4e5abe9162588cb9fe7b4cc9e8d26613652e7c58b9272caf33384272012"
+    },
+    "example.ts": {
+      "afterSha256": "9f3f54bab8f70b949b94714f50bdb93c13731931b965ac6d7b1d39a0dc4b3bbb",
+      "beforeSha256": "9f3f54bab8f70b949b94714f50bdb93c13731931b965ac6d7b1d39a0dc4b3bbb"
+    },
+    "example.tsx": {
+      "afterSha256": "f70b240df98e98c06c4876336cdcc63182bc670095bf7465f75169b4276c02c1",
+      "beforeSha256": "f70b240df98e98c06c4876336cdcc63182bc670095bf7465f75169b4276c02c1"
+    },
+    "example.txt": {
+      "afterSha256": "2613da55e003afebb6e8e0247050eda4233acb2f6976278859f15788ed059650",
+      "beforeSha256": "2613da55e003afebb6e8e0247050eda4233acb2f6976278859f15788ed059650"
+    },
+    "example.xml": {
+      "afterSha256": "e6e6ed7dd35a0a357c9408b44986db340c0621b2a204d440aca257bc0e9e1a9d",
+      "beforeSha256": "e6e6ed7dd35a0a357c9408b44986db340c0621b2a204d440aca257bc0e9e1a9d"
+    },
+    "example.yaml": {
+      "afterSha256": "e5671b1d864eef62b836bd052de829453ca0b5e64cede9af516db0b2c9cfdfbc",
+      "beforeSha256": "e5671b1d864eef62b836bd052de829453ca0b5e64cede9af516db0b2c9cfdfbc"
+    },
+    "example.yml": {
+      "afterSha256": "e5671b1d864eef62b836bd052de829453ca0b5e64cede9af516db0b2c9cfdfbc",
+      "beforeSha256": "e5671b1d864eef62b836bd052de829453ca0b5e64cede9af516db0b2c9cfdfbc"
+    },
+    "flake.lock": {
+      "afterSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2",
+      "beforeSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2"
+    },
+    "uv.lock": {
+      "afterSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2",
+      "beforeSha256": "67d1ecc3a56240b7c3cb022e2acf2dcdd051ad7bd13247f5c0ab462e2b2e05e2"
+    },
+    "xml.plist": {
+      "afterSha256": "16cfc52db636fad87b312b3dfc81c20f2c52e59b2724bb68238ffd67430c42e4",
+      "beforeSha256": "16cfc52db636fad87b312b3dfc81c20f2c52e59b2724bb68238ffd67430c42e4"
+    }
+  },
+  "note": "Values are omitted to avoid publishing unrelated system details; hashes cover the three compared fields.",
+  "syntheticFixtureCount": 44
+}

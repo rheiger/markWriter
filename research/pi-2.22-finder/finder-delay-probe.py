@@ -16,19 +16,27 @@ with pathlib.Path(sys.argv[2]).open() as log:
         command=subprocess.check_output(['/bin/ps','-p',str(pid),'-o','comm='],text=True).strip()
         if pathlib.Path(command).resolve()!=expected:
             raise SystemExit(f'Unexpected executable for test process {pid}')
+        started=subprocess.check_output(['/bin/ps','-p',str(pid),'-o','lstart='],text=True).strip()
         watchdog = r'''
             sleep 13
-            actual=$(/bin/ps -p "$1" -o comm= 2>/dev/null)
-            if [ "$actual" = "$2" ]; then /bin/kill -CONT "$1"; fi
+            actual=$(/bin/ps -p "$1" -o comm= 2>/dev/null | /usr/bin/xargs)
+            started=$(/bin/ps -p "$1" -o lstart= 2>/dev/null | /usr/bin/xargs)
+            if [ "$actual" = "$2" ] && [ "$started" = "$3" ]; then /bin/kill -CONT "$1"; fi
         '''
-        safety=subprocess.Popen(['/bin/sh','-c',watchdog,'watchdog',str(pid),command],start_new_session=True)
+        safety=subprocess.Popen(['/bin/sh','-c',watchdog,'watchdog',str(pid),command,' '.join(started.split())],start_new_session=True)
         try:
             start=time.monotonic()
             os.kill(pid,signal.SIGSTOP)
             print(f'test_pid={pid} {msg}',flush=True)
             time.sleep(8.25)
         finally:
-            os.kill(pid,signal.SIGCONT)
+            try:
+                current=subprocess.check_output(['/bin/ps','-p',str(pid),'-o','comm='],text=True).strip()
+                current_started=subprocess.check_output(['/bin/ps','-p',str(pid),'-o','lstart='],text=True).strip()
+                if pathlib.Path(current).resolve()==expected and current_started==started:
+                    os.kill(pid,signal.SIGCONT)
+            except (ProcessLookupError, subprocess.CalledProcessError):
+                pass
             safety.terminate()
             print(f'forced_suspend_seconds={time.monotonic()-start:.3f}',flush=True)
         break

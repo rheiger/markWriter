@@ -1,0 +1,1 @@
+Expected exactly one request from /private/tmp/markwriter-pi222-finder.4JogPG/19bd836/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype; observed 0

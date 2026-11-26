@@ -1,0 +1,8 @@
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/01-sequence.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/02-class.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/03-rejected.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/04-oversized.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/05-timeout.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/06-recovery.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/07-sequence-retry.md: OK
+/tmp/markwriter-pi222-finder.4JogPG/manual-fixtures/08-restored-original.md: OK
