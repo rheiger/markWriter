@@ -18,8 +18,6 @@ inventory() {
     /usr/sbin/netstat -rn -f "$family" | /usr/bin/awk -v family="$family" '
       $1 == "Destination" { for (i=1; i<=NF; i++) if ($i == "Netif") col=i; next }
       !col || NF < col || $col ~ /^lo/ { next }
-      family == "inet" && $1 ~ /^(127[.]|169[.]254[.]|22[4-9][.]|23[0-9][.]|255[.])/ { next }
-      family == "inet6" && $1 ~ /^(::1|fe80|ff)/ { next }
       { print ($1 == "default" ? "default" : "nonlocal") " " $col }
       END { if (!col) exit 2 }
     ' | /usr/bin/sort -u > "$results/routes-$family-$phase.txt"
