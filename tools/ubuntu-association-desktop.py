@@ -72,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent_open_rows=False):
+def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent_open_rows=False, psm=None):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -82,7 +82,7 @@ def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent
             arguments.extend(("--autoselect", ",".join(str(value) for value in region)))
         command(*arguments, str(screenshot))
         rows = csv.DictReader(io.StringIO(command("tesseract", str(screenshot), "stdout",
-                                                "--psm", "6" if region else "11", "tsv")), delimiter="\t")
+                                                "--psm", psm or ("6" if region else "11"), "tsv")), delimiter="\t")
         lines = {}
         for row in rows:
             if row["text"]:
@@ -133,12 +133,16 @@ def select_pattern(window, pattern):
 
 
 def choose_markwriter(window, path, label, multiple=False):
-    pattern = "*" if multiple else path.name.split(maxsplit=1)[0] + " *"
-    select_pattern(window, pattern)
-    # The test directory contains only its four sorted fixture tiles.
+    prefix = path.name.split(maxsplit=1)[0]
+    select_pattern(window, "*" if multiple else prefix + " *")
+    # Identify the painted tile by its ASCII prefix rather than relying on
+    # the translated filename or the file-grid accessibility role.
+    x, y, width, _ = window_geometry(window)
+    tile_x, tile_y = visible_point(rf"{re.escape(prefix)}(?:\s+.*)?",
+                                   EVIDENCE / f"{label}-selected-tile.png",
+                                   (x + 190, y + 148, width - 205, 84), psm="11")
     # Right-clicking an already selected tile leaves the whole batch selected.
-    index = sorted(path.parent.iterdir()).index(path)
-    command("xdotool", "mousemove", "--window", window, str(282 + 167 * index), "122", "click", "3")
+    command("xdotool", "mousemove", str(tile_x), str(tile_y), "click", "3")
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
                          adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
