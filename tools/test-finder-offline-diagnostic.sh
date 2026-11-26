@@ -24,7 +24,7 @@ inventory() {
   done
 }
 inventory before
-controls=(https://github.com/ https://api.github.com/)
+controls=(https://github.com/ https://raw.githubusercontent.com/rheiger/markWriter/main/README.md)
 for url in "${controls[@]}"; do /usr/bin/curl -fsS --connect-timeout 5 --max-time 10 "$url" -o /dev/null; done
 printf 'online_before_controls=2\n' >> "$results/network.txt"
 # Only operate on known, originally-UP route interfaces in this disposable VM.
