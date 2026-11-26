@@ -129,6 +129,7 @@ export async function quickLookRender(html: string, markdown?: string | null): P
         }
         const png = await rasterize(svg)
         const img = parsed.createElement('img'); img.src = png; img.alt = language === 'mermaid' ? 'Mermaid diagram' : language === 'dbml' ? 'DBML diagram' : 'DOT diagram'
+        img.style.maxWidth = '100%'; img.style.height = 'auto'
         const details = parsed.createElement('details'), summary = parsed.createElement('summary')
         summary.textContent = 'Diagram source'; details.append(summary, pre.cloneNode(true))
         pre.replaceWith(img, details)

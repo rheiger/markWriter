@@ -13,6 +13,15 @@ PY
 
 For a cold start, close Finder previews and let the extension process exit; use a fresh fixture filename to avoid cached previews. Start the renderer log stream below, select the file in Finder and press Space. Record elapsed time to visible preview and correlate completion and executable path to the candidate extension. PlugInKit registration alone and the Open With button do not prove provider selection. Record the selected provider and retain log evidence.
 
+The renderer logs a fresh `request=<UUID> start` for each distinct active render.
+On normal completion it logs one `completed` or `fallback` event with the same
+request ID and elapsed milliseconds. An unmatched start is incomplete evidence,
+for example if the extension process is terminated. Match IDs as well as
+executable paths; simultaneous previews can share a process. The identifier
+contains no document path or content and does not identify the fixture. Correlate
+the selected fixture and visible content separately; do not attribute concurrent
+requests by timing alone.
+
 ```sh
 /usr/bin/log stream --level info --style ndjson \
   --predicate 'subsystem == "com.markwriter.app.quicklook" AND category == "renderer"'
