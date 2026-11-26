@@ -21,9 +21,7 @@ url="http://127.0.0.1:$(cat "$work/port")"
 curl -fsS --max-time 5 "$url/control" > "$work/control"
 test "$(cat "$work/control")" = SYNTHETIC-NETWORK-SENTINEL
 printf 'SYNTHETIC-LOCAL-FILE-SECRET' > "$work/secret.txt"
-# Instrument only a temporary copy to expose the exact WebKit error for synthetic scripts.
-awk '/guard case let .success\(value\) = result, let page = value as\? String,/ { print "            if case let .failure(error) = result { FileHandle.standardError.write(Data(\"DIRECT_WK_ERROR: \\(error)\\n\".utf8)) }" } { print }' native/quicklook/QuickLookWebRenderer.swift > "$work/InstrumentedQuickLookWebRenderer.swift"
-xcrun swiftc "$work/InstrumentedQuickLookWebRenderer.swift" tools/quicklook-deadline-probe.swift -o "$work/probe"
+xcrun swiftc native/quicklook/QuickLookWebRenderer.swift tools/quicklook-deadline-probe.swift -o "$work/probe"
 /usr/bin/log stream --level info --style ndjson --predicate 'subsystem == "com.markwriter.app.quicklook" AND category == "renderer"' > "$results/quicklook-direct-renderer.ndjson" 2> "$results/quicklook-direct-renderer-error.txt" &
 log_pid=$!
 sleep 1
@@ -31,3 +29,8 @@ sleep 1
 cp "$work/requests" "$results/quicklook-direct-requests.txt"
 # The positive control must be the only HTTP request received.
 test "$(cat "$work/requests")" = /control
+sleep 1
+kill "$log_pid" 2>/dev/null || true
+wait "$log_pid" 2>/dev/null || true
+log_pid=
+node tools/verify-quicklook-direct-logs.mjs "$results/quicklook-direct-renderer.ndjson" "$work/probe" > "$results/quicklook-direct-summary.json"
