@@ -41,6 +41,7 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
 /usr/bin/xcrun swiftc tools/finder-capture-text.swift -o "$work/ocr"
 /usr/bin/xcrun swiftc tools/finder-capture-accessibility.swift -o "$work/accessibility"
 /usr/bin/xcrun swiftc tools/finder-window-id.swift -o "$work/window-id"
+/usr/bin/xcrun swiftc tools/finder-scroll.swift -o "$work/scroll"
 /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook > "$results/registration.txt" 2>&1 || true
 # Record the process state before the first request; do not claim cold start if present.
 /bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable) && $0 !~ /awk/' > "$results/process-before.txt"
@@ -82,11 +83,13 @@ APPLESCRIPT
   "$work/ocr" "$results/$name.png" > "$results/$name-ocr.txt"
   # The preview's visible title must name the fresh fixture, not a stale window.
   /usr/bin/grep -Fiq "$name.md" "$results/$name-ocr.txt" || { echo "Preview title not identified by OCR: $name" >&2; exit 1; }
-  if [[ "$name" == multiple || "$name" == oversized ]]; then
-    /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to key code 125 using command down'
+  if [[ "$name" == multiple || "$name" == oversized || "$name" == representative ]]; then
+    direction=vertical
+    [[ "$name" == representative ]] && direction=horizontal
+    "$work/scroll" "$direction"
     sleep 1
-    /usr/sbin/screencapture -x -l "$window_id" "$results/$name-bottom.png"
-    "$work/ocr" "$results/$name-bottom.png" > "$results/$name-bottom-ocr.txt"
+    /usr/sbin/screencapture -x -l "$window_id" "$results/$name-scrolled.png"
+    "$work/ocr" "$results/$name-scrolled.png" > "$results/$name-scrolled-ocr.txt"
   fi
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to key code 53'
   preview_created=false
