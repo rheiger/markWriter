@@ -48,6 +48,7 @@ const color = /^(?:none|transparent|currentColor|[a-zA-Z]{1,32}|#[0-9a-fA-F]{3,8
 function safeAttribute(name: string, value: string, plantuml = false): boolean {
   if (plantuml && name === 'style') return value === 'white-space: pre'
   if (plantuml && name === 'dominant-baseline') return /^(central|middle|alphabetic|hanging)$/.test(value)
+  if (plantuml && /^(opacity|fill-opacity|stroke-opacity)$/.test(name)) return value === '1'
   if (numeric.has(name)) return boundedNumbers(value)
   if (name === 'viewBox') return value.trim().split(/[\s,]+/).length === 4 && boundedNumbers(value) && value.trim().split(/[\s,]+/).slice(2).every(n => Number(n) > 0)
   if (name === 'points' || name === 'stroke-dasharray') return boundedNumbers(value)

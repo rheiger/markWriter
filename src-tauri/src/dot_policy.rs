@@ -17,8 +17,8 @@ mod tests {
         assert!(is_math_worker("/assets/mathWorker-a1B2.js"));
         assert!(is_dbml_worker("/assets/dbmlWorker-a1B2.js"));
         assert!(is_sql_worker("/assets/sqlDdlWorker-a1B2.js"));
-        assert!(is_plantuml_worker("/assets/plantumlWorker-a1B2.js"));
-        assert!(!is_plantuml_worker("/assets/plantumlWorker-a1B2.js/nested.js"));
+        assert!(is_plantuml_worker("/assets/plantUmlWorker-a1B2.js"));
+        assert!(!is_plantuml_worker("/assets/plantUmlWorker-a1B2.js/nested.js"));
         assert!(!is_sql_worker("/assets/sqlDdlWorker-a1B2.js/nested.js"));
         assert!(!is_dot_worker("/assets/sqlDdlWorker-a1B2.js"));
         assert!(!is_dbml_worker("/assets/dbmlWorker-x.js/nested.js"));
@@ -54,5 +54,5 @@ pub fn is_sql_worker(path: &str) -> bool {
 }
 
 pub fn is_plantuml_worker(path: &str) -> bool {
-    path.starts_with("/assets/plantumlWorker-") && path.ends_with(".js") && !path[8..].contains('/')
+    path.starts_with("/assets/plantUmlWorker-") && path.ends_with(".js") && !path[8..].contains('/')
 }

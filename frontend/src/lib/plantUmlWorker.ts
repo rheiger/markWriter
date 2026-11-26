@@ -7,6 +7,13 @@ const scope = self as unknown as DedicatedWorkerGlobalScope
 try {
   installPlantUmlWorkerDom()
   scope.onmessage = event => {
+    if (import.meta.env.MODE === 'acceptance' && event.data?.__MW_PLANTUML_SECURITY_PROBE__) {
+      const { network, local, sameOrigin } = event.data.__MW_PLANTUML_SECURITY_PROBE__ as { network: string; local: string; sameOrigin: string }
+      Promise.allSettled([fetch(network, { mode: 'no-cors' }), fetch(local), fetch(sameOrigin)]).then(results => scope.postMessage({
+        __MW_PLANTUML_SECURITY_PROBE__: results.map(result => result.status),
+      }))
+      return
+    }
     const {id, owner, source} = event.data
     try {
       if (typeof source !== 'string' || typeof owner !== 'string' || !Number.isSafeInteger(id)) throw new Error('Invalid PlantUML request')
