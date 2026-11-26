@@ -75,7 +75,12 @@ export class PlantUmlRenderer {
           if (data.error) throw new Error(String(data.error).slice(0, 200))
           if (typeof data.svg !== 'string' || data.svg.length > PLANTUML_LIMITS.outputBytes || size(data.svg) > PLANTUML_LIMITS.outputBytes) throw new Error('Invalid or oversized PlantUML SVG')
           checkPlantUmlSvg(data.svg, job.input)
-          this.finish(job, undefined, sanitizePlantUmlSvg(data.svg))
+          const svg = sanitizePlantUmlSvg(data.svg)
+          // Parsing/sanitizing run synchronously on the document thread, so a
+          // timer cannot fire until they return. Reject rather than accepting a
+          // result that finished validation after the captured deadline.
+          if (Date.now() >= job.deadline) throw new Error('PlantUML rendering timed out')
+          this.finish(job, undefined, svg)
         } catch (error) { this.finish(job, error instanceof Error ? error : new Error('PlantUML rendering failed')) }
       }
     } catch { this.finish(job, new Error('Cannot start the local PlantUML worker')) }

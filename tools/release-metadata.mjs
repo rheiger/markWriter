@@ -8,6 +8,7 @@ import { verifyDesktopIconSources } from './icon-integrity.mjs'
 import { verifyMathAssets } from './math-assets.mjs'
 import { releasePolicy, draftReleaseArgs } from './release-policy.mjs'
 import { verifyShellPreviewAssets } from './shell-preview-assets.mjs'
+import { verifyNoAcceptanceMarkers } from './acceptance-marker-guard.mjs'
 const root=resolve(import.meta.dirname,'..'), assets=join(root,'release-assets'), args=process.argv.slice(2)
 const sha=data=>createHash('sha256').update(data).digest('hex')
 const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'))
@@ -30,7 +31,7 @@ async function check(){
 async function checkFrontend(){
  await check();const paths=await files(join(root,'frontend/dist'))
  assert.ok(paths.some(path=>basename(path)==='THIRD_PARTY_NOTICES.txt'),'Bundled notices required')
- for(const path of paths){assert.ok(!/\.(?:py|pyc|pyd)$/i.test(path));if(path.endsWith('.js'))assert.ok(!(await readFile(path,'utf8')).includes('__MARKWRITER_ACCEPTANCE__'),'Production acceptance bridge exclusion')}
+ for(const path of paths){assert.ok(!/\.(?:py|pyc|pyd)$/i.test(path));verifyNoAcceptanceMarkers(await readFile(path),path)}
  const workers=paths.filter(path=>/^dotWorker-[^/]+\.js$/.test(basename(path)));assert.equal(workers.length,1,'One local worker bundle')
  await verifyMathAssets(join(root,'frontend/dist/assets'),join(root,'frontend/node_modules/katex/dist/fonts'))
  const mathWorkers=paths.filter(path=>/^mathWorker-[^/]+\.js$/.test(basename(path)));assert.equal(mathWorkers.length,1,'One local math worker bundle')

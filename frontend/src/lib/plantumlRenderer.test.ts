@@ -3,6 +3,7 @@ import { PlantUmlRenderer, PLANTUML_LIMITS } from './plantumlRenderer'
 import sequenceSvg from './fixtures/plantuml/sequence.svg?raw'
 import classSvg from './fixtures/plantuml/class.svg?raw'
 import privateSvg from './fixtures/plantuml/private.svg?raw'
+import * as plantumlSvg from './plantumlSvg'
 
 afterEach(() => vi.useRealTimers())
 class FakeWorker {
@@ -52,6 +53,21 @@ it('terminates over-deadline active and queued jobs and permits the next request
   workers[1].respond({ svg })
   expect(await next).toContain('Alice')
   expect(workers[1].terminated).toBe(true)
+})
+it('rejects output when synchronous validation crosses the captured deadline', async () => {
+  let now = 1000
+  const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+  const original = plantumlSvg.sanitizePlantUmlSvg
+  const sanitizer = vi.spyOn(plantumlSvg, 'sanitizePlantUmlSvg').mockImplementationOnce(input => {
+    now += PLANTUML_LIMITS.deadlineMs + 1
+    return original(input)
+  })
+  try {
+    const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+    const result = renderer.render(source, 'doc:1'); worker.ready(); worker.respond({ svg })
+    await expect(result).rejects.toThrow('timed out')
+    expect(worker.terminated).toBe(true)
+  } finally { sanitizer.mockRestore(); clock.mockRestore() }
 })
 it('ignores a response for another owner and rejects unsafe or oversized output', async () => {
   const workers: FakeWorker[] = []
