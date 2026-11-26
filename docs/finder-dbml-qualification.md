@@ -20,4 +20,11 @@ For a cold start, close Finder previews and let the extension process exit; use 
 
 Check `representative.md`: both tables, all columns, PK, unique, nullability and the complete relationship and cardinality must appear. Expand Diagram source and compare its text. Check `multiple.md`: four diagrams render and the fifth is readable source; all diagram sources remain available. Check `fallback.md` and `oversized.md`: each fence remains readable through its final line without a partial schema. Record outcomes and timings, including a warm repeat on a fresh filename. Test timeout/failure fallback using a controlled isolated renderer probe if available; do not claim a timeout was tested merely because a schema is large.
 
+For a Markdown file exceeding the separate 1 MiB native file-read limit, Finder
+shows only an explicitly truncated, escaped source prefix of at most 64 KiB.
+It does not render the partial fence. Confirm the notice and prefix using a
+synthetic file larger than 1 MiB; open the original in an editor to read the
+remainder. This is distinct from the smaller per-diagram fallback above, which
+retains the whole fence when the document itself is within the native limit.
+
 Repeat the cold representative and fallback cases with networking disabled for the isolated account or machine. Confirm the selected provider and record the offline setting and outcome. Compare fixture hashes after previews. Record input, output and script-size observations, test setup and limitations. Distinguish direct renderer automation, installed-package checks, and actual interactive Finder results; absence of one is not evidence for it. Restore the original network and provider setup after the trial.
