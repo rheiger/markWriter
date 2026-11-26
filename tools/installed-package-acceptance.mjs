@@ -253,6 +253,10 @@ const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
+ if (process.env.MARKWRITER_PI222_WINDOWS === '1') {
+   const { verifyWindowsPlantUml } = await import('../research/pi-2.22-windows/verify.mjs')
+   await verifyWindowsPlantUml({ root, artifacts, fixture, driver, session, run, wait, mode, menu, dialog, openDocument, request })
+ } else {
  await verifyDesktopViewControls(); cases.push('dirty Source, read-only Preview and Split focus, maximize/restore, fullscreen menu and F11, and byte-exact Undo')
  await verifyViewport(true); await verifyViewport(false); cases.push('first Open at top and closed-tab viewport restored')
  await verifyWrappedSourceViewport(); cases.push('wrapped Markdown source reopens within the same logical line')
@@ -427,5 +431,6 @@ try{
  await writeFile(join(artifacts,'technical-writing-evidence.json'),JSON.stringify(technical,null,2))
  await writeFile(join(artifacts,'result.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,binary,version,source:process.env.GITHUB_SHA??null,profile,cases,alpha3CodeCases,alpha3Themes,actualWebviewPaths,workerPolicy,recoverySource:recovery.content,os:process.env.ImageOS??null,imageVersion:process.env.ImageVersion??null},null,2))
  console.log('Installed package accepted:',cases.length,'cases')
+ }
 }catch(error){if(session){const alert=await request('GET',`/session/${session}/alert/text`).catch(()=>null);if(alert)await writeFile(join(artifacts,'native-alert.json'),JSON.stringify({alert},null,2));const html=await request('GET',`/session/${session}/source`).catch(()=>null);if(html)await writeFile(join(artifacts,'failure.html'),html);const shot=await request('GET',`/session/${session}/screenshot`).catch(()=>null);if(shot)await writeFile(join(artifacts,'failure.png'),Buffer.from(shot,'base64'))}throw error}
 finally{if(session)await request('DELETE',`/session/${session}`).catch(()=>{});if(driver.pid){try{if(process.platform==='win32')driver.kill();else process.kill(-driver.pid,'SIGTERM')}catch{}}driver.stdout.destroy();driver.stderr.destroy();await writeFile(join(artifacts,'driver.log'),log)}
