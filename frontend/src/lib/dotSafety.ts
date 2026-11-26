@@ -49,7 +49,7 @@ function safeAttribute(name: string, value: string): boolean {
   if (numeric.has(name)) return boundedNumbers(value)
   if (name === 'viewBox') return value.trim().split(/[\s,]+/).length === 4 && boundedNumbers(value) && value.trim().split(/[\s,]+/).slice(2).every(n => Number(n) > 0)
   if (name === 'points' || name === 'stroke-dasharray') return boundedNumbers(value)
-  if (name === 'd') return /^[\s,0-9eE+.-MmLlHhVvCcSsQqTtAaZz]+$/.test(value) && (value.match(/[+-]?(?:\d*\.)?\d+(?:[eE][+-]?\d+)?/g) ?? []).every(n => Math.abs(Number(n)) <= 100000)
+  if (name === 'd') return /^[\s,0-9eE+.\-MmLlHhVvCcSsQqTtAaZz]+$/.test(value) && (value.match(/[+-]?(?:\d*\.)?\d+(?:[eE][+-]?\d+)?/g) ?? []).every(n => Math.abs(Number(n)) <= 100000)
   if (name === 'transform') return /^(?:\s*(?:matrix|translate|scale|rotate|skewX|skewY)\([\s,0-9eE+.-]+\)\s*)+$/.test(value) && boundedNumbers(value.replace(/[a-zA-Z]+\(/g, '').replace(/\)/g, ' '))
   if (name === 'fill' || name === 'stroke') return color.test(value)
   if (name === 'font-family') return /^[\w\s,.'-]{1,160}$/.test(value)
@@ -62,7 +62,7 @@ function safeAttribute(name: string, value: string): boolean {
   return false
 }
 
-export function sanitizeDotSvg(raw: string): string {
+export function sanitizeDotSvg(raw: string, options: { rejectLossy?: boolean } = {}): string {
   if (raw.length > DOT_LIMITS.outputBytes || bytes(raw) > DOT_LIMITS.outputBytes) throw new Error('DOT exceeds 2 MiB SVG limit')
   // Only Graphviz's fixed standard DTD is tolerated; no entities/internal subsets.
   raw = raw.replace(/<!DOCTYPE svg PUBLIC "-\/\/W3C\/\/DTD SVG 1\.1\/\/EN"\s+"http:\/\/www\.w3\.org\/Graphics\/SVG\/1\.1\/DTD\/svg11\.dtd">/, '')
@@ -74,16 +74,25 @@ export function sanitizeDotSvg(raw: string): string {
   let count = 0
   function copy(node: Element, parent: Element, depth: number): void {
     if (++count > 50000 || depth > 64) throw new Error('DOT SVG complexity limit exceeded')
-    if (node.namespaceURI !== NS) return
+    if (node.namespaceURI !== NS) { if (options.rejectLossy) throw new Error('Unsupported DOT SVG namespace'); return }
     // Strip links while retaining safe text/geometry. Other unsupported subtrees vanish.
-    if (node.localName === 'a') { for (const child of Array.from(node.children)) copy(child, parent, depth + 1); return }
-    if (!elements.has(node.localName)) return
+    if (node.localName === 'a' && !options.rejectLossy) { for (const child of Array.from(node.children)) copy(child, parent, depth + 1); return }
+    if (!elements.has(node.localName)) { if (options.rejectLossy) throw new Error('Unsupported DOT SVG element'); return }
     const clean = node === parsed.documentElement ? output.documentElement : output.createElementNS(NS, node.localName)
     for (const attr of Array.from(node.attributes)) {
       if (attr.namespaceURI === 'http://www.w3.org/XML/1998/namespace' && attr.localName === 'space' && attr.value === 'preserve') {
         clean.setAttributeNS(attr.namespaceURI, 'xml:space', 'preserve'); continue
       }
-      if (attr.namespaceURI || !safeAttribute(attr.name, attr.value)) continue
+      if (attr.namespaceURI || !safeAttribute(attr.name, attr.value)) {
+        // Graphviz's identifiers and root dimensions are metadata; viewBox
+        // controls rasterization. Any other dropped attribute could alter the
+        // schema's appearance and must make DBML fall back to source.
+        const metadata = !attr.namespaceURI && /^(id|class)$/.test(attr.name)
+          || attr.namespaceURI === 'http://www.w3.org/2000/xmlns/'
+          || node === parsed.documentElement && !attr.namespaceURI && /^(width|height)$/.test(attr.name) && /^\d+(?:\.\d+)?pt$/.test(attr.value)
+        if (options.rejectLossy && !metadata) throw new Error(`Unsupported DOT SVG attribute: ${attr.name}`)
+        continue
+      }
       clean.setAttribute(attr.name, attr.value)
     }
     if (node === parsed.documentElement && !clean.hasAttribute('viewBox')) throw new Error('DOT SVG has no bounded viewBox')
