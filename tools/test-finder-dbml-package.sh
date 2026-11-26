@@ -31,18 +31,34 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
   for ((i=0;i<900;i++)); do printf '// padding %04d\n' "$i"; done
   printf '// FINAL-SENTINEL\n```\n'
 } > "$work/oversized.md"
-{
-  printf '# Bounded dense Finder DBML stress\n\n'
-  for ((diagram=0;diagram<4;diagram++)); do
-    printf '```dbml\n'
-    for ((i=0;i<40;i++)); do printf 'Table d%dt%d { id int [pk] }\n' "$diagram" "$i"; done
-    for ((i=0;i<100;i++)); do
-      left=$((i % 40)); right=$(((left + 1 + 13 * (i / 40)) % 40))
-      printf 'Ref: d%dt%d.id > d%dt%d.id\n' "$diagram" "$left" "$diagram" "$right"
-    done
-    printf '// DIAGRAM-%d-FINAL-STRESS-SENTINEL\n```\n\n' "$diagram"
-  done
-} > "$work/stress.md"
+# Deterministic distinct pseudo-random graphs include cycles and crossings.
+/usr/bin/python3 - "$work/stress.md" <<'PYGRAPH'
+import pathlib, sys
+out = ['# Bounded random Finder DBML stress\n\n']
+for diagram in range(4):
+    out.append('```dbml\n')
+    for table in range(40):
+        out.append(f'Table t{table} {{\n id int [pk]\n')
+        if diagram == 0:
+            out.extend(f' {col} int\n' for col in 'abcdefghi')
+        out.append('}\n')
+    state = diagram + 1
+    def rand():
+        global state
+        state ^= (state << 13) & 0xffffffff
+        state ^= state >> 17
+        state ^= (state << 5) & 0xffffffff
+        state &= 0xffffffff
+        return state
+    seen = set()
+    while len(seen) < 100:
+        a, b = rand() % 40, rand() % 40
+        if a != b and (a, b) not in seen:
+            seen.add((a, b))
+            out.append(f'Ref: t{a}.id > t{b}.id\n')
+    out.append(f'// DIAGRAM-{diagram}-FINAL-STRESS-SENTINEL\n```\n\n')
+pathlib.Path(sys.argv[1]).write_text(''.join(out))
+PYGRAPH
 # ASCII fixture: bytes equal UTF-16 code units. Bound each code block and aggregate.
 /usr/bin/python3 - "$work/stress.md" > "$results/stress-limits.txt" <<'PYLIMITS'
 import pathlib, sys
@@ -62,8 +78,9 @@ for (const [index, block] of blocks.entries()) {
   const dot = dbmlToDot(block)
   const tables = (dot.match(/\[shape=box label=/g) || []).length
   const refs = (dot.match(/ -> /g) || []).length
-  if (tables !== 40 || refs !== 100) throw new Error(`Unexpected parser output for block ${index}`)
-  console.log(`block=${index} tables=${tables} refs=${refs} dot_bytes=${Buffer.byteLength(dot)}`)
+  const columns = (block.match(/ int(?: \[pk\])?$/gm) || []).length
+  if (tables !== 40 || refs !== 100 || columns !== (index === 0 ? 400 : 40)) throw new Error(`Unexpected parser output for block ${index}`)
+  console.log(`block=${index} tables=${tables} columns=${columns} refs=${refs} dot_bytes=${Buffer.byteLength(dot)}`)
 }
 NODE
 /usr/bin/sw_vers > "$results/system.txt"
