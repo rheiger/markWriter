@@ -4,88 +4,52 @@ on:
     branches: [codex/pi-2.20-wayland]
     paths:
       - .github/workflows/wayland-qualification.yml
+      - tools/test-ubuntu-wayland.sh
       - tools/wayland-association-desktop.py
       - tools/wayland-focus-observer/**
+  workflow_dispatch:
+    inputs:
+      candidate-run:
+        description: Production packaging run ID. Leave blank for the v2.19.3 control.
+        type: string
+      candidate-sha256:
+        description: Expected candidate DEB SHA-256 (required with a run ID).
+        type: string
 permissions:
   contents: read
+  actions: read
 jobs:
   nautilus:
     runs-on: ubuntu-26.04
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install disposable desktop and released DEB
-        shell: bash
+      - name: Install the isolated GNOME desktop fixture
         run: |
           sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-shell mutter-dev-bin pipewire nautilus xvfb xauth xdotool dbus-x11 at-spi2-core python3-pyatspi scrot desktop-file-utils tesseract-ocr mesa-utils
-          package=MarkWriter-2.19.3-ubuntu-26.04-x64.deb
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/$package" "https://github.com/rheiger/markWriter/releases/download/v2.19.3/$package"
-          echo "88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1  $RUNNER_TEMP/$package" | sha256sum --check
-          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y "$RUNNER_TEMP/$package"
-          test "$(dpkg-query -W -f='${Version}' mark-writer)" = 2.19.3
-      - name: Launch GNOME Shell Devkit and Nautilus
-        shell: bash
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-shell nautilus at-spi2-core python3-pyatspi python3-pil gir1.2-gtk-3.0 desktop-file-utils tesseract-ocr mesa-utils
+      - name: Qualify the exact installed DEB
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate-run }}
+          CANDIDATE_SHA256: ${{ inputs.candidate-sha256 }}
         run: |
-          export MARKWRITER_ASSOCIATION_EVIDENCE="$PWD/wayland-evidence"
-          mkdir -p "$MARKWRITER_ASSOCIATION_EVIDENCE"
-          {
-            cat /etc/os-release
-            dpkg-query -W gnome-shell mutter-dev-bin nautilus mark-writer
-            sha256sum "$RUNNER_TEMP/MarkWriter-2.19.3-ubuntu-26.04-x64.deb"
-            gnome-shell --help
-          } > "$MARKWRITER_ASSOCIATION_EVIDENCE/platform.txt"
-          export MARKWRITER_ASSOCIATION_ROOT="$(mktemp -d "$RUNNER_TEMP/markwriter-wayland.XXXXXX")"
-          export XDG_RUNTIME_DIR="$MARKWRITER_ASSOCIATION_ROOT/run"
-          export XDG_DATA_HOME="$MARKWRITER_ASSOCIATION_ROOT/data"
-          export XDG_CONFIG_HOME="$MARKWRITER_ASSOCIATION_ROOT/config"
-          export XDG_CACHE_HOME="$MARKWRITER_ASSOCIATION_ROOT/cache"
-          export MARKWRITER_PROFILE_DIR="$MARKWRITER_ASSOCIATION_ROOT/recovery"
-          mkdir -m 700 "$XDG_RUNTIME_DIR"
-          mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$MARKWRITER_PROFILE_DIR"
-          extension="$XDG_DATA_HOME/gnome-shell/extensions/focus-observer@markwriter.test"
-          mkdir -p "$extension"
-          cp tools/wayland-focus-observer/* "$extension/"
-          xvfb-run -a -s '-screen 0 1440x900x24 -ac' dbus-run-session -- bash -euxc '
-            export LIBGL_ALWAYS_SOFTWARE=1 GSETTINGS_BACKEND=keyfile
-            gsettings set org.gnome.shell enabled-extensions "['"'"'focus-observer@markwriter.test'"'"']"
-            gsettings set org.gnome.shell welcome-dialog-last-shown-version 999
-            pipewire >"$MARKWRITER_ASSOCIATION_EVIDENCE/pipewire.log" 2>&1 &
-            audio=$!
-            for i in $(seq 1 50); do
-              test ! -S "$XDG_RUNTIME_DIR/pipewire-0" || break
-              kill -0 "$audio"
-              sleep 0.2
-            done
-            test -S "$XDG_RUNTIME_DIR/pipewire-0"
-            gnome-shell --devkit --no-x11 --wayland-display=markwriter-test >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
-            shell=$!
-            trap "kill $shell $audio 2>/dev/null || true" EXIT
-            for i in $(seq 1 50); do
-              test ! -S "$XDG_RUNTIME_DIR/markwriter-test" || break
-              kill -0 "$shell"
-              sleep 0.2
-            done
-            test -S "$XDG_RUNTIME_DIR/markwriter-test"
-            for i in $(seq 1 50); do
-              if xdotool search --onlyvisible --name "^Mutter Development Kit$" > "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"; then break; fi
-              kill -0 "$shell"
-              sleep 0.2
-            done
-            test -s "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"
-            cat "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"
-            kit=$(tail -1 "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt")
-            xdotool getwindowname "$kit"
-            xdotool windowsize "$kit" 1440 900 windowmove "$kit" 0 0 windowfocus "$kit"
-            export WAYLAND_DISPLAY=markwriter-test GDK_BACKEND=wayland XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
-            dbus-update-activation-environment WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP GDK_BACKEND MARKWRITER_PROFILE_DIR
-            /usr/bin/python3 tools/wayland-association-desktop.py
-          '
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always()
+          if [[ -n "$CANDIDATE_RUN" ]]; then
+            [[ "$CANDIDATE_RUN" =~ ^[0-9]+$ ]]
+            [[ "$CANDIDATE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+            gh run download "$CANDIDATE_RUN" --name package-ubuntu-26.04-x64 --dir "$RUNNER_TEMP/candidate"
+            packages=("$RUNNER_TEMP"/candidate/MarkWriter-*-ubuntu-26.04-x64.deb)
+            test "${#packages[@]}" -eq 1
+            tools/test-ubuntu-wayland.sh "${packages[0]}" "$CANDIDATE_SHA256"
+          else
+            package="$RUNNER_TEMP/MarkWriter-2.19.3-ubuntu-26.04-x64.deb"
+            curl --fail --location --retry 3 --output "$package" "https://github.com/rheiger/markWriter/releases/download/v2.19.3/${package##*/}"
+            tools/test-ubuntu-wayland.sh "$package" 88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && hashFiles('package-acceptance-results/ubuntu-wayland/**') != ''
         with:
           name: ubuntu-wayland-evidence
-          path: wayland-evidence/
-          if-no-files-found: warn
+          path: package-acceptance-results/ubuntu-wayland/

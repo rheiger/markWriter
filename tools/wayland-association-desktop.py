@@ -1,36 +1,112 @@
 """Exercise the released DEB through a native-Wayland Nautilus window.
 
-X11 input and screenshots target only the Devkit's outer display. The GNOME
-Shell observer records which actual child surface has keyboard focus.
+Input and screenshots come from the disposable GNOME Shell Wayland compositor.
+The focus observer records which native surface has keyboard focus.
 """
 
+import csv
+import io
 import json
 import re
 import subprocess
 import time
 
-from gi.repository import Gio
+import gi
+
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GLib
+from PIL import Image
 
 desktop = __import__("ubuntu-association-desktop")
 
 (EVIDENCE, INCUMBENT, MARKWRITER, MIME, ROOT, command, dirty_checkpoint,
- documents, mime_state, observe, visible_point, wait, workspace) = (
+ documents, mime_state, observe, wait, workspace) = (
     desktop.EVIDENCE, desktop.INCUMBENT, desktop.MARKWRITER, desktop.MIME, desktop.ROOT,
     desktop.command, desktop.dirty_checkpoint,
-    desktop.documents, desktop.mime_state, desktop.observe, desktop.visible_point,
+    desktop.documents, desktop.mime_state, desktop.observe,
     desktop.wait, desktop.workspace,
 )
 
 
-def input_event(*args):
-    command("xdotool", *args)
+class WaylandSeat:
+    """Keep the RemoteDesktop session attached to one private D-Bus connection."""
+
+    shell_name = "org.gnome.Shell"
+    observer_path = "/com/markwriter/WaylandTest"
+    observer_interface = "com.markwriter.WaylandTest"
+    remote_desktop = "org.gnome.Mutter.RemoteDesktop"
+
+    def __init__(self):
+        self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        self.path = self.call(self.remote_desktop, "/org/gnome/Mutter/RemoteDesktop",
+                              self.remote_desktop, "CreateSession")[0]
+        self.input("Start")
+
+    def call(self, destination, path, interface, method, signature=None, *values):
+        arguments = GLib.Variant(signature, values) if signature else None
+        return self.bus.call_sync(destination, path, interface, method, arguments, None,
+                                  Gio.DBusCallFlags.NONE, 3000, None).unpack()
+
+    def input(self, method, signature=None, *values):
+        self.call(self.remote_desktop, self.path, f"{self.remote_desktop}.Session",
+                  method, signature, *values)
+
+    def observer(self, method):
+        return self.call(self.shell_name, self.observer_path, self.observer_interface, method)
+
+    def key(self, *names):
+        symbols = [Gdk.keyval_from_name(name) for name in names]
+        for symbol in symbols:
+            self.input("NotifyKeyboardKeysym", "(ub)", symbol, True)
+        for symbol in reversed(symbols):
+            self.input("NotifyKeyboardKeysym", "(ub)", symbol, False)
+        time.sleep(0.12)
+
+    def type_text(self, value):
+        for char in value:
+            symbol = Gdk.unicode_to_keyval(ord(char))
+            self.input("NotifyKeyboardKeysym", "(ub)", symbol, True)
+            self.input("NotifyKeyboardKeysym", "(ub)", symbol, False)
+        time.sleep(0.15)
+
+    def move(self, x, y):
+        old_x, old_y = self.observer("Pointer")
+        self.input("NotifyPointerMotionRelative", "(dd)", x - old_x, y - old_y)
+        time.sleep(0.2)
+
+    def click(self, button=272):
+        self.input("NotifyPointerButton", "(ib)", button, True)
+        self.input("NotifyPointerButton", "(ib)", button, False)
+        time.sleep(0.25)
 
 
 def screenshot(label):
-    target = EVIDENCE / f"{label}.png"
-    target.unlink(missing_ok=True)
-    command("scrot", str(target))
-    return target
+    path = EVIDENCE / f"{label}.png"
+    path.write_bytes(bytes(seat.observer("Capture")[0]))
+    return path
+
+
+def visible_point(pattern, label):
+    def find():
+        frame = screenshot(label)
+        enlarged = EVIDENCE / f"{label}-ocr-input.png"
+        with Image.open(frame) as source:
+            size = (source.width * 2, source.height * 2)
+            source.convert("L").resize(size, Image.Resampling.LANCZOS).save(enlarged)
+        data = command("tesseract", str(enlarged), "stdout", "--psm", "11", "tsv")
+        lines = {}
+        for row in csv.DictReader(io.StringIO(data), delimiter="\t"):
+            if row["text"]:
+                key = tuple(row[field] for field in ("block_num", "par_num", "line_num"))
+                lines.setdefault(key, []).append(row)
+        for words in lines.values():
+            if re.fullmatch(pattern, " ".join(word["text"] for word in words), re.IGNORECASE):
+                first = words[0]
+                return ((2 * int(first["left"]) + int(first["width"])) // 4,
+                        (2 * int(first["top"]) + int(first["height"])) // 4)
+        return None
+
+    return wait(f"visible {label} matching {pattern}", find, 12)
 
 
 def focus_history():
@@ -51,7 +127,7 @@ def is_files(window):
 
 def raise_files():
     if not is_files(current_focus()):
-        input_event("key", "alt+Tab")
+        seat.key("Alt_L", "Tab")
     focus = wait("native Wayland Nautilus in foreground", lambda: (
         current_focus() if is_files(current_focus()) else None
     ))
@@ -64,7 +140,8 @@ def launch_files(directory, label):
     time.sleep(2)
     screenshot(f"{label}-startup")
     if not is_files(current_focus()):
-        input_event("key", "Escape", "sleep", "0.2", "key", "alt+Tab")
+        seat.key("Escape")
+        seat.key("Alt_L", "Tab")
     focused = wait(f"Nautilus opened {directory.name}", lambda: (
         current_focus() if is_files(current_focus()) else None
     ))
@@ -72,32 +149,34 @@ def launch_files(directory, label):
 
 
 def click_label(pattern, label):
-    x, y = visible_point(pattern, EVIDENCE / f"{label}.png")
-    input_event("mousemove", str(x), str(y), "click", "1")
+    x, y = visible_point(pattern, label)
+    seat.move(x, y)
+    seat.click()
 
 
 def dispatch(path, label, check, *, multiple=False):
     raise_files()
-    x, y = visible_point(r".*" + re.escape(path.name[2:]), EVIDENCE / f"{label}-file.png")
-    input_event("mousemove", str(x), str(y), "click", "1")
+    x, y = visible_point(re.escape(path.name), f"{label}-file")
+    seat.move(x, y)
+    seat.click()
     if multiple:
-        input_event("key", "ctrl+a")
-    input_event("click", "3", "sleep", "0.25")
+        seat.key("Control_L", "a")
+    seat.click(273)
     screenshot(f"{label}-context")
     click_label(r".*Open With(?:\s|[.…])*", f"{label}-context-ocr")
     screenshot(f"{label}-chooser")
-    input_event("type", "--clearmodifiers", "MarkWriter")
+    seat.type_text("MarkWriter")
     click_label(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", f"{label}-chooser-ocr")
     before = current_focus()
     assert is_files(before), before
     dispatched_at = time.monotonic()
-    input_event("key", "Return")
+    seat.key("Return")
     result = wait(f"{label} delivery", check)
     time.sleep(2)
     after = current_focus()
     transitions = [window for window in focus_history() if window["time"] >= dispatched_at]
     screenshot(f"{label}-result")
-    return result, {
+    phase = {
         "sentWithFilesFocused": True,
         "delivered": True,
         "editorEverFocused": any(is_editor(window) for window in transitions),
@@ -106,6 +185,8 @@ def dispatch(path, label, check, *, multiple=False):
         "focusAfter": after,
         "focusTransitions": transitions,
     }
+    (EVIDENCE / f"{label}.json").write_text(json.dumps(phase, indent=2) + "\n")
+    return result, phase
 
 
 def install_incumbent():
@@ -139,11 +220,13 @@ def audit():
     owner, cold = dispatch(first, "cold", lambda: observe(first))
     assert owner["content"].encode() == originals[first]
     if not cold["editorInForeground"]:
-        input_event("key", "alt+Tab")
+        seat.key("Alt_L", "Tab")
         wait("cold editor manually focused", lambda: is_editor(current_focus()))
     editor_focus = current_focus()
     assert editor_focus["wayland"], editor_focus
-    input_event("key", "ctrl+Home", "key", "End", "type", "--clearmodifiers", " dirty-draft")
+    seat.key("Control_L", "Home")
+    seat.key("End")
+    seat.type_text(" dirty-draft")
     draft = wait("dirty recovery checkpoint", lambda: dirty_checkpoint(first))
 
     warm, warm_focus = dispatch(second, "warm", lambda: observe(second))
@@ -151,9 +234,10 @@ def audit():
     wait("different active tab before dirty reopen", lambda: workspace()["activeId"] == warm["id"])
     _, dirty_reopen = dispatch(first, "dirty-reopen", lambda: workspace()["activeId"] == owner["id"])
     raise_files()
-    input_event("key", "ctrl+l")
-    input_event("type", "--clearmodifiers", str(batch_first.parent))
-    input_event("key", "Return", "sleep", "0.5")
+    seat.key("Control_L", "l")
+    seat.type_text(str(batch_first.parent))
+    seat.key("Return")
+    time.sleep(0.5)
     opened, batch = dispatch(batch_first, "multiselect", lambda: (
         docs if all(docs := [observe(batch_first), observe(batch_second)]) else None
     ), multiple=True)
@@ -169,7 +253,7 @@ def audit():
         assert path.read_bytes() == content and path.stat().st_mtime_ns == mtimes[path]
     assert mime_state()["default"] == baseline["default"], mime_state()
     return {
-        "compositor": "GNOME Shell Devkit Wayland",
+        "compositor": "GNOME Shell headless Wayland",
         "nativeWaylandClients": True,
         "coldOpen": cold,
         "warmOpen": warm_focus,
@@ -183,11 +267,15 @@ def audit():
 
 
 if __name__ == "__main__":
+    seat = WaylandSeat()
     try:
         install_incumbent()
         result = audit()
         (EVIDENCE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
     except Exception:
-        subprocess.run(["scrot", str(EVIDENCE / "failure.png")], check=False)
+        try:
+            screenshot("failure")
+        except GLib.Error:
+            pass
         raise
