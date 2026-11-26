@@ -60,6 +60,42 @@ describe('PlantUML callback output semantics', () => {
     const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "*" -- "1" Order : owns\n@enduml'
     expect(() => checkPlantUmlSvg(classSvg, validatePlantUml(src))).toThrow()
   })
+  it('rejects an association with metadata but no visible path', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace(/<path d="[^"]+"[^>]*><\/path>/, '')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
+  it('rejects an association disconnected from its classes', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace('M42,71.174', 'M999,71.174')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
+  it('rejects a message line displaced from its lifelines', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replace('x1="24.83" y1="102"', 'x1="999" y1="102"')
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
+  it('rejects relationship geometry moved by an ancestor transform', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const changed = sequenceSvg.replaceAll('class="message" data-entity-1="part1"', 'class="message" transform="translate(999 0)" data-entity-1="part1"')
+    expect(changed).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
+  it('rejects a relationship hidden by group opacity', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace('class="link"', 'class="link" opacity="0"')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
+  it('rejects a transparent or zero-width relationship', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
+    const changed = classSvg.replace('stroke="#181818" stroke-width="1"></path>', 'stroke="none" stroke-width="0"></path>')
+    expect(changed).not.toBe(classSvg)
+    expect(() => checkPlantUmlSvg(changed, validatePlantUml(src))).toThrow(/geometry/i)
+  })
   it('rejects error SVGs returned in a success callback', () => {
     const error = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text>Syntax Error</text></svg>'
     expect(() => checkPlantUmlSvg(error, validatePlantUml(sequence))).toThrow()
