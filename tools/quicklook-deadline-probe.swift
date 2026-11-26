@@ -37,21 +37,27 @@ struct QuickLookDeadlineProbe {
         try js.write(to: accessScript, atomically: true, encoding: .utf8)
         let successScript = root.appendingPathComponent("success.js")
         let stalledScript = root.appendingPathComponent("stalled.js")
+        let promiseScript = root.appendingPathComponent("promise.js")
         try "globalThis.markwriterQuickLookRender = async html => html;".write(to: successScript, atomically: true, encoding: .utf8)
-        try "globalThis.markwriterQuickLookRender = async () => await new Promise(() => {});".write(to: stalledScript, atomically: true, encoding: .utf8)
+        try "globalThis.markwriterQuickLookRender = async () => await new Promise(() => {});".write(to: promiseScript, atomically: true, encoding: .utf8)
+        try "globalThis.markwriterQuickLookRender = () => { const start = performance.now(); while (performance.now() - start < 15000) {} return 'late'; };".write(to: stalledScript, atomically: true, encoding: .utf8)
         let source = "<!doctype html><html><body><pre data-language=\"dbml\">synthetic-source-sentinel</pre></body></html>"
         let first = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: successScript)
         guard first == source else { throw NSError(domain: "QuickLookDeadlineProbe", code: 1, userInfo: [NSLocalizedDescriptionKey: "Success control failed"]) }
         let access = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: accessScript)
         guard access == "[\"blocked\",\"blocked\",\"blocked\"]" else { throw NSError(domain: "QuickLookDeadlineProbe", code: 5, userInfo: [NSLocalizedDescriptionKey: "Synthetic WebKit access probe was not blocked: \(access ?? "nil")"]) }
         fputs("Synthetic access probe returned blocked for loopback fetch, local file fetch and loopback image.\n", stderr)
+        let promiseStart = ProcessInfo.processInfo.systemUptime
+        let promise = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: promiseScript)
+        let promiseElapsed = ProcessInfo.processInfo.systemUptime - promiseStart
+        guard promise == nil else { throw NSError(domain: "QuickLookDeadlineProbe", code: 6, userInfo: [NSLocalizedDescriptionKey: "Pending Promise unexpectedly succeeded"]) }
         let start = ProcessInfo.processInfo.systemUptime
         let timeout = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: stalledScript)
         let elapsed = ProcessInfo.processInfo.systemUptime - start
         guard timeout == nil && elapsed >= 7 && elapsed < 20 else { throw NSError(domain: "QuickLookDeadlineProbe", code: 2, userInfo: [NSLocalizedDescriptionKey: "Deadline did not return nil within expected bounds: returnedNil=\(timeout == nil), elapsed=\(elapsed)s"]) }
         let recovered = await QuickLookWebRenderer.enrich(source, markdown: "synthetic", scriptURL: successScript)
         guard recovered == source else { throw NSError(domain: "QuickLookDeadlineProbe", code: 3, userInfo: [NSLocalizedDescriptionKey: "Renderer failed to recover after timeout"]) }
-        let result: [String: Any] = ["successControl": true, "loopbackFetchBlocked": true, "localFileFetchBlocked": true, "loopbackImageBlocked": true, "stalledScriptReturnedNil": true, "elapsedSeconds": elapsed, "recovered": true, "scope": "Direct synthetic WebKit renderer probe, not Finder or packaged extension"]
+        let result: [String: Any] = ["successControl": true, "loopbackFetchBlocked": true, "localFileFetchBlocked": true, "loopbackImageBlocked": true, "pendingPromiseReturnedNil": true, "pendingPromiseElapsedSeconds": promiseElapsed, "cpuBoundScriptReturnedNil": true, "cpuBoundElapsedSeconds": elapsed, "recovered": true, "scope": "Direct synthetic WebKit renderer probe, not Finder or packaged extension"]
         let output = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
         FileHandle.standardOutput.write(output)
         print("")
