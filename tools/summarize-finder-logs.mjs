@@ -2,22 +2,19 @@ import { readFile } from 'node:fs/promises'
 import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-// Only renderer events emitted by the tested, extracted extension count.
+// Process-level observations only: renderer requests have no correlation ID.
 export function summarizeFinderLogs(lines, executable, samePath = (left, right) => left === right) {
   const events = []
   for (const line of lines.split('\n')) {
     if (!line.startsWith('{')) continue
     let value
     try { value = JSON.parse(line) } catch { continue }
-    if (typeof value.processImagePath === 'string' && samePath(value.processImagePath, executable) && typeof value.eventMessage === 'string') events.push(value)
+    if (typeof value.processImagePath !== 'string' || !samePath(value.processImagePath, executable) || typeof value.eventMessage !== 'string') continue
+    if (!Number.isInteger(value.processID) || value.processID <= 0 || typeof value.timestamp !== 'string') throw new Error('Renderer event lacks process ID or timestamp')
+    events.push({ pid: value.processID, timestamp: value.timestamp, message: value.eventMessage })
   }
-  const start = events.find(event => event.eventMessage === 'Starting local renderer')
-  const end = events.find(event => event.eventMessage === 'Local renderer completed' || event.eventMessage.startsWith('Fallback:'))
-  if (!start || !end || start.processID !== end.processID) throw new Error('No matched renderer start and outcome from the tested extension')
-  const startMs = Date.parse(start.timestamp)
-  const endMs = Date.parse(end.timestamp)
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) throw new Error('Invalid renderer event timestamps')
-  return { executable, pid: start.processID, started: start.timestamp, finished: end.timestamp, rendererElapsedMs: endMs - startMs, outcome: end.eventMessage }
+  if (!events.length) throw new Error('No renderer events from the tested extension')
+  return { executable, scope: 'Uncorrelated process events; selected preview and request timing are not established', events }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

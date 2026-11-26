@@ -100,7 +100,7 @@ cmp "$results/fixtures-before.txt" "$results/fixtures-after.txt"
 cat > "$results/README.txt" <<'TEXT'
 Raw Finder observations on a disposable hosted runner, not a pass receipt.
 Review screenshots, OCR, accessibility tree and renderer log process paths against the extracted app.
-Renderer summaries measure log start to outcome; screenshots after 10 seconds do not establish time to visible preview or visual completeness.
+Renderer summaries are uncorrelated process events: they do not establish the selected preview provider or per-request timing. Screenshots after 10 seconds do not establish time to visible preview or visual completeness.
 No controlled network-off, document access attempt or forced timeout test is performed here.
 The process-before receipt indicates whether the first extension process was absent. Those acceptance conditions require separate evidence.
 TEXT
