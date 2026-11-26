@@ -27,6 +27,7 @@ inventory() {
 # Refuse if any routed interface is active or cannot be inspected.
 verify_routes_down() {
   local phase=$1 device flags
+  : > "$results/routed-interface-flags-$phase.txt"
   while IFS= read -r device; do
     [[ -n "$device" ]] || continue
     flags=$(/sbin/ifconfig "$device" | /usr/bin/awk 'NR == 1 { sub(/ mtu.*/, ""); print }') || return 1
