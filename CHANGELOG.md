@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.21.1
+
+- Render the supported DBML subset offline in Finder Quick Look, with source fallback and shared diagram limits.
+- Preserve DOT edge paths with negative coordinates and diagram correspondence across WebView selection events.
+
+[Release notes](docs/releases/2.21.1.md) · [Installation and rollback](docs/install-2.21.1.md)
+
 ## 2.20.2
 
 - Choose Source, Split, read-only Preview or WYSIWYG from the View menu. Switch views on the active tab while keeping its Markdown, unsaved edits and editor histories. The offline User Guide explains each view. [#171](https://github.com/rheiger/markWriter/issues/171)
