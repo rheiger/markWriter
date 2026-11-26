@@ -233,7 +233,7 @@ def audit():
         wait("cold editor manually focused", lambda: is_editor(current_focus()))
     editor_focus = current_focus()
     assert editor_focus["wayland"], editor_focus
-    seat.key("Control_L", "Home")
+    click_label(r"WaylandOwnerSentinel", "cold-editor-source")
     seat.key("End")
     seat.type_text(" dirty-draft")
     draft = wait("dirty recovery checkpoint", lambda: dirty_checkpoint(first))
