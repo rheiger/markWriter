@@ -51,6 +51,7 @@ jobs:
           xvfb-run -a -s '-screen 0 1440x900x24 -ac' dbus-run-session -- bash -euxc '
             export LIBGL_ALWAYS_SOFTWARE=1 GSETTINGS_BACKEND=keyfile
             gsettings set org.gnome.shell enabled-extensions "['"'"'focus-observer@markwriter.test'"'"']"
+            gsettings set org.gnome.shell welcome-dialog-last-shown-version 999
             pipewire >"$MARKWRITER_ASSOCIATION_EVIDENCE/pipewire.log" 2>&1 &
             audio=$!
             for i in $(seq 1 50); do
@@ -69,7 +70,7 @@ jobs:
             done
             test -S "$XDG_RUNTIME_DIR/markwriter-test"
             for i in $(seq 1 50); do
-              if xdotool search --onlyvisible --name "[Dd]evkit" > "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"; then break; fi
+              if xdotool search --onlyvisible --name "^Mutter Development Kit$" > "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"; then break; fi
               kill -0 "$shell"
               sleep 0.2
             done

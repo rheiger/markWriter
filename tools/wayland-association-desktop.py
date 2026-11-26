@@ -60,8 +60,12 @@ def raise_files():
 def launch_files(directory, label):
     with (EVIDENCE / f"{label}-files.log").open("w") as log:
         subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
+    time.sleep(2)
+    screenshot(f"{label}-startup")
+    if not is_files(current_focus()):
+        input_event("key", "Escape", "sleep", "0.2", "key", "alt+Tab")
     focused = wait(f"Nautilus opened {directory.name}", lambda: (
-        current_focus() if current_focus().get("title") == directory.name else None
+        current_focus() if is_files(current_focus()) else None
     ))
     assert focused["wayland"], focused
 
@@ -186,5 +190,5 @@ if __name__ == "__main__":
         (EVIDENCE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
     except Exception:
-        screenshot("failure")
+        subprocess.run(["scrot", str(EVIDENCE / "failure.png")], check=False)
         raise
