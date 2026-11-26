@@ -1,0 +1,63 @@
+name: PI 2.22.2 exact Windows PlantUML package
+on:
+  push:
+    branches: [codex/pi-2.22-windows-research]
+    paths:
+      - .github/workflows/pi222-windows-research.yml
+      - research/pi-2.22-windows/**
+      - tools/installed-package-acceptance.mjs
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: windows-2025
+    timeout-minutes: 36
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.22.2'
+      - name: Set up the existing Windows qualification drivers
+        run: |
+          ./tools/setup-edge-driver.ps1
+          ./tools/setup-windows-acceptance.ps1
+          cargo install tauri-driver --version 2.1.0 --locked
+      - name: Download the exact integrated package and builder manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $run = '45873114289'
+          for ($attempt = 0; $attempt -lt 40; $attempt++) {
+            $a = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$run/artifacts" | ConvertFrom-Json
+            if ($LASTEXITCODE) { throw 'Could not query producer artifacts' }
+            $item = @($a.artifacts | Where-Object name -eq 'package-windows-x64')
+            if ($item.Count -eq 1) { break }
+            Start-Sleep -Seconds 30
+          }
+          if ($item.Count -ne 1) { throw 'No exact Windows package artifact from the producer' }
+          gh run download $run --repo $env:GITHUB_REPOSITORY --name package-windows-x64 --dir candidate
+          if ($LASTEXITCODE) { throw 'Could not download Windows package' }
+          New-Item -ItemType Directory -Force package-acceptance-results | Out-Null
+          $item | Select-Object id,name,size_in_bytes,digest | ConvertTo-Json | Set-Content package-acceptance-results/pi222-artifact.json
+      - name: Verify hashes and install unsigned NSIS package
+        run: ./research/pi-2.22-windows/install.ps1
+      - name: Qualify native Windows editor, preview and HTML export
+        env:
+          MARKWRITER_PI222_WINDOWS: '1'
+        run: |
+          & $env:MARKWRITER_GSUDO --integrity Medium pwsh -NoProfile -Command "node tools/installed-package-acceptance.mjs"
+          if ($LASTEXITCODE) { throw "Installed Windows PlantUML qualification failed ($LASTEXITCODE)" }
+      - name: Retain synthetic qualification receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi222-windows-plantuml-evidence
+          path: package-acceptance-results/
+          retention-days: 14
+          if-no-files-found: warn
