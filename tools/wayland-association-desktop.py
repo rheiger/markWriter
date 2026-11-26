@@ -95,13 +95,15 @@ def screenshot(label):
     return path
 
 
-def visible_point(pattern, label):
+def visible_point(pattern, label, region=None):
     def find():
         frame = screenshot(label)
         enlarged = EVIDENCE / f"{label}-ocr-input.png"
         with Image.open(frame) as source:
-            size = (source.width * 2, source.height * 2)
-            source.convert("L").resize(size, Image.Resampling.LANCZOS).save(enlarged)
+            left, top, _, _ = region or (0, 0, source.width, source.height)
+            area = source.crop(region) if region else source
+            size = (area.width * 2, area.height * 2)
+            area.convert("L").resize(size, Image.Resampling.LANCZOS).save(enlarged)
         data = command("tesseract", str(enlarged), "stdout", "--psm", "11", "tsv")
         lines = {}
         for row in csv.DictReader(io.StringIO(data), delimiter="\t"):
@@ -111,8 +113,8 @@ def visible_point(pattern, label):
         for words in lines.values():
             if re.fullmatch(pattern, " ".join(word["text"] for word in words), re.IGNORECASE):
                 first = words[0]
-                return ((2 * int(first["left"]) + int(first["width"])) // 4,
-                        (2 * int(first["top"]) + int(first["height"])) // 4)
+                return (left + (2 * int(first["left"]) + int(first["width"])) // 4,
+                        top + (2 * int(first["top"]) + int(first["height"])) // 4)
         return None
 
     return wait(f"visible {label} matching {pattern}", find, 12)
@@ -157,8 +159,8 @@ def launch_files(directory, label):
     assert focused["wayland"], focused
 
 
-def click_label(pattern, label):
-    x, y = visible_point(pattern, label)
+def click_label(pattern, label, region=None):
+    x, y = visible_point(pattern, label, region)
     seat.move(x, y)
     seat.click()
 
@@ -173,13 +175,19 @@ def dispatch(path, label, check, *, multiple=False):
     seat.click(273)
     screenshot(f"{label}-context")
     click_label(r".*Open With(?:\s|[.…])*", f"{label}-context-ocr")
-    screenshot(f"{label}-chooser")
+    title_x, title_y = visible_point(r"Open (?:File|Items)", f"{label}-chooser")
     seat.type_text("MarkWriter")
-    click_label(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", f"{label}-chooser-ocr")
+    # Restrict the match to the app list. The background editor title and
+    # the chooser's own search field can both say MarkWriter.
+    app_list = (title_x - 160, title_y + 105, title_x + 205, title_y + 410)
+    click_label(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", f"{label}-chooser-app", app_list)
+    header = (title_x + 80, title_y - 24, title_x + 225, title_y + 24)
+    open_x, open_y = visible_point(r"Open", f"{label}-chooser-open", header)
+    seat.move(open_x, open_y)
     before = current_focus()
     assert is_files(before), before
     dispatched_at = time.monotonic()
-    seat.key("Return")
+    seat.click()
     result = wait(f"{label} delivery", check)
     time.sleep(2)
     after = current_focus()
