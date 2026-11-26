@@ -135,7 +135,10 @@ def select_pattern(window, pattern):
 def choose_markwriter(window, path, label, multiple=False):
     pattern = "*" if multiple else path.name.split(maxsplit=1)[0] + " *"
     select_pattern(window, pattern)
-    command("xdotool", "key", "Shift+F10")
+    # The test directory contains only its four sorted fixture tiles.
+    # Right-clicking an already selected tile leaves the whole batch selected.
+    index = sorted(path.parent.iterdir()).index(path)
+    command("xdotool", "mousemove", "--window", window, str(282 + 167 * index), "122", "click", "3")
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
                          adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
