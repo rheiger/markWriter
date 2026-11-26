@@ -33,4 +33,4 @@ sleep 1
 kill "$log_pid" 2>/dev/null || true
 wait "$log_pid" 2>/dev/null || true
 log_pid=
-/usr/bin/grep -Fq '"eventMessage":"Fallback: renderer timed out"' "$results/quicklook-direct-renderer.ndjson"
+node tools/verify-quicklook-direct-logs.mjs "$results/quicklook-direct-renderer.ndjson" "$work/probe" > "$results/quicklook-direct-summary.json"
