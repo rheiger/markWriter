@@ -36,12 +36,29 @@ function validateXmlCharacters(source: string): void {
   }
 }
 
+const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace'
+const XMLNS_NAMESPACE = 'http://www.w3.org/2000/xmlns/'
+function validateNamespaceBindings(doc: Document): void {
+  // Examine decoded attribute values: numeric references in namespace URIs
+  // cannot bypass the reserved-binding and prefix-undeclaration rules.
+  for (const element of Array.from(doc.getElementsByTagName('*'))) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name
+      if (name !== 'xmlns' && !name.startsWith('xmlns:')) continue
+      const prefix = name === 'xmlns' ? '' : name.slice(6), uri = attribute.value
+      if (prefix === 'xmlns' || uri === XMLNS_NAMESPACE || prefix === 'xml' && uri !== XML_NAMESPACE || prefix !== 'xml' && uri === XML_NAMESPACE || prefix !== '' && uri === '') throw new Error('Invalid XML namespace binding')
+    }
+  }
+}
+
 class StrictParser {
   parseFromString(source: string, type: string): Document {
-    if (type !== 'image/svg+xml' || /<!DOCTYPE|<!ENTITY|<!\[CDATA\[/i.test(source) || (source.match(/<\?[\s\S]*?\?>/g) ?? []).some(pi => !/^<\?plantuml-src [\w-]*\?>$/.test(pi))) throw new Error('Unsupported XML declaration')
+    if (type !== 'image/svg+xml' || source.includes(']]>') || /<!DOCTYPE|<!ENTITY|<!\[CDATA\[/i.test(source) || (source.match(/<\?[\s\S]*?\?>/g) ?? []).some(pi => !/^<\?plantuml-src [\w-]*\?>$/.test(pi))) throw new Error('Unsupported XML declaration')
     validateXmlCharacters(source)
     // application/xml does not invent an SVG namespace for an unqualified root.
-    return new XmlParser({onError:onWarningStopParsing}).parseFromString(source, 'application/xml') as unknown as Document
+    const doc = new XmlParser({onError:onWarningStopParsing}).parseFromString(source, 'application/xml') as unknown as Document
+    validateNamespaceBindings(doc)
+    return doc
   }
 }
 export function installPlantUmlXmlDom(): void {

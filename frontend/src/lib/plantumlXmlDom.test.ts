@@ -44,6 +44,31 @@ describe('strict worker XML DOM', () => {
       expect(() => new DOMParser().parseFromString(xml,'image/svg+xml')).not.toThrow()
     },
   )
+  it.each([
+    ['raw CDATA terminator', '<text x="1" y="1">a]]>b</text>'],
+    ['invalid xml prefix binding', '<g xmlns:xml="http://invalid"/>'],
+    ['xmlns URI bound to other prefix', '<g xmlns:x="http://www.w3.org/2000/xmlns/"/>'],
+    ['prefixed namespace undeclaration', '<g xmlns:p=""/>'],
+    ['encoded xmlns URI', '<g xmlns:x="http://www.w3.org/2000/xmln&#x73;/"/>'],
+    ['xml URI bound to other prefix', '<g xmlns:p="http://www.w3.org/XML/1998/namespace"/>'],
+    ['xml URI bound to default namespace', '<g xmlns="http://www.w3.org/XML/1998/namespace"/>'],
+    ['reserved xmlns prefix declaration', '<g xmlns:xmlns="http://www.w3.org/2000/xmlns/"/>'],
+  ])('rejects malformed XML namespace or text: %s', (_name, fragment) => {
+    const svg = sequence.replace('</svg>', `${fragment}</svg>`)
+    expect(svg).not.toBe(sequence)
+    expect(new originals.DOMParser().parseFromString(svg,'image/svg+xml').querySelector('parsererror')).not.toBeNull()
+    expect(() => checkPlantUmlSvg(svg,validatePlantUml(seqSource))).toThrow()
+  })
+  it.each([
+    '<g xmlns:xml="http://www.w3.org/XML/1998/namespace"/>',
+    '<g xmlns:p="urn:synthetic"/>',
+    '<g xmlns=""/>',
+    '<text>text ]]&gt; remains escaped</text>',
+  ])('accepts XML-valid namespace or escaped text %s', fragment => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg">${fragment}</svg>`
+    expect(new originals.DOMParser().parseFromString(svg,'image/svg+xml').querySelector('parsererror')).toBeNull()
+    expect(() => new DOMParser().parseFromString(svg,'image/svg+xml')).not.toThrow()
+  })
   it('rejects metadata-preserving SVG with hidden entity', () => {
     expect(() => checkPlantUmlSvg(klass.replace('class="entity"','class="entity" opacity="0"'),validatePlantUml(classSource))).toThrow()
   })

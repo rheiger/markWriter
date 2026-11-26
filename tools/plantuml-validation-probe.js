@@ -13,6 +13,11 @@
     ['malformed',source,'<svg xmlns="http://www.w3.org/2000/svg"><g></svg>',false],
     ['numeric-nul',source,inputs.sequence.replace('<title>Alice</title>','<title>Alice&#0;</title>'),false],
     ['literal-control',source,inputs.sequence.replace('<title>Alice</title>','<title>Alice\u0001</title>'),false],
+    ['raw-cdata-end',source,inputs.sequence.replace('</svg>','<text x="1" y="1">a]]>b</text></svg>'),false],
+    ['xml-binding',source,inputs.sequence.replace('</svg>','<g xmlns:xml="http://invalid"/></svg>'),false],
+    ['xmlns-binding',source,inputs.sequence.replace('</svg>','<g xmlns:x="http://www.w3.org/2000/xmlns/"/></svg>'),false],
+    ['prefix-undeclare',source,inputs.sequence.replace('</svg>','<g xmlns:p=""/></svg>'),false],
+    ['encoded-xmlns-binding',source,inputs.sequence.replace('</svg>','<g xmlns:x="http://www.w3.org/2000/xmln&#x73;/"/></svg>'),false],
   ]
   const worker = path => new Promise((resolve,reject)=>{
     const w = new Worker(path), timer=setTimeout(()=>{w.terminate();reject(Error('startup timeout'))},8000)

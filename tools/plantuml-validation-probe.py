@@ -32,7 +32,7 @@ def result(_manager,message):
     global passed
     data=json.loads(message.get_js_value().to_string())
     cases=data.get('cases',[]);timeout=data.get('controlledTimeout',{})
-    passed=(len(cases)==11 and all(c['ok']==c['expected'] and c['safe'] for c in cases) and all(c['nativeRejects'] for c in cases if c['name'] in ('numeric-nul','literal-control')) and timeout.get('entered') and timeout.get('ticks',0)>0 and timeout.get('sourceVisible') and timeout.get('nextSvg') and requests==['/positive','/validation.js','/validation-hold.js','/validation.js'])
+    passed=(len(cases)==16 and all(c['ok']==c['expected'] and c['safe'] for c in cases) and all(c['nativeRejects'] for c in cases if c['name'] in ('numeric-nul','literal-control','raw-cdata-end','xml-binding','xmlns-binding','prefix-undeclare','encoded-xmlns-binding')) and timeout.get('entered') and timeout.get('ticks',0)>0 and timeout.get('sourceVisible') and timeout.get('nextSvg') and requests==['/positive','/validation.js','/validation-hold.js','/validation.js'])
     data.update(passed=bool(passed),requests=requests,positiveControl=positive,bundleBytes=len(bundle),bundleSha256=hashlib.sha256(bundle).hexdigest(),holdSha256=hashlib.sha256(hold).hexdigest(),workerPolicy=policy)
     print(json.dumps(data),flush=True);Gtk.main_quit()
 manager.connect('script-message-received::result',result)
