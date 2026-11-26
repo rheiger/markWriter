@@ -123,9 +123,11 @@ for url in "${controls[@]}"; do
 done
 printf 'offline_end_controls_failed_as_expected=2\n' >> "$results/network.txt"
 kill -0 "$monitor_pid" 2>/dev/null || { echo 'Route monitor stopped unexpectedly' >&2; exit 1; }
-kill "$monitor_pid" 2>/dev/null || true
-wait "$monitor_pid" 2>/dev/null || true
+kill "$monitor_pid" 2>/dev/null || { echo 'Could not stop route monitor' >&2; exit 1; }
+monitor_status=0
+wait "$monitor_pid" 2>/dev/null || monitor_status=$?
 monitor_pid=
+[[ "$monitor_status" -eq 143 ]] || { echo "Unexpected route monitor exit: $monitor_status" >&2; exit 1; }
 [[ ! -e "$results/monitor-failed.txt" ]] || { echo 'Route monitor failed' >&2; exit 1; }
 [[ $(/usr/bin/grep -c '^sample=' "$results/interface-samples.txt") -ge 2 ]] || { echo 'Insufficient route-monitor samples' >&2; exit 1; }
 printf 'route_monitor_completed_without_failure=true\n' >> "$results/network.txt"
