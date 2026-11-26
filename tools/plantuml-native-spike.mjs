@@ -79,6 +79,25 @@ try {
   })
   pageControl.serverReceipts = hits
   hits = 0
+  const generatedSvg = await readFile('frontend/src/lib/fixtures/plantuml/sequence.svg', 'utf8')
+  const validationCases = [
+    ['network-image', generatedSvg.replace('</svg>', `<image href="${canaryBase}/validator-canary"/></svg>`)],
+    ['local-image', generatedSvg.replace('</svg>', `<image href="file://${temp}/canary.puml"/></svg>`)],
+    ['error-svg-success', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><text>Syntax Error</text></svg>'],
+  ]
+  for (const [name, svg] of validationCases) {
+    const response = await request('POST', `/session/${session}/execute/async`, {
+      script: `const done=arguments[arguments.length-1], [url,source,svg]=arguments;
+        const worker=new Worker(url,{type:'module'}), timer=setTimeout(()=>{worker.terminate();done({failure:'timed out'})},8000);
+        worker.onerror=e=>{clearTimeout(timer);worker.terminate();done({failure:String(e.message)})};
+        worker.onmessage=e=>{if(e.data.ready)worker.postMessage({id:1,owner:'synthetic-validator-probe',source,svg});
+          else if(e.data.id===1){clearTimeout(timer);worker.terminate();done({workerError:e.data.error??null,returnedSvg:typeof e.data.svg==='string'})}};`,
+      args: [validationPolicy.url, sequence, svg],
+    })
+    assert.ok(typeof response.workerError === 'string' && !response.returnedSvg, `${name}: ${JSON.stringify(response)}`)
+  }
+  assert.equal(hits, 0, 'Validation Worker must not request a synthetic external image')
+  console.error('validation Worker rejects external-resource and error SVG cases')
   const start = Date.now()
   await action('open', fixture)
   console.error('synthetic fixture opened')
@@ -234,7 +253,7 @@ try {
     return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + 'RecoveryMarker')
   }, 'synthetic draft recovered')
   assert.ok(recovered)
-  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs,validatorTimeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, validationWorker:validationPolicy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous renderer Worker delay; fallback displayed, next preview succeeded', controlledValidator:'test harness withheld a specific request after the real validation Worker signalled ready; timeout and document-switch cancellation terminated the correlated Worker, source remained visible and next previews succeeded; no validator execution-time claim', pageControl, resourceCanary:'acceptance-instrumented renderer Worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to renderer CSP.' }, null, 2))
+  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs,validatorTimeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, validationWorker:validationPolicy, validationNegativeCases:validationCases.map(([name])=>name), fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous renderer Worker delay; fallback displayed, next preview succeeded', controlledValidator:'test harness withheld a specific request after the real validation Worker signalled ready; timeout and document-switch cancellation terminated the correlated Worker, source remained visible and next previews succeeded; no validator execution-time claim', validatorCorrelation:{timeout:validatorRequest,cancellation:cancelRequest}, pageControl, resourceCanary:'acceptance-instrumented renderer Worker HTTP, file and same-origin asset fetch rejected; validation Worker rejected external-image SVG without server receipt; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to renderer CSP.' }, null, 2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE', `/session/${session}`).catch(() => {})
