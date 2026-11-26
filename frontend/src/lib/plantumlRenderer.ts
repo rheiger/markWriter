@@ -24,7 +24,7 @@ export class PlantUmlRenderer {
       try { input = validatePlantUml(source) } catch (error) { reject(error); return }
       if (signal?.aborted) { reject(cancelled()); return }
       if (this.queue.length >= PLANTUML_LIMITS.queued) { reject(new Error('PlantUML render queue is full')); return }
-      const job: Job = { id: ++this.serial, source, input, owner, signal, deadline: Date.now() + PLANTUML_LIMITS.deadlineMs, resolve, reject, abort: () => {
+      const job: Job = { id: ++this.serial, source, input, owner, signal, deadline: performance.now() + PLANTUML_LIMITS.deadlineMs, resolve, reject, abort: () => {
         if (this.active === job) this.finish(job, cancelled())
         else { clearTimeout(job.timer); this.queue = this.queue.filter(item => item !== job); signal?.removeEventListener('abort', job.abort); reject(cancelled()) }
       } }
@@ -53,14 +53,14 @@ export class PlantUmlRenderer {
   private pump(): void {
     if (this.active || !this.queue.length) return
     const job = this.queue.shift()!; this.active = job
-    if (Date.now() >= job.deadline) { this.finish(job, new Error('PlantUML rendering timed out')); return }
+    if (performance.now() >= job.deadline) { this.finish(job, new Error('PlantUML rendering timed out')); return }
     try {
       const worker = this.worker = this.createWorker()
       let ready = false
       worker.onerror = () => this.finish(job, new Error('PlantUML worker failed'))
       worker.onmessage = event => {
         if (this.active !== job || this.worker !== worker) return
-        if (Date.now() >= job.deadline) { this.finish(job, new Error('PlantUML rendering timed out')); return }
+        if (performance.now() >= job.deadline) { this.finish(job, new Error('PlantUML rendering timed out')); return }
         const data = event.data
         if (data?.startupError) { this.finish(job, new Error(String(data.startupError).slice(0, 200))); return }
         if (data?.ready && !ready) {
@@ -79,7 +79,7 @@ export class PlantUmlRenderer {
           // Parsing/sanitizing run synchronously on the document thread, so a
           // timer cannot fire until they return. Reject rather than accepting a
           // result that finished validation after the captured deadline.
-          if (Date.now() >= job.deadline) throw new Error('PlantUML rendering timed out')
+          if (performance.now() >= job.deadline) throw new Error('PlantUML rendering timed out')
           this.finish(job, undefined, svg)
         } catch (error) { this.finish(job, error instanceof Error ? error : new Error('PlantUML rendering failed')) }
       }

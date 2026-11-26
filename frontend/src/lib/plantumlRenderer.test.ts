@@ -56,7 +56,7 @@ it('terminates over-deadline active and queued jobs and permits the next request
 })
 it('rejects output when synchronous validation crosses the captured deadline', async () => {
   let now = 1000
-  const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
   const original = plantumlSvg.sanitizePlantUmlSvg
   const sanitizer = vi.spyOn(plantumlSvg, 'sanitizePlantUmlSvg').mockImplementationOnce(input => {
     now += PLANTUML_LIMITS.deadlineMs + 1
@@ -68,6 +68,16 @@ it('rejects output when synchronous validation crosses the captured deadline', a
     await expect(result).rejects.toThrow('timed out')
     expect(worker.terminated).toBe(true)
   } finally { sanitizer.mockRestore(); clock.mockRestore() }
+})
+it('does not expire a job when wall-clock time jumps forward', async () => {
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(1)
+  try {
+    const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+    const result = renderer.render(source, 'doc:1')
+    clock.mockReturnValue(1_000_000_000)
+    worker.ready(); worker.respond({ svg })
+    expect(await result).toContain('Alice')
+  } finally { clock.mockRestore() }
 })
 it('ignores a response for another owner and rejects unsafe or oversized output', async () => {
   const workers: FakeWorker[] = []
