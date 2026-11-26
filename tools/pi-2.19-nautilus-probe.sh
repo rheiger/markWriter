@@ -21,16 +21,19 @@ cat > "$MARKWRITER_ASSOCIATION_ROOT/record-incumbent" <<'SCRIPT'
 printf '%s\n' "$@" > "$MARKWRITER_ASSOCIATION_ROOT/incumbent-argv"
 SCRIPT
 chmod +x "$MARKWRITER_ASSOCIATION_ROOT"/record-{launch,incumbent}
+mkdir -p "$XDG_DATA_HOME/icons/hicolor/32x32/apps"
+cp src-tauri/icons/32x32.png "$XDG_DATA_HOME/icons/hicolor/32x32/apps/markwriter.png"
 cat > "$XDG_DATA_HOME/applications/MarkWriter.desktop" <<DESKTOP
 [Desktop Entry]
 Name=MarkWriter
+Icon=markwriter
 Exec=$MARKWRITER_ASSOCIATION_ROOT/record-launch %F
 MimeType=text/markdown;
 Terminal=false
 Type=Application
 DESKTOP
 if [[ "$MARKWRITER_PROBE_MODE" == existing ]]; then
-  sed -e 's/Name=MarkWriter/Name=Incumbent/' -e 's/record-launch/record-incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
+  sed -e 's/Name=MarkWriter/Name=Association Control/' -e '/^Icon=/d' -e 's/record-launch/record-incumbent/' "$XDG_DATA_HOME/applications/MarkWriter.desktop" > "$XDG_DATA_HOME/applications/incumbent.desktop"
 fi
 update-desktop-database "$XDG_DATA_HOME/applications"
 if [[ "$MARKWRITER_PROBE_MODE" == existing ]]; then
