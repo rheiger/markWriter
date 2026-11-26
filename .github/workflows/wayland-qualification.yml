@@ -48,10 +48,10 @@ jobs:
           extension="$XDG_DATA_HOME/gnome-shell/extensions/focus-observer@markwriter.test"
           mkdir -p "$extension"
           cp tools/wayland-focus-observer/* "$extension/"
-          xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -euxc '
+          xvfb-run -a -s '-screen 0 1440x900x24 -ac' dbus-run-session -- bash -euxc '
             export LIBGL_ALWAYS_SOFTWARE=1 GSETTINGS_BACKEND=keyfile
             gsettings set org.gnome.shell enabled-extensions "['"'"'focus-observer@markwriter.test'"'"']"
-            gnome-shell --devkit --wayland-display=markwriter-test >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
+            gnome-shell --devkit --no-x11 --wayland-display=markwriter-test >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
             shell=$!
             trap "kill $shell 2>/dev/null || true" EXIT
             for i in $(seq 1 50); do
