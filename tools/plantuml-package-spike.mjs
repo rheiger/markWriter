@@ -42,6 +42,7 @@ try {
   session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:wrapper}}}})).sessionId
   const run=(script,...args)=>request('POST',`/session/${session}/execute/sync`,{script,args})
   const policy=await verifyNativeWorkerResponse(request, session, resolve('frontend/dist/assets'), 'plantUml')
+  const validationPolicy = await verifyNativeWorkerResponse(request, session, resolve('frontend/dist/assets'), 'plantUmlValidate')
   await wait(()=>run(`return document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml] svg').length===2`),'WYSIWYG diagrams')
   const coldMs=Date.now()-start
   const w=await run(`return [...document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),text:e.querySelector('svg')?.textContent??'',source:e.querySelector('pre')?.textContent??null}))`)
@@ -64,7 +65,7 @@ try {
   const result=await run(`const d=new DOMParser().parseFromString(arguments[0],'text/html');return {svgs:d.querySelectorAll('[data-type=plantuml] svg').length,source:d.querySelector('[data-type=plantuml] pre')?.textContent??null,link:d.querySelector('a')?.getAttribute('href'),active:d.querySelectorAll('script,img,link[rel=stylesheet]').length}`,html)
   assert.equal(result.svgs,2); assert.equal(result.source?.trim(),bad); assert.equal(result.link,'https://example.com/'); assert.equal(result.active,0)
   assert.equal(await readFile(fixture,'utf8'),source)
-  console.log(JSON.stringify({result:'pass', target:'Linux candidate DEB executable extracted, not installed', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, exportBytes:Buffer.byteLength(html), export:'native application File → Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link', worker:policy},null,2))
+  console.log(JSON.stringify({result:'pass', target:'Linux candidate DEB executable extracted, not installed', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, exportBytes:Buffer.byteLength(html), export:'native application File → Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link', worker:policy, validationWorker:validationPolicy},null,2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE',`/session/${session}`).catch(()=>{})

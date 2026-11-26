@@ -55,6 +55,7 @@ try {
   await wait(async () => (await run(`return window.__MARKWRITER_ACCEPTANCE__?.editorWindows() ?? []`)).some(w => w.label === 'main' && w.ready), 'native app ready')
   console.error('native app ready')
   const policy = await verifyNativeWorkerResponse(request, session, resolve('frontend/dist-acceptance/assets'), 'plantUml')
+  const validationPolicy = await verifyNativeWorkerResponse(request, session, resolve('frontend/dist-acceptance/assets'), 'plantUmlValidate')
   console.error('worker response policy verified')
   const probe = await request('POST', `/session/${session}/execute/async`, {
     script: `const done=arguments[arguments.length-1], [url,network,local]=arguments;
@@ -177,7 +178,7 @@ try {
     return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + 'RecoveryMarker')
   }, 'synthetic draft recovered')
   assert.ok(recovered)
-  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous worker delay; fallback displayed, next preview succeeded', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
+  console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, validationWorker:validationPolicy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous worker delay; fallback displayed, next preview succeeded', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE', `/session/${session}`).catch(() => {})

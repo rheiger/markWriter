@@ -4,6 +4,7 @@ import sequenceSvg from './fixtures/plantuml/sequence.svg?raw'
 import classSvg from './fixtures/plantuml/class.svg?raw'
 import privateSvg from './fixtures/plantuml/private.svg?raw'
 import * as plantumlSvg from './plantumlSvg'
+import { checkPlantUmlSvg, validatePlantUml } from './plantUmlSafety'
 
 afterEach(() => vi.useRealTimers())
 class FakeWorker {
@@ -16,13 +17,28 @@ class FakeWorker {
   ready() { this.onmessage?.({ data: { ready: true } } as MessageEvent) }
   respond(data: Record<string, unknown>) { this.onmessage?.({ data: { ...this.message, ...data } } as MessageEvent) }
 }
+class FakeValidator extends FakeWorker {
+  override postMessage(message: { id: number; owner: string; source: string; svg: string }) {
+    this.message = message
+    try {
+      checkPlantUmlSvg(message.svg, validatePlantUml(message.source))
+      this.respond({svg:plantumlSvg.sanitizePlantUmlSvg(message.svg)})
+    } catch (error) { this.respond({error:String(error)}) }
+  }
+}
+const validatorFactory = () => {
+  const worker = new FakeValidator()
+  Promise.resolve().then(() => worker.ready())
+  return worker as unknown as Worker
+}
+const makeRenderer = (factory: () => Worker) => new PlantUmlRenderer(factory, validatorFactory)
 const source = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
 const classSource = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
 const svg = sequenceSvg
 
 it('rejects oversized input before starting work', async () => {
   const create = vi.fn(() => new FakeWorker() as unknown as Worker)
-  await expect(new PlantUmlRenderer(create).render('a'.repeat(PLANTUML_LIMITS.inputBytes + 1), 'doc:1')).rejects.toThrow('input limit')
+  await expect(makeRenderer(create).render('a'.repeat(PLANTUML_LIMITS.inputBytes + 1), 'doc:1')).rejects.toThrow('input limit')
   expect(create).not.toHaveBeenCalled()
 })
 it.each([
@@ -33,13 +49,13 @@ it.each([
   '@startuml\nclass {\n@enduml',
 ])('rejects unsupported or resource-bearing input before creating a worker', async input => {
   const create = vi.fn(() => new FakeWorker() as unknown as Worker)
-  await expect(new PlantUmlRenderer(create).render(input, 'doc:1')).rejects.toThrow()
+  await expect(makeRenderer(create).render(input, 'doc:1')).rejects.toThrow()
   expect(create).not.toHaveBeenCalled()
 })
 it('terminates over-deadline active and queued jobs and permits the next request', async () => {
   vi.useFakeTimers()
   const workers: FakeWorker[] = []
-  const renderer = new PlantUmlRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
+  const renderer = makeRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
   const first = renderer.render(source, 'doc:1')
   const failed = expect(first).rejects.toThrow('timed out')
   const waiting = renderer.render(source, 'doc:2')
@@ -63,7 +79,7 @@ it('rejects output when synchronous validation crosses the captured deadline', a
     return original(input)
   })
   try {
-    const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+    const worker = new FakeWorker(), renderer = makeRenderer(() => worker as unknown as Worker)
     const result = renderer.render(source, 'doc:1'); worker.ready(); worker.respond({ svg })
     await expect(result).rejects.toThrow('timed out')
     expect(worker.terminated).toBe(true)
@@ -72,7 +88,7 @@ it('rejects output when synchronous validation crosses the captured deadline', a
 it('does not expire a job when wall-clock time jumps forward', async () => {
   const clock = vi.spyOn(Date, 'now').mockReturnValue(1)
   try {
-    const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+    const worker = new FakeWorker(), renderer = makeRenderer(() => worker as unknown as Worker)
     const result = renderer.render(source, 'doc:1')
     clock.mockReturnValue(1_000_000_000)
     worker.ready(); worker.respond({ svg })
@@ -81,7 +97,7 @@ it('does not expire a job when wall-clock time jumps forward', async () => {
 })
 it('ignores a response for another owner and rejects unsafe or oversized output', async () => {
   const workers: FakeWorker[] = []
-  const renderer = new PlantUmlRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
+  const renderer = makeRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
   const first = renderer.render(source, 'doc:1')
   workers[0].ready()
   workers[0].respond({ owner: 'doc:other', svg })
@@ -95,7 +111,7 @@ it('ignores a response for another owner and rejects unsafe or oversized output'
 })
 it('bounds queued work and rejects cancelled jobs', async () => {
   const w = new FakeWorker()
-  const renderer = new PlantUmlRenderer(() => w as unknown as Worker)
+  const renderer = makeRenderer(() => w as unknown as Worker)
   const controllers = Array.from({ length: PLANTUML_LIMITS.queued + 1 }, () => new AbortController())
   const pending = controllers.map(c => renderer.render(source, 'doc', c.signal).catch(e => e))
   await expect(renderer.render(source, 'extra')).rejects.toThrow('queue is full')
@@ -107,7 +123,7 @@ it('bounds queued work and rejects cancelled jobs', async () => {
 
 it('rejects error SVGs in success callbacks and output inconsistent with the captured source', async () => {
   const workers: FakeWorker[] = []
-  const renderer = new PlantUmlRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
+  const renderer = makeRenderer(() => { const w = new FakeWorker(); workers.push(w); return w as unknown as Worker })
   const first = renderer.render(source, 'doc:1'); workers[0].ready()
   workers[0].respond({ svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><text>Syntax Error</text></svg>' })
   await expect(first).rejects.toThrow()
@@ -127,14 +143,49 @@ it.each([
   ['displaced actor body', source, sequenceSvg.replace('M24.83,21.5 L24.83,48.5', 'M124.83,21.5 L124.83,48.5')],
 ])('rejects a %s through the complete worker-to-SVG pipeline', async (_name, capturedSource, output) => {
   const worker = new FakeWorker()
-  const renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+  const renderer = makeRenderer(() => worker as unknown as Worker)
   const result = renderer.render(capturedSource, 'captured:1'); worker.ready(); worker.respond({ svg: output })
   await expect(result).rejects.toThrow()
 })
 
 it('accepts an actual private field through semantic checking and SVG sanitization', async () => {
-  const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+  const worker = new FakeWorker(), renderer = makeRenderer(() => worker as unknown as Worker)
   const result = renderer.render('@startuml\nclass User {\n -id: int\n}\n@enduml', 'captured:1')
   worker.ready(); worker.respond({ svg: privateSvg })
   expect(await result).toContain('id: int')
+})
+
+it('hands validation to a separate worker without parsing SVG on the document thread', async () => {
+  const rendering = new FakeWorker(), validation = new FakeWorker()
+  const renderer = new PlantUmlRenderer(() => rendering as unknown as Worker, () => validation as unknown as Worker)
+  const parser = vi.spyOn(globalThis, 'DOMParser').mockImplementation(() => { throw new Error('document-thread parser called') })
+  try {
+    const result = renderer.render(source, 'doc:1')
+    rendering.ready(); rendering.respond({svg})
+    expect(rendering.terminated).toBe(true)
+    expect(validation.terminated).toBe(false)
+    validation.ready(); validation.respond({svg:'<svg>verified-by-test-worker</svg>'})
+    expect(await result).toContain('verified-by-test-worker')
+    expect(parser).not.toHaveBeenCalled()
+    expect(validation.terminated).toBe(true)
+  } finally { parser.mockRestore() }
+})
+
+it('terminates an over-deadline validator and starts a fresh request', async () => {
+  vi.useFakeTimers()
+  const rendering: FakeWorker[] = [], validation: FakeWorker[] = []
+  const renderer = new PlantUmlRenderer(
+    () => { const w = new FakeWorker(); rendering.push(w); return w as unknown as Worker },
+    () => { const w = new FakeWorker(); validation.push(w); return w as unknown as Worker },
+  )
+  const first = renderer.render(source, 'doc:1'), failure = expect(first).rejects.toThrow('timed out')
+  rendering[0].ready(); rendering[0].respond({svg}); validation[0].ready()
+  await vi.advanceTimersByTimeAsync(PLANTUML_LIMITS.deadlineMs)
+  await failure
+  expect(rendering[0].terminated).toBe(true)
+  expect(validation[0].terminated).toBe(true)
+  const next = renderer.render(source, 'doc:2')
+  rendering[1].ready(); rendering[1].respond({svg}); validation[1].ready()
+  validation[1].respond({svg:'<svg>next</svg>'})
+  expect(await next).toContain('next')
 })

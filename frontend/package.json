@@ -57,6 +57,7 @@
     "@tiptap/starter-kit": "^3.32.3",
     "@types/turndown": "^5.0.5",
     "@viz-js/viz": "3.31.0",
+    "@xmldom/xmldom": "0.9.12",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "highlight.js": "11.11.1",

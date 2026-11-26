@@ -25,3 +25,12 @@ test('math worker evidence requires its exact bytes and policy without WASM', as
   assert.deepEqual(await verifyNativeWorkerResponse(async()=>response,'session',assets,'math'),response)
   await assert.rejects(verifyNativeWorkerResponse(async()=>({...response,policy:WORKER_POLICY}),'session',assets,'math'))
 })
+
+test('PlantUML validation worker requires its exact bytes and restrictive policy', async () => {
+  const assets=await mkdtemp(join(tmpdir(),'markwriter-plantuml-validation-response-'))
+  const body='self.postMessage({ready:true})',name='plantUmlValidateWorker-fixture.js'
+  await writeFile(join(assets,name),body)
+  const response={status:200,type:'text/javascript',policy:MATH_WORKER_POLICY,sha256:createHash('sha256').update(body).digest('hex')}
+  assert.deepEqual(await verifyNativeWorkerResponse(async()=>response,'session',assets,'plantUmlValidate'),response)
+  await assert.rejects(verifyNativeWorkerResponse(async()=>({...response,policy:WORKER_POLICY}),'session',assets,'plantUmlValidate'))
+})
