@@ -101,6 +101,19 @@ case "${MARKWRITER_FINDER_CASES:-all}" in
   all) cases=(representative multiple fallback oversized) ;;
   offline) cases=(representative fallback) ;;
   stress) cases=(stress) ;;
+  delay)
+    cp "$work/representative.md" "$work/timeout.md"
+    /usr/bin/python3 - "$work/timeout.md" <<'PYDELAY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+s = p.read_text().replace('```dbml\n', '```dbml\n// TIMEOUT FIXTURE SOURCE MARKER\n', 1)
+json_rows = ',\n'.join(map(str, range(55000)))
+p.write_text(s + '\n```json\n[\n' + json_rows + '\n]\n```\n')
+PYDELAY
+    cp "$work/timeout.md" "$results/timeout-fixture.md"
+    /usr/bin/shasum -a 256 "$work"/*.md > "$results/fixtures-before.txt"
+    cases=(timeout representative)
+    ;;
   *) echo 'Unknown Finder fixture set' >&2; exit 1 ;;
 esac
 for name in "${cases[@]}"; do
@@ -125,10 +138,19 @@ APPLESCRIPT
   selected=$(/usr/bin/osascript -e 'tell application "Finder" to POSIX path of (selection as alias)')
   [[ "$selected" -ef "$fixture" ]] || { echo "Finder selected unexpected fixture: $selected" >&2; exit 1; }
   preview_created=true
+  if [[ "$name" == timeout ]]; then
+    /usr/bin/python3 tools/finder-delay-probe.py "$executable" "$results/$name-renderer.ndjson" > "$results/$name-injection.txt" 2>&1 &
+    hold_pid=$!
+  fi
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder"' -e 'set frontmost to true' -e 'key code 49' -e 'end tell'
   # The native renderer has an eight-second deadline. Capture after it, allowing
   # time for the final Finder view to update; elapsed here is not render time.
-  sleep 10
+  if [[ "$name" == timeout ]]; then
+    wait "$hold_pid"
+    sleep 0.45
+  else
+    sleep 10
+  fi
   date -u '+%Y-%m-%dT%H:%M:%SZ' > "$results/$name-capture.txt"
   /bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable) && $0 !~ /awk/' > "$results/$name-processes.txt"
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to get name of every window' > "$results/$name-windows.txt"
@@ -160,7 +182,13 @@ APPLESCRIPT
   kill "$log_pid" 2>/dev/null || true
   wait "$log_pid" 2>/dev/null || true
   log_pid=
-  node tools/summarize-finder-logs.mjs "$results/$name-renderer.ndjson" "$executable" > "$results/$name-renderer-summary.json"
+  if [[ "$name" == timeout ]]; then
+    /usr/bin/grep -F 'Fallback: renderer timed out' "$results/$name-renderer.ndjson" >/dev/null
+    /usr/bin/grep -Fi 'Basic Markdown preview' "$results/$name-ocr.txt"
+    /usr/bin/grep -Fi 'TIMEOUT FIXTURE SOURCE MARKER' "$results/$name-ocr.txt"
+  else
+    node tools/summarize-finder-logs.mjs "$results/$name-renderer.ndjson" "$executable" > "$results/$name-renderer-summary.json"
+  fi
 done
 /usr/bin/shasum -a 256 "$work"/*.md > "$results/fixtures-after.txt"
 cmp "$results/fixtures-before.txt" "$results/fixtures-after.txt"
