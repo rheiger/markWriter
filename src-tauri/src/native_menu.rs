@@ -13,7 +13,7 @@ pub struct MenuState {
     pub ready: bool,
     pub has_document: bool,
     pub modal: bool,
-    pub markdown: bool,
+    pub view_mode: String,
     pub highlighting: bool,
     pub theme: String,
     pub title: Option<String>,
@@ -29,6 +29,11 @@ struct Command {
 
 #[cfg(target_os = "macos")]
 pub fn emit(app: &tauri::AppHandle, action: &str) {
+    if ["source", "markdown", "preview", "wysiwyg"].contains(&action) {
+        // The platform toggles a check item on click. Keep the current view
+        // checked until the frontend accepts the request and reports its state.
+        refresh_focused(app);
+    }
     let Some(label) = crate::window_service::target(app) else {
         return;
     };
@@ -74,7 +79,7 @@ pub async fn sync_native_menu(
 fn sync_window_state(window: &tauri::WebviewWindow, state: MenuState) -> Result<(), String> {
     let app = window.app_handle();
     let stored = app.state::<NativeState>();
-    let title_changed = {
+    let (title_changed, menu_changed) = {
         let mut menus = stored.0.lock().map_err(|error| error.to_string())?;
         if menus
             .get(window.label())
@@ -83,7 +88,17 @@ fn sync_window_state(window: &tauri::WebviewWindow, state: MenuState) -> Result<
             return Ok(());
         }
         let previous = menus.insert(window.label().into(), state.clone());
-        previous.as_ref().and_then(|old| old.title.as_ref()) != state.title.as_ref()
+        let title_changed =
+            previous.as_ref().and_then(|old| old.title.as_ref()) != state.title.as_ref();
+        let menu_changed = previous.as_ref().is_none_or(|old| {
+            old.ready != state.ready
+                || old.has_document != state.has_document
+                || old.modal != state.modal
+                || old.view_mode != state.view_mode
+                || old.highlighting != state.highlighting
+                || old.theme != state.theme
+        });
+        (title_changed, menu_changed)
     };
     if title_changed {
         if let Some(title) = &state.title {
@@ -94,7 +109,7 @@ fn sync_window_state(window: &tauri::WebviewWindow, state: MenuState) -> Result<
             crate::window_service::announce(app);
         }
     }
-    if crate::window_service::target(app).as_deref() == Some(window.label()) {
+    if menu_changed && crate::window_service::target(app).as_deref() == Some(window.label()) {
         refresh_focused(app);
     }
     Ok(())
@@ -130,73 +145,61 @@ pub fn remove(app: &tauri::AppHandle, label: &str) {
 
 #[cfg(target_os = "macos")]
 fn apply_menu_state(app: &tauri::AppHandle, state: MenuState) -> Result<(), String> {
-    if let Some(menu) = app.menu() {
-        for id in [
-            "save",
-            "save-as",
-            "save-all",
-            "close-tab",
-            "export",
-            "find",
-            "replace",
-            "erd",
-            "dot",
-            "import-sql",
-            "math",
-            "markdown",
-            "wysiwyg",
-            "zoom-in",
-            "zoom-out",
-            "actual-size",
-        ] {
-            if let Some(item) = menu.get(id) {
-                match item {
-                    tauri::menu::MenuItemKind::MenuItem(i) => {
-                        i.set_enabled(state.has_document && !state.modal)
-                    }
-                    tauri::menu::MenuItemKind::Check(i) => {
-                        i.set_enabled(state.has_document && !state.modal)
-                    }
-                    _ => Ok(()),
+    use tauri::menu::MenuItemKind;
+
+    let Some(menu) = app.menu() else {
+        return Ok(());
+    };
+    let has_document = state.ready && state.has_document;
+    let editing = has_document && !state.modal && state.view_mode != "preview";
+    let mut items = menu.items().map_err(|error| error.to_string())?;
+    // Tauri Menu::get only looks at top-level siblings. The actual commands
+    // are in submenus, including the nested View → Theme submenu.
+    while let Some(item) = items.pop() {
+        let id = item.id().as_ref();
+        let enabled = match id {
+            "undo" | "redo" => Some(state.ready && (state.modal || editing)),
+            "find" | "replace" | "erd" | "dot" | "import-sql" | "math" => Some(editing),
+            "save" | "save-as" | "save-all" | "close-tab" | "export" | "source" | "markdown"
+            | "preview" | "wysiwyg" | "zoom-in" | "zoom-out" | "actual-size" => {
+                Some(has_document && !state.modal)
+            }
+            "new" | "new-window" | "close-window" | "window-list" | "open" | "settings"
+            | "about" | "help" | "updates" | "highlighting" | "theme-system" | "theme-light"
+            | "theme-dark" => Some(!state.modal),
+            _ => None,
+        };
+        let checked = match id {
+            "source" | "markdown" | "preview" | "wysiwyg" => {
+                Some(has_document && id == state.view_mode)
+            }
+            "highlighting" => Some(state.highlighting),
+            "theme-system" => Some(state.theme == "system"),
+            "theme-light" => Some(state.theme == "light"),
+            "theme-dark" => Some(state.theme == "dark"),
+            _ => None,
+        };
+        match item {
+            MenuItemKind::Submenu(submenu) => {
+                items.extend(submenu.items().map_err(|error| error.to_string())?);
+            }
+            MenuItemKind::MenuItem(item) => {
+                if let Some(enabled) = enabled {
+                    item.set_enabled(enabled)
+                        .map_err(|error| error.to_string())?;
                 }
-                .map_err(|e| e.to_string())?;
             }
-        }
-        for (id, checked) in [
-            ("markdown", state.markdown),
-            ("wysiwyg", !state.markdown),
-            ("highlighting", state.highlighting),
-            ("theme-system", state.theme == "system"),
-            ("theme-light", state.theme == "light"),
-            ("theme-dark", state.theme == "dark"),
-        ] {
-            if let Some(tauri::menu::MenuItemKind::Check(item)) = menu.get(id) {
-                item.set_checked(checked).map_err(|e| e.to_string())?;
-            }
-        }
-        for id in [
-            "new",
-            "new-window",
-            "close-window",
-            "window-list",
-            "open",
-            "settings",
-            "about",
-            "help",
-            "updates",
-            "highlighting",
-            "theme-system",
-            "theme-light",
-            "theme-dark",
-        ] {
-            if let Some(item) = menu.get(id) {
-                match item {
-                    tauri::menu::MenuItemKind::MenuItem(i) => i.set_enabled(!state.modal),
-                    tauri::menu::MenuItemKind::Check(i) => i.set_enabled(!state.modal),
-                    _ => Ok(()),
+            MenuItemKind::Check(item) => {
+                if let Some(enabled) = enabled {
+                    item.set_enabled(enabled)
+                        .map_err(|error| error.to_string())?;
                 }
-                .map_err(|e| e.to_string())?;
+                if let Some(checked) = checked {
+                    item.set_checked(checked)
+                        .map_err(|error| error.to_string())?;
+                }
             }
+            _ => {}
         }
     }
     Ok(())
@@ -269,7 +272,9 @@ pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
         .item(&check("theme-dark", "Dark")?)
         .build()?;
     let view = SubmenuBuilder::new(app, "View")
-        .item(&check("markdown", "Markdown with preview")?)
+        .item(&check("source", "Source")?)
+        .item(&check("markdown", "Split")?)
+        .item(&check("preview", "Preview")?)
         .item(&check("wysiwyg", "WYSIWYG")?)
         .separator()
         .item(&check("highlighting", "Syntax highlighting")?)

@@ -179,7 +179,70 @@ try {
     const workspace=document.querySelector('.app-workspace')
     return !!bridge?.snapshot().document && bridge.canReviewQuit() && !!workspace && !workspace.inert`
   ), 'initial workspace ready for document operations')
-  assert.equal((await action('open', sourcePath)).document.content, source)
+  const originalTab = (await action('open', sourcePath)).document
+  assert.equal(originalTab.content, source)
+
+  // Exercise the desktop menu against a separate CRLF draft. Keep the
+  // original fixture and its window-mode baseline for the remaining checks.
+  const viewPath = join(fixtureDir, 'desktop-views.md')
+  const viewSource = '# Desktop View controls\r\n\r\n' + Array.from({ length: 160 }, (_, i) => 'Paragraph ' + i).join('\r\n\r\n') + '\r\n'
+  await writeFile(viewPath, viewSource)
+  const viewDoc = (await action('open', viewPath)).document
+  const viewFocus = (selector, description) => waitFor(() => run(
+    'const focus=document.activeElement;return !!focus?.matches(arguments[0]) && focus.getBoundingClientRect().height>0', selector), description)
+  const chooseView = async (name, selector) => {
+    await menu('View', name)
+    await viewFocus(selector, `${name} focuses its visible pane`)
+    await click('//button[normalize-space(.)="View"]')
+    assert.equal(await run(`return document.querySelector('.menu-dropdown button[aria-pressed="true"] span')?.textContent`), name)
+    await dismissMenu()
+  }
+  await chooseView('Source', '.cm-content')
+  const isVisible = selector => run(
+    `return (document.querySelector('[data-active=true] '+arguments[0])?.getBoundingClientRect().height ?? 0) > 0`, selector)
+  assert.equal(await isVisible('.markwriter-preview'), false)
+  await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();
+    window.__MARKWRITER_ACCEPTANCE__.selectSource(2);
+    return document.execCommand('insertText',false,'Dirty ');`)
+  const dirty = await waitFor(async () => {
+    const doc = (await snapshot()).document
+    return doc.isDirty && doc.content === viewSource.replace('# ', '# Dirty ') && doc
+  }, 'dirty source retains CRLF bytes')
+  const selectionStart = dirty.content.replaceAll('\r\n', '\n').indexOf('Paragraph 42')
+  await action('selectSource', selectionStart, selectionStart + 12)
+  await action('scrollSourceTo', 'Paragraph 40')
+  const getSourceView = () => run('return window.__MARKWRITER_ACCEPTANCE__.sourceInfo()')
+  const previousView = await waitFor(async () => {
+    const view = await getSourceView()
+    return view.sourceTop === 'Paragraph 40' && view
+  }, 'source manually scrolled')
+  await chooseView('Preview', '.markwriter-preview')
+  assert.equal(await isVisible('.cm-content'), false)
+  assert.equal(await isVisible('.tiptap'), false)
+  await waitFor(() => run(`return document.querySelector('[data-active=true] .markwriter-preview h1')?.textContent === 'Dirty Desktop View controls'`), 'read-only Preview renders the dirty text')
+  await click('//button[normalize-space(.)="Edit"]')
+  assert.equal(await run(`return [...document.querySelectorAll('.menu-dropdown button')].find(b=>b.textContent.trim().startsWith('Undo')).disabled`), true)
+  await dismissMenu()
+  await chooseView('Split', '.cm-content')
+  await waitFor(async () => (await getSourceView()).sourceTop === previousView.sourceTop, 'source scroll recovered on returning to Split')
+  assert.equal(await isVisible('.markwriter-preview'), true)
+  assert.deepEqual((await getSourceView()).selection, { anchor: selectionStart, head: selectionStart + 12 })
+  await chooseView('WYSIWYG', '.tiptap')
+  await chooseView('Source', '.cm-content')
+  const afterViews = (await snapshot()).document
+  for (const key of ['id', 'content', 'revision', 'isDirty']) assert.equal(afterViews[key], dirty[key])
+  // The normal Close Tab path must still protect the dirty source.
+  await menu('File', 'Close Tab')
+  await waitFor(() => run(`return !!document.querySelector('dialog[aria-label="Unsaved changes"][open]')`), 'dirty tab protected after view switches')
+  await click('//dialog//button[normalize-space(.)="Cancel"]')
+  await waitFor(() => run('return !document.querySelector("dialog[open]")'), 'dirty close cancelled')
+  await menu('Edit', 'Undo')
+  assert.equal((await snapshot()).document.content, viewSource)
+  assert.equal((await snapshot()).document.isDirty, false)
+  assert.deepEqual(await readFile(viewPath), Buffer.from(viewSource))
+  await action('close', viewDoc.id)
+  await action('activate', originalTab.id)
+  alpha3Cases.push('View menu checked states, pane focus, read-only Preview, retained source selection/scroll, dirty Close Cancel and byte-exact Undo')
   const expectedVersion = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8')).version
   await click('//button[normalize-space(.)="Help"]')
   await click('//button[normalize-space(.)="About MarkWriter"]')

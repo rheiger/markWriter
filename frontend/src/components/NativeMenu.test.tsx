@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { save } from '@tauri-apps/plugin-dialog'
 import type { EditorViewRef } from './EditorView'
 import { defaultConfig } from '../lib/preferences'
@@ -9,7 +10,7 @@ import { useAppStore, type Document } from '../store/useAppStore'
 
 const native = vi.hoisted(() => ({ listener: undefined as undefined | ((event: { payload: { action: string, generation: number } }) => void) }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true, invoke: vi.fn().mockResolvedValue(null) }))
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ label: 'main' }) }))
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: vi.fn(() => ({ label: 'main' })) }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async (_name, listener) => { native.listener = listener; return () => { native.listener = undefined } }) }))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('2.5.1') }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn(), open: vi.fn() }))
@@ -28,6 +29,7 @@ const send = (action: string, generation = latestGeneration()) => native.listene
 
 beforeEach(() => {
   vi.mocked(invoke).mockReset().mockResolvedValue(null)
+  vi.mocked(getCurrentWindow).mockReturnValue({ label: 'main' } as ReturnType<typeof getCurrentWindow>)
   Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Macintosh)' })
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new Event('close')) }
@@ -292,4 +294,42 @@ it('does not execute an editor shortcut queued before a window transaction locke
     act(() => useAppStore.setState({ windowBusy: false }))
     vi.useRealTimers()
   }
+})
+
+describe('Windows and Linux Window menu', () => {
+  it('toggles fullscreen by menu and F11, restores focus and preserves the dirty tab', async () => {
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (X11; Linux x86_64)' })
+    let fullscreen = false
+    const desktop = {
+      label: 'main',
+      isFullscreen: vi.fn(async () => fullscreen),
+      setFullscreen: vi.fn(async (value: boolean) => { fullscreen = value }),
+      minimize: vi.fn(async () => {}),
+      toggleMaximize: vi.fn(async () => {}),
+    }
+    vi.mocked(getCurrentWindow).mockReturnValue(desktop as unknown as ReturnType<typeof getCurrentWindow>)
+    const dirty = { ...doc('a', 1), isDirty: true }
+    useAppStore.setState({ currentDocument: dirty, documents: [dirty] })
+    const focus = vi.fn()
+    render(<MenuBar editorViewRef={{ current: { focus } as unknown as EditorViewRef }} />)
+    const trigger = screen.getByRole('button', { name: 'Window', exact: true })
+    fireEvent.click(trigger)
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Full Screen F11' }))
+    await waitFor(() => expect(desktop.setFullscreen).toHaveBeenCalledWith(true))
+    expect(focus).toHaveBeenCalledOnce()
+    fireEvent.click(trigger)
+    await screen.findByRole('button', { name: 'Exit Full Screen F11' })
+    expect(screen.getByRole('button', { name: 'Maximize / Restore' })).toBeDisabled()
+    fireEvent.keyDown(document.body, { key: 'F11' })
+    await waitFor(() => expect(desktop.setFullscreen).toHaveBeenCalledWith(false))
+    fireEvent.click(trigger)
+    await screen.findByRole('button', { name: 'Enter Full Screen F11' })
+    fireEvent.click(screen.getByRole('button', { name: 'Maximize / Restore' }))
+    expect(desktop.toggleMaximize).toHaveBeenCalledOnce()
+    await act(async () => {})
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('button', { name: 'Minimize', exact: true }))
+    expect(desktop.minimize).toHaveBeenCalledOnce()
+    expect(useAppStore.getState().currentDocument).toBe(dirty)
+  })
 })

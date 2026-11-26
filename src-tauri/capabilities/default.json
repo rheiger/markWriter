@@ -4,6 +4,9 @@
   "windows": ["main", "editor-*"],
   "permissions": [
     "core:default",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save"

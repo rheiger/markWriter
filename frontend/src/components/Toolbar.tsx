@@ -17,8 +17,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
     updateConfig,
     saveDocument,
   } = useAppStore()
-  const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
-  const defaultTextSize = editorMode === 'markdown' ? 14 : 16
+  const sourceFont = editorMode === 'source' || editorMode === 'markdown'
+  const fontSizeKey = sourceFont ? 'fontSize' : 'renderedFontSize'
+  const defaultTextSize = sourceFont ? 14 : 16
+  const canEdit = !!currentDocument && editorMode !== 'preview'
 
   const [showHeadingsMenu, setShowHeadingsMenu] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
@@ -240,6 +242,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
 
       <div className="toolbar-separator" />
 
+      {canEdit && <>
       {/* Text Formatting */}
       <div className="toolbar-section">
         <div className="toolbar-dropdown">
@@ -296,6 +299,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
 
       <div className="toolbar-separator" />
 
+      </>}
       <div className="toolbar-section">
         <button className="toolbar-btn" type="button" aria-label="Syntax highlighting" aria-pressed={config.syntaxHighlighting}
           title={`Syntax highlighting ${config.syntaxHighlighting ? 'on' : 'off'}`}
@@ -303,11 +307,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editorViewRef, openButtonRef, 
           <span aria-hidden="true">{'{ }'}</span>
         </button>
         <button className="toolbar-btn mode-switch" role="switch" aria-label="Markdown mode"
-          aria-checked={editorMode === 'markdown'} disabled={!currentDocument}
-          title={editorMode === 'markdown' ? 'Switch to WYSIWYG editing' : 'Switch to Markdown with preview'}
-          onClick={() => editorViewRef?.current?.setMode(editorMode === 'markdown' ? 'wysiwyg' : 'markdown')}>
+          aria-checked={sourceFont} disabled={!currentDocument}
+          title={sourceFont ? 'Switch to WYSIWYG editing' : 'Switch to Split view'}
+          onClick={() => editorViewRef?.current?.setMode(sourceFont ? 'wysiwyg' : 'markdown')}>
           <span className="mode-switch-track" aria-hidden="true"><span /></span>
-          <span>{editorMode === 'markdown' ? 'Markdown' : 'WYSIWYG'}</span>
+          <span>{editorMode === 'preview' ? 'Preview' : sourceFont ? 'Markdown' : 'WYSIWYG'}</span>
         </button>
       </div>
 

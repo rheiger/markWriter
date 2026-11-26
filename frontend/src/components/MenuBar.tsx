@@ -22,6 +22,12 @@ import { dbmlRenderer } from '../lib/dbmlRenderer'
 import { dialogFolderOptions } from '../lib/dialogFolders'
 import { closeEditorWindow, createEditorWindow, focusEditorWindow, requestAppQuit } from '../lib/windowWorkspace'
 import { WindowPicker } from './WindowPicker'
+const viewChoices = [
+  ['source', 'Source'],
+  ['markdown', 'Split'],
+  ['preview', 'Preview'],
+  ['wysiwyg', 'WYSIWYG'],
+] as const
 const discoverUpdates = () => isTauri()
   ? invoke<UpdateCheckResult>('check_updates')
   : Promise.resolve<UpdateCheckResult>({ kind: 'unsupported', reason: 'Open the desktop app to check for updates.' })
@@ -48,11 +54,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     pendingDiskReload,
     windowBusy,
   } = useAppStore()
-  const fontSizeKey = editorMode === 'markdown' ? 'fontSize' : 'renderedFontSize'
-  const defaultTextSize = editorMode === 'markdown' ? 14 : 16
+  const sourceFont = editorMode === 'source' || editorMode === 'markdown'
+  const fontSizeKey = sourceFont ? 'fontSize' : 'renderedFontSize'
+  const defaultTextSize = sourceFont ? 14 : 16
 
   const { theme, setTheme } = useTheme()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [fullscreen, setFullscreen] = useState<boolean>()
+  const windowActionPending = useRef(false)
   useEffect(() => {
     if (!activeMenu) return
     const dismiss = (event: KeyboardEvent) => {
@@ -84,11 +93,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   const [sqlTarget, setSqlTarget] = useState<ReturnType<typeof clipboardTarget>>(null)
   const ownerEpoch = useRef(0)
   const nativeMac = isTauri() && navigator.userAgent.includes('Mac')
+  const canEdit = !!currentDocument && editorMode !== 'preview'
   const menuIdentity = useRef({ key: '', generation: 0 })
   const modal = windowBusy || windowsOpen || helpOpen || aboutOpen || settingsOpen || !!updatesOpen || !!sqlTarget || !!pendingClose || !!pendingDiskReload
   const identityKey = JSON.stringify([currentDocument?.id,currentDocument?.revision,editorMode,modal,config.syntaxHighlighting,theme])
   if (menuIdentity.current.key !== identityKey) menuIdentity.current = { key: identityKey, generation: menuIdentity.current.generation + 1 }
   const generation = menuIdentity.current.generation
+  useEffect(() => {
+    if (!isTauri() || nativeMac || activeMenu !== 'window') return
+    let active = true
+    const readState = () => {
+      void getCurrentWindow().isFullscreen().then(value => { if (active) setFullscreen(value) })
+        .catch(error => { if (active) useAppStore.getState().setError(String(error)) })
+    }
+    readState()
+    // The webview resizes when the window manager changes fullscreen state.
+    window.addEventListener('resize', readState)
+    return () => { active = false; window.removeEventListener('resize', readState) }
+  }, [activeMenu, nativeMac])
   const renderedOwner = useRef(currentDocument)
   renderedOwner.current = currentDocument
   useEffect(() => useAppStore.subscribe((state, previous) => {
@@ -182,6 +204,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
 
   // Edit menu handlers - CodeMirror 6 integration
   const handleUndo = () => {
+    if (!canEdit) return
     if (editorViewRef?.current) {
       try {
         editorViewRef.current.undo()
@@ -196,6 +219,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   }
 
   const handleRedo = () => {
+    if (!canEdit) return
     if (editorViewRef?.current) {
       try {
         editorViewRef.current.redo()
@@ -215,11 +239,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     const editor = editorViewRef?.current, document = useAppStore.getState().currentDocument
     const selection = editor?.getSelectionIdentity()
     if (!editor || !document || selection == null) return null
-    const revision = document.revision ?? 0
+    const revision = document.revision ?? 0, epoch = ownerEpoch.current
     return { editor, valid: () => {
       const current = useAppStore.getState().currentDocument
       const activeSelection = editorViewRef?.current?.getSelectionIdentity()
-      return !useAppStore.getState().windowBusy && current?.id === document.id && (current.revision ?? 0) === revision &&
+      return !useAppStore.getState().windowBusy && epoch === ownerEpoch.current && current?.id === document.id && (current.revision ?? 0) === revision &&
         activeSelection?.editor === selection.editor && activeSelection.selection === selection.selection
     } }
   }
@@ -228,11 +252,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     setActiveMenu(null)
     const target = clipboardTarget()
     if (!target) return
-    const epoch = ownerEpoch.current
-    setSqlTarget({
-      editor: target.editor,
-      valid: () => epoch === ownerEpoch.current && target.valid(),
-    })
+    setSqlTarget(target)
   }
 
   const loadSqlImport = async (dialect: SqlDialect, signal: AbortSignal) => {
@@ -316,12 +336,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
   }
 
   const handleFind = (replace = false) => {
+    if (!canEdit) return
     editorViewRef?.current?.openFind(replace)
     setActiveMenu(null)
   }
   useEffect(() => {
     const search = (event: KeyboardEvent) => {
-      if (nativeMac || useAppStore.getState().windowBusy || document.querySelector('dialog[open]')) return
+      if (nativeMac || !canEdit || useAppStore.getState().windowBusy || document.querySelector('dialog[open]')) return
       const mac = navigator.userAgent.includes('Mac')
       const mod = mac ? event.metaKey : event.ctrlKey
       if (!currentDocument || !mod) return
@@ -333,13 +354,40 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     }
     document.addEventListener('keydown', search, true)
     return () => document.removeEventListener('keydown', search, true)
-  }, [currentDocument, editorViewRef, nativeMac])
+  }, [canEdit, currentDocument, editorViewRef, nativeMac])
 
   // View menu handlers
   const handleZoomIn = () => { updateConfig({ [fontSizeKey]: Math.min(config[fontSizeKey] + 2, 32) }); setActiveMenu(null) }
   const handleZoomOut = () => { updateConfig({ [fontSizeKey]: Math.max(config[fontSizeKey] - 2, 10) }); setActiveMenu(null) }
   const handleActualSize = () => { updateConfig({ [fontSizeKey]: defaultTextSize }); setActiveMenu(null) }
   const handleAbout = () => { setAboutOpen(true); setActiveMenu(null) }
+
+  const handleViewMode = (mode: EditorMode) => {
+    if (currentDocument && !modal) {
+      // Invalidate work captured before the requested presentation change.
+      ownerEpoch.current++
+      editorViewRef?.current?.setMode(mode)
+    }
+    setActiveMenu(null)
+  }
+
+  const handleWindowAction = async (action: 'minimize' | 'maximize' | 'fullscreen', restoreFocus: boolean) => {
+    if (!isTauri() || nativeMac || modal || windowActionPending.current) return
+    windowActionPending.current = true
+    setActiveMenu(null)
+    if (restoreFocus) {
+      if (currentDocument) editorViewRef?.current?.focus()
+      else openButtonRef?.current?.focus({ preventScroll: true })
+    }
+    const desktop = getCurrentWindow()
+    try {
+      if (action === 'minimize') await desktop.minimize()
+      else if (action === 'maximize') await desktop.toggleMaximize()
+      else await desktop.setFullscreen(!await desktop.isFullscreen())
+    } catch (error) {
+      useAppStore.getState().setError(String(error))
+    } finally { windowActionPending.current = false }
+  }
 
   const toggleMenu = (menuName: string) => {
     setActiveMenu(activeMenu === menuName ? null : menuName)
@@ -352,6 +400,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (useAppStore.getState().windowBusy || document.querySelector('dialog[open]') || e.defaultPrevented) return
       if (nativeMac) return
+      if (isTauri() && e.key === 'F11' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.isComposing) {
+        e.preventDefault()
+        if (!e.repeat) void handleWindowAction('fullscreen', false)
+        return
+      }
       const isMac = navigator.userAgent.includes('Mac')
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
@@ -364,7 +417,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
         return
       }
       const target = e.target as HTMLElement
-      if (target?.closest('input, textarea, select, .markwriter-preview')) {
+      if (target?.closest('input, textarea, select') || (editorMode !== 'preview' && target?.closest('.markwriter-preview'))) {
         // The math source field edits the active document. Save must work while
         // it owns focus; other form fields retain their ordinary input shortcuts.
         const owner = target.closest<HTMLElement>('[data-active="true"]')
@@ -483,7 +536,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
       export: () => { void handleExportHTML() }, quit: () => { void handleQuit() },
       undo: handleUndo, redo: handleRedo, find: () => handleFind(), replace: () => handleFind(true),
       updates: () => setUpdatesOpen(true), settings: () => setSettingsOpen(true), about: handleAbout, help: () => setHelpOpen(true),
-      markdown: () => editorViewRef?.current?.setMode('markdown'), wysiwyg: () => editorViewRef?.current?.setMode('wysiwyg'),
+      source: () => handleViewMode('source'), markdown: () => handleViewMode('markdown'),
+      preview: () => handleViewMode('preview'), wysiwyg: () => handleViewMode('wysiwyg'),
       'import-sql': handleSqlImport,
       erd: () => editorViewRef?.current?.insertMarkdown(mermaidErdTemplate),
       dot: () => editorViewRef?.current?.insertMarkdown(dotTemplate), math: () => editorViewRef?.current?.insertMarkdown(mathTemplate),
@@ -494,7 +548,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
     actions[action]?.()
   }
   useEffect(() => {
-    if (!isTauri()) return
+    if (!nativeMac) return
     let disposed = false
     let stop: (() => void) | undefined
     const target = getCurrentWindow().label ?? 'main'
@@ -509,11 +563,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
       nativeActions.current(event.payload.action)
     }, { target }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => useAppStore.getState().setError(String(error)))
     return () => { disposed = true; stop?.() }
-  }, [])
+  }, [nativeMac])
   useEffect(() => {
     if (!isTauri()) return
     void invoke('sync_native_menu', { state: { generation, ready: true, hasDocument: !!currentDocument, modal,
-      markdown: editorMode === 'markdown', highlighting: config.syntaxHighlighting, theme, title: currentDocument?.title || 'MarkWriter' } })
+      viewMode: editorMode, highlighting: config.syntaxHighlighting, theme, title: currentDocument?.title || 'MarkWriter' } })
       .catch(error => useAppStore.getState().setError(String(error)))
   }, [generation, currentDocument, modal, editorMode, config.syntaxHighlighting, theme])
 
@@ -594,7 +648,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             <button
               className="menu-option"
               onClick={handleUndo}
-              disabled={!currentDocument}
+              disabled={!canEdit}
             >
               <span>Undo</span>
               <span className="shortcut">⌘Z</span>
@@ -602,7 +656,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             <button
               className="menu-option"
               onClick={handleRedo}
-              disabled={!currentDocument}
+              disabled={!canEdit}
             >
               <span>Redo</span>
               <span className="shortcut">⇧⌘Z</span>
@@ -611,7 +665,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             <button
               className="menu-option"
               onClick={handleCut}
-              disabled={!currentDocument}
+              disabled={!canEdit}
             >
               <span>Cut</span>
               <span className="shortcut">⌘X</span>
@@ -627,7 +681,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             <button
               className="menu-option"
               onClick={handlePaste}
-              disabled={!currentDocument}
+              disabled={!canEdit}
             >
               <span>Paste</span>
               <span className="shortcut">⌘V</span>
@@ -645,12 +699,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
             <button
               className="menu-option"
               onClick={() => handleFind()}
-              disabled={!currentDocument}
+              disabled={!canEdit}
             >
               <span>Find...</span>
               <span className="shortcut">⌘F / Ctrl+F</span>
             </button>
-            <button className="menu-option" disabled={!currentDocument} onClick={() => handleFind(true)}>
+            <button className="menu-option" disabled={!canEdit} onClick={() => handleFind(true)}>
               <span>Replace...</span><span className="shortcut">⌘⇧H / Ctrl+H</span>
             </button>
           </div>
@@ -661,30 +715,28 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
         <button className={`menu-trigger ${activeMenu === 'insert' ? 'active' : ''}`} onClick={() => toggleMenu('insert')}>Insert</button>
         {activeMenu === 'insert' && <div className="menu-dropdown">
           <div className="menu-label">Diagram</div>
-          <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mermaidErdTemplate); closeMenus() }}>Mermaid ERD</button>
-          <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(dotTemplate); closeMenus() }}>DOT</button>
-          <button className="menu-option" disabled={!currentDocument} onClick={handleSqlImport}>Import SQL DDL…</button>
-          <button className="menu-option" disabled={!currentDocument} onClick={() => { editorViewRef?.current?.insertMarkdown(mathTemplate); closeMenus() }}>Math block</button>
+          <button className="menu-option" disabled={!canEdit} onClick={() => { editorViewRef?.current?.insertMarkdown(mermaidErdTemplate); closeMenus() }}>Mermaid ERD</button>
+          <button className="menu-option" disabled={!canEdit} onClick={() => { editorViewRef?.current?.insertMarkdown(dotTemplate); closeMenus() }}>DOT</button>
+          <button className="menu-option" disabled={!canEdit} onClick={handleSqlImport}>Import SQL DDL…</button>
+          <button className="menu-option" disabled={!canEdit} onClick={() => { editorViewRef?.current?.insertMarkdown(mathTemplate); closeMenus() }}>Math block</button>
         </div>}
       </div>
       {/* View Menu */}
       <div className="menu-item">
         <button
           className={`menu-trigger ${activeMenu === 'view' ? 'active' : ''}`}
+          aria-expanded={activeMenu === 'view'}
           onClick={() => toggleMenu('view')}
         >
           View
         </button>
         {activeMenu === 'view' && (
           <div className="menu-dropdown">
-            <button className="menu-option" aria-pressed={editorMode === 'markdown'} disabled={!currentDocument}
-              onClick={() => { editorViewRef?.current?.setMode('markdown'); setActiveMenu(null) }}>
-              <span>Markdown with preview</span><span aria-hidden="true">{editorMode === 'markdown' ? '✓' : ''}</span>
-            </button>
-            <button className="menu-option" aria-pressed={editorMode === 'wysiwyg'} disabled={!currentDocument}
-              onClick={() => { editorViewRef?.current?.setMode('wysiwyg'); setActiveMenu(null) }}>
-              <span>WYSIWYG</span><span aria-hidden="true">{editorMode === 'wysiwyg' ? '✓' : ''}</span>
-            </button>
+            {viewChoices.map(([mode, label]) => <button key={mode} className="menu-option"
+              aria-pressed={!!currentDocument && editorMode === mode} disabled={!currentDocument || modal}
+              onClick={() => handleViewMode(mode)}>
+              <span>{label}</span><span aria-hidden="true">{currentDocument && editorMode === mode ? '✓' : ''}</span>
+            </button>)}
             <div className="menu-separator" />
             <button className="menu-option" role="menuitemcheckbox" aria-checked={config.syntaxHighlighting}
               onClick={() => { updateConfig({ syntaxHighlighting: !config.syntaxHighlighting }); setActiveMenu(null) }}>
@@ -717,10 +769,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({ editorViewRef, openButtonRef, 
 
       {isTauri() && <div className="menu-item">
         <button className={`menu-trigger ${activeMenu === 'window' ? 'active' : ''}`}
+          aria-expanded={activeMenu === 'window'}
           onClick={() => toggleMenu('window')}>Window</button>
         {activeMenu === 'window' && <div className="menu-dropdown">
           <button className="menu-option" onClick={handleNewWindow}>New Window</button>
           <button className="menu-option" onClick={handleCloseWindow}>Close Window</button>
+          <div className="menu-separator" />
+          <button className="menu-option" disabled={modal} onClick={() => void handleWindowAction('minimize', true)}>Minimize</button>
+          <button className="menu-option" disabled={modal || fullscreen === true} onClick={() => void handleWindowAction('maximize', true)}>Maximize / Restore</button>
+          <button className="menu-option" disabled={modal} onClick={() => void handleWindowAction('fullscreen', true)}>
+            <span>{fullscreen === undefined ? 'Full Screen' : fullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}</span>
+            <span className="shortcut">F11</span>
+          </button>
           <div className="menu-separator" />
           <button className="menu-option" onClick={handleWindowList}>Show Windows…</button>
         </div>}
