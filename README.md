@@ -4,7 +4,7 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.20.2](https://github.com/rheiger/markWriter/releases/tag/v2.20.2) adds Source, Split and read-only Preview views, expands desktop Window controls and improves file opening in GNOME Files on Wayland. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.20.2.md) and [release notes](docs/releases/2.20.2.md).
+[MarkWriter 2.21.1](https://github.com/rheiger/markWriter/releases/tag/v2.21.1) adds offline DBML diagrams to Finder Quick Look. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.21.1.md) and [release notes](docs/releases/2.21.1.md).
 
 ## Features
 

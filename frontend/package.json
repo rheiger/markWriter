@@ -1,7 +1,7 @@
 {
   "name": "markwriter-frontend",
   "private": true,
-  "version": "2.20.2",
+  "version": "2.21.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
