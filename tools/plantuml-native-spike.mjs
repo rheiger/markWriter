@@ -125,6 +125,20 @@ try {
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
   await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'post-timeout preview succeeds')
   console.error('post-timeout preview rendered')
+  const hostile = [
+    '@startuml\n!theme missing\n@enduml',
+    `@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: <img:http://127.0.0.1:${port}/image>\n@enduml`,
+    '@startuml\n' + 'a'.repeat(8193) + '\n@enduml',
+  ]
+  const hostileFixture = join(temp, 'hostile.md')
+  await writeFile(hostileFixture, hostile.map(item => '```plantuml\n' + item + '\n```\n').join('\n'))
+  await action('open', hostileFixture)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === hostileFixture, 'hostile synthetic document selected')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  const hostileSource = await wait(() => run(`const e=[...document.querySelectorAll('[data-active=true] .markwriter-preview [data-type=plantuml]')];return e.length===3&&e.every(n=>n.querySelector('pre'))?e.map(n=>n.querySelector('pre').textContent):null`), 'missing theme, external image and oversized source fallback')
+  assert.deepEqual(hostileSource.map(text => text.trim()), hostile)
+  assert.equal(hits, 1, 'Document image and resource directives must not reach the server')
+  console.error('hostile and oversized source preserved')
   await action('activate', state.id)
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.id === state.id, 'original synthetic document activated')
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
