@@ -164,9 +164,14 @@ def click_label(pattern, label, region=None):
     seat.click()
 
 
-def forwarded_activation_count():
+def forwarded_activations():
     trace = (ROOT / "handoff-dbus.log").read_text()
-    return trace.count('string "activation-token"')
+    return re.findall(r'string "activation-token"\s+variant\s+string "([^"]+)"', trace)
+
+
+def activation_requested(tokens):
+    trace = (ROOT / "wayland-server.log").read_text(errors="replace")
+    return any(f'.activate("{token}",' in trace for token in tokens)
 
 
 def dispatch(path, label, check, *, multiple=False):
@@ -192,7 +197,7 @@ def dispatch(path, label, check, *, multiple=False):
     seat.move(title_x + 175, title_y)
     before = current_focus()
     assert is_files(before), before
-    token_count = forwarded_activation_count()
+    token_count = len(forwarded_activations())
     dispatched_at = time.monotonic()
     seat.click()
     result = wait(f"{label} delivery", check)
@@ -200,10 +205,12 @@ def dispatch(path, label, check, *, multiple=False):
     after = current_focus()
     transitions = [window for window in focus_history() if window["time"] >= dispatched_at]
     screenshot(f"{label}-result")
+    tokens = forwarded_activations()[token_count:]
     phase = {
         "sentWithFilesFocused": True,
         "delivered": True,
-        "activationTokenForwarded": forwarded_activation_count() > token_count,
+        "activationTokenForwarded": bool(tokens),
+        "compositorActivationRequested": activation_requested(tokens),
         "editorEverFocused": any(is_editor(window) for window in transitions),
         "editorInForeground": bool(is_editor(after)),
         "focusBefore": before,

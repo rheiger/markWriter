@@ -1,12 +1,5 @@
 name: Ubuntu Wayland qualification
 on:
-  push:
-    branches: [codex/pi-2.20-wayland]
-    paths:
-      - .github/workflows/wayland-qualification.yml
-      - tools/test-ubuntu-wayland.sh
-      - tools/wayland-association-desktop.py
-      - tools/wayland-focus-observer/**
   workflow_dispatch:
     inputs:
       candidate-run:
@@ -42,12 +35,15 @@ jobs:
             gh run download "$CANDIDATE_RUN" --name package-ubuntu-26.04-x64 --dir "$RUNNER_TEMP/candidate"
             packages=("$RUNNER_TEMP"/candidate/MarkWriter-*-ubuntu-26.04-x64.deb)
             test "${#packages[@]}" -eq 1
-            tools/test-ubuntu-wayland.sh "${packages[0]}" "$CANDIDATE_SHA256"
+            package="${packages[0]}"
+            digest="$CANDIDATE_SHA256"
           else
             package="$RUNNER_TEMP/MarkWriter-2.19.3-ubuntu-26.04-x64.deb"
             curl --fail --location --retry 3 --output "$package" "https://github.com/rheiger/markWriter/releases/download/v2.19.3/${package##*/}"
-            tools/test-ubuntu-wayland.sh "$package" 88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1
+            digest=88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1
           fi
+          unset GH_TOKEN
+          tools/test-ubuntu-wayland.sh "$package" "$digest"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && hashFiles('package-acceptance-results/ubuntu-wayland/**') != ''
         with:

@@ -46,10 +46,16 @@ cp tools/wayland-focus-observer/* "$extension/"
 dbus-run-session -- bash -euc '
   gsettings set org.gnome.shell enabled-extensions "['"'"'focus-observer@markwriter.test'"'"']"
   gsettings set org.gnome.shell welcome-dialog-last-shown-version 999
-  gnome-shell --headless --no-x11 --virtual-monitor=1440x900 --wayland-display="$WAYLAND_DISPLAY" \
-    >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
+  shell_log="$MARKWRITER_ASSOCIATION_ROOT/wayland-server.log"
+  WAYLAND_DEBUG=server gnome-shell --headless --no-x11 --virtual-monitor=1440x900 \
+    --wayland-display="$WAYLAND_DISPLAY" >"$shell_log" 2>&1 &
   compositor=$!
-  trap "kill $compositor 2>/dev/null || true" EXIT
+  finish() {
+    kill "$compositor" 2>/dev/null || true
+    # Retain Shell diagnostics without the temporary Wayland protocol trace.
+    sed -E "/^\[[0-9]+[.][0-9]+\]/d" "$shell_log" >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log"
+  }
+  trap finish EXIT
   for i in $(seq 1 100); do
     test ! -s "$MARKWRITER_ASSOCIATION_EVIDENCE/focus.json" || break
     kill -0 "$compositor"
