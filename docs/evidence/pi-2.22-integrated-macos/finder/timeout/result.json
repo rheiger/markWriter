@@ -1,0 +1,42 @@
+{
+  "case": "timeout",
+  "fixture": "timeout-1a7dbc53.md",
+  "fixtureSha256": "66f5a6af7c435e9898e45158d0a48c38fb4902777c6e1305c8eadb976b2de8aa",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [
+    95792
+  ],
+  "identities": {
+    "95792": {
+      "birth": "Thu Nov 26 19:20:14 2026",
+      "dynamicVerification": "95792: dynamically valid\n95792: valid on disk\n95792: satisfies its Designated Requirement\n95792: explicit requirement satisfied"
+    }
+  },
+  "suspension": {
+    "requestId": "e47770b2-80f9-4cfd-b663-4517912cce23",
+    "pid": 95792,
+    "seconds": 8.264155041000002
+  },
+  "extensionRssSamplesKiB": [
+    {
+      "pid": 95792,
+      "afterEvent": "start",
+      "rssKiB": 112400
+    },
+    {
+      "pid": 95792,
+      "afterEvent": "fallback",
+      "rssKiB": 105296
+    }
+  ],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": false,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-26T18:26:12.239420+00:00",
+  "error": "Invalid isoformat string: '2026-11-26 19:26:52.054783+0100'"
+}

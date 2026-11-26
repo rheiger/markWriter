@@ -1,0 +1,49 @@
+{
+  "sha256": "a7622302a74d50261dc946fde6ced454b70d5edf8c62a6a21abc16b06fb8b9e5",
+  "bytes": 7804,
+  "diagrams": [
+    {
+      "viewBox": "0 0 131 221",
+      "geometry": {
+        "text": 6,
+        "line": 4,
+        "path": 2,
+        "polygon": 2,
+        "rect": 4,
+        "circle": 2
+      },
+      "labels": [
+        "Alice",
+        "Bob",
+        "Alice",
+        "Bob",
+        "Request",
+        "Response"
+      ]
+    },
+    {
+      "viewBox": "0 0 84 188",
+      "geometry": {
+        "text": 9,
+        "line": 4,
+        "path": 1,
+        "rect": 3,
+        "circle": 3
+      },
+      "labels": [
+        "C",
+        "User",
+        "id: int",
+        "C",
+        "Order",
+        "id: int",
+        "owns",
+        "*",
+        "1"
+      ]
+    }
+  ],
+  "readableFallback": "@startuml\n!theme missing\n@enduml\n",
+  "ordinaryLink": "https://example.com/",
+  "scriptImageStylesheetIframeObjectCount": 0
+}

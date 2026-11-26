@@ -1,0 +1,39 @@
+{
+  "case": "sequence",
+  "fixture": "sequence-e4260345.md",
+  "fixtureSha256": "14a78b9ec4ba76a10f938bd037f1db58baf89bbba7fb31db79acff10c6550745",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "sourceResultSha256": "f5950ffbc3790f979c0fe5dfa42d2728004fa1942e3f51aea4921a8aea60a855",
+  "sourceLogSha256": "8dcd7a0f1f63c51d62d7925adc2284155e94d3e99b34595c47eef9b3cfa71e81",
+  "suspension": null,
+  "requests": [
+    {
+      "requestId": "a7ed1221-b263-46ae-bea4-ade4fb286a84",
+      "pid": 95792,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-26 19:20:15.065734+0100",
+      "ended": "2026-11-26 19:20:16.063899+0100",
+      "elapsedMs": 998
+    },
+    {
+      "requestId": "72ec9850-3285-4b8c-86ee-99ab438c23f5",
+      "pid": 95792,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-26 19:20:16.858223+0100",
+      "ended": "2026-11-26 19:20:17.245024+0100",
+      "elapsedMs": 386
+    }
+  ],
+  "singleRequestInInterval": false,
+  "scope": "Replay of captured provider events and recorded live signatures. Verify the operator's visual observation separately. Multiple requests completed; the displayed response cannot be attributed to an individual request."
+}

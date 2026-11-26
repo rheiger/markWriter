@@ -1,0 +1,7 @@
+installed_inode=3410262
+mapped_i3410262
+n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+95792: dynamically valid
+95792: valid on disk
+95792: satisfies its Designated Requirement
+95792: explicit requirement satisfied

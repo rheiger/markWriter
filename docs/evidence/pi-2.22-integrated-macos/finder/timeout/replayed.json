@@ -1,0 +1,33 @@
+{
+  "case": "timeout",
+  "fixture": "timeout-1a7dbc53.md",
+  "fixtureSha256": "66f5a6af7c435e9898e45158d0a48c38fb4902777c6e1305c8eadb976b2de8aa",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "sourceResultSha256": "304eaa71bf6864b810e4c608a488601f48684024f40fd74aba8cb3ffcb2a7b2e",
+  "sourceLogSha256": "8d120abb50e8396d2695680fdf82e81923295e03e90bc01e35dfe369ced15238",
+  "suspension": {
+    "requestId": "e47770b2-80f9-4cfd-b663-4517912cce23",
+    "pid": 95792,
+    "seconds": 8.264155041000002
+  },
+  "requests": [
+    {
+      "requestId": "e47770b2-80f9-4cfd-b663-4517912cce23",
+      "pid": 95792,
+      "states": [
+        "start",
+        "timeout",
+        "fallback"
+      ],
+      "started": "2026-11-26 19:26:52.054783+0100",
+      "ended": "2026-11-26 19:27:00.451516+0100",
+      "elapsedMs": 8396
+    }
+  ],
+  "singleRequestInInterval": true,
+  "scope": "Replay of captured provider events and recorded live signatures. Verify the operator's visual observation separately."
+}
