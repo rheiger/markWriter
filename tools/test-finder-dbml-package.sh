@@ -15,6 +15,7 @@ script="$extension/Contents/Resources/quicklook-render.js"
 mkdir -p "$results"
 results=$(cd "$results" && pwd -P)
 work=$(mktemp -d "${TMPDIR:-/tmp}/markwriter-finder-dbml.XXXXXX")
+work=$(cd "$work" && pwd -P)
 preview_created=false
 cleanup() {
   if [[ -n "${log_pid:-}" ]]; then kill "$log_pid" 2>/dev/null || true; wait "$log_pid" 2>/dev/null || true; fi
