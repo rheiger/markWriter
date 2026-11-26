@@ -18,13 +18,13 @@ jobs:
       - name: Download exact candidate package artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 45821389672 -R rheiger/markWriter --name package-macos-arm64 --dir "$RUNNER_TEMP/candidate"
+        run: gh run download 45825707043 -R rheiger/markWriter --name package-macos-arm64 --dir "$RUNNER_TEMP/candidate"
       - name: Exercise sealed candidate in Finder
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/fixture-mount" "$RUNNER_TEMP/test-app" probe-evidence
           package="$RUNNER_TEMP/candidate/MarkWriter-2.20.2-macos-arm64.dmg"
-          echo 'ae3d80a815e31381fc490e4dc91ace700c7a2d1de6dc0b2164b5d6d344d4969b  '"$package" | shasum -a 256 -c -
+          echo 'da4b7d38060fecd1e289f3eca56c264e3d9b7a4581767c1aa8a3fe0e15bed36f  '"$package" | shasum -a 256 -c -
           hdiutil attach "$package" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/fixture-mount"
           ditto "$RUNNER_TEMP/fixture-mount/MarkWriter.app" "$RUNNER_TEMP/test-app/MarkWriter.app"
           hdiutil detach "$RUNNER_TEMP/fixture-mount"
