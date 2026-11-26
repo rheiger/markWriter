@@ -54,18 +54,20 @@ done < <(cat "$results/routes-inet-before.txt" "$results/routes-inet6-before.txt
 printf 'interfaces_to_disable=%s\n' "${devices[*]}" >> "$results/network.txt"
 # Restore all originally-UP interfaces on error and from a separate watchdog.
 watchdog=
+monitor_pid=
 restore_interfaces() {
   local device failed=0
   for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" up || failed=1; done
   return "$failed"
 }
 restore() {
+  if [[ -n "$monitor_pid" ]]; then kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" 2>/dev/null || true; fi
   if restore_interfaces; then printf 'exit_restore_commands_succeeded=true\n' >> "$results/network.txt"; else printf 'exit_restore_commands_succeeded=false\n' >> "$results/network.txt"; fi
   inventory exit-restored || true
   if [[ -n "$watchdog" ]]; then kill "$watchdog" 2>/dev/null || true; wait "$watchdog" 2>/dev/null || true; fi
 }
 trap restore EXIT INT TERM
-(sleep 180; restore_interfaces) &
+(sleep 180; printf 'watchdog_fired=true\n' > "$results/watchdog-fired.txt"; restore_interfaces) &
 watchdog=$!
 for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" down; done
 printf 'interfaces_disabled=true\n' >> "$results/network.txt"
@@ -78,8 +80,22 @@ printf 'offline_controls_failed_as_expected=2\n' >> "$results/network.txt"
 inventory offline
 verify_routes_down offline || { echo 'A routed interface is UP or cannot be inspected' >&2; exit 1; }
 printf 'all_routed_interfaces_down=true\n' >> "$results/network.txt"
+# Sample routes and their interface flags once per second during Finder. This
+# detects observed transitions; it is not packet-level or continuous proof.
+(
+  while :; do
+    if ! inventory monitor || ! verify_routes_down monitor; then
+      printf 'routed_interface_monitor_failed=true\n' > "$results/monitor-failed.txt"
+      exit 1
+    fi
+    printf 'sample=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    cat "$results/routed-interface-flags-monitor.txt"
+    sleep 1
+  done
+) > "$results/interface-samples.txt" 2>&1 &
+monitor_pid=$!
 MARKWRITER_FINDER_CASES=offline tools/test-finder-dbml-package.sh "$app" "$package" "$results/finder"
-# Verify the watchdog or another service did not restore networking mid-test.
+# Check a final snapshot and controls before stopping the monitor and restoring.
 inventory offline-end
 verify_routes_down offline-end || { echo 'A routed interface became UP or cannot be inspected during Finder trial' >&2; exit 1; }
 printf 'all_routed_interfaces_down_at_end=true\n' >> "$results/network.txt"
@@ -89,6 +105,13 @@ for url in "${controls[@]}"; do
   fi
 done
 printf 'offline_end_controls_failed_as_expected=2\n' >> "$results/network.txt"
+kill -0 "$monitor_pid" 2>/dev/null || { echo 'Route monitor stopped unexpectedly' >&2; exit 1; }
+kill "$monitor_pid" 2>/dev/null || true
+wait "$monitor_pid" 2>/dev/null || true
+monitor_pid=
+[[ ! -e "$results/monitor-failed.txt" && ! -e "$results/watchdog-fired.txt" ]] || { echo 'Route monitor failed or watchdog fired' >&2; exit 1; }
+[[ $(/usr/bin/grep -c '^sample=' "$results/interface-samples.txt") -ge 2 ]] || { echo 'Insufficient route-monitor samples' >&2; exit 1; }
+printf 'route_monitor_completed_without_failure=true\n' >> "$results/network.txt"
 restore_interfaces
 printf 'interfaces_restore_attempted=true\n' >> "$results/network.txt"
 for ((attempt=0; attempt<20; attempt++)); do
