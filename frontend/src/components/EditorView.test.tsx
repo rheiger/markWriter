@@ -35,6 +35,24 @@ async function wysiwyg(ref: React.RefObject<EditorViewRef>) {
 describe('document fidelity with real editors', () => {
   beforeEach(() => useAppStore.setState({ documents: [], currentDocument: null, error: null }))
 
+  it('keeps PlantUML source and Undo across WYSIWYG and Preview fallbacks', async () => {
+    const { plantumlRenderer } = await import('../lib/plantumlRenderer')
+    const spy = vi.spyOn(plantumlRenderer, 'render').mockRejectedValue(new Error('Unsupported syntax'))
+    try {
+      const source = 'Before\r\n\r\n~~~~plantuml\r\n@startuml\r\n!theme missing\r\n@enduml\r\n~~~~\r\n'
+      const { ref, editor, container } = await mount(source)
+      await waitFor(() => expect(container.querySelector('.tiptap [data-type="plantuml"] pre')?.textContent).toContain('!theme missing'))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      act(() => editor.commands.insertContentAt(1, 'Edited '))
+      act(() => ref.current!.undo())
+      expect(ref.current!.getMarkdown()).toBe(source)
+      await markdown(ref)
+      await waitFor(() => expect(container.querySelector('.markwriter-preview [data-type="plantuml"] pre')?.textContent).toContain('!theme missing'))
+      expect(ref.current!.getMarkdown()).toBe(source)
+      expect(useAppStore.getState().currentDocument?.isDirty).toBe(false)
+    } finally { spy.mockRestore() }
+  })
+
   it('keeps live math source edits across mode/tab navigation and supports Undo', async () => {
     const {mathRenderer}=await import('../lib/mathRenderer')
     const spy=vi.spyOn(mathRenderer,'render').mockImplementation(async()=>({html:'<span class="katex">ready</span>',release:()=>{}}))

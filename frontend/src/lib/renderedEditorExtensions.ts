@@ -23,6 +23,7 @@ import { MermaidNode } from '../extensions/MermaidNode'
 import { DotNode } from '../extensions/DotNode'
 import { DbmlNode } from '../extensions/DbmlNode'
 import { MathNode } from '../extensions/MathNode'
+import { PlantUmlNode } from '../extensions/PlantUmlNode'
 import { HighlightedCodeBlock } from './editorCodeHighlight'
 import { literalInputAttributes, technicalInput } from './technicalInput'
 import { renderedSearchDecorations } from './editorSearch'
@@ -70,6 +71,7 @@ export function renderedEditorExtensions(documentId: string | undefined, highlig
     DotNode.configure({ documentId }),
     DbmlNode.configure({ documentId }),
     MathNode.configure({ documentId }),
+    PlantUmlNode.configure({ documentId }),
     Image.configure({ inline: true, allowBase64: true }),
   ]
 }

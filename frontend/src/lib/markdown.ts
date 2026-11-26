@@ -18,7 +18,7 @@ markdown.inline.ruler.before('escape', 'table_break', (state, silent) => {
   state.pos += match[0].length
   return true
 })
-const opaqueFences = new Set(['dot', 'dbml', 'math'])
+const opaqueFences = new Set(['dot', 'dbml', 'math', 'plantuml'])
 const sourceLines = (source: string) => source.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? []
 const withoutLastNewline = (text: string) => text.replace(/(?:\r\n|\r|\n)$/, '')
 type MarkdownToken = ReturnType<typeof markdown.parse>[number]
@@ -159,7 +159,7 @@ export function toWysiwygHtml(source: string): string {
 function embeddedFence(node: HTMLElement): string {
   const chart = node.getAttribute('data-chart') ?? ''
   const type = node.getAttribute('data-type')
-  const notation = type === 'math' || type === 'dbml' ? type : node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
+  const notation = type === 'math' || type === 'dbml' || type === 'plantuml' ? type : node.getAttribute('data-notation') === 'graphviz' ? 'graphviz' : 'dot'
   const raw = node.getAttribute('data-source-fence')
   if (raw) {
     try {

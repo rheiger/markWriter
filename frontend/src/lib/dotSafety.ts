@@ -45,7 +45,9 @@ const numeric = new Set('x y x1 y1 x2 y2 cx cy rx ry r width height stroke-width
 const numberList = /^[\s,0-9eE+.-]+$/
 const boundedNumbers = (value: string) => numberList.test(value) && value.trim().split(/[\s,]+/).every(n => Number.isFinite(Number(n)) && Math.abs(Number(n)) <= 100000)
 const color = /^(?:none|transparent|currentColor|[a-zA-Z]{1,32}|#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%]+\))$/
-function safeAttribute(name: string, value: string): boolean {
+function safeAttribute(name: string, value: string, plantuml = false): boolean {
+  if (plantuml && name === 'style') return value === 'white-space: pre'
+  if (plantuml && name === 'dominant-baseline') return /^(central|middle|alphabetic|hanging)$/.test(value)
   if (numeric.has(name)) return boundedNumbers(value)
   if (name === 'viewBox') return value.trim().split(/[\s,]+/).length === 4 && boundedNumbers(value) && value.trim().split(/[\s,]+/).slice(2).every(n => Number(n) > 0)
   if (name === 'points' || name === 'stroke-dasharray') return boundedNumbers(value)
@@ -62,7 +64,7 @@ function safeAttribute(name: string, value: string): boolean {
   return false
 }
 
-export function sanitizeDotSvg(raw: string, options: { rejectLossy?: boolean } = {}): string {
+export function sanitizeDotSvg(raw: string, options: { rejectLossy?: boolean; plantuml?: boolean } = {}): string {
   if (raw.length > DOT_LIMITS.outputBytes || bytes(raw) > DOT_LIMITS.outputBytes) throw new Error('DOT exceeds 2 MiB SVG limit')
   // Only Graphviz's fixed standard DTD is tolerated; no entities/internal subsets.
   raw = raw.replace(/<!DOCTYPE svg PUBLIC "-\/\/W3C\/\/DTD SVG 1\.1\/\/EN"\s+"http:\/\/www\.w3\.org\/Graphics\/SVG\/1\.1\/DTD\/svg11\.dtd">/, '')
@@ -75,6 +77,9 @@ export function sanitizeDotSvg(raw: string, options: { rejectLossy?: boolean } =
   function copy(node: Element, parent: Element, depth: number): void {
     if (++count > 50000 || depth > 64) throw new Error('DOT SVG complexity limit exceeded')
     if (node.namespaceURI !== NS) { if (options.rejectLossy) throw new Error('Unsupported DOT SVG namespace'); return }
+    // The pinned PlantUML runtime emits an empty defs element. Any definitions
+    // could affect rendering or reference resources, so only the empty form is safe.
+    if (options.plantuml && node.localName === 'defs' && !node.attributes.length && !node.childNodes.length) return
     // Strip links while retaining safe text/geometry. Other unsupported subtrees vanish.
     if (node.localName === 'a' && !options.rejectLossy) { for (const child of Array.from(node.children)) copy(child, parent, depth + 1); return }
     if (!elements.has(node.localName)) { if (options.rejectLossy) throw new Error('Unsupported DOT SVG element'); return }
@@ -83,12 +88,13 @@ export function sanitizeDotSvg(raw: string, options: { rejectLossy?: boolean } =
       if (attr.namespaceURI === 'http://www.w3.org/XML/1998/namespace' && attr.localName === 'space' && attr.value === 'preserve') {
         clean.setAttributeNS(attr.namespaceURI, 'xml:space', 'preserve'); continue
       }
-      if (attr.namespaceURI || !safeAttribute(attr.name, attr.value)) {
+      if (attr.namespaceURI || !safeAttribute(attr.name, attr.value, options.plantuml)) {
         // Graphviz's identifiers and root dimensions are metadata; viewBox
         // controls rasterization. Any other dropped attribute could alter the
         // schema's appearance and must make DBML fall back to source.
-        const metadata = !attr.namespaceURI && /^(id|class)$/.test(attr.name)
+        const metadata = !attr.namespaceURI && (/^(id|class)$/.test(attr.name) || !!options.plantuml && /^data-[a-z0-9-]+$/.test(attr.name))
           || attr.namespaceURI === 'http://www.w3.org/2000/xmlns/'
+          || !!options.plantuml && node === parsed.documentElement && !attr.namespaceURI && attr.name === 'version' && attr.value === '1.1'
           || node === parsed.documentElement && !attr.namespaceURI && /^(width|height)$/.test(attr.name) && /^\d+(?:\.\d+)?pt$/.test(attr.value)
         if (options.rejectLossy && !metadata) throw new Error(`Unsupported DOT SVG attribute: ${attr.name}`)
         continue
