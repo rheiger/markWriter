@@ -17,12 +17,15 @@ const profile = join(temp, 'profile'), fixture = join(temp, 'fixture.md'), expor
 await mkdir(profile)
 let hits = 0
 const server = createServer((_req, res) => { hits++; res.setHeader('Access-Control-Allow-Origin', '*'); res.end('synthetic-canary') })
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+// The unchanged app CSP explicitly permits this loopback origin for Vite.
+// Refuse to run if it is already in use; never stop an unrelated listener.
+await new Promise((resolve, reject) => server.once('error', reject).listen(5173, '::1', resolve))
 const port = server.address().port
+const canaryBase = `http://localhost:${port}`
 const sequence = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
 const klass = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
 const invalid = '@startuml\nclass {\n@enduml'
-const remote = `@startuml\n!include http://127.0.0.1:${port}/canary\n@enduml`
+const remote = `@startuml\n!include ${canaryBase}/canary\n@enduml`
 const local = `@startuml\n!include ${temp}/canary.puml\n@enduml`
 const source = '# Synthetic PlantUML\n\n' + [sequence, klass, invalid, remote, local].map(s => '```plantuml\n' + s + '\n```\n').join('\n') + '\n[ordinary link](https://example.com/)\n'
 await writeFile(fixture, source)
@@ -59,7 +62,7 @@ try {
       worker.onerror=e=>{clearTimeout(timer);worker.terminate();done({error:String(e.message)})};
       worker.onmessage=e=>{if(e.data.ready)worker.postMessage({__MW_PLANTUML_SECURITY_PROBE__:{network,local,sameOrigin:url}});
         else if(e.data.__MW_PLANTUML_SECURITY_PROBE__){clearTimeout(timer);worker.terminate();done({results:e.data.__MW_PLANTUML_SECURITY_PROBE__})}};`,
-    args: [policy.url, `http://127.0.0.1:${port}/blocked`, `file://${temp}/canary.puml`],
+    args: [policy.url, `${canaryBase}/blocked`, `file://${temp}/canary.puml`],
   })
   assert.deepEqual(probe.results, ['rejected', 'rejected', 'rejected'], JSON.stringify(probe))
   console.error('worker resource probes rejected')
@@ -71,7 +74,7 @@ try {
         origin:location.origin,protocol:location.protocol,secure:isSecureContext,violations,
         requests:results.map(r=>r.status==='fulfilled'?{status:r.status,type:r.value.type,httpStatus:r.value.status}:{status:r.status,failure:String(r.reason)})
       }),100))`,
-    args: [`http://127.0.0.1:${port}/page-positive`],
+    args: [`${canaryBase}/page-positive`],
   })
   pageControl.serverReceipts = hits
   hits = 0
@@ -105,7 +108,7 @@ try {
   assert.deepEqual(output.source.map(s => s.trim()), [invalid, remote, local])
   assert.equal(await readFile(fixture, 'utf8'), source)
   assert.equal(hits, 0, 'Unsupported document URL did not reach the canary server')
-  const positive = await fetch(`http://127.0.0.1:${port}/positive`)
+  const positive = await fetch(`${canaryBase}/positive`)
   assert.equal(await positive.text(), 'synthetic-canary'); assert.equal(hits, 1)
   const timeoutChart = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: MWTimeoutProbe\n@enduml'
   const timeoutFixture = join(temp, 'timeout.md'), nextFixture = join(temp, 'next.md')
@@ -127,7 +130,7 @@ try {
   console.error('post-timeout preview rendered')
   const hostile = [
     '@startuml\n!theme missing\n@enduml',
-    `@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: <img:http://127.0.0.1:${port}/image>\n@enduml`,
+    `@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: <img:${canaryBase}/image>\n@enduml`,
     '@startuml\n' + 'a'.repeat(8193) + '\n@enduml',
   ]
   const hostileFixture = join(temp, 'hostile.md')
