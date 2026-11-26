@@ -6,12 +6,13 @@ const ids = Array.from({ length: 5 }, (_, index) => `${index}1234567-89AB-CDEF-0
 const event = message => JSON.stringify({ processImagePath: path, processID: 42, eventMessage: message })
 const make = (reasonIndex = 3) => ids.flatMap((id, index) => [
   event(`request=${id} start`),
-  ...(index === reasonIndex ? [event('Fallback: renderer timed out')] : []),
+  ...(index === reasonIndex ? [event(`request=${id} timeout`)] : []),
   event(`request=${id} ${index === 2 || index === 3 ? 'fallback' : 'completed'} elapsed_ms=8000`),
 ])
 test('confirms the timeout reason belongs to the CPU-bound request', () => {
   assert.equal(verifyDirectLogs(make().join('\n'), path).requests[3].reasons[0], 'Fallback: renderer timed out')
   assert.throws(() => verifyDirectLogs(make(2).join('\n'), path))
+  assert.throws(() => verifyDirectLogs(make().join('\n').replace(`${ids[3]} timeout`, `${ids[2]} timeout`), path))
 })
 test('rejects overlapping request IDs and wrong executable', () => {
   const lines = make()

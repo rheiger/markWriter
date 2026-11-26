@@ -16,6 +16,7 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
     private static let log = Logger(subsystem: "com.markwriter.app.quicklook", category: "renderer")
     private var continuation: CheckedContinuation<String?, Never>?
     private var view: WKWebView?
+    private static let enrichmentTimeout: TimeInterval = 8
     private var deadline: DispatchWorkItem?
     private var initialNavigation = true
     private var ruleDirectory: URL?
@@ -52,9 +53,9 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
         await withCheckedContinuation { continuation in
             self.continuation = continuation
             Self.log.info("request=\(self.requestID, privacy: .public) start")
-            let deadline = DispatchWorkItem { [weak self] in Self.log.error("Fallback: renderer timed out"); self?.finish(nil) }
+            let deadline = DispatchWorkItem { [weak self] in self?.finish(nil, timedOut: true) }
             self.deadline = deadline
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: deadline)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.enrichmentTimeout, execute: deadline)
             let directory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
                 .appendingPathComponent("markwriter-quicklook-rules-" + UUID().uuidString, isDirectory: true)
             do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
@@ -91,10 +92,15 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
         }
     }
 
-    private func finish(_ value: String?) {
+    private func finish(_ value: String?, timedOut: Bool = false) {
         guard let continuation else { return }
-        let elapsed = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
-        if value == nil {
+        let duration = ProcessInfo.processInfo.systemUptime - startedAt
+        let elapsed = Int(duration * 1000)
+        // A suspended extension can receive a queued completion before its timer.
+        let expired = timedOut || duration >= Self.enrichmentTimeout
+        if expired { Self.log.error("request=\(self.requestID, privacy: .public) timeout") }
+        let result = expired ? nil : value
+        if result == nil {
             Self.log.info("request=\(self.requestID, privacy: .public) fallback elapsed_ms=\(elapsed, privacy: .public)")
         } else {
             Self.log.info("request=\(self.requestID, privacy: .public) completed elapsed_ms=\(elapsed, privacy: .public)")
@@ -106,7 +112,7 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
         view?.stopLoading()
         view = nil
         if let directory = ruleDirectory { try? FileManager.default.removeItem(at: directory); ruleDirectory = nil }
-        continuation.resume(returning: value)
+        continuation.resume(returning: result)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
