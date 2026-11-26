@@ -10,7 +10,7 @@ let expected = CommandLine.arguments[1]
 let matches = windows.filter {
     guard $0[kCGWindowOwnerName as String] as? String == "Finder",
           let name = $0[kCGWindowName as String] as? String else { return false }
-    return name == expected || name == "Quick Look"
+    return name.isEmpty || name == expected || name == "Quick Look"
 }
 guard matches.count == 1, let number = matches[0][kCGWindowNumber as String] as? Int else {
     for window in windows {

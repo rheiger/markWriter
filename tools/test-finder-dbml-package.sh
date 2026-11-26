@@ -69,7 +69,7 @@ APPLESCRIPT
   # time for the final Finder view to update; elapsed here is not render time.
   sleep 10
   date -u '+%Y-%m-%dT%H:%M:%SZ' > "$results/$name-capture.txt"
-  /bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable)' > "$results/$name-processes.txt"
+  /bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable) && $0 !~ /awk/' > "$results/$name-processes.txt"
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to get name of every window' > "$results/$name-windows.txt"
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder"' -e 'if not (exists window "Quick Look") then error "Quick Look did not open"' -e 'end tell'
   selected=$(/usr/bin/osascript -e 'tell application "Finder" to POSIX path of (selection as alias)')
