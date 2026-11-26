@@ -1,0 +1,80 @@
+name: Ubuntu Wayland qualification
+on:
+  push:
+    branches: [codex/pi-2.20-wayland]
+    paths:
+      - .github/workflows/wayland-qualification.yml
+      - tools/wayland-association-desktop.py
+permissions:
+  contents: read
+jobs:
+  nautilus:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install disposable desktop and released DEB
+        shell: bash
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y gnome-shell mutter-dev-bin nautilus xvfb xauth xdotool openbox dbus-x11 at-spi2-core python3-pyatspi scrot desktop-file-utils tesseract-ocr mesa-utils
+          package=MarkWriter-2.19.3-ubuntu-26.04-x64.deb
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/$package" "https://github.com/rheiger/markWriter/releases/download/v2.19.3/$package"
+          echo "88a33f6ad1469ae4c496952eb91ff2c49ba8c84ccf54d2d90276716f14533db1  $RUNNER_TEMP/$package" | sha256sum --check
+          sudo apt-get -o Acquire::Retries=3 install --no-install-recommends -y "$RUNNER_TEMP/$package"
+          test "$(dpkg-query -W -f='${Version}' mark-writer)" = 2.19.3
+      - name: Launch GNOME Shell Devkit and Nautilus
+        shell: bash
+        run: |
+          export MARKWRITER_ASSOCIATION_EVIDENCE="$PWD/wayland-evidence"
+          mkdir -p "$MARKWRITER_ASSOCIATION_EVIDENCE"
+          {
+            cat /etc/os-release
+            dpkg-query -W gnome-shell mutter-dev-bin nautilus mark-writer
+            sha256sum "$RUNNER_TEMP/MarkWriter-2.19.3-ubuntu-26.04-x64.deb"
+            gnome-shell --help
+          } > "$MARKWRITER_ASSOCIATION_EVIDENCE/platform.txt"
+          export MARKWRITER_ASSOCIATION_ROOT="$(mktemp -d "$RUNNER_TEMP/markwriter-wayland.XXXXXX")"
+          export XDG_RUNTIME_DIR="$MARKWRITER_ASSOCIATION_ROOT/run"
+          export XDG_DATA_HOME="$MARKWRITER_ASSOCIATION_ROOT/data"
+          export XDG_CONFIG_HOME="$MARKWRITER_ASSOCIATION_ROOT/config"
+          export XDG_CACHE_HOME="$MARKWRITER_ASSOCIATION_ROOT/cache"
+          export MARKWRITER_PROFILE_DIR="$MARKWRITER_ASSOCIATION_ROOT/recovery"
+          mkdir -m 700 "$XDG_RUNTIME_DIR"
+          mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$MARKWRITER_PROFILE_DIR"
+          xvfb-run -a -s '-screen 0 1440x900x24' dbus-run-session -- bash -euxc '
+            export LIBGL_ALWAYS_SOFTWARE=1
+            openbox >"$MARKWRITER_ASSOCIATION_EVIDENCE/openbox.log" 2>&1 &
+            gnome-shell --devkit --wayland-display=markwriter-test >"$MARKWRITER_ASSOCIATION_EVIDENCE/gnome-shell.log" 2>&1 &
+            shell=$!
+            trap "kill $shell 2>/dev/null || true" EXIT
+            for i in $(seq 1 50); do
+              test ! -S "$XDG_RUNTIME_DIR/markwriter-test" || break
+              kill -0 "$shell"
+              sleep 0.2
+            done
+            test -S "$XDG_RUNTIME_DIR/markwriter-test"
+            for i in $(seq 1 50); do
+              if xdotool search --onlyvisible --name . > "$MARKWRITER_ASSOCIATION_EVIDENCE/xwindows.txt"; then break; fi
+              kill -0 "$shell"
+              sleep 0.2
+            done
+            export WAYLAND_DISPLAY=markwriter-test GDK_BACKEND=wayland XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
+            if test -f tools/wayland-association-desktop.py; then
+              /usr/bin/python3 tools/wayland-association-desktop.py
+            else
+              nautilus --new-window "$MARKWRITER_ASSOCIATION_ROOT" >"$MARKWRITER_ASSOCIATION_EVIDENCE/files.log" 2>&1 &
+              sleep 5
+              xdotool search --onlyvisible --name . getwindowname "%@" > "$MARKWRITER_ASSOCIATION_EVIDENCE/windows.txt"
+              scrot "$MARKWRITER_ASSOCIATION_EVIDENCE/nautilus.png"
+              gdbus introspect --session --dest org.gnome.Shell --object-path /org/gnome/Shell > "$MARKWRITER_ASSOCIATION_EVIDENCE/shell-dbus.txt"
+            fi
+          '
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: ubuntu-wayland-evidence
+          path: wayland-evidence/
+          if-no-files-found: warn
