@@ -122,6 +122,10 @@ jobs:
       - name: Seal and qualify the final macOS DMG
         if: runner.os == 'macOS'
         run: bash tools/install-package-macos.sh
+      - name: Probe the direct Quick Look renderer deadline
+        if: runner.os == 'macOS'
+        run: |
+          tools/test-quicklook-direct.sh package-acceptance-results
       - name: Verify the Quick Look renderers
         if: runner.os == 'macOS'
         run: |
@@ -172,7 +176,7 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && steps.cache.outputs.cache-hit != 'true'
+        if: success() && steps.cache.outputs.cache-hit != 'true'
         with:
           path: |
             ~/.cargo/registry

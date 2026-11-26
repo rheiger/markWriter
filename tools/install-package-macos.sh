@@ -169,3 +169,6 @@ result = {
 }
 pathlib.Path('package-acceptance-results/result.json').write_text(json.dumps(result, indent=2) + '\n')
 PYTHON
+
+# Capture actual Finder observations from the exact sealed DMG extraction.
+tools/test-finder-dbml-package.sh "$package_app" "$package_dmg" package-acceptance-results/finder-dbml
