@@ -1,0 +1,6 @@
+{
+  "uuid": "focus-observer@markwriter.test",
+  "name": "MarkWriter test focus observer",
+  "description": "Records compositor focus transitions in the disposable package test",
+  "shell-version": ["48", "50"]
+}

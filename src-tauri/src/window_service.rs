@@ -222,9 +222,13 @@ fn focus(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
     let window = app
         .get_webview_window(label)
         .ok_or("This editor window is closed.")?;
-    window.unminimize().map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())?;
+    present_window(&window)?;
     Ok(window)
+}
+
+fn present_window(window: &WebviewWindow) -> Result<(), String> {
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -546,6 +550,14 @@ pub async fn editor_document_owner(
 }
 
 pub fn enqueue_os_open(app: &AppHandle, enqueue: impl FnOnce(&crate::os_open::OpenQueue)) {
+    enqueue_os_open_with_present(app, enqueue, |_| false);
+}
+
+pub(crate) fn enqueue_os_open_with_present(
+    app: &AppHandle,
+    enqueue: impl FnOnce(&crate::os_open::OpenQueue),
+    present: impl FnOnce(&WebviewWindow) -> bool,
+) {
     let label = app.state::<WindowService>().lock().ok().and_then(|state| {
         let label = state.target()?;
         enqueue(&state.windows.get(&label)?.os_open);
@@ -553,7 +565,11 @@ pub fn enqueue_os_open(app: &AppHandle, enqueue: impl FnOnce(&crate::os_open::Op
     });
     if let Some(label) = label {
         let _ = app.emit_to(&label, "os-open-pending", ());
-        let _ = focus(app, &label);
+        if let Some(window) = app.get_webview_window(&label) {
+            if !present(&window) {
+                let _ = present_window(&window);
+            }
+        }
     }
 }
 

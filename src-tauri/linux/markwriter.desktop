@@ -5,6 +5,7 @@ Comment={{comment}}
 {{/if}}
 Exec={{exec}} %F
 StartupWMClass={{exec}}
+StartupNotify=true
 Icon={{icon}}
 Name={{name}}
 Terminal=false
