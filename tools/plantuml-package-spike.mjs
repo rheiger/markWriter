@@ -43,14 +43,18 @@ try {
   const policy=await verifyNativeWorkerResponse(request, session, resolve('frontend/dist/assets'), 'plantUml')
   await wait(()=>run(`return document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml] svg').length===2`),'WYSIWYG diagrams')
   const coldMs=Date.now()-start
-  const w=await run(`return [...document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),source:e.querySelector('pre')?.textContent??null}))`)
+  const w=await run(`return [...document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),text:e.querySelector('svg')?.textContent??'',source:e.querySelector('pre')?.textContent??null}))`)
   assert.deepEqual(w.map(x=>x.svg),[true,true,false]); assert.equal(w[2].source.trim(),bad)
+  for (const label of ['Alice','Bob','Request']) assert.ok(w[0].text.includes(label), `Missing sequence label ${label}`)
+  for (const label of ['User','Order','id: int','owns']) assert.ok(w[1].text.includes(label), `Missing class label ${label}`)
   const warmStart=Date.now()
   await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
   await wait(()=>run(`return document.querySelectorAll('[data-active=true] .markwriter-preview [data-type=plantuml] svg').length===2`),'Preview diagrams')
   const warmMs=Date.now()-warmStart
-  const p=await run(`return [...document.querySelectorAll('[data-active=true] .markwriter-preview [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),source:e.querySelector('pre')?.textContent??null}))`)
+  const p=await run(`return [...document.querySelectorAll('[data-active=true] .markwriter-preview [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),text:e.querySelector('svg')?.textContent??'',source:e.querySelector('pre')?.textContent??null}))`)
   assert.deepEqual(p.map(x=>x.svg),[true,true,false]); assert.equal(p[2].source.trim(),bad)
+  for (const label of ['Alice','Bob','Request']) assert.ok(p[0].text.includes(label), `Missing sequence label ${label}`)
+  for (const label of ['User','Order','id: int','owns']) assert.ok(p[1].text.includes(label), `Missing class label ${label}`)
   assert.equal(await readFile(fixture,'utf8'),source)
   console.log(JSON.stringify({result:'pass', target:'Linux candidate DEB executable extracted, not installed', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, worker:policy},null,2))
 } finally {
