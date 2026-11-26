@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { PlantUmlRenderer, PLANTUML_LIMITS } from './plantumlRenderer'
 import sequenceSvg from './fixtures/plantuml/sequence.svg?raw'
 import classSvg from './fixtures/plantuml/class.svg?raw'
+import privateSvg from './fixtures/plantuml/private.svg?raw'
 
 afterEach(() => vi.useRealTimers())
 class FakeWorker {
@@ -94,9 +95,20 @@ it.each([
   ['hidden multiplicity', classSource, classSvg.replace(/<text ([^>]*)>1<\/text>/, '<text $1 opacity="0">1</text>')],
   ['displaced label', source, sequenceSvg.replace('x="31.83" y="97"', 'x="999" y="97"')],
   ['collapsed arrowhead', source, sequenceSvg.replace(/points="[^"]+"/, 'points="99.64,102"')],
+  ['reversed arrowhead', source, sequenceSvg.replace('89.64,98 99.64,102 89.64,106 93.64,102', '109.64,98 99.64,102 109.64,106 105.64,102')],
+  ['hidden lifeline', source, sequenceSvg.replace('class="participant-lifeline"', 'class="participant-lifeline" opacity="0"')],
+  ['invisible field visibility mark', classSource, classSvg.replace('stroke="#038048"', 'stroke="#F1F1F1"')],
+  ['displaced actor body', source, sequenceSvg.replace('M24.83,21.5 L24.83,48.5', 'M124.83,21.5 L124.83,48.5')],
 ])('rejects a %s through the complete worker-to-SVG pipeline', async (_name, capturedSource, output) => {
   const worker = new FakeWorker()
   const renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
   const result = renderer.render(capturedSource, 'captured:1'); worker.ready(); worker.respond({ svg: output })
   await expect(result).rejects.toThrow()
+})
+
+it('accepts an actual private field through semantic checking and SVG sanitization', async () => {
+  const worker = new FakeWorker(), renderer = new PlantUmlRenderer(() => worker as unknown as Worker)
+  const result = renderer.render('@startuml\nclass User {\n -id: int\n}\n@enduml', 'captured:1')
+  worker.ready(); worker.respond({ svg: privateSvg })
+  expect(await result).toContain('id: int')
 })
