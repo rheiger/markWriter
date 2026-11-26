@@ -7,6 +7,7 @@ The focus observer records which native surface has keyboard focus.
 import csv
 import io
 import json
+import os
 import re
 import subprocess
 import time
@@ -41,6 +42,9 @@ class WaylandSeat:
         self.path = self.call(self.remote_desktop, "/org/gnome/Mutter/RemoteDesktop",
                               self.remote_desktop, "CreateSession")[0]
         self.input("Start")
+        # Bind both virtual devices before GTK clients enumerate the Wayland seat.
+        self.input("NotifyPointerMotionRelative", "(dd)", 1.0, 1.0)
+        self.key("Shift_L")
 
     def call(self, destination, path, interface, method, signature=None, *values):
         arguments = GLib.Variant(signature, values) if signature else None
@@ -70,12 +74,17 @@ class WaylandSeat:
         time.sleep(0.15)
 
     def move(self, x, y):
-        old_x, old_y = self.observer("Pointer")
-        self.input("NotifyPointerMotionRelative", "(dd)", x - old_x, y - old_y)
-        time.sleep(0.2)
+        for _ in range(5):
+            old_x, old_y = self.observer("Pointer")
+            if (old_x, old_y) == (x, y):
+                return
+            self.input("NotifyPointerMotionRelative", "(dd)", x - old_x, y - old_y)
+            time.sleep(0.2)
+        raise RuntimeError(f"Pointer did not reach {(x, y)}. Last position {(old_x, old_y)}.")
 
     def click(self, button=272):
         self.input("NotifyPointerButton", "(ib)", button, True)
+        time.sleep(0.12)
         self.input("NotifyPointerButton", "(ib)", button, False)
         time.sleep(0.25)
 
@@ -136,7 +145,7 @@ def raise_files():
 
 def launch_files(directory, label):
     with (EVIDENCE / f"{label}-files.log").open("w") as log:
-        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
+        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log, env=dict(os.environ, WAYLAND_DEBUG="client"))
     time.sleep(2)
     screenshot(f"{label}-startup")
     if not is_files(current_focus()):
@@ -157,7 +166,7 @@ def click_label(pattern, label):
 def dispatch(path, label, check, *, multiple=False):
     raise_files()
     x, y = visible_point(re.escape(path.name), f"{label}-file")
-    seat.move(x, y)
+    seat.move(x, y - 52)
     seat.click()
     if multiple:
         seat.key("Control_L", "a")

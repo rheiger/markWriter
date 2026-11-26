@@ -43,7 +43,7 @@ export default class FocusObserver extends Extension {
                 try {
                     const output = Gio.MemoryOutputStream.new_resizable();
                     const shooter = new Shell.Screenshot();
-                    await shooter.screenshot(false, output);
+                    await shooter.screenshot(true, output);
                     output.close(null);
                     invocation.return_value(new GLib.Variant('(ay)', [output.steal_as_bytes().toArray()]));
                 } catch (error) {
