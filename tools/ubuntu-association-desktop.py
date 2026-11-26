@@ -72,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent_open_rows=False):
+def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -107,9 +107,6 @@ def visible_point(pattern, screenshot, region=None, *, disappear=False, adjacent
                 return int(first["left"]) + int(first["width"]) // 2, int(first["top"]) + int(first["height"]) // 2
         return None
 
-    if disappear:
-        wait(f"{pattern} from the closed dialog", lambda: find() is None, 12)
-        return None
     x, y = wait(pattern, find, 12)
     if region:
         x, y = x + region[0], y + region[1]
@@ -121,34 +118,70 @@ def click_visible_text(pattern, screenshot, region=None):
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
 
 
-def select_pattern(window, pattern):
-    # GTK versions expose Nautilus grid items with different AT-SPI roles.
-    # Select by the ASCII fixture prefix in Nautilus's own pattern dialog.
+def launch_files(directory, label):
+    settings = "org.gnome.nautilus.preferences"
+    command("gsettings", "set", settings, "default-folder-viewer", "icon-view")
+    command("gsettings", "set", settings, "default-sort-order", "name")
+    command("gsettings", "set", settings, "default-sort-in-reverse-order", "false")
+    command("gsettings", "set", "org.gnome.nautilus.icon-view", "default-zoom-level", "medium")
+    with (EVIDENCE / f"{label}-nautilus.log").open("w") as log:
+        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
+    window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
     command("xdotool", "windowactivate", "--sync", window)
-    command("xdotool", "key", "ctrl+s")
-    visible_point(r".*Select Items Matching.*", EVIDENCE / "select-pattern.png")
-    command("xdotool", "type", "--clearmodifiers", pattern)
-    command("xdotool", "key", "Return")
-    visible_point(r".*Select Items Matching.*", EVIDENCE / "selection.png", disappear=True)
+    command("xdotool", "windowsize", "--sync", window, "890", "550")
+    command("xdotool", "sleep", "0.5")
+    return window
+
+
+def fixture_tile(window, path, label):
+    # At the explicitly configured grid size, four name-sorted synthetic files
+    # fit on one row. Every operation below checks the exact opened path(s).
+    index = sorted(path.parent.iterdir()).index(path)
+    assert 0 <= index < 4
+    command("xdotool", "windowactivate", "--sync", window)
+    command("scrot", "--window", window, str(EVIDENCE / f"{label}-selected-tile.png"))
+    x, y, _, _ = window_geometry(window)
+    return x + 282 + 167 * index, y + 122
 
 
 def choose_markwriter(window, path, label, multiple=False):
-    pattern = "*" if multiple else path.name.split(maxsplit=1)[0] + " *"
-    select_pattern(window, pattern)
-    command("xdotool", "key", "Shift+F10")
+    tile_x, tile_y = fixture_tile(window, path, label)
+    command("xdotool", "mousemove", str(tile_x), str(tile_y), "click", "1")
+    if multiple:
+        command("xdotool", "key", "ctrl+a")
+    # Right-clicking an already selected tile leaves the whole batch selected.
+    command("xdotool", "click", "3")
     x, y = visible_point(r"Open With\s*(?:\.{1,3}|…)?", EVIDENCE / f"{label}-context.png",
                          adjacent_open_rows=True)
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
-    dialog = wait("Open File dialog", lambda: window_id(r"^Open File"))
-    command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
-    if mime_state()["default"] != MARKWRITER:
-        geometry = dict(line.split("=") for line in
-                        command("xdotool", "getwindowgeometry", "--shell", dialog).splitlines())
-        x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
-        # Exclude the icons so adjacent letter strokes do not merge into them.
-        click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*", EVIDENCE / f"{label}-chooser-labels.png",
-                           (x + 74, y + 90, width - 90, height - 156))
+    try:
+        dialog = wait("Open File dialog window", lambda: window_id(r"^Open (?:File|Items)"), 2)
+    except RuntimeError:
+        # Nautilus can present its chooser inside the existing Files window.
+        # The embedded chooser opens with focus in its application search.
+        _, title_y = visible_point(r".*Open (?:File|Items).*", EVIDENCE / f"{label}-chooser.png")
+        x, y, width, height = window_geometry(window)
+        command("xdotool", "type", "--clearmodifiers", "MarkWriter")
+        list_top = title_y + 99
+        list_height = min(392, y + height - list_top)
+        click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*",
+                           EVIDENCE / f"{label}-chooser-labels.png",
+                           (x + width // 2 - 145, list_top, 315, list_height))
+    else:
+        command("scrot", "--window", dialog, str(EVIDENCE / f"{label}-chooser.png"))
+        if mime_state()["default"] != MARKWRITER:
+            x, y, width, height = window_geometry(dialog)
+            # Exclude the icons so adjacent letter strokes do not merge into them.
+            click_visible_text(r"[^a-z0-9]*Mark\s*Writer[^a-z0-9]*",
+                               EVIDENCE / f"{label}-chooser-labels.png",
+                               (x + 74, y + 90, width - 90, height - 156))
     command("xdotool", "key", "Return")
+
+
+def window_geometry(window):
+    geometry = dict(line.split("=") for line in
+                    command("xdotool", "getwindowgeometry", "--shell", window).splitlines())
+    return tuple(int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
 
 
 def mime_state():
@@ -218,12 +251,11 @@ def audit(mode):
             "standard::content-type", Gio.FileQueryInfoFlags.NONE, None)
         assert info.get_content_type() == MIME, (path.name, info.get_content_type())
     baseline = {path: path.stat().st_mtime_ns for path in originals}
-    with (EVIDENCE / f"{mode}-nautilus.log").open("w") as log:
-        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
-    window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
+    window = launch_files(directory, mode)
     if mode == "existing":
-        select_pattern(window, "A *")
-        command("xdotool", "key", "Return")
+        tile_x, tile_y = fixture_tile(window, first, "incumbent")
+        command("xdotool", "mousemove", str(tile_x), str(tile_y),
+                "click", "--repeat", "2", "--delay", "100", "1")
         log = ROOT / "incumbent-paths.txt"
         wait("double-click dispatch to the incumbent", lambda: log.read_text().strip() == str(first))
     choose_markwriter(window, first, mode)
