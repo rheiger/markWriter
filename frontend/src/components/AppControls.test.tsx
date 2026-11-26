@@ -69,6 +69,42 @@ describe('application view controls', () => {
       await waitFor(()=>expect(useAppStore.getState().currentDocument?.content).toBe(''))
     } finally {spy.mockRestore()}
   })
+  it('keeps the dirty source, selection and Undo while switching views via the menu', async () => {
+    const content = '# Heading\r\n\r\nA paragraph.\r\n'
+    const doc = { ...useAppStore.getState().currentDocument!, content, path: '/view-controls.md' }
+    useAppStore.setState({ documents: [doc], currentDocument: doc })
+    const { container } = render(<App />)
+    const choose = (name: string) => {
+      fireEvent.click(screen.getByRole('button', { name: 'View', exact: true }))
+      fireEvent.click(screen.getByRole('button', { name, exact: true }))
+    }
+    choose('Source')
+    await waitFor(() => expect(container.querySelector('.cm-content')).toHaveFocus())
+    expect(screen.queryByRole('region', { name: /read-only markdown preview/i })).toBeNull()
+    const sourceView = CodeMirrorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!
+    act(() => sourceView.dispatch({ changes: { from: 2, insert: 'Dirty ' }, selection: { anchor: 8, head: 15 } }))
+    const edited = useAppStore.getState().currentDocument
+    expect(edited?.content).toBe('# Dirty Heading\r\n\r\nA paragraph.\r\n')
+    expect(edited?.isDirty).toBe(true)
+    choose('Preview')
+    const preview = await screen.findByRole('region', { name: /read-only markdown preview/i })
+    await waitFor(() => expect(preview).toHaveFocus())
+    expect(preview).toHaveTextContent('Dirty Heading')
+    expect(sourceView.contentDOM).not.toBeVisible()
+    expect(container.querySelector('.tiptap')).not.toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+    expect(screen.getByRole('button', { name: /^Undo / })).toBeDisabled()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    choose('Split')
+    await waitFor(() => expect(sourceView.contentDOM).toHaveFocus())
+    expect(screen.getByRole('region', { name: /read-only markdown preview/i })).toBeVisible()
+    expect(sourceView.state.selection.main).toMatchObject({ anchor: 8, head: 15 })
+    expect(useAppStore.getState().currentDocument).toMatchObject({ content: edited?.content, revision: edited?.revision, isDirty: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: /^Undo / }))
+    expect(useAppStore.getState().currentDocument).toMatchObject({ content, isDirty: false })
+  })
+
   it('saves live math source while its textarea owns focus', async () => {
     const content='```math\nx^2\n```'
     useAppStore.getState().setCurrentDocument({id:'controls',title:'Math',content,path:'/math.md',isDirty:false,lastModified:new Date()})

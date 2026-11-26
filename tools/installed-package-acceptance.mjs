@@ -147,6 +147,78 @@ async function verifyWrappedSourceViewport() {
  await wait(async()=>Math.abs(await scroller()-record.viewState.sourceScroll)<36,'reopened wrapped source stays at the same reading position')
  await closeCurrentDocument()
 }
+async function verifyDesktopViewControls() {
+ const path = join(fixture, 'desktop-view-controls.md')
+ const original = '# Desktop View controls\r\n\r\nExact source.\r\n'
+ await writeFile(path, original)
+ await openDocument(path, 'desktop-view-controls.md')
+ const focus = selector => wait(() => run(
+  'const e=document.activeElement;return e?.matches(arguments[0]) && e.getBoundingClientRect().height>0', selector), selector + ' focus')
+ const dirty = () => run('return !!document.querySelector("[role=tab][aria-selected=true] [aria-label=Unsaved]")')
+ const dimensions = () => run('return {width:innerWidth,height:innerHeight}')
+ await menu('View', 'Source'); await focus('.cm-content')
+ assert.equal(await run('return document.querySelector("[data-active=true] .markwriter-preview").getBoundingClientRect().height'), 0)
+ await run(`return document.execCommand('insertText',false,'Dirty ')`)
+ await wait(dirty, 'ordinary Source edit makes tab dirty')
+ await menu('View', 'Preview'); await focus('.markwriter-preview')
+ await wait(() => run(`return document.activeElement.textContent.includes('Dirty') &&
+  document.querySelector('[data-active=true] .cm-content').getBoundingClientRect().height===0`), 'read-only Preview renders unsaved change')
+ await click('//button[normalize-space(.)="View"]')
+ assert.equal(await run(`return document.querySelector('.menu-dropdown button[aria-pressed=true] span').textContent`), 'Preview')
+ await closeMenu()
+ await menu('View', 'Split'); await focus('.cm-content')
+ await wait(() => run(`return document.querySelector('[data-active=true] .markwriter-preview').getBoundingClientRect().height>0`), 'Split displays both panes')
+ const rectPath = `/session/${session}/window/rect`
+ const before = await dimensions()
+ const beforeRect = await request('GET', rectPath)
+ const resizedRect = await request('POST', rectPath, { width: 900, height: 650 })
+ const bounds = await wait(async () => {
+  const size = await dimensions()
+  return size.width === resizedRect.width - (beforeRect.width - before.width) &&
+    size.height === resizedRect.height - (beforeRect.height - before.height) && size
+ }, 'settled unmaximized viewport')
+ await click('//button[normalize-space(.)="Window"]')
+ await wait(() => run(`return [...document.querySelectorAll('.menu-dropdown button')].some(b=>!b.disabled&&b.textContent.includes('Enter Full Screen'))`), 'enabled Window fullscreen')
+ assert.equal(await run(`return [...document.querySelectorAll('.menu-dropdown button')].find(b=>b.textContent.trim()==='Minimize').disabled`), false)
+ await click('//button[normalize-space(.)="Maximize / Restore"]')
+ await wait(async () => {
+  const size = await dimensions()
+  return size.width > bounds.width || size.height > bounds.height
+ }, 'maximize changes the native viewport')
+ await focus('.cm-content')
+ await menu('Window', 'Maximize / Restore')
+ await wait(async () => {
+  const size = await dimensions()
+  return size.width === bounds.width && size.height === bounds.height
+ }, 'restore recovers the native viewport')
+ await menu('Window', 'Enter Full Screen')
+ await click('//button[normalize-space(.)="Window"]')
+ await wait(() => run(`return [...document.querySelectorAll('.menu-dropdown button')].some(b=>!b.disabled&&b.textContent.includes('Exit Full Screen'))`), 'native fullscreen state entered')
+ await click('//button[normalize-space(.)="Exit Full Screen" or .//span[normalize-space(.)="Exit Full Screen"]]')
+ await wait(async () => {
+  const size = await dimensions()
+  return size.width === bounds.width && size.height === bounds.height
+ }, 'fullscreen exit recovers the native viewport')
+ // Press the production shortcut from the editor with the X11/Windows driver.
+ const f11 = () => request('POST', `/session/${session}/actions`, { actions: [{ type: 'key', id: 'fullscreen', actions: [
+  { type: 'keyDown', value: '\uE03B' }, { type: 'keyUp', value: '\uE03B' },
+ ] }] })
+ await focus('.cm-content'); await f11()
+ await wait(async () => {
+  const size = await dimensions()
+  return size.width > bounds.width || size.height > bounds.height
+ }, 'F11 enters fullscreen from editor focus')
+ await f11()
+ await wait(async () => {
+  const size = await dimensions()
+  return size.width === bounds.width && size.height === bounds.height
+ }, 'F11 exits fullscreen with dirty tab retained')
+ assert.equal(await dirty(), true)
+ await menu('Edit', 'Undo')
+ await wait(async () => !(await dirty()), 'source Undo after ordinary view/window commands')
+ assert.deepEqual(await readFile(path), Buffer.from(original))
+ await closeCurrentDocument()
+}
 async function verifyLargeSqlImport() {
  const sql=workflowSchema(), sqlBytes=Buffer.byteLength(sql)
  const sqlPath=join(fixture,'workflow-schema.sql'), notesPath=join(fixture,'workflow-notes.md')
@@ -190,6 +262,7 @@ const alpha3CodeCases=[],alpha3Themes=[]
 let actualWebviewPaths=[],workerPolicy
 try{
  await wait(async()=>(await request('GET','/status')).ready,'driver');await launch()
+ await verifyDesktopViewControls(); cases.push('dirty Source, read-only Preview and Split focus, maximize/restore, fullscreen menu and F11, and byte-exact Undo')
  await verifyViewport(true); await verifyViewport(false); cases.push('first Open at top and closed-tab viewport restored')
  await verifyWrappedSourceViewport(); cases.push('wrapped Markdown source reopens within the same logical line')
  if(process.platform==='win32'){

@@ -10,7 +10,7 @@ export const helpTopics: HelpTopic[] = [
   {
     id: 'start', title: 'Getting started', blocks: [
       { kind: 'paragraph', text: 'Create a document with File → New, or use File → Open to open a Markdown file. Each document has its own tab; the dot beside its title marks unsaved changes.' },
-      { kind: 'paragraph', text: 'Choose Markdown with preview or WYSIWYG using the toolbar or View menu. Markdown is the document source in both views. The Preview is read-only; WYSIWYG lets you edit the rendered document.' },
+      { kind: 'paragraph', text: 'Choose View → Source to edit Markdown in the full pane, Split to show Markdown alongside its live Preview, Preview to read the rendered document in a full pane, or WYSIWYG to edit rendered text. Each tab keeps its view while it stays in the window.' },
       { kind: 'paragraph', text: 'Switching views alone does not change the source. A rendered edit can change the Markdown syntax used to represent that edit, so use the Markdown view when exact notation matters.' },
       { kind: 'paragraph', text: 'Use File → Save or Save As to write a Markdown file. File → Export as HTML creates a separate HTML document with rendered diagrams and styling. Linked images and links can still depend on their external locations.' },
     ],
@@ -19,8 +19,8 @@ export const helpTopics: HelpTopic[] = [
     id: 'markdown', title: 'Markdown conventions', blocks: [
       { kind: 'paragraph', text: 'Use a blank line to separate paragraphs. Headings begin with #, lists with - or a number, and blockquotes with >. Use **bold**, *italic*, backticks for inline code, and [label](address) for a link.' },
       { kind: 'example', label: 'A small document', code: '# Project notes\n\n- [ ] Review the draft\n- [x] Save a copy\n\n> A useful quotation\n\n[Project site](https://example.com)' },
-      { kind: 'paragraph', text: 'The toolbar also offers formatting, tables and lists in both editors. In Markdown with preview, the source and Preview can synchronize scrolling and selections when enabled in Settings. Exact text matches and dashed block-level fallbacks have different precision.' },
-      { kind: 'paragraph', text: 'Preview link labels select the corresponding source instead of opening a link. Links remain active in exported HTML.' },
+      { kind: 'paragraph', text: 'The toolbar also offers formatting, tables and lists in both editors. In Split, the source and Preview can synchronize scrolling and selections when enabled in Settings. Exact text matches and dashed block-level fallbacks have different precision.' },
+      { kind: 'paragraph', text: 'In Split with synchronization enabled, selecting a Preview link label maps the selection to Markdown. You can select and copy text in the read-only Preview. Links open from exported HTML.' },
     ],
   },
   {
@@ -48,13 +48,14 @@ export const helpTopics: HelpTopic[] = [
     id: 'find', title: 'Find and navigate', blocks: [
       { kind: 'paragraph', text: 'Choose Edit → Find or Replace. Search is literal by default, with optional case-sensitive and whole-word matching. Regex enables JavaScript Unicode patterns, patterned capture-group colors and numbered or named replacement references such as $1 and $<name>. Regex runs in an isolated worker with a 500 ms deadline; input, result and replacement limits are shown on errors. Enter moves to the next match; Shift+Enter moves to the previous match. Navigation wraps at the end.' },
       { kind: 'paragraph', text: 'Markdown search covers the source, including folded content, and supports multiline queries. WYSIWYG search covers editable rendered text within each text block; diagram and image internals are excluded. Use Search source in the find panel to search the Markdown instead.' },
-      { kind: 'paragraph', text: 'In Markdown with preview, diagram and embedded-image source can be folded. Settings controls whether these blocks start collapsed and whether Preview synchronization is enabled.' },
+      { kind: 'paragraph', text: 'In Source and Split, diagram and embedded-image source can be folded. Settings controls whether these blocks start collapsed and whether Preview synchronization is enabled.' },
     ],
   },
   {
     id: 'files', title: 'Files and recovery', blocks: [
       { kind: 'paragraph', text: 'Save writes your document to its chosen file. A new document needs a path; use Save As to choose one. Close Tab and Quit ask what to do with unsaved changes.' },
       { kind: 'paragraph', text: 'Right-click a tab, or focus it and press Shift+F10 or the Context Menu key. Choose Close Tab or Close Other Tabs. Cancel stops the sequence and leaves the remaining tabs open.' },
+      { kind: 'paragraph', text: 'On macOS, the Window menu uses the system Minimize, Zoom and full screen commands. On Windows and Linux, use Window → Minimize, Maximize / Restore or Enter Full Screen. Press F11 to enter or exit full screen on Windows and Linux.' },
       { kind: 'paragraph', text: 'Use Window → New Window to open a separate workspace. Show Windows lists them and switches focus. Use the tab menu to move a tab to an existing or new window with its unsaved text and Undo history. Closing a window or choosing Quit asks about unsaved changes.' },
       { kind: 'paragraph', text: 'A warning on a tab means the file changed or could not be checked. Reload from Disk replaces the tab with the current file and asks before discarding unsaved edits. Save a Copy writes your edits to a new file and keeps the tab open. Each save to the original checks the file against its last saved version.' },
       { kind: 'paragraph', text: 'MarkWriter keeps local recovery copies of workspace drafts. Settings → Restore tabs on startup controls restoring clean tabs; unsaved drafts can be recovered after an interruption. Recovery copies are not a substitute for saving and backing up files.' },
