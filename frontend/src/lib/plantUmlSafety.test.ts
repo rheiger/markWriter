@@ -46,6 +46,20 @@ describe('PlantUML callback output semantics', () => {
     const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
     expect(() => checkPlantUmlSvg(classSvg, validatePlantUml(src))).not.toThrow()
   })
+  it('rejects a participant role mismatch even when labels still match', () => {
+    const src = '@startuml\nparticipant Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    expect(() => checkPlantUmlSvg(sequenceSvg, validatePlantUml(src))).toThrow()
+  })
+  it('rejects an arrowhead pointing toward the source participant', () => {
+    const src = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
+    const corrupted = sequenceSvg.replace('99.64,102', '24.83,102')
+    expect(corrupted).not.toBe(sequenceSvg)
+    expect(() => checkPlantUmlSvg(corrupted, validatePlantUml(src))).toThrow()
+  })
+  it('rejects swapped association multiplicities', () => {
+    const src = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "*" -- "1" Order : owns\n@enduml'
+    expect(() => checkPlantUmlSvg(classSvg, validatePlantUml(src))).toThrow()
+  })
   it('rejects error SVGs returned in a success callback', () => {
     const error = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text>Syntax Error</text></svg>'
     expect(() => checkPlantUmlSvg(error, validatePlantUml(sequence))).toThrow()

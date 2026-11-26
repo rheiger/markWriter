@@ -2,7 +2,7 @@
 // must remain source in its caller; this function never rewrites Markdown.
 export const PLANTUML_LIMITS = { inputBytes: 8192, lines: 200, entities: 40, members: 200, relations: 100, outputBytes: 512 * 1024 } as const
 type Member = { visibility: '+' | '-'; name: string; type: string }
-type Entity = { name: string; members: Member[] }
+type Entity = { name: string; role: 'actor' | 'participant' | 'class'; members: Member[] }
 type Relation = { from: string; to: string; label: string; dashed: boolean; cardinalities: [string | undefined, string | undefined] | [] }
 export type PlantUmlInput = { kind: 'sequence' | 'class'; source: string; entities: number; relations: number; expectedEntities: Entity[]; expectedRelations: Relation[] }
 const ID = '[A-Za-z_][A-Za-z0-9_]{0,31}'
@@ -25,9 +25,9 @@ export function validatePlantUml(source: string): PlantUmlInput {
   const expectedEntities: Entity[] = [], expectedRelations: Relation[] = []
   let kind: PlantUmlInput['kind'] | undefined, inClass = false, members = 0, relations = 0
   const setKind = (next: PlantUmlInput['kind']) => { if (kind && kind !== next) throw new Error('Mixed PlantUML diagrams are unsupported'); kind = next }
-  const addName = (name: string) => {
+  const addName = (name: string, role: Entity['role']) => {
     if (reserved.has(name.toLowerCase()) || names.has(name)) throw new Error('Unsupported or duplicate PlantUML name')
-    names.add(name); expectedEntities.push({name, members:[]})
+    names.add(name); expectedEntities.push({name, role, members:[]})
     if (names.size > PLANTUML_LIMITS.entities) throw new Error('PlantUML entity limit exceeded')
   }
   const addRelation = (a: string, b: string) => {
@@ -45,11 +45,11 @@ export function validatePlantUml(source: string): PlantUmlInput {
       continue
     }
     let match = declareSequence.exec(line)
-    if (match) { setKind('sequence'); addName(match[2]); continue }
+    if (match) { setKind('sequence'); addName(match[2], match[1] as 'actor' | 'participant'); continue }
     match = message.exec(line)
     if (match) { setKind('sequence'); addRelation(match[1], match[3]); expectedRelations.push({from:match[1], to:match[3], label:match[4], dashed:match[2] === '-->', cardinalities:[]}); continue }
     match = declareClass.exec(line)
-    if (match) { setKind('class'); addName(match[1]); inClass = Boolean(match[2]); continue }
+    if (match) { setKind('class'); addName(match[1], 'class'); inClass = Boolean(match[2]); continue }
     match = relationship.exec(line)
     if (match) { setKind('class'); addRelation(match[1], match[4]); expectedRelations.push({from:match[1], to:match[4], label:match[5], dashed:false, cardinalities:[match[2], match[3]]}); continue }
     throw new Error('Unsupported PlantUML syntax')
@@ -73,6 +73,7 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
   for (const expected of input.expectedEntities) {
     const node = nodes.find(n => n.getAttribute('data-qualified-name') === expected.name)
     if (!node || !Array.from(node.querySelectorAll('text')).some(t => t.textContent === expected.name)) throw new Error('PlantUML entity output mismatch')
+    if (input.kind === 'sequence' && (expected.role === 'actor' ? !node.querySelector('circle') || !node.querySelector('path') : !node.querySelector('rect') || !!node.querySelector('circle'))) throw new Error('PlantUML participant role mismatch')
     const uid = node.getAttribute(input.kind === 'sequence' ? 'data-entity-uid' : 'id')
     if (!uid || [...ids.values()].includes(uid)) throw new Error('PlantUML entity identity mismatch')
     ids.set(expected.name, uid); nodeByName.set(expected.name, node)
@@ -120,8 +121,19 @@ export function checkPlantUmlSvg(svg: string, input: PlantUmlInput): void {
       }
     }
     if (input.kind === 'sequence') {
-      const line = edge.querySelector('line')
-      if (!line || Boolean(line.getAttribute('stroke-dasharray')) !== expected.dashed) throw new Error('PlantUML arrow style mismatch')
+      const line = edge.querySelector('line'), arrow = edge.querySelector('polygon')
+      if (!line || !arrow || Boolean(line.getAttribute('stroke-dasharray')) !== expected.dashed) throw new Error('PlantUML arrow style mismatch')
+      const center = (name: string) => {
+        const uid = ids.get(name)
+        const lifeline = Array.from(doc.querySelectorAll('g')).find(g => g.getAttribute('class') === 'participant-lifeline' && g.getAttribute('data-entity-uid') === uid)
+        const rect = lifeline?.querySelector('rect')
+        if (!rect) throw new Error('PlantUML lifeline missing')
+        const x = Number(rect.getAttribute('x')), width = Number(rect.getAttribute('width'))
+        if (!Number.isFinite(x) || !Number.isFinite(width) || width <= 0) throw new Error('Invalid PlantUML lifeline')
+        return x + width / 2
+      }
+      const coordinates = (arrow.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number)
+      if (coordinates.length < 4 || coordinates.some(n => !Number.isFinite(n)) || expected.from === expected.to || Math.abs(coordinates[2] - center(expected.to)) >= Math.abs(coordinates[2] - center(expected.from))) throw new Error('PlantUML arrow direction mismatch')
     }
   }
 }
