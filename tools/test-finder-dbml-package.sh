@@ -54,9 +54,10 @@ for name in representative multiple fallback oversized; do
   date -u '+%Y-%m-%dT%H:%M:%SZ' > "$results/$name-start.txt"
   /usr/bin/osascript - "$fixture" <<'APPLESCRIPT'
 on run argv
+  set fixtureAlias to (POSIX file (item 1 of argv)) as alias
   tell application "Finder"
     activate
-    reveal POSIX file (item 1 of argv)
+    reveal fixtureAlias
   end tell
 end run
 APPLESCRIPT
