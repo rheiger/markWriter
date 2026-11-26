@@ -59,16 +59,28 @@ watchdog=
 monitor_pid=
 restore_interfaces() {
   local device failed=0
-  for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" up || failed=1; done
+  for device in "${devices[@]}"; do
+    /usr/bin/sudo -n /sbin/ifconfig "$device" up || failed=1
+    /sbin/ifconfig "$device" | /usr/bin/awk 'NR==1 { if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 0; exit 1 }' || failed=1
+  done
   return "$failed"
 }
 restore() {
+  local restored=false attempt
   if [[ -n "$monitor_pid" ]]; then kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" 2>/dev/null || true; fi
-  if restore_interfaces; then printf 'exit_restore_commands_succeeded=true\n' >> "$results/network.txt"; else printf 'exit_restore_commands_succeeded=false\n' >> "$results/network.txt"; fi
+  for ((attempt=0; attempt<5; attempt++)); do
+    if restore_interfaces; then restored=true; break; fi
+    sleep 2
+  done
+  printf 'exit_restore_commands_succeeded=%s\n' "$restored" >> "$results/network.txt"
   inventory exit-restored || true
-  if [[ -n "$watchdog" ]]; then kill "$watchdog" 2>/dev/null || true; wait "$watchdog" 2>/dev/null || true; fi
+  # Leave the independent watchdog armed if bounded restoration retries fail.
+  if [[ "$restored" == true && -n "$watchdog" ]]; then kill "$watchdog" 2>/dev/null || true; wait "$watchdog" 2>/dev/null || true; fi
+  [[ "$restored" == true ]]
 }
-trap restore EXIT INT TERM
+trap restore EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 (sleep 180; printf 'watchdog_fired=true\n' > "$results/watchdog-fired.txt"; restore_interfaces) &
 watchdog=$!
 for device in "${devices[@]}"; do /usr/bin/sudo -n /sbin/ifconfig "$device" down; done
