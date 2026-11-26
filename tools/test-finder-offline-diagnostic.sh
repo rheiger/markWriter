@@ -61,7 +61,7 @@ restore_interfaces() {
   local device failed=0
   for device in "${devices[@]}"; do
     /usr/bin/sudo -n /sbin/ifconfig "$device" up || failed=1
-    /sbin/ifconfig "$device" | /usr/bin/awk 'NR==1 { if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 0; exit 1 }' || failed=1
+    /sbin/ifconfig "$device" | /usr/bin/awk 'NR==1 { if ($0 ~ /<([^>]*,)?UP(,|>)/) exit 0; exit 1 } END { if (NR == 0) exit 2 }' || failed=1
   done
   return "$failed"
 }
