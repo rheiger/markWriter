@@ -99,6 +99,7 @@ try {
   await action('exportHtml', exported)
   const exportMs = Date.now() - exportStart
   const html = await readFile(exported, 'utf8')
+  console.error('self-contained HTML exported')
   const output = await run(`const d=new DOMParser().parseFromString(arguments[0],'text/html');return {svgs:d.querySelectorAll('[data-type=plantuml] svg').length,source:[...d.querySelectorAll('[data-type=plantuml] pre')].map(e=>e.textContent),link:d.querySelector('a')?.getAttribute('href'),active:d.querySelectorAll('script,img,link[rel=stylesheet]').length}`, html)
   assert.equal(output.svgs, 2); assert.equal(output.active, 0); assert.equal(output.link, 'https://example.com/')
   assert.deepEqual(output.source.map(s => s.trim()), [invalid, remote, local])
@@ -112,36 +113,51 @@ try {
   await writeFile(nextFixture, '```plantuml\n' + sequence + '\n```\n')
   const timeoutStart = Date.now()
   await action('open', timeoutFixture)
+  console.error('controlled timeout fixture opened')
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === timeoutFixture, 'controlled timeout document selected')
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
   await wait(() => run(`const e=document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml]');return e?.textContent.includes('timed out') && e.querySelector('pre')?.textContent.includes('MWTimeoutProbe')`), 'controlled timeout shows source fallback', 15000)
   const timeoutMs = Date.now() - timeoutStart
+  console.error('controlled timeout fallback displayed')
   assert.ok(timeoutMs >= 4000 && timeoutMs < 15000, `Controlled timeout took ${timeoutMs} ms`)
   await action('open', nextFixture)
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.path === nextFixture, 'post-timeout document selected')
   if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
   await wait(() => run(`return !!document.querySelector('[data-active=true] .markwriter-preview [data-type=plantuml] svg')`), 'post-timeout preview succeeds')
+  console.error('post-timeout preview rendered')
   await action('activate', state.id)
+  await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.id === state.id, 'original synthetic document activated')
+  if (await run(`return document.querySelector('button[aria-label="Markdown mode"]').getAttribute('aria-checked')==='false'`)) await run(`document.querySelector('button[aria-label="Markdown mode"]').click()`)
+  await wait(() => run(`const e=document.querySelector('[data-active=true] .cm-content');return !!e && e.getBoundingClientRect().height>0`), 'original source editor visible')
   // Dirty only the isolated synthetic fixture's editor buffer, verify Undo,
   // checkpoint it, and kill/restart only the app owned by this test driver.
   const edit = async () => {
+    const element = await request('POST', `/session/${session}/element`, { using:'css selector', value:'[data-active=true] .cm-content' })
+    await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/click`, {})
     await action('selectSource', source.length)
-    await run(`const e=document.querySelector('[data-active=true] .cm-content');e.focus();return document.execCommand('insertText',false,arguments[0]);`, '\nRecovery marker')
-    await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.content === source + '\nRecovery marker', 'dirty synthetic edit')
+    await request('POST', `/session/${session}/actions`, { actions:[{ type:'key', id:'synthetic-keyboard', actions:[... 'RecoveryMarker'].flatMap(value => [{type:'keyDown',value},{type:'keyUp',value}]) }] })
+    try {
+      await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.content === source + 'RecoveryMarker', 'dirty synthetic edit', 12000)
+    } catch (error) {
+      const actual = await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document')
+      throw new Error(`${error}; path=${actual?.path}; length=${actual?.content?.length}; suffix=${JSON.stringify(actual?.content?.slice(-80))}`)
+    }
   }
   await edit()
+  console.error('synthetic recovery edit made')
   await run(`Array.from(document.querySelectorAll('.menu-trigger')).find(b=>b.textContent.trim()==='Edit').click()`)
   await run(`Array.from(document.querySelectorAll('.menu-option')).find(b=>b.textContent.trim().startsWith('Undo')).click()`)
   await wait(async () => (await run('return window.__MARKWRITER_ACCEPTANCE__.snapshot().document'))?.content === source, 'Undo restores canonical source')
   await edit()
   await action('checkpointForRestart')
+  console.error('synthetic recovery checkpoint captured')
   assert.equal(await readFile(fixture, 'utf8'), source)
   await stopOwnedApplication(driver.pid, binary)
   await request('DELETE', `/session/${session}`).catch(() => {})
   session = (await request('POST', '/session', { capabilities:{ alwaysMatch:{ 'tauri:options':{ application:binary } } } })).sessionId
   const recovered = await wait(async () => {
     const docs = await run('return window.__MARKWRITER_ACCEPTANCE__?.snapshot().documents ?? []')
-    return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + '\nRecovery marker')
+    return docs.find(doc => doc.path === fixture && doc.isDirty && doc.content === source + 'RecoveryMarker')
   }, 'synthetic draft recovered')
   assert.ok(recovered)
   console.log(JSON.stringify({ result:'pass', target:'Linux WebKitGTK native acceptance build, not installed package', binary, timingsMs:{wysiwygMs,previewMs,exportMs,timeoutMs}, memory:await memory.stop(), exportBytes:Buffer.byteLength(html), worker:policy, fixtureUnchanged:true, undoAndRecovery:'isolated synthetic buffer', controlledTimeout:'one acceptance-only synchronous worker delay; fallback displayed, next preview succeeded', pageControl, resourceCanary:'acceptance-instrumented worker HTTP, file and same-origin asset fetch rejected; same-origin application page and OS-level HTTP positive controls passed; document includes rejected by validation. A failed app page HTTP control limits attribution of HTTP denial to worker CSP.' }, null, 2))
