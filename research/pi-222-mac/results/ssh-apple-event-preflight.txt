@@ -1,0 +1,2 @@
+com.apple.finder status=-1744
+com.apple.systemevents status=-600

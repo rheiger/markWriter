@@ -1,0 +1,25 @@
+Executable=/private/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T/mw-finder-direct.Zjv0re/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+Identifier=com.markwriter.app.quicklook
+Format=bundle with Mach-O thin (arm64)
+CodeDirectory v=20400 size=1109 flags=0x2(adhoc) hashes=24+7 location=embedded
+VersionPlatform=1
+VersionMin=786432
+VersionSDK=1705216
+Hash type=sha256 size=32
+CandidateCDHash sha256=a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e
+CandidateCDHashFull sha256=a06fb7915b27f1959c58c0f6a6f06c2f018bdf4ec708b2a9ee76847583f23574
+Hash choices=sha256
+CMSDigest=a06fb7915b27f1959c58c0f6a6f06c2f018bdf4ec708b2a9ee76847583f23574
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=212992
+Executable Segment flags=0x1
+Page size=16384
+CDHash=a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e
+Signature=adhoc
+Info.plist entries=8
+TeamIdentifier=not set
+Sealed Resources version=2 rules=13 files=1
+Internal requirements count=0 size=12
+Total signatures=1
+Chosen signature=1

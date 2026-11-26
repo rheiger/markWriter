@@ -1,0 +1,4 @@
+--prepared:/private/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T/markwriter-pi222-direct.GOX1y4/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+--validated:/private/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T/markwriter-pi222-direct.GOX1y4/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//markwriter-pi222-direct.GOX1y4/mount/MarkWriter.app: valid on disk
+/var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//markwriter-pi222-direct.GOX1y4/mount/MarkWriter.app: satisfies its Designated Requirement

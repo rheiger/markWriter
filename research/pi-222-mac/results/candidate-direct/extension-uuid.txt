@@ -1,0 +1,1 @@
+UUID: 25053F44-52CB-3F32-A138-8A3E9C49AE85 (arm64) /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.Zjv0re/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype

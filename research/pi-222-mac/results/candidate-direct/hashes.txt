@@ -1,0 +1,5 @@
+e47013681a00f2ed08b3e36f37fdbab37fc0475175d60618f90a1c516e92b88d  /private/tmp/mw-night.XdKkgJ/candidate.dmg
+66020bdcb78f07a41b358f5302bf050862e32dc1995c1cd7f43e57876f0cbf5f  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.Zjv0re/mount/MarkWriter.app/Contents/MacOS/markwriter
+401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.Zjv0re/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.Zjv0re/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Resources/quicklook-render.js
+aeed475b505e7e85b74d93aa32945cea8bb2f273724d6afa10f26c9efc3fc129  /private/tmp/mw-night.XdKkgJ/QuickLookWebRenderer.swift
