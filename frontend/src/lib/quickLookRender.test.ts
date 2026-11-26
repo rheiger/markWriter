@@ -210,6 +210,8 @@ describe('Finder DBML diagrams', () => {
     try {
       const output = await render(fixture(schema))
       expect(output.querySelector('img')?.getAttribute('alt')).toBe('DBML diagram')
+      expect(output.querySelector('img')?.style.maxWidth).toBe('100%')
+      expect(output.querySelector('img')?.style.height).toBe('auto')
       expect(output.querySelector('details code')?.textContent).toBe(schema)
     } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
   })
