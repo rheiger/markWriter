@@ -5,6 +5,7 @@ Shell observer records which actual child surface has keyboard focus.
 """
 
 import json
+import re
 import subprocess
 import time
 
@@ -77,13 +78,11 @@ def click_label(pattern, label):
 
 def dispatch(path, label, check, *, multiple=False):
     raise_files()
+    x, y = visible_point(r".*" + re.escape(path.name[2:]), EVIDENCE / f"{label}-file.png")
+    input_event("mousemove", str(x), str(y), "click", "1")
     if multiple:
         input_event("key", "ctrl+a")
-    else:
-        input_event("key", "ctrl+s")
-        input_event("type", "--clearmodifiers", path.name)
-        input_event("key", "Return")
-    input_event("sleep", "0.25", "key", "shift+F10")
+    input_event("click", "3", "sleep", "0.25")
     screenshot(f"{label}-context")
     click_label(r".*Open With(?:\s|[.…])*", f"{label}-context-ocr")
     screenshot(f"{label}-chooser")
