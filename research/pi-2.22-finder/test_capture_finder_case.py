@@ -1,9 +1,12 @@
+import datetime
 import io
 import json
 from pathlib import Path
 import queue
 import signal
+import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import capture_finder_case as capture
@@ -75,3 +78,65 @@ class CaptureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 capture.signed_identity(PID, EXE, 'cdhash H"fake"')
             self.assertEqual(run.call_args.args[-2:], ('-R=cdhash H"fake"', str(PID)))
+
+    def test_exact_mac_python_offset_format(self):
+        actual = capture.event_time({"timestamp": "2026-11-26 19:26:52.054783+0100"})
+        expected = datetime.datetime(2026, 11, 26, 18, 26, 52, 54783, tzinfo=datetime.timezone.utc)
+        self.assertEqual(actual, expected)
+        self.assertEqual(actual, capture.event_time({"timestamp": "2026-11-26T18:26:52.054783Z"}))
+        with self.assertRaises(ValueError):
+            capture.event_time({"timestamp": "2026-11-26T18:26:52.054783"})
+
+    def test_normal_interval_requires_all_completed_one_pid(self):
+        events = fixture(["start", "completed elapsed_ms=405", "start", "completed elapsed_ms=104"])
+        for event in events[2:]:
+            event["eventMessage"] = event["eventMessage"].replace(REQUEST, IMAGE)
+        summary = capture.normal_interval(events, EXE, IMAGE, "sequence", {PID: {}})
+        self.assertEqual([item["elapsedMs"] for item in summary], [405, 104])
+        with self.assertRaises(ValueError):
+            capture.normal_interval(events, EXE, IMAGE, "timeout", {PID: {}})
+        for event in events[2:]:
+            event["processID"] = PID + 1
+        with self.assertRaises(ValueError):
+            capture.normal_interval(events, EXE, IMAGE, "sequence", {PID: {}, PID + 1: {}})
+        events[1]["eventMessage"] = events[1]["eventMessage"].replace("completed", "fallback")
+        with self.assertRaises(ValueError):
+            capture.normal_interval(events, EXE, IMAGE, "sequence", {PID: {}, PID + 1: {}})
+
+    def test_replay_preserves_original_and_checks_inputs(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            fixture_file = directory / "test.md"
+            fixture_file.write_text("# synthetic")
+            extension = Path("/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex")
+            args = SimpleNamespace(capture_dir=directory, fixture=fixture_file, case="timeout", extension=extension,
+                                   cdhash="a" * 40, image_uuid=IMAGE, out=directory / "new.json", normal_interval=False)
+            (directory / "stop").touch()
+            events = fixture(["start", "timeout", "fallback elapsed_ms=8400"])
+            for event in events:
+                event["processImagePath"] = str(extension / "Contents/MacOS/QuickLookPrototype")
+            (directory / "renderer.ndjson").write_text("".join(json.dumps(event) + "\n" for event in events))
+            result = {"case": "timeout", "correlated": False, "error": "Invalid isoformat string: 'raw'",
+                      "readyUtc": "2026-11-26T17:00:00Z", "imageUuid": IMAGE, "extension": str(extension),
+                      "cdhash": args.cdhash, "scriptSha256": "a" * 64, "executableSha256": "b" * 64,
+                      "fixture": fixture_file.name, "fixtureSha256": capture.sha256(fixture_file), "suspension": INJECTION,
+                      "staticSeal": f"{extension}: valid on disk\n{extension}: explicit requirement satisfied",
+                      "identities": {str(PID): {"birth": "recorded", "dynamicVerification":
+                                                f"{PID}: dynamically valid\n{PID}: explicit requirement satisfied"}}}
+            source = directory / "result.json"
+            capture.write_receipt(source, result)
+            original_hash = capture.sha256(source)
+            capture.replay(args)
+            self.assertEqual(capture.sha256(source), original_hash)
+            self.assertTrue(json.loads(args.out.read_text())["singleRequestInInterval"])
+            args.out = source
+            with self.assertRaises(FileExistsError):
+                capture.replay(args)
+            self.assertEqual(capture.sha256(source), original_hash)
+            args.out = directory / "invalid.json"
+            for bad in ({"cdhash": "0"*40}, {"suspension": None}, {"fixtureSha256": "0"*64},
+                        {"identities": {}}, {"staticSeal": ""}, {"error": "log stream failed"}):
+                with self.subTest(bad=bad), self.assertRaises(ValueError):
+                    capture.write_receipt(source, {**result, **bad})
+                    capture.replay(args)
+                self.assertFalse(args.out.exists())

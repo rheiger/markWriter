@@ -3,6 +3,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import plistlib
@@ -111,7 +112,12 @@ def read_stream(stream, messages):
 
 
 def event_time(event):
-    return datetime.datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+    # Python 3.9 on the qualification Mac requires a colon in UTC offsets.
+    value = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", event["timestamp"].replace("Z", "+00:00"))
+    timestamp = datetime.datetime.fromisoformat(value)
+    if timestamp.tzinfo is None:
+        raise ValueError("Renderer timestamp lacks its UTC offset")
+    return timestamp
 
 
 def parse_event(event):
@@ -152,6 +158,88 @@ def summarize(events, expected, image_uuid, case, identities, suspension):
         raise ValueError("Missing controlled suspension of this request")
     return {"requestId": request, "pid": pid, "states": wanted, "started": first["timestamp"],
             "ended": parsed[-1][0]["timestamp"], "elapsedMs": parsed[-1][-1]}
+
+
+def normal_interval(events, executable, image_uuid, case, identities):
+    if case == "timeout":
+        raise ValueError("Timeout qualification requires one request")
+    groups = {}
+    for event in events:
+        result = parse_event(event)
+        if result is None or result[1] not in ("start", "completed"):
+            raise ValueError("Normal interval contains an unexpected renderer event")
+        groups.setdefault(result[0], []).append(event)
+    if not groups:
+        raise ValueError("Empty normal interval")
+    requests = [summarize(group, executable, image_uuid, case, identities, None) for group in groups.values()]
+    if len({request["pid"] for request in requests}) != 1:
+        raise ValueError("Normal interval contains more than one provider PID")
+    return requests
+
+
+def replay(args):
+    # Inputs must remain immutable. Work with saved text and bytes only. There
+    # is intentionally no resolution of the recorded Mac path on this machine.
+    directory = args.capture_dir
+    source, log = directory / "result.json", directory / "renderer.ndjson"
+    if not (directory / "stop").is_file():
+        raise ValueError("Missing operator stop marker")
+    report = json.loads(source.read_text())
+    events = [json.loads(line) for line in log.read_text().splitlines()]
+    if not report["correlated"]:
+        error = report.get("error", "")
+        if not (error.startswith("Invalid isoformat string:") or error == "Expected start, completed once in order"):
+            raise ValueError("Original capture failed before reaching the supported summary checks")
+    extension = str(args.extension)
+    cdhash = args.cdhash.lower()
+    image_uuid = str(uuid.UUID(args.image_uuid))
+    if (not args.extension.is_absolute() or args.extension.name != "MarkWriterQuickLook.appex"
+        or not re.fullmatch(r"[a-f0-9]{40}", cdhash)
+        or (report["case"], report["extension"], report["cdhash"], report["imageUuid"]) != (args.case, extension, cdhash, image_uuid)):
+        raise ValueError("Original case or packaged provider identity mismatch")
+    if report["fixture"] != args.fixture.name or report["fixtureSha256"] != sha256(args.fixture):
+        raise ValueError("Fixture filename or bytes differ from the initial capture")
+    if not {extension + ": valid on disk", extension + ": explicit requirement satisfied"}.issubset(report["staticSeal"].splitlines()):
+        raise ValueError("Missing captured seal and static candidate signature verification")
+    for name in ("executableSha256", "scriptSha256"):
+        if not re.fullmatch(r"[0-9a-f]{64}", report[name]):
+            raise ValueError("Missing captured package component digest")
+    identities = {int(pid): evidence for pid, evidence in report["identities"].items()}
+    for pid, evidence in identities.items():
+        required = {f"{pid}: dynamically valid", f"{pid}: explicit requirement satisfied"}
+        if not evidence["birth"] or not required.issubset(evidence["dynamicVerification"].splitlines()):
+            raise ValueError("Missing captured dynamic process identity")
+    ready = event_time({"timestamp": report["readyUtc"]})
+    times = [event_time(event) for event in events]
+    if not times or times[0] < ready or times != sorted(times):
+        raise ValueError("Renderer timestamps outside ordered capture interval")
+    if any(parse_event(event) is None for event in events):
+        raise ValueError("Unexpected renderer message in saved interval")
+    suspension = report["suspension"]
+    if args.case == "timeout":
+        if not suspension or not math.isfinite(suspension["seconds"]) or suspension["seconds"] < 8:
+            raise ValueError("Missing recorded suspension covering the native deadline")
+    elif suspension is not None:
+        raise ValueError("Unexpected suspension in normal interval")
+    executable = args.extension / "Contents/MacOS/QuickLookPrototype"
+    if args.normal_interval:
+        requests = normal_interval(events, executable, image_uuid, args.case, identities)
+    else:
+        requests = [summarize(events, executable, image_uuid, args.case, identities, suspension)]
+    if set(identities) != {request["pid"] for request in requests}:
+        raise ValueError("Captured process identities disagree with requests")
+    output = {"case": args.case, "fixture": report["fixture"], "fixtureSha256": report["fixtureSha256"],
+              "extension": extension, "cdhash": cdhash, "imageUuid": image_uuid,
+              "executableSha256": report["executableSha256"], "scriptSha256": report["scriptSha256"],
+              "sourceResultSha256": sha256(source), "sourceLogSha256": sha256(log), "suspension": suspension,
+              "requests": requests, "singleRequestInInterval": len(requests) == 1,
+              "scope": "Replay of captured provider events and recorded live signatures. Verify the operator's visual observation separately."}
+    if len(requests) > 1:
+        output["scope"] += " Multiple requests completed; the displayed response cannot be attributed to an individual request."
+    with args.out.open("x") as target:
+        json.dump(output, target, indent=2)
+        target.write("\n")
+    print(f"REPLAY requests={len(requests)} output={args.out}", flush=True)
 
 
 def capture(args):
@@ -261,6 +349,17 @@ if __name__ == "__main__":
         time.sleep(13)
         resume(int(sys.argv[2]), Path(sys.argv[3]), sys.argv[4])
         print("Watchdog resumed the original process", flush=True)
+    elif sys.argv[1:2] == ["replay"]:
+        parser = argparse.ArgumentParser(description="Reanalyze one saved capture without contacting the Mac.")
+        parser.add_argument("--capture-dir", type=Path, required=True)
+        parser.add_argument("--fixture", type=Path, required=True)
+        parser.add_argument("--case", choices=("sequence", "class", "rejected", "oversized", "timeout", "recovery"), required=True)
+        parser.add_argument("--extension", type=Path, required=True)
+        parser.add_argument("--cdhash", required=True)
+        parser.add_argument("--image-uuid", required=True)
+        parser.add_argument("--out", type=Path, required=True, help="New receipt file")
+        parser.add_argument("--normal-interval", action="store_true", help="Summarize multiple successful requests from the same process")
+        replay(parser.parse_args(sys.argv[2:]))
     else:
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--extension", type=Path, required=True)
