@@ -1,7 +1,7 @@
 // Probe the real executable extracted from a synthetic candidate DEB. No
 // acceptance bridge is present; profile and fixture are temporary.
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -13,11 +13,12 @@ const binary = resolve(process.env.MARKWRITER_BINARY ?? '')
 if (!process.env.MARKWRITER_BINARY) throw new Error('Set MARKWRITER_BINARY to the extracted candidate executable')
 const temp = await mkdtemp(join(tmpdir(), 'mw-plantuml-package-'))
 const profile = join(temp, 'profile'), fixture = join(temp, 'fixture.md')
+const exported = join(tmpdir(), `mw-plantuml-export-${process.pid}.html`)
 await mkdir(profile)
 const sequence = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
 const klass = '@startuml\nclass User {\n +id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
 const bad = '@startuml\n!theme missing\n@enduml'
-const source = '# Synthetic package fixture\n\n' + [sequence, klass, bad].map(s => '```plantuml\n' + s + '\n```\n').join('\n')
+const source = '# Synthetic package fixture\n\n' + [sequence, klass, bad].map(s => '```plantuml\n' + s + '\n```\n').join('\n') + '\n[ordinary link](https://example.com/)\n'
 await writeFile(fixture, source)
 const wrapper = join(temp, 'launch.sh')
 await writeFile(wrapper, '#!/bin/sh\nexec "$MW_BINARY" "$MW_FIXTURE"\n', { mode:0o700 })
@@ -30,9 +31,9 @@ async function request(method, path, body) {
   if (!response.ok || json.value?.error) throw new Error(JSON.stringify(json))
   return json.value
 }
-async function wait(fn, description) {
+async function wait(fn, description, timeout=60000) {
   let last
-  for (const end=Date.now()+60000; Date.now()<end;) { try { const result=await fn(); if (result) return result } catch (error) { last=error }; await delay(100) }
+  for (const end=Date.now()+timeout; Date.now()<end;) { try { const result=await fn(); if (result) return result } catch (error) { last=error }; await delay(100) }
   throw new Error(`${description}: ${last || 'timed out'}`)
 }
 try {
@@ -56,10 +57,18 @@ try {
   for (const label of ['Alice','Bob','Request']) assert.ok(p[0].text.includes(label), `Missing sequence label ${label}`)
   for (const label of ['User','Order','id: int','owns']) assert.ok(p[1].text.includes(label), `Missing class label ${label}`)
   assert.equal(await readFile(fixture,'utf8'),source)
-  console.log(JSON.stringify({result:'pass', target:'Linux candidate DEB executable extracted, not installed', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, worker:policy},null,2))
+  await run(`Array.from(document.querySelectorAll('.menu-trigger')).find(b=>b.textContent.trim()==='File').click()`)
+  await run(`Array.from(document.querySelectorAll('.menu-option')).find(b=>b.textContent.includes('Export as HTML')).click()`)
+  execFileSync('python3', ['tools/plantuml-x11-export.py'], { env:{...process.env, MW_EXPORT_PATH:exported}, timeout:15000 })
+  const html=await wait(async()=>readFile(exported,'utf8'),'native exported file',20000)
+  const result=await run(`const d=new DOMParser().parseFromString(arguments[0],'text/html');return {svgs:d.querySelectorAll('[data-type=plantuml] svg').length,source:d.querySelector('[data-type=plantuml] pre')?.textContent??null,link:d.querySelector('a')?.getAttribute('href'),active:d.querySelectorAll('script,img,link[rel=stylesheet]').length}`,html)
+  assert.equal(result.svgs,2); assert.equal(result.source?.trim(),bad); assert.equal(result.link,'https://example.com/'); assert.equal(result.active,0)
+  assert.equal(await readFile(fixture,'utf8'),source)
+  console.log(JSON.stringify({result:'pass', target:'Linux candidate DEB executable extracted, not installed', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, exportBytes:Buffer.byteLength(html), export:'native application File → Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link', worker:policy},null,2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE',`/session/${session}`).catch(()=>{})
   try { process.kill(-driver.pid,'SIGTERM') } catch { /* already gone */ }
+  await rm(exported,{force:true})
   await rm(temp,{recursive:true,force:true})
 }
