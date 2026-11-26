@@ -31,6 +31,16 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
   for ((i=0;i<900;i++)); do printf '// padding %04d\n' "$i"; done
   printf '// FINAL-SENTINEL\n```\n'
 } > "$work/oversized.md"
+{
+  printf '# Bounded dense Finder DBML\n\n```dbml\n'
+  for ((i=0;i<40;i++)); do printf 'Table t%d { id int [pk] }\n' "$i"; done
+  for ((i=0;i<100;i++)); do
+    left=$((i % 40)); right=$(((left + 1 + 13 * (i / 40)) % 40))
+    printf 'Ref: t%d.id > t%d.id\n' "$left" "$right"
+  done
+  printf '// FINAL-STRESS-SENTINEL\n```\n'
+} > "$work/stress.md"
+[[ $(wc -c < "$work/stress.md") -lt 8192 ]] || { echo 'Stress fixture exceeds Finder per-block limit' >&2; exit 1; }
 /usr/bin/sw_vers > "$results/system.txt"
 /usr/bin/uname -m >> "$results/system.txt"
 /usr/bin/shasum -a 256 "$package" "$executable" "$script" > "$results/package-hashes.txt"
@@ -48,6 +58,7 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
 case "${MARKWRITER_FINDER_CASES:-all}" in
   all) cases=(representative multiple fallback oversized) ;;
   offline) cases=(representative fallback) ;;
+  stress) cases=(stress) ;;
   *) echo 'Unknown Finder fixture set' >&2; exit 1 ;;
 esac
 for name in "${cases[@]}"; do
@@ -88,7 +99,7 @@ APPLESCRIPT
   "$work/ocr" "$results/$name.png" > "$results/$name-ocr.txt"
   # The preview's visible title must name the fresh fixture, not a stale window.
   /usr/bin/grep -Fiq "$name.md" "$results/$name-ocr.txt" || { echo "Preview title not identified by OCR: $name" >&2; exit 1; }
-  if [[ "$name" == multiple || "$name" == oversized || "$name" == representative ]]; then
+  if [[ "$name" == multiple || "$name" == oversized || "$name" == representative || "$name" == stress ]]; then
     direction=vertical
     [[ "$name" == representative ]] && direction=horizontal
     "$work/scroll" "$direction"
