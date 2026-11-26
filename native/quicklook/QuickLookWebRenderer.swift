@@ -19,6 +19,8 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
     private var deadline: DispatchWorkItem?
     private var initialNavigation = true
     private var ruleDirectory: URL?
+    private let requestID = UUID().uuidString
+    private let startedAt = ProcessInfo.processInfo.systemUptime
     private let html: String
     private let markdown: String?
 
@@ -38,7 +40,6 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
         guard let script = try? String(contentsOf: scriptURL, encoding: .utf8), script.utf8.count <= 12_000_000 else {
             log.error("Fallback: renderer resource unavailable or oversized"); return nil
         }
-        log.info("Starting local renderer")
         let task = Task {
             await QuickLookWebRenderer(html: html, markdown: markdown).run(script)
         }
@@ -50,6 +51,7 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
     private func run(_ script: String) async -> String? {
         await withCheckedContinuation { continuation in
             self.continuation = continuation
+            Self.log.info("request=\(self.requestID, privacy: .public) start")
             let deadline = DispatchWorkItem { [weak self] in Self.log.error("Fallback: renderer timed out"); self?.finish(nil) }
             self.deadline = deadline
             DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: deadline)
@@ -91,6 +93,12 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
 
     private func finish(_ value: String?) {
         guard let continuation else { return }
+        let elapsed = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
+        if value == nil {
+            Self.log.info("request=\(self.requestID, privacy: .public) fallback elapsed_ms=\(elapsed, privacy: .public)")
+        } else {
+            Self.log.info("request=\(self.requestID, privacy: .public) completed elapsed_ms=\(elapsed, privacy: .public)")
+        }
         self.continuation = nil
         deadline?.cancel()
         deadline = nil
@@ -117,7 +125,6 @@ final class QuickLookWebRenderer: NSObject, WKNavigationDelegate {
                   page.utf8.count <= 4_500_000 else {
                 Self.log.error("Fallback: renderer script failed or exceeded output limit"); self?.finish(nil); return
             }
-            Self.log.info("Local renderer completed")
             self?.finish(page)
         }
     }
