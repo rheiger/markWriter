@@ -4,6 +4,8 @@ import { validateDot, sanitizeDotSvg, checkedDotErrors } from './dotSafety'
 import { dbmlToDot } from './dbml'
 import { createQuickLookHighlighter, highlightedHtml, SQL_FALLBACK_NOTICE } from './codeHighlight'
 import { renderQuickLookMarkdown } from './quickLookMarkdown'
+import { renderToString } from '@plantuml/core'
+import { checkPlantUmlSvg, PLANTUML_LIMITS, validatePlantUml } from './plantUmlSafety'
 import tokenCss from './codeHighlight.css?inline'
 
 // The native wrapper supplies escaped HTML and a locked-down offline CSP.
@@ -41,11 +43,12 @@ function safeCss(css: string): boolean {
   return !/url\s*\(/i.test(stripped)
 }
 
-function safeSvg(svg: string): { svg: string; width: number; height: number } {
+function safeSvg(svg: string, rejectFilters = false): { svg: string; width: number; height: number } {
   if (svg.length > MAX_SVG_BYTES || new TextEncoder().encode(svg).length > MAX_SVG_BYTES || /<!DOCTYPE|<!ENTITY/i.test(svg)) throw new Error('SVG exceeds limits')
   const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml')
   const root = parsed.documentElement
   if (root.localName !== 'svg' || root.namespaceURI !== 'http://www.w3.org/2000/svg' || parsed.querySelector('parsererror')) throw new Error('Invalid SVG')
+  if (rejectFilters && root.querySelector('filter')) throw new Error('Lossy SVG filter')
   root.querySelectorAll('filter').forEach(node => node.remove())
   const allowed = new Set('svg g defs marker path rect line circle ellipse polygon polyline text tspan style clipPath mask title desc'.split(' '))
   const nodes = [root, ...Array.from(root.querySelectorAll('*'))]
@@ -69,8 +72,8 @@ function safeSvg(svg: string): { svg: string; width: number; height: number } {
   return { svg: new XMLSerializer().serializeToString(root), width: Math.max(1, Math.ceil(box[2] * scale)), height: Math.max(1, Math.ceil(box[3] * scale)) }
 }
 
-async function rasterize(svg: string): Promise<string> {
-  const clean = safeSvg(svg)
+async function rasterize(svg: string, rejectFilters = false): Promise<string> {
+  const clean = safeSvg(svg, rejectFilters)
   const url = URL.createObjectURL(new Blob([clean.svg], { type: 'image/svg+xml' }))
   try {
     const image = new Image()
@@ -111,7 +114,7 @@ export async function quickLookRender(html: string, markdown?: string | null): P
     const target = code ?? pre
     const language = (target.getAttribute('data-language') ?? '').toLowerCase()
     const source = target.textContent ?? ''
-    if (language === 'mermaid' || language === 'dot' || language === 'graphviz' || language === 'dbml') {
+    if (language === 'mermaid' || language === 'dot' || language === 'graphviz' || language === 'dbml' || language === 'plantuml') {
       if (++diagrams > MERMAID_BLOCKS || (diagramChars += source.length) > MERMAID_TOTAL_CHARS || source.length > MERMAID_BLOCK_CHARS) continue
       try {
         let svg: string
@@ -119,6 +122,10 @@ export async function quickLookRender(html: string, markdown?: string | null): P
           const safeSource = safeMermaid(source)
           if (!safeSource) continue
           svg = (await mermaid.render(`mwql-${diagrams}`, safeSource)).svg
+        } else if (language === 'plantuml') {
+          const input = validatePlantUml(source)
+          svg = await new Promise<string>((resolve, reject) => renderToString(input.source.split(/\r?\n/), resolve, reject, { maxSvgSize: PLANTUML_LIMITS.outputBytes }))
+          checkPlantUmlSvg(svg, input)
         } else {
           const dot = language === 'dbml' ? dbmlToDot(source) : source
           validateDot(dot)
@@ -127,8 +134,8 @@ export async function quickLookRender(html: string, markdown?: string | null): P
           if (rendered.status !== 'success' || checkedDotErrors(rendered.errors).length) throw new Error('DOT render failed')
           svg = sanitizeDotSvg(rendered.output, { rejectLossy: language === 'dbml' })
         }
-        const png = await rasterize(svg)
-        const img = parsed.createElement('img'); img.src = png; img.alt = language === 'mermaid' ? 'Mermaid diagram' : language === 'dbml' ? 'DBML diagram' : 'DOT diagram'
+        const png = await rasterize(svg, language === 'plantuml')
+        const img = parsed.createElement('img'); img.src = png; img.alt = language === 'mermaid' ? 'Mermaid diagram' : language === 'dbml' ? 'DBML diagram' : language === 'plantuml' ? 'PlantUML diagram' : 'DOT diagram'
         img.style.maxWidth = '100%'; img.style.height = 'auto'
         const details = parsed.createElement('details'), summary = parsed.createElement('summary')
         summary.textContent = 'Diagram source'; details.append(summary, pre.cloneNode(true))

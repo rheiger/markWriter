@@ -1,0 +1,4 @@
+--prepared:/private/tmp/markwriter-pi222-finder.4JogPG/f51mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+--validated:/private/tmp/markwriter-pi222-finder.4JogPG/f51mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+/tmp/markwriter-pi222-finder.4JogPG/f51mount/MarkWriter.app: valid on disk
+/tmp/markwriter-pi222-finder.4JogPG/f51mount/MarkWriter.app: satisfies its Designated Requirement
