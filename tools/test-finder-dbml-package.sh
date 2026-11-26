@@ -42,6 +42,8 @@ cp native/quicklook/tests/fixtures/dbml/{representative,multiple,fallback}.md "$
 /usr/bin/xcrun swiftc tools/finder-capture-accessibility.swift -o "$work/accessibility"
 /usr/bin/xcrun swiftc tools/finder-window-id.swift -o "$work/window-id"
 /usr/bin/pluginkit -m -ADvv -i com.markwriter.app.quicklook > "$results/registration.txt" 2>&1 || true
+# Record the process state before the first request; do not claim cold start if present.
+/bin/ps -axo pid=,command= | /usr/bin/awk -v executable="$executable" 'index($0, executable) && $0 !~ /awk/' > "$results/process-before.txt"
 for name in representative multiple fallback oversized; do
   # An existing window could otherwise be mistaken for the new preview.
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder"' -e 'if exists window "Quick Look" then key code 53' -e 'end tell'
@@ -80,18 +82,25 @@ APPLESCRIPT
   "$work/ocr" "$results/$name.png" > "$results/$name-ocr.txt"
   # The preview's visible title must name the fresh fixture, not a stale window.
   /usr/bin/grep -Fiq "$name.md" "$results/$name-ocr.txt" || { echo "Preview title not identified by OCR: $name" >&2; exit 1; }
+  if [[ "$name" == multiple || "$name" == oversized ]]; then
+    /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to key code 125 using command down'
+    sleep 1
+    /usr/sbin/screencapture -x -l "$window_id" "$results/$name-bottom.png"
+    "$work/ocr" "$results/$name-bottom.png" > "$results/$name-bottom-ocr.txt"
+  fi
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to key code 53'
   preview_created=false
   kill "$log_pid" 2>/dev/null || true
   wait "$log_pid" 2>/dev/null || true
   log_pid=
+  node tools/summarize-finder-logs.mjs "$results/$name-renderer.ndjson" "$executable" > "$results/$name-renderer-summary.json"
 done
 /usr/bin/shasum -a 256 "$work"/*.md > "$results/fixtures-after.txt"
 cmp "$results/fixtures-before.txt" "$results/fixtures-after.txt"
 cat > "$results/README.txt" <<'TEXT'
 Raw Finder observations on a disposable hosted runner, not a pass receipt.
 Review screenshots, OCR, accessibility tree and renderer log process paths against the extracted app.
-Screenshots after 10 seconds do not establish render latency or visual completeness.
-No controlled network-off, document access attempt, timeout or cold-process test
-is performed here. Those acceptance conditions require separate evidence.
+Renderer summaries are uncorrelated process events: they do not establish the selected preview provider or per-request timing. Screenshots after 10 seconds do not establish time to visible preview or visual completeness.
+No controlled network-off, document access attempt or forced timeout test is performed here.
+The process-before receipt indicates whether the first extension process was absent. Those acceptance conditions require separate evidence.
 TEXT

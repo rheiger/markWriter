@@ -1,8 +1,9 @@
-name: Disposable Finder harness diagnostic
+name: Disposable candidate Finder diagnostic
 on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   probe:
     runs-on: macos-26
@@ -11,13 +12,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Run diagnostic against historical sealed package
+      - name: Download exact candidate package artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 45821389672 -R rheiger/markWriter --name package-macos-arm64 --dir "$RUNNER_TEMP/candidate"
+      - name: Exercise sealed candidate in Finder
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/fixture-mount" "$RUNNER_TEMP/test-app" probe-evidence
-          package="$RUNNER_TEMP/MarkWriter-2.20.2-macos-arm64.dmg"
-          curl -fL --retry 3 -o "$package" https://github.com/rheiger/markWriter/releases/download/v2.20.2/MarkWriter-2.20.2-macos-arm64.dmg
-          echo '28a09097f667e1375b918b3acf710360ca2f3ad2e01a37496d5c90745b474f0e  '"$package" | shasum -a 256 -c -
+          package="$RUNNER_TEMP/candidate/MarkWriter-2.20.2-macos-arm64.dmg"
+          echo 'ae3d80a815e31381fc490e4dc91ace700c7a2d1de6dc0b2164b5d6d344d4969b  '"$package" | shasum -a 256 -c -
           hdiutil attach "$package" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/fixture-mount"
           ditto "$RUNNER_TEMP/fixture-mount/MarkWriter.app" "$RUNNER_TEMP/test-app/MarkWriter.app"
           hdiutil detach "$RUNNER_TEMP/fixture-mount"
@@ -25,11 +29,11 @@ jobs:
           /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
           /usr/bin/pluginkit -a "$app/Contents/PlugIns/MarkWriterQuickLook.appex"
           tools/test-finder-dbml-package.sh "$app" "$package" probe-evidence/finder
-      - name: Retain diagnostic evidence
+      - name: Retain candidate Finder evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: finder-harness-diagnostic
+          name: finder-candidate-diagnostic
           path: probe-evidence/
           if-no-files-found: warn
           retention-days: 14
