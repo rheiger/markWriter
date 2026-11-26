@@ -13,9 +13,7 @@ first = fixtures / "A Grüße 文件.md"
 second = fixtures / "B café.markdown"
 for fixture in (first, second):
     fixture.write_text("# Synthetic Markdown\n")
-with (desktop.EVIDENCE / "nautilus.log").open("w") as log:
-    subprocess.Popen(["nautilus", "--new-window", str(fixtures)], stdout=log, stderr=log)
-window = desktop.wait("Nautilus fixture window", lambda: desktop.window_id(r"^association-fixtures$"))
+window = desktop.launch_files(fixtures, "probe")
 try:
     x, y = desktop.fixture_tile(window, first, "incumbent")
     desktop.command("xdotool", "mousemove", str(x), str(y), "click", "--repeat", "2", "--delay", "100", "1")

@@ -72,7 +72,7 @@ def editor_window():
     return command("xdotool", "search", "--onlyvisible", "--class", r"^markwriter$").splitlines()[-1]
 
 
-def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False, psm=None):
+def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False):
     # GTK4 versions that do not expose the app chooser's rows through AT-SPI
     # still render those labels. Match actual visible text and retain that frame.
     def find():
@@ -82,7 +82,7 @@ def visible_point(pattern, screenshot, region=None, *, adjacent_open_rows=False,
             arguments.extend(("--autoselect", ",".join(str(value) for value in region)))
         command(*arguments, str(screenshot))
         rows = csv.DictReader(io.StringIO(command("tesseract", str(screenshot), "stdout",
-                                                "--psm", psm or ("6" if region else "11"), "tsv")), delimiter="\t")
+                                                "--psm", "6" if region else "11", "tsv")), delimiter="\t")
         lines = {}
         for row in rows:
             if row["text"]:
@@ -118,17 +118,30 @@ def click_visible_text(pattern, screenshot, region=None):
     command("xdotool", "mousemove", str(x), str(y), "click", "1")
 
 
-def fixture_tile(window, path, label):
-    # Use the ASCII prefix printed by Files, independent of the Unicode glyphs
-    # or the accessibility role GTK uses for the grid tile.
+def launch_files(directory, label):
+    settings = "org.gnome.nautilus.preferences"
+    command("gsettings", "set", settings, "default-folder-viewer", "icon-view")
+    command("gsettings", "set", settings, "default-sort-order", "name")
+    command("gsettings", "set", settings, "default-sort-in-reverse-order", "false")
+    command("gsettings", "set", "org.gnome.nautilus.icon-view", "default-zoom-level", "medium")
+    with (EVIDENCE / f"{label}-nautilus.log").open("w") as log:
+        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
+    window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
     command("xdotool", "windowactivate", "--sync", window)
-    prefix = path.name.split(maxsplit=1)[0]
-    x, y, width, height = window_geometry(window)
-    # Clear the previous visual selection in the blank part of the file grid.
-    command("xdotool", "mousemove", str(x + width - 50), str(y + height - 75), "click", "1")
-    return visible_point(rf"[^a-z0-9]*{re.escape(prefix)}.*",
-                         EVIDENCE / f"{label}-selected-tile.png",
-                         (x + 190, y + 148, width - 205, 84), psm="11")
+    command("xdotool", "windowsize", "--sync", window, "890", "550")
+    command("xdotool", "sleep", "0.5")
+    return window
+
+
+def fixture_tile(window, path, label):
+    # At the explicitly configured grid size, four name-sorted synthetic files
+    # fit on one row. Every operation below checks the exact opened path(s).
+    index = sorted(path.parent.iterdir()).index(path)
+    assert 0 <= index < 4
+    command("xdotool", "windowactivate", "--sync", window)
+    command("scrot", "--window", window, str(EVIDENCE / f"{label}-selected-tile.png"))
+    x, y, _, _ = window_geometry(window)
+    return x + 282 + 167 * index, y + 122
 
 
 def choose_markwriter(window, path, label, multiple=False):
@@ -238,9 +251,7 @@ def audit(mode):
             "standard::content-type", Gio.FileQueryInfoFlags.NONE, None)
         assert info.get_content_type() == MIME, (path.name, info.get_content_type())
     baseline = {path: path.stat().st_mtime_ns for path in originals}
-    with (EVIDENCE / f"{mode}-nautilus.log").open("w") as log:
-        subprocess.Popen(["nautilus", "--new-window", str(directory)], stdout=log, stderr=log)
-    window = wait("Nautilus fixture window", lambda: window_id(r"^association-fixtures$"))
+    window = launch_files(directory, mode)
     if mode == "existing":
         tile_x, tile_y = fixture_tile(window, first, "incumbent")
         command("xdotool", "mousemove", str(tile_x), str(tile_y),
