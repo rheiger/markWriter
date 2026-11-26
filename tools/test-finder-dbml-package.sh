@@ -90,6 +90,12 @@ APPLESCRIPT
     sleep 1
     /usr/sbin/screencapture -x -l "$window_id" "$results/$name-scrolled.png"
     "$work/ocr" "$results/$name-scrolled.png" > "$results/$name-scrolled-ocr.txt"
+    if [[ "$name" == oversized ]]; then
+      /usr/bin/grep -Fiq 'FINAL-SENTINEL' "$results/$name-scrolled-ocr.txt" || { echo 'Oversized source sentinel not visible' >&2; exit 1; }
+    fi
+  fi
+  if [[ "$name" == fallback ]]; then
+    /usr/bin/grep -Fiq 'missing.id' "$results/$name-ocr.txt" || { echo 'Invalid reference source not visible' >&2; exit 1; }
   fi
   /usr/bin/osascript -e 'tell application "System Events" to tell process "Finder" to key code 53'
   preview_created=false
@@ -103,7 +109,7 @@ cmp "$results/fixtures-before.txt" "$results/fixtures-after.txt"
 cat > "$results/README.txt" <<'TEXT'
 Raw Finder observations on a disposable hosted runner, not a pass receipt.
 Review screenshots, OCR, accessibility tree and renderer log process paths against the extracted app.
-Renderer summaries are uncorrelated process events: they do not establish the selected preview provider or per-request timing. Screenshots after 10 seconds do not establish time to visible preview or visual completeness.
+Renderer summaries pair one request ID from the exact extension during a controlled selection interval; the ID does not encode a filename. Screenshots after 10 seconds do not establish time to visible preview or visual completeness.
 No controlled network-off, document access attempt or forced timeout test is performed here.
 The process-before receipt indicates whether the first extension process was absent. Those acceptance conditions require separate evidence.
 TEXT
