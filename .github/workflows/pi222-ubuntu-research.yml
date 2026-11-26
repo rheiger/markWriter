@@ -49,8 +49,17 @@ jobs:
           printf '%s  %s\n' "$(jq -r .asset.sha256 "$manifest")" "$deb" | sha256sum -c -
           sudo dpkg -i "$deb"
           printf '%s  %s\n' "$(jq -r .binaryInspection.sha256 "$manifest")" /usr/bin/markwriter | sha256sum -c -
+          python3 - "$manifest" <<'PYWORKERS'
+          import hashlib, json, pathlib, re, sys
+          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          workers = [asset for asset in manifest["frontend"] if re.fullmatch(r"assets/plantUml(?:Validate)?Worker-[^/]+[.]js", asset["path"])]
+          assert len(workers) == 2, workers
+          for asset in workers:
+              data = (pathlib.Path("frontend/dist") / asset["path"]).read_bytes()
+              assert hashlib.sha256(data).hexdigest() == asset["sha256"], asset["path"]
+          PYWORKERS
           cp "$manifest" receipts/
-          dpkg-query -W markwriter > receipts/installed-package.txt
+          dpkg-query -W "$(dpkg-deb -f "$deb" Package)" > receipts/installed-package.txt
           pkg-config --modversion webkit2gtk-4.1 > receipts/webkit-version.txt
           cat /etc/os-release > receipts/os-release.txt
       - name: Exercise the installed package and save its native HTML export
