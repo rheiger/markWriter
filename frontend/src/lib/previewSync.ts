@@ -180,7 +180,16 @@ export function synchronizePreview({ view, root, scroller: pv, getMap, getSource
     leader = 'preview'; pending = 'preview'; if (effects.length) dirty = true
     schedule()
   }
-  const selectionChanged = () => { if (previewPointer || root.contains(document.activeElement)) mirrorPreview() }
+  const selectionChanged = () => {
+    const selection = window.getSelection()
+    const node = selection?.anchorNode
+    const element = node instanceof Element ? node : node?.parentElement
+    // Some WebViews place a collapsed DOM caret in a different SVG after a
+    // diagram click, then emit selectionchange after pointerup. That caret has
+    // no source correspondence; retain the clicked block selected on pointerup.
+    if (selection?.isCollapsed && element?.closest('[data-type="mermaid"] svg, [data-type="dot"] svg, [data-type="dbml"] svg, [data-type="math"] svg')) return
+    if (previewPointer || root.contains(document.activeElement)) mirrorPreview()
+  }
   const down = () => { previewPointer = true; previewIntent() }
   const up = (event: PointerEvent) => { if (previewPointer) mirrorPreview(event.target instanceof Element ? event.target : null); previewPointer = false }
   const click = (event: MouseEvent) => { if ((event.target as Element)?.closest('a')) event.preventDefault() }

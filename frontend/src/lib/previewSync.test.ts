@@ -84,3 +84,27 @@ it('does not navigate from stale Preview correspondence', () => {
     expect(scroller.querySelector('.correspondence-range, .correspondence-caret, .correspondence-block')).toBeNull()
   } finally { sync.dispose(); scroller.remove(); vi.unstubAllGlobals() }
 })
+
+it('keeps the clicked diagram block when a later collapsed SVG caret points into another diagram', () => {
+  const source = '# Heading\n\n```dot\ndigraph {a -> b}\n```\n\n```dot\ndigraph {c -> d}\n```\n'
+  const map = renderMappedMarkdown(source, { documentId: 'A', revision: 1, generation: 1 })
+  const root = document.createElement('div'); root.tabIndex = 0; root.innerHTML = map.html
+  const atoms = root.querySelectorAll('[data-type=dot]')
+  atoms.forEach(atom => { atom.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><text>diagram text</text><path d="M0 0"/></svg>' })
+  const scroller = document.createElement('div'); scroller.append(root); document.body.append(scroller); root.focus()
+  vi.stubGlobal('requestAnimationFrame', () => 1); vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  const view = { scrollDOM: document.createElement('div'), documentTop: 0, state: EditorState.create({ doc: source }),
+    dispatch(transaction: Parameters<EditorState['update']>[0]) { this.state = this.state.update(transaction).state },
+  } as unknown as EditorView
+  const sync = synchronizePreview({ view, root, scroller, getMap: () => map, getSource: () => source, valid: () => true })
+  try {
+    const first = atoms[0].querySelector('path')!, secondText = atoms[1].querySelector('text')!.firstChild!
+    first.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    const range = document.createRange(); range.setStart(secondText, 0); range.collapse(true)
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range)
+    first.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    expect(view.state.selection.main.from).toBe(source.indexOf('```dot'))
+    document.dispatchEvent(new Event('selectionchange'))
+    expect(view.state.selection.main.from).toBe(source.indexOf('```dot'))
+  } finally { sync.dispose(); scroller.remove(); window.getSelection()?.removeAllRanges(); vi.unstubAllGlobals() }
+})
