@@ -1,0 +1,14 @@
+{
+  "os": "Microsoft Windows Server 2025 Datacenter",
+  "appSha256": "406890812cd6b55739d1b49d7ed1dbec89ca2ca19ebc406dc8d7fbad3e643aeb",
+  "build": "26100",
+  "packageSource": "dc921c26388ca59a8ecb913bc6c6090f3d9d9bd3",
+  "installer": {
+    "name": "MarkWriter-2.21.1-windows-x64.exe",
+    "size": 8063378,
+    "sha256": "9acf665c86703f8760c7c5463833fa5656375746056c2d64ba515c34bc48609f"
+  },
+  "webview": "157.0.4341.46",
+  "signature": "NotSigned",
+  "packageRun": "45873114289"
+}

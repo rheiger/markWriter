@@ -1,0 +1,208 @@
+{
+  "passed": true,
+  "sourceCommit": "dc921c26388ca59a8ecb913bc6c6090f3d9d9bd3",
+  "packageRun": "45873114289",
+  "asset": {
+    "name": "MarkWriter-2.21.1-windows-x64.exe",
+    "size": 8063378,
+    "sha256": "9acf665c86703f8760c7c5463833fa5656375746056c2d64ba515c34bc48609f"
+  },
+  "binary": {
+    "format": "PE",
+    "architecture": "x64",
+    "sha256": "406890812cd6b55739d1b49d7ed1dbec89ca2ca19ebc406dc8d7fbad3e643aeb"
+  },
+  "testRun": "45874177247",
+  "harnessCommit": "7b5dc937e35d5fbcb3a6dd42290074a0826dcb1f",
+  "os": "win25-vs2026",
+  "image": "20261116.315.1",
+  "webviewRuntime": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\157.0.4341.46\\msedgewebview2.exe",
+  "openedSourceSHA256": "a35072a1970e004404b799f9009d9b37433c42394ed9746debd9cce992ad0944",
+  "sourceUnchanged": true,
+  "exportSHA256": "874866a227df808b3af11feb451f5dd325552990b01c4cdedc835521dae031c7",
+  "exportBytes": 7705,
+  "workers": [
+    {
+      "filename": "assets/plantUmlWorker-sdgHgbmA.js",
+      "bytes": 2965743,
+      "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+      "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf",
+      "status": 200,
+      "type": "text/javascript"
+    },
+    {
+      "filename": "assets/plantUmlValidateWorker-cNWp55nD.js",
+      "bytes": 106602,
+      "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+      "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4",
+      "status": 200,
+      "type": "text/javascript"
+    }
+  ],
+  "wysiwyg": [
+    {
+      "labels": [
+        "Alice",
+        "Bob",
+        "Alice",
+        "Bob",
+        "Request"
+      ],
+      "source": null
+    },
+    {
+      "labels": [
+        "C",
+        "User",
+        "id: int",
+        "C",
+        "Order",
+        "id: int",
+        "owns",
+        "*",
+        "1"
+      ],
+      "source": null
+    },
+    {
+      "labels": null,
+      "source": "@startuml\n!theme PI222Missing\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nclass {\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+    }
+  ],
+  "preview": [
+    {
+      "labels": [
+        "Alice",
+        "Bob",
+        "Alice",
+        "Bob",
+        "Request"
+      ],
+      "source": null
+    },
+    {
+      "labels": [
+        "C",
+        "User",
+        "id: int",
+        "C",
+        "Order",
+        "id: int",
+        "owns",
+        "*",
+        "1"
+      ],
+      "source": null
+    },
+    {
+      "labels": null,
+      "source": "@startuml\n!theme PI222Missing\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nclass {\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+    }
+  ],
+  "exported": {
+    "activeElements": 0,
+    "blocks": [
+      {
+        "labels": [
+          "Alice",
+          "Bob",
+          "Alice",
+          "Bob",
+          "Request"
+        ],
+        "source": null
+      },
+      {
+        "labels": [
+          "C",
+          "User",
+          "id: int",
+          "C",
+          "Order",
+          "id: int",
+          "owns",
+          "*",
+          "1"
+        ],
+        "source": null
+      },
+      {
+        "labels": null,
+        "source": "@startuml\n!theme PI222Missing\n@enduml"
+      },
+      {
+        "labels": null,
+        "source": "@startuml\nclass {\n@enduml"
+      },
+      {
+        "labels": null,
+        "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+      }
+    ],
+    "link": "https://example.invalid/",
+    "stylesWithExternalResources": false
+  },
+  "firstOpenThroughNativeDialogMs": 6703,
+  "previewSwitchMs": 941,
+  "exportThroughNativeDialogMs": 2288,
+  "processWorkingSetSampleAfterPreview": [
+    {
+      "Id": 3312,
+      "ProcessName": "markwriter",
+      "WorkingSet64": 67203072,
+      "PeakWorkingSet64": 96309248
+    },
+    {
+      "Id": 6656,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 164429824,
+      "PeakWorkingSet64": 252280832
+    },
+    {
+      "Id": 7772,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 34402304,
+      "PeakWorkingSet64": 34455552
+    },
+    {
+      "Id": 8488,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 52658176,
+      "PeakWorkingSet64": 52658176
+    },
+    {
+      "Id": 8856,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 19468288,
+      "PeakWorkingSet64": 19468288
+    },
+    {
+      "Id": 9128,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 130076672,
+      "PeakWorkingSet64": 149118976
+    },
+    {
+      "Id": 9204,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 9637888,
+      "PeakWorkingSet64": 9637888
+    }
+  ]
+}
