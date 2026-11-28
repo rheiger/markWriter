@@ -33,7 +33,9 @@ User "1" -- "*" Order: owns
 ```
 ````
 
-Sequence diagrams accept declared actors and participants with labeled solid or dashed messages. Class diagrams accept named classes, public and private typed fields, and labeled associations with optional quoted multiplicities. Use ASCII identifiers of up to 32 characters. Themes, includes, images, macros, other diagram families and mixed diagram types retain their source.
+A sequence diagram needs at least one labeled message. Use `->` for a solid arrow and `-->` for a dashed arrow between two different declared actors or participants. Class diagrams accept named classes with optional public (`+`) or private (`-`) typed fields. Use a labeled `--` association between two different classes. Each end can have a quoted multiplicity of up to eight characters drawn from digits and `*`, such as `"1"` or `"*"`. A self-message, a self-association or a range such as `"0..*"` leaves the entire fence as readable source.
+
+Names and field types start with an ASCII letter or underscore and can contain letters, digits and underscores, up to 32 characters. Labels start with an ASCII letter or digit and can also contain spaces, periods, commas, parentheses, underscores and hyphens, up to 80 characters. Themes, includes, images, macros, other diagram families and mixed diagram types retain their source.
 
 Each PlantUML fence has an 8 KiB UTF-8 input limit and a 200-line limit. The app and HTML export render at most four PlantUML blocks totaling 16 KiB per document. The app checks the queue, render and SVG validation against a five-second job deadline. Finder shares its four diagram slots with Mermaid, DOT and DBML. Its native enrichment deadline is eight seconds, and its existing whole-file limits apply.
 
