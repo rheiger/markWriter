@@ -1,0 +1,4 @@
+# Preserve fetched license bytes and the generated bundle across package hosts.
+notices/upstream/*.txt -text
+frontend/public/THIRD_PARTY_NOTICES.txt -text
+notices/PlantUML-1.2026.10-provenance.txt text eol=lf
