@@ -1,0 +1,53 @@
+{
+  "case": "timeout",
+  "fixture": "timeout-a831f905.md",
+  "fixtureSha256": "cf28f560b2f776a5721fa4aadc472d792e7bab6807e260db24143bff3ea268ac",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [
+    14185
+  ],
+  "identities": {
+    "14185": {
+      "birth": "Sat Nov 28 10:08:22 2026",
+      "dynamicVerification": "14185: dynamically valid\n14185: valid on disk\n14185: satisfies its Designated Requirement\n14185: explicit requirement satisfied"
+    }
+  },
+  "suspension": {
+    "requestId": "28de4f77-04b6-4057-9e33-196cff9e8720",
+    "pid": 14185,
+    "seconds": 8.264417959
+  },
+  "extensionRssSamplesKiB": [
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 104608
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "fallback",
+      "rssKiB": 94512
+    }
+  ],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": true,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-28T09:18:42.664058+00:00",
+  "request": {
+    "requestId": "28de4f77-04b6-4057-9e33-196cff9e8720",
+    "pid": 14185,
+    "states": [
+      "start",
+      "timeout",
+      "fallback"
+    ],
+    "started": "2026-11-28 10:19:25.839562+0100",
+    "ended": "2026-11-28 10:19:34.236918+0100",
+    "elapsedMs": 8397
+  }
+}

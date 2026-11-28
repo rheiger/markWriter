@@ -1,0 +1,29 @@
+2026-11-28T09:17:59Z
+ProductName:		macOS
+ProductVersion:		27.2.1
+BuildVersion:		26B131
+arm64
+e47013681a00f2ed08b3e36f37fdbab37fc0475175d60618f90a1c516e92b88d  /private/tmp/mw-night.XdKkgJ/candidate.dmg
+401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab  /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3  /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Resources/quicklook-render.js
+--prepared:/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+--validated:/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+/Applications/MarkWriter.app: valid on disk
+/Applications/MarkWriter.app: satisfies its Designated Requirement
+/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk
+/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement
+Identifier=com.markwriter.app.quicklook
+Signature=adhoc
+TeamIdentifier=not set
+     com.markwriter.app.quicklook(2.21.1)
+	            Path = /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+	            UUID = 989FBB82-78C6-4EAF-BD23-2EBC6D4318E4
+	       Timestamp = 2026-11-28 09:05:24 +0000
+	             SDK = com.apple.quicklook.preview
+	   Parent Bundle = /Applications/MarkWriter.app
+	    Display Name = MarkWriterQuickLook
+	      Short Name = MarkWriterQuickLook
+	     Parent Name = MarkWriter
+	        Platform = macOS
+
+ (1 plug-in)

@@ -9,8 +9,8 @@ provider at the start of inspection was version 2.21.1 at
 `/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex`,
 registration UUID `989FBB82-78C6-4EAF-BD23-2EBC6D4318E4`.
 
-The installed app and extension passed strict seal verification; the extension
-was ad hoc signed and had no TeamIdentifier. The installed extension executable
+The [installed app and extension passed strict seal verification](installed-provider-verification.txt);
+the extension was ad hoc signed and had no TeamIdentifier. The installed extension executable
 SHA-256 was `401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab`
 and its script SHA-256 was
 `ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3`, matching
@@ -46,9 +46,11 @@ showed User and Order, their distinct private/public field markers, `owns`, and
 the `1`/`*` cardinalities. Both diagram-source disclosures were closed. The
 missing-theme fence was visible as source through `@enduml`; the following
 local-include fence was visible only through the include line at the bottom
-edge. This screenshot does not establish the rest of that fence or the fifth
-block; further scroll observation is pending. It also does not identify which
-of the five completed requests supplied the displayed result.
+edge. The screenshot alone does not establish the rest of that fence or the
+fifth block. The operator subsequently scrolled and reported that the final
+two blocks were readable source. That report is a separate human observation;
+it was not independently captured in the retained screenshot. Neither source
+identifies which of the five completed requests supplied the displayed result.
 
 A contemporaneous [read-only process observation](live-executable-inode.txt)
 found PID 14185's mapped executable and the installed file had the same device,
@@ -62,7 +64,8 @@ to `research/pi-2.22-finder/capture_finder_case.py` at source commit `8bae8ab`
 (SHA-256 `8932efc8ebf0e3a3e315b970cdcf4e5350a3740b3b1fb13cd091944e010d8bd4`).
 It reads the copied receipt, event log, stop marker and fixture and writes a new
 local output; it does not contact or modify the Mac. Run from the repository
-root with:
+root with the command below. The matching `test_capture_finder_case.py` from
+that revision passed all nine tests locally under Python's unittest runner.
 
 ```sh
 python3 research/pi-2.22-attended28/capture_finder_case.py replay \
@@ -74,7 +77,43 @@ python3 research/pi-2.22-attended28/capture_finder_case.py replay \
   --out /tmp/new-closed-replay.json --normal-interval
 ```
 
-The interval is not a controlled timeout. A qualified timeout requires one
-correlated request, a verified suspension of that exact process and request,
-the visible source fallback, and a subsequent successful preview. Other
-diagrams, limits, and restoration state require their own evidence.
+## Controlled timeout
+
+The stopped [timeout capture](timeout/result.json) contains a single request
+`28de4f77-04b6-4057-9e33-196cff9e8720` from dynamically verified PID 14185,
+the same installed executable and image identity. The harness recorded a
+controlled suspension of that exact process/request for 8.264417959 seconds;
+the [log](timeout/renderer.ndjson) contains the same request's ordered start,
+timeout and fallback, with `elapsed_ms=8397`. A strict
+[single-request replay](timeout/replay.json) verified the saved fixture hash,
+signature receipt, suspension and event order. This is an induced scheduling
+delay, not a normal-load performance measurement.
+
+Before this interval the operator had briefly displayed the timeout file in a
+Finder preview sidebar. The sidebar was hidden before capture was armed; that
+earlier activity is outside this interval and may have warmed or cached the
+fixture. The retained interval itself has exactly one correlated request. The
+operator's visible source-fallback observation and the subsequent recovery
+preview must still be assessed separately.
+
+The 374,062-byte timeout fixture is synthetic and is not duplicated in this
+branch. [generate-fixtures.py](generate-fixtures.py), SHA-256
+`137fec363957026ae543ce2e6f01d6301f010ffbd5d9e0d219ff8083d40beab6`, exactly
+reproduces its SHA-256
+`cf28f560b2f776a5721fa4aadc472d792e7bab6807e260db24143bff3ea268ac` using
+nonce `a831f905`. It also reproduced the recorded closed and recovery fixture
+hashes. To reproduce the timeout replay from a new local directory:
+
+```sh
+python3 research/pi-2.22-attended28/generate-fixtures.py /tmp/new-pi222-cases a831f905
+python3 research/pi-2.22-attended28/capture_finder_case.py replay \
+  --capture-dir research/pi-2.22-attended28/timeout \
+  --fixture /tmp/new-pi222-cases/timeout/timeout-a831f905.md \
+  --case timeout --extension /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex \
+  --cdhash a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e \
+  --image-uuid 25053f44-52cb-3f32-a138-8a3e9c49ae85 \
+  --out /tmp/new-timeout-replay.json
+```
+
+The controlled timeout's visual fallback, next successful preview, other
+diagram limits and registration restoration require their own evidence.
