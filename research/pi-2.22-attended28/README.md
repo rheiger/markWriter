@@ -130,7 +130,7 @@ what another provider might have done.
 
 The first exchange's [restoration journal](exchange-first/state.json),
 [provider listing](exchange-first/provider-restored.txt) and
-[watchdog record](exchange-first/watchdog.log) record the original 2.19.3
+[watchdog record](exchange-first/watchdog.txt) record the original 2.19.3
 host and extension restored at `/Applications/MarkWriter.app`, matching their
 saved component identities and the synthetic default-app/type fingerprints.
 The original registration UUID changed from
