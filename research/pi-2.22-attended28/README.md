@@ -93,8 +93,7 @@ Before this interval the operator had briefly displayed the timeout file in a
 Finder preview sidebar. The sidebar was hidden before capture was armed; that
 earlier activity is outside this interval and may have warmed or cached the
 fixture. The retained interval itself has exactly one correlated request. The
-operator's visible source-fallback observation and the subsequent recovery
-preview must still be assessed separately.
+operator's visible source-fallback observation must still be assessed separately.
 
 The 374,062-byte timeout fixture is synthetic and is not duplicated in this
 branch. [generate-fixtures.py](generate-fixtures.py), SHA-256
@@ -115,5 +114,41 @@ python3 research/pi-2.22-attended28/capture_finder_case.py replay \
   --out /tmp/new-timeout-replay.json
 ```
 
+## First recovery interval and restoration
+
+The [first recovery capture](recovery-empty/result.json) was stopped with
+an empty renderer log and `correlated: false`. It does not establish a
+successful subsequent preview. A separate read-only macOS unified-log query
+of the whole MarkWriter Quick Look renderer subsystem and category from
+10:19:20 through 10:25:40 local returned only the three timeout request events
+and no later renderer event in that window. Its [filtered output](timeout-to-restoration-unified.ndjson)
+retains only timestamp, PID, process image path/UUID and event message. The
+unified-log timestamps differ by roughly two milliseconds from the live-stream
+timestamps; the request ID, PID, image identity and messages match. Log
+retention/filtering and an empty capture do not prove what a person saw or
+what another provider might have done.
+
+The first exchange's [restoration journal](exchange-first/state.json),
+[provider listing](exchange-first/provider-restored.txt) and
+[watchdog record](exchange-first/watchdog.log) record the original 2.19.3
+host and extension restored at `/Applications/MarkWriter.app`, matching their
+saved component identities and the synthetic default-app/type fingerprints.
+The original registration UUID changed from
+`758753AA-8BEB-409C-8D61-81244BEB17AF` to
+`38CA77F7-BD0C-44A0-944A-DF39D14DC050`. The exchange script, byte-identical
+to [`exchange.py` at 1143ccd](https://github.com/rheiger/markWriter/blob/1143ccd/research/finder-exchange/exchange.py)
+(SHA-256 `b586bd598be5f9b11dec133c1abc56532d303561d5614aad9c7a04252a7c9287`),
+checks the saved app identities, sole provider listing and synthetic defaults
+before recording `phase: restored`. This is not a claim about every user
+setting or about unchanged registration UUIDs.
+
+A [later read-only observation](exchange-first/subsequent-prepared-observation.txt)
+at 09:28:43 UTC showed the same original path/version as sole provider but UUID
+`8C0B27CC-2FBE-4761-A20C-C2097FE88D21`; a second exchange's prepared state
+recorded that UUID and the same original app directory device/inode. The cause
+of the UUID change between observations is not established. That later state
+does not alter the first exchange's historical receipt.
+
 The controlled timeout's visual fallback, next successful preview, other
-diagram limits and registration restoration require their own evidence.
+diagram limits and the eventual second-exchange restoration remain separate
+evidence requirements.

@@ -1,0 +1,22 @@
+{
+  "case": "recovery",
+  "fixture": "recovery-a831f905.md",
+  "fixtureSha256": "b03c8d1657c3f9a1b8a6c6d62cb17edbdf1ecc22b9d0df626e7f39fa98343077",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [
+    14185
+  ],
+  "identities": {},
+  "suspension": null,
+  "extensionRssSamplesKiB": [],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": false,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-28T09:19:50.321648+00:00",
+  "error": "Expected start, completed once in order"
+}
