@@ -1,0 +1,262 @@
+{
+  "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "packageRun": "46133829847",
+  "npmRuntime": {
+    "name": "@plantuml/core",
+    "version": "1.2026.10",
+    "metadataUrl": "https://registry.npmjs.org/@plantuml%2fcore/1.2026.10",
+    "gitHead": "a00eddaf700c0681a642ddd11c4f95e0ade8cdc9",
+    "tarball": "https://registry.npmjs.org/@plantuml/core/-/core-1.2026.10.tgz",
+    "integrity": "sha512-m67zsiUiJGAUfrk7xM2i3b9Y8HPefXder+v7STblGZgW96GUOnJTCBfJAX1d9ElDzV9d7zrEJO9S7/FHfkaGMg==",
+    "tarballSha256": "00e3d2849d443dd77d6ca9bdf8aedc63bd26ff86025972b617cb96f4678655ca",
+    "engineBytes": 3238458,
+    "engineSha256": "c6664799aaa464319b5e1070a69850b93a7ea23ee41a23e920a8f2086e7da21c",
+    "compiledMarkers": [
+      "__plantumlSmetanaFallbackNoted",
+      "ST_Agraph_s",
+      "teavm_meta",
+      "jzlib",
+      "GZIPException",
+      "OpenPDF",
+      "DocumentException"
+    ]
+  },
+  "upstreamReleases": [
+    {
+      "repository": "konsoletyper/teavm",
+      "tag": "0.16.0",
+      "commit": "e87d452e4bd70c77b9e19314a46c3d6971c148b6"
+    },
+    {
+      "repository": "ymnk/jzlib",
+      "tag": "1.1.3",
+      "commit": "9d0fcb95caad5f205d849928087b2efa202be4d4"
+    }
+  ],
+  "upstreamSources": [
+    {
+      "url": "https://raw.githubusercontent.com/plantuml/plantuml/a00eddaf700c0681a642ddd11c4f95e0ade8cdc9/src/main/java/h/ST_Agraph_s.java",
+      "sha256": "e0b975d7fc36ee1d8ee65023d307c7a022d06c0f01a5a0d54e13455965f8bae9",
+      "matched": [
+        "part of Smetana",
+        "Copyright (c) 2011 AT&T Intellectual Property",
+        "Eclipse Public License v1.0",
+        "class ST_Agraph_s"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/plantuml/plantuml/a00eddaf700c0681a642ddd11c4f95e0ade8cdc9/gradle/libs.versions.toml",
+      "sha256": "2ea7a5fb26a74c9a1edd1a01331e18bc40805cff50ab5188c4223edfb53fc6ed",
+      "matched": [
+        "\"0.16.0\""
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/core/src/main/resources/org/teavm/backend/javascript/runtime.js",
+      "sha256": "14aa2b4df380ca052266272c2af241dedf23991b5a51fa2022ec21c9ee03355d",
+      "matched": [
+        "teavm_meta",
+        "Apache License",
+        "Alexey Andreev"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/gradle/libs.versions.toml",
+      "sha256": "b97aa93de8e956b4668e3e825a38fef845e2f429219b87abb02abfd57ab68714",
+      "matched": [
+        "com.jcraft:jzlib",
+        "1.1.3"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ymnk/jzlib/9d0fcb95caad5f205d849928087b2efa202be4d4/src/main/java/com/jcraft/jzlib/GZIPException.java",
+      "sha256": "7e9bd511664053c49a77f7dcf3c69e6747a7b6b5c181b43a73fdb48f839f8a1f",
+      "matched": [
+        "class GZIPException"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/plantuml/plantuml/a00eddaf700c0681a642ddd11c4f95e0ade8cdc9/src/main/java/org/openpdf/text/ExceptionConverter.java",
+      "sha256": "b65be9331741f2adb61994ec892dba72cd59549ae0ed56ac966e8c6fdfa66dc7",
+      "matched": [
+        "class ExceptionConverter",
+        "Kabutz"
+      ]
+    }
+  ],
+  "upstreamNotices": [
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/EPL-1.0.txt",
+      "sha256": "f3d8dc494be2e7ea9cd31ac2fb902e35dce7ff8181b9b30d05861b47c339cb25",
+      "bytes": 11345
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
+      "url": "https://raw.githubusercontent.com/konsoletyper/teavm/e87d452e4bd70c77b9e19314a46c3d6971c148b6/NOTICE",
+      "sha256": "6c2b3372a6beee7fbaad482248ac0f5ad2b099d92ff2a528c04261cc9c0636f4",
+      "bytes": 493
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ymnk/jzlib/9d0fcb95caad5f205d849928087b2efa202be4d4/LICENSE.txt",
+      "sha256": "9aa93e9bc58ae423a9e6476f608ee8f46063f5679e3bac0bc55f2f4b10d243ee",
+      "bytes": 1639
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madler/zlib/14763ac7c6c03bca62c39e35c03cf5bfc7728802/README",
+      "sha256": "a3dca6792d71e5439b49bd7d50b4fd1972d5712195e87286e08fca18fcfcf93a",
+      "bytes": 7106
+    },
+    {
+      "url": "https://raw.githubusercontent.com/plantuml/plantuml/a00eddaf700c0681a642ddd11c4f95e0ade8cdc9/src/main/java/org/openpdf/LICENSE.md",
+      "sha256": "2871df1214ef307b156fec26e82bb42647227994db859da516a3672b9f65da8d",
+      "bytes": 632
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/MPL-1.1.txt",
+      "sha256": "6214f8b1300bb9f37b16ebc146f8f61af0187e0025042ff95c8b3030744a8795",
+      "bytes": 23669
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/cc4fe1ac462bd3ad3c81a07234baf7d9541ee871/text/MPL-2.0.txt",
+      "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172",
+      "bytes": 16727
+    }
+  ],
+  "sourceProvenanceSha256": "32ef43590d302261cd983969a75f956d8861474c9fb460eecd977390f689c258",
+  "sourceNotice": {
+    "bytes": 5084463,
+    "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+  },
+  "packages": [
+    {
+      "platform": "macos-arm64",
+      "artifact": {
+        "name": "MarkWriter-2.22.2-macos-arm64.dmg",
+        "size": 15166859,
+        "sha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4"
+      },
+      "host": {
+        "entry": "MarkWriter/MarkWriter.app/Contents/MacOS/markwriter",
+        "bytes": 19064896,
+        "sha256": "33e54b9b1b462ae39e74151b2fea89aac650f9acb1a0955a6ffd1ce7678fdcd9"
+      },
+      "signing": "ad-hoc",
+      "assets": [
+        {
+          "key": "THIRD_PARTY_NOTICES.txt",
+          "offset": 12820059,
+          "compressedBytes": 70620,
+          "compressedSha256": "866ca119e37b605c48d706bde332fcfe183ade11e31cb306e324421ae380afc6",
+          "bytes": 5084463,
+          "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+        },
+        {
+          "key": "assets/plantUmlWorker-sdgHgbmA.js",
+          "offset": 10900545,
+          "compressedBytes": 866279,
+          "compressedSha256": "4784ee865f946586b9f845740c05ddd574834f460fc36be90900fbe16ea76d4a",
+          "bytes": 2965743,
+          "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf"
+        },
+        {
+          "key": "assets/plantUmlValidateWorker-cNWp55nD.js",
+          "offset": 10322556,
+          "compressedBytes": 34450,
+          "compressedSha256": "1db1f2fa8412cc8a9c2415792915cf7699fb4cc5eaedc29e7853c552ec435d66",
+          "bytes": 106602,
+          "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4"
+        }
+      ],
+      "extension": {
+        "entry": "MarkWriter/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Resources/quicklook-render.js",
+        "bytes": 9830059,
+        "sha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3"
+      }
+    },
+    {
+      "platform": "windows-x64",
+      "artifact": {
+        "name": "MarkWriter-2.22.2-windows-x64.exe",
+        "size": 8078000,
+        "sha256": "6b7bd48a56e7211fd79082c5c418458db00e82936e0e189e8039df40f627fd91"
+      },
+      "host": {
+        "entry": "markwriter.exe",
+        "bytes": 19943424,
+        "sha256": "3b2601f9d6d355c05e0692bd67c1bf92a65ce0c1f0af32d252127b249738ca36"
+      },
+      "signing": "unsigned",
+      "assets": [
+        {
+          "key": "THIRD_PARTY_NOTICES.txt",
+          "offset": 12895078,
+          "compressedBytes": 70620,
+          "compressedSha256": "866ca119e37b605c48d706bde332fcfe183ade11e31cb306e324421ae380afc6",
+          "bytes": 5084463,
+          "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+        },
+        {
+          "key": "assets/plantUmlWorker-sdgHgbmA.js",
+          "offset": 14384869,
+          "compressedBytes": 866279,
+          "compressedSha256": "4784ee865f946586b9f845740c05ddd574834f460fc36be90900fbe16ea76d4a",
+          "bytes": 2965743,
+          "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf"
+        },
+        {
+          "key": "assets/plantUmlValidateWorker-cNWp55nD.js",
+          "offset": 13083478,
+          "compressedBytes": 34450,
+          "compressedSha256": "1db1f2fa8412cc8a9c2415792915cf7699fb4cc5eaedc29e7853c552ec435d66",
+          "bytes": 106602,
+          "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4"
+        }
+      ]
+    },
+    {
+      "platform": "ubuntu-26.04-x64",
+      "artifact": {
+        "name": "MarkWriter-2.22.2-ubuntu-26.04-x64.deb",
+        "size": 10128644,
+        "sha256": "f8516f7e496205bb8bd73aac83d548e18d644a7ba870a1d0abf9cd2e60580635"
+      },
+      "host": {
+        "entry": "usr/bin/markwriter",
+        "bytes": 21642208,
+        "sha256": "881a302ee2722b59bf7ff7c8aca77ca5b548374c9418b0b7f2a6ce5fa0c1b145"
+      },
+      "signing": "unsigned",
+      "assets": [
+        {
+          "key": "THIRD_PARTY_NOTICES.txt",
+          "offset": 5925519,
+          "compressedBytes": 70620,
+          "compressedSha256": "866ca119e37b605c48d706bde332fcfe183ade11e31cb306e324421ae380afc6",
+          "bytes": 5084463,
+          "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+        },
+        {
+          "key": "assets/plantUmlWorker-sdgHgbmA.js",
+          "offset": 4006037,
+          "compressedBytes": 866279,
+          "compressedSha256": "4784ee865f946586b9f845740c05ddd574834f460fc36be90900fbe16ea76d4a",
+          "bytes": 2965743,
+          "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf"
+        },
+        {
+          "key": "assets/plantUmlValidateWorker-cNWp55nD.js",
+          "offset": 3428048,
+          "compressedBytes": 34450,
+          "compressedSha256": "1db1f2fa8412cc8a9c2415792915cf7699fb4cc5eaedc29e7853c552ec435d66",
+          "bytes": 106602,
+          "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4"
+        }
+      ]
+    }
+  ],
+  "scope": "Extracted executables, decoded Tauri resources and an independently rebuilt Finder script. UI navigation and display require separate observations."
+}

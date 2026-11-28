@@ -1,0 +1,43 @@
+{
+  "event": "push",
+  "headBranch": "v2.22.2",
+  "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "runId": "46133829847",
+  "workflow": ".github/workflows/tauri-prerelease.yml",
+  "url": "https://github.com/rheiger/markWriter/actions/runs/46133829847",
+  "artifacts": [
+    {
+      "id": 15259217320,
+      "name": "package-macos-arm64",
+      "size": 14272958,
+      "digest": "sha256:28923de57e6bfb728a85d9dfedbf965adcd05a79c167f3babc5e6bf28a23837c",
+      "releaseAsset": {
+        "name": "MarkWriter-2.22.2-macos-arm64.dmg",
+        "size": 15166859,
+        "sha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4"
+      }
+    },
+    {
+      "id": 15259395869,
+      "name": "package-ubuntu-26.04-x64",
+      "size": 10348291,
+      "digest": "sha256:bc953b23499c128b9d643da86bac19880cb993acd1f748ac28edb1d3b30e82d3",
+      "releaseAsset": {
+        "name": "MarkWriter-2.22.2-ubuntu-26.04-x64.deb",
+        "size": 10128644,
+        "sha256": "f8516f7e496205bb8bd73aac83d548e18d644a7ba870a1d0abf9cd2e60580635"
+      }
+    },
+    {
+      "id": 15259196823,
+      "name": "package-windows-x64",
+      "size": 8309956,
+      "digest": "sha256:2c3efcdc0a296be46df99c1da2eb837a83e81e6f6bbdfe30e7f6252deef705b9",
+      "releaseAsset": {
+        "name": "MarkWriter-2.22.2-windows-x64.exe",
+        "size": 8078000,
+        "sha256": "6b7bd48a56e7211fd79082c5c418458db00e82936e0e189e8039df40f627fd91"
+      }
+    }
+  ]
+}

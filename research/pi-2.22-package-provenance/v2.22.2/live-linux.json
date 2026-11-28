@@ -1,0 +1,13 @@
+{
+  "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "packageSha256": "f8516f7e496205bb8bd73aac83d548e18d644a7ba870a1d0abf9cd2e60580635",
+  "hostSha256": "881a302ee2722b59bf7ff7c8aca77ca5b548374c9418b0b7f2a6ce5fa0c1b145",
+  "response": {
+    "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089",
+    "bytes": 5084463,
+    "status": 200,
+    "url": "tauri://localhost/THIRD_PARTY_NOTICES.txt",
+    "contentType": "text/plain"
+  },
+  "scope": "Extracted Ubuntu DEB on Debian under isolated Xvfb; same-origin resource fetch."
+}
