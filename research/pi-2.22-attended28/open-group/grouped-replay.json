@@ -1,0 +1,119 @@
+{
+  "captureResultSha256": "9efe1433cb8355383fac6750fb7e74eed463985e403ccbbfd38d180f5f5966d2",
+  "captureLogSha256": "0d44845903be093ec282590a7891fc6b3ed9b893151b70f46721e6b44f1f018f",
+  "fixtureHashes": {
+    "open": "90948fcff5e7900e44b503e4a061607ba4258f189ff8e4d8a548fe45a6d34d24",
+    "legacy": "d83b549b77f9e6bdbd9fa8d94460b5c307ebe89f37f4582d7d35868e884a6137",
+    "negative": "b48dbbd59e358a79eba0d63f379e7efeabdb8c969618d733101e5fd2b983d6bf",
+    "oversized": "fe713a806867589a7e9cdbd73c123737666e6d37f30eb936ca9b6a6de4e68f7c"
+  },
+  "fixtureHashesBeforeUtc": "2026-11-28T09:42:03+00:00",
+  "fixtureHashesAfterUtc": "2026-11-28T09:50:42+00:00",
+  "processIds": [
+    15947,
+    16783
+  ],
+  "requestCount": 9,
+  "requests": [
+    {
+      "requestId": "bb36d017-633d-4e61-873b-9b1f83790460",
+      "pid": 15947,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:46:14.538847+0100",
+      "ended": "2026-11-28 10:46:15.245990+0100",
+      "elapsedMs": 707
+    },
+    {
+      "requestId": "91f58e5b-49b6-4984-bdab-df489916b147",
+      "pid": 15947,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:46:30.873669+0100",
+      "ended": "2026-11-28 10:46:31.639199+0100",
+      "elapsedMs": 765
+    },
+    {
+      "requestId": "40f4a8a7-1a8a-4843-ae93-b8574b48fc9e",
+      "pid": 15947,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:46:41.683204+0100",
+      "ended": "2026-11-28 10:46:42.236528+0100",
+      "elapsedMs": 553
+    },
+    {
+      "requestId": "bf397551-cc58-45c3-b6c4-a6a8f7fcfa76",
+      "pid": 15947,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:46:51.762976+0100",
+      "ended": "2026-11-28 10:46:52.134224+0100",
+      "elapsedMs": 371
+    },
+    {
+      "requestId": "531c55fd-f517-47a3-8fcd-88122f96636d",
+      "pid": 15947,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:47:04.186245+0100",
+      "ended": "2026-11-28 10:47:04.591084+0100",
+      "elapsedMs": 404
+    },
+    {
+      "requestId": "13405fca-3759-4024-a16f-1281d393ac9f",
+      "pid": 16783,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:47:53.993228+0100",
+      "ended": "2026-11-28 10:47:54.998774+0100",
+      "elapsedMs": 1005
+    },
+    {
+      "requestId": "77fe5a09-ca15-41f2-884d-7f4ae62539aa",
+      "pid": 16783,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:48:14.770576+0100",
+      "ended": "2026-11-28 10:48:15.268026+0100",
+      "elapsedMs": 497
+    },
+    {
+      "requestId": "37555a1e-d66e-47ee-a333-3f1a58ac1a00",
+      "pid": 16783,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:48:33.270689+0100",
+      "ended": "2026-11-28 10:48:33.582731+0100",
+      "elapsedMs": 312
+    },
+    {
+      "requestId": "e3600946-014c-4a35-b848-c34291128881",
+      "pid": 16783,
+      "states": [
+        "start",
+        "completed"
+      ],
+      "started": "2026-11-28 10:48:52.236730+0100",
+      "ended": "2026-11-28 10:48:52.534786+0100",
+      "elapsedMs": 298
+    }
+  ],
+  "scope": "Grouped multi-fixture interval; requests cannot be assigned to individual files or displayed responses. Visual observations are separate."
+}

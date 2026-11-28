@@ -1,0 +1,8 @@
+2026-11-28T09:55:18Z
+17111     1 Ss   Sat Nov 28 10:53:08 2026     /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+QuickLook 17111 [redacted]  txt    REG               1,17   372704             2371504 /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+dev=16777233 inode=2371504 size=372704 path=/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+17111: dynamically valid
+17111: valid on disk
+17111: satisfies its Designated Requirement
+17111: explicit requirement satisfied

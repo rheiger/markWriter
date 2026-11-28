@@ -1,0 +1,122 @@
+{
+  "case": "sequence",
+  "fixture": "open-a831f905.md",
+  "fixtureSha256": "90948fcff5e7900e44b503e4a061607ba4258f189ff8e4d8a548fe45a6d34d24",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [
+    15947
+  ],
+  "identities": {
+    "15947": {
+      "birth": "Sat Nov 28 10:38:13 2026",
+      "dynamicVerification": "15947: dynamically valid\n15947: valid on disk\n15947: satisfies its Designated Requirement\n15947: explicit requirement satisfied"
+    },
+    "16783": {
+      "birth": "Sat Nov 28 10:47:53 2026",
+      "dynamicVerification": "16783: dynamically valid\n16783: valid on disk\n16783: satisfies its Designated Requirement\n16783: explicit requirement satisfied"
+    }
+  },
+  "suspension": null,
+  "extensionRssSamplesKiB": [
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 106432
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 100672
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 110272
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 100800
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 127088
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 100832
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 110448
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 100976
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 110768
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 101616
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "start",
+      "rssKiB": 100496
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "completed",
+      "rssKiB": 104128
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "start",
+      "rssKiB": 111488
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "completed",
+      "rssKiB": 102688
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "start",
+      "rssKiB": 110128
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "completed",
+      "rssKiB": 102720
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "start",
+      "rssKiB": 104800
+    },
+    {
+      "pid": 16783,
+      "afterEvent": "completed",
+      "rssKiB": 91680
+    }
+  ],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": false,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-28T09:41:02.981096+00:00",
+  "error": "Expected start, completed once in order"
+}

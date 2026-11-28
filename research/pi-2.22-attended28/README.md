@@ -189,8 +189,7 @@ installed executable. The captured RSS samples are point-in-time extension
 process values and exclude WebKit children. The suspension is a controlled
 scheduling delay, not a normal-load latency measurement.
 
-The second exchange's eventual restoration and additional Finder cases still
-require their own evidence.
+The second exchange's restoration is recorded separately below.
 
 ## macOS app Preview and HTML export
 
@@ -226,4 +225,62 @@ sequence direction/dashing, class association and field markers, exact
 missing-theme fallback source, one ordinary link with its `href`, and no
 unexpected active/resource elements or attributes. This checks the saved
 HTML structure; it is not a claim that the link was clicked, nor a substitute
-for separate platform or WYSIWYG acceptance.
+for separate platform acceptance. The operator subsequently reported that
+both diagrams were visible in WYSIWYG; this is an operator report rather than
+a retained screenshot or proof of editing, Undo or recovery.
+
+## Finder while the editor was open
+
+The operator reported that the editor-open mixed fixture showed sequence,
+class, Mermaid and DOT diagrams; the legacy fixture showed Mermaid, DOT and
+linked DBML; and the negative and oversized fixtures remained readable through
+`@enduml`. These are human observations. They are not a screenshot retained in
+this branch and do not prove every possible diagram or fallback path.
+
+The stopped [group capture](open-group/result.json) spans all four fixture
+selections while the candidate app was running. Its original single-request
+summary is false because the group contains multiple requests and processes.
+The [grouped replay](open-group/grouped-replay.json) validates nine separate
+completed start/completion pairs from dynamically verified candidate-signed
+PIDs 15947 and 16783, the expected executable path/image UUID and static
+seal, ordered event times, and the four exact fixture hashes. Those hashes match
+the original manifest and the independently measured [before](open-group/fixture-hashes-before.txt)
+and [after](open-group/fixture-hashes-after.txt) snapshots. The four synthetic
+fixture files and [filtered capture](open-group/renderer.ndjson) are retained.
+The log does not encode the filename: **no native request or displayed
+response can be attributed to an individual fixture**. PID 15947 had the
+previously recorded live inode match; PID 16783's captured dynamic signature
+matches the candidate but no independent live inode observation was obtained.
+
+The grouped replay is implemented by [replay_group.py](replay_group.py); it
+does not modify the source receipt or contact the Mac. Its tests cover the
+real two-process interval and reject incomplete or foreign requests, missing
+dynamic identities, rewritten hashes and changed fixture bytes. Run it and its
+tests from this directory:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -q test_capture_finder_case test_replay_group
+python3 replay_group.py open-group /tmp/new-open-group-replay.json
+```
+
+## Second exchange restoration
+
+The [second exchange journal](exchange-second/state.json) records restoration
+of the original 2.19.3 application and its synthetic default-app/type
+fingerprints. Its baseline registration UUID was
+`8C0B27CC-2FBE-4761-A20C-C2097FE88D21` and its restored UUID is
+`FF502D44-CDFE-44E4-A24D-AB153C353712`; the UUID changed. At 09:52:50 UTC, a
+separate [read-only observation](restored-final-observation.txt) found only
+the original provider at `/Applications/MarkWriter.app`, its original app
+directory device/inode and host/extension/script hashes matching the exchange
+baseline, and strict host and extension seals passing. No matching MarkWriter
+app or Quick Look extension process was listed at that moment. At 09:55:18
+UTC, a later [live provider inspection](restored-live-provider.txt) found PID
+17111 running the original extension: its dynamic signature matched the saved
+original CDHash and its mapped executable device/inode matched the restored
+file. It was left running. This is the observed restoration state; it does
+not claim that all user settings or the original registration UUID are
+unchanged.
+
+At 09:54:45 UTC, a [read-only final hash check](fixtures-final-verification.txt)
+passed for all eight original and eight paired-retry synthetic fixture files.

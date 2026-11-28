@@ -1,0 +1,2 @@
+2026-11-28T09:54:59Z
+17111 /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype

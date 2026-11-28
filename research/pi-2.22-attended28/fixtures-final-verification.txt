@@ -1,0 +1,19 @@
+2026-11-28T09:54:45Z
+Original synthetic fixture manifest:
+app/app-a831f905.md: OK
+closed/closed-a831f905.md: OK
+open/open-a831f905.md: OK
+legacy/legacy-a831f905.md: OK
+negative/negative-a831f905.md: OK
+oversized/oversized-a831f905.md: OK
+timeout/timeout-a831f905.md: OK
+recovery/recovery-a831f905.md: OK
+Paired-retry synthetic fixture manifest:
+app/app-28baf491.md: OK
+closed/closed-28baf491.md: OK
+open/open-28baf491.md: OK
+legacy/legacy-28baf491.md: OK
+negative/negative-28baf491.md: OK
+oversized/oversized-28baf491.md: OK
+timeout/timeout-28baf491.md: OK
+recovery/recovery-28baf491.md: OK
