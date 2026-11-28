@@ -1,0 +1,54 @@
+{
+  "scope": "Finder extension bundle, read-only mounted arm64 DMGs",
+  "unsignedComparison": "codesign --remove-signature on a separate copy of each executable, followed by cmp",
+  "candidate": {
+    "dmgSha256": "e47013681a00f2ed08b3e36f37fdbab37fc0475175d60618f90a1c516e92b88d",
+    "strictSealPassed": true,
+    "bundleFiles": {
+      "Contents/Info.plist": "8b149f26e7ed3b39d5b613b2b49eee8d6ccb8a6fe44a938438439a400fbe8835",
+      "Contents/MacOS/QuickLookPrototype": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+      "Contents/Resources/quicklook-render.js": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+      "Contents/_CodeSignature/CodeResources": "d3fc327beadfcde9a071ae17e859f9ce2a9bf09db765fd21ada1cd15bdd8f454"
+    },
+    "unsignedExecutableSha256": "ebab3a858daa9053d5ef05e86d3047bedc70f6facc6e0e3794224435a6efb479",
+    "unsignedExecutableBytes": 380176,
+    "entitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.files.user-selected.read-only": true,
+      "com.apple.security.network.client": true
+    }
+  },
+  "tagged": {
+    "dmgSha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4",
+    "strictSealPassed": true,
+    "bundleFiles": {
+      "Contents/Info.plist": "51e36a53624235aefc7a3c580287c84103c59cf7939af98d461a47e9a7ea4c3f",
+      "Contents/MacOS/QuickLookPrototype": "8296dccbc582df2b536118342eb7dc92783ac85a04f7eb5f89336fe8627176a3",
+      "Contents/Resources/quicklook-render.js": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+      "Contents/_CodeSignature/CodeResources": "d3fc327beadfcde9a071ae17e859f9ce2a9bf09db765fd21ada1cd15bdd8f454"
+    },
+    "unsignedExecutableSha256": "ebab3a858daa9053d5ef05e86d3047bedc70f6facc6e0e3794224435a6efb479",
+    "unsignedExecutableBytes": 380176,
+    "entitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.files.user-selected.read-only": true,
+      "com.apple.security.network.client": true
+    }
+  },
+  "differentBundleFiles": [
+    "Contents/Info.plist",
+    "Contents/MacOS/QuickLookPrototype"
+  ],
+  "changedInfoPlistKeys": {
+    "CFBundleShortVersionString": {
+      "candidate": "2.21.1",
+      "tagged": "2.22.2"
+    },
+    "CFBundleVersion": {
+      "candidate": "2.21.1",
+      "tagged": "2.22.2"
+    }
+  },
+  "entitlementsEqual": true,
+  "unsignedExecutablesByteIdentical": true
+}

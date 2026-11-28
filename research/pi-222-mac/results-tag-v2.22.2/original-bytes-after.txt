@@ -1,0 +1,4 @@
+app inode 2371490
+00b3bf039d99221b180dd2e331cf9916731a41af9ebb0e69b3c0ba440c1d5bcf  /Applications/MarkWriter.app/Contents/MacOS/markwriter
+5825bb87f991e51d21011904987f2b99434c21733e76a4c73275242031e59c79  /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+9376989e633dea0e28af01801f9aa8ec3adb91aa55d6c145981096f37ab410d0  /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Resources/quicklook-render.js

@@ -1,0 +1,5 @@
+2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4  /private/tmp/mw-222-tag-direct.OejtFm/official.dmg
+33e54b9b1b462ae39e74151b2fea89aac650f9acb1a0955a6ffd1ce7678fdcd9  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.VfEf1G/mount/MarkWriter.app/Contents/MacOS/markwriter
+8296dccbc582df2b536118342eb7dc92783ac85a04f7eb5f89336fe8627176a3  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.VfEf1G/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3  /var/folders/4x/vh9gqmp9053f7cbx6qv8krcw0000gn/T//mw-finder-direct.VfEf1G/mount/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/Resources/quicklook-render.js
+aeed475b505e7e85b74d93aa32945cea8bb2f273724d6afa10f26c9efc3fc129  /private/tmp/mw-222-tag-direct.OejtFm/probe-tree/native/quicklook/QuickLookWebRenderer.swift

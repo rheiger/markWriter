@@ -1,0 +1,12 @@
+     com.markwriter.app.quicklook(2.19.3)
+	            Path = /Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex
+	            UUID = FF502D44-CDFE-44E4-A24D-AB153C353712
+	       Timestamp = 2026-11-28 09:50:02 +0000
+	             SDK = com.apple.quicklook.preview
+	   Parent Bundle = /Applications/MarkWriter.app
+	    Display Name = MarkWriterQuickLook
+	      Short Name = MarkWriterQuickLook
+	     Parent Name = MarkWriter
+	        Platform = macOS
+
+ (1 plug-in)

@@ -1,0 +1,791 @@
+{
+  "schemaVersion": 1,
+  "product": "MarkWriter",
+  "technology": "Tauri 2",
+  "version": "2.22.2",
+  "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "buildRun": "46133829847",
+  "buildUrl": "https://github.com/rheiger/markWriter/actions/runs/46133829847",
+  "platform": "macos-arm64",
+  "architecture": "arm64",
+  "asset": {
+    "name": "MarkWriter-2.22.2-macos-arm64.dmg",
+    "size": 15166859,
+    "sha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4"
+  },
+  "signing": {
+    "status": "ad-hoc",
+    "sealed": true,
+    "strictVerified": true,
+    "trusted": false,
+    "notarized": false,
+    "details": "Executable=/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/markwriter-macos-package.9uiiCn/installed/MarkWriter.app/Contents/MacOS/markwriter\nIdentifier=com.markwriter.app\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=37355 flags=0x2(adhoc) hashes=1161+3 location=embedded\nSignature=adhoc\nInfo.plist entries=17\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=2\nInternal requirements count=0 size=12\n",
+    "quickLookDetails": "Executable=/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/markwriter-macos-package.9uiiCn/installed/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype\nIdentifier=com.markwriter.app.quicklook\nFormat=bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=1109 flags=0x2(adhoc) hashes=24+7 location=embedded\nSignature=adhoc\nInfo.plist entries=8\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=1\nInternal requirements count=0 size=12\n"
+  },
+  "iconInspection": {
+    "verified": true,
+    "method": "Installed bundle CFBundleIconFile and source-byte equality",
+    "installed": [
+      {
+        "path": "/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/markwriter-macos-package.9uiiCn/installed/MarkWriter.app/Contents/Resources/icon.icns",
+        "sha256": "cc12f3c7e385a4960154fc0e6db593b00e1a87383b59b3519c320eb08b30b6c4"
+      }
+    ],
+    "sources": [
+      {
+        "path": "icons/32x32.png",
+        "sha256": "d150752013d8feee4da0954cb83fbf877792603c525e2ccc95ceef6939355faf",
+        "dimensions": [
+          32,
+          32
+        ]
+      },
+      {
+        "path": "icons/64x64.png",
+        "sha256": "dd3070d8cd62619bca51ffcd7ac44e25d2e1009f97f5728d1329786406aeeed7",
+        "dimensions": [
+          64,
+          64
+        ]
+      },
+      {
+        "path": "icons/128x128.png",
+        "sha256": "544fd2148bbc4acf4d0b32851d94cf5b2ea2502d5cddc203ee6d76c72c462608",
+        "dimensions": [
+          128,
+          128
+        ]
+      },
+      {
+        "path": "icons/128x128@2x.png",
+        "sha256": "9298041059e804f35bacc8e798e451711383b3c7de51341318aa3c789b300db1",
+        "dimensions": [
+          256,
+          256
+        ]
+      },
+      {
+        "path": "icons/icon.png",
+        "sha256": "0b5cd2ba329e22e6b292a8a7a74fe05413e3fa331281be75730018efa63f495b",
+        "dimensions": [
+          512,
+          512
+        ]
+      },
+      {
+        "path": "icons/icon.icns",
+        "sha256": "cc12f3c7e385a4960154fc0e6db593b00e1a87383b59b3519c320eb08b30b6c4",
+        "layers": [
+          "ic07",
+          "ic12",
+          "ic09",
+          "ic13",
+          "il32",
+          "l8mk",
+          "ic08",
+          "is32",
+          "s8mk",
+          "ic11",
+          "ic10",
+          "ic14"
+        ]
+      },
+      {
+        "path": "icons/icon.ico",
+        "sha256": "b7b67c3afa6596269feadbae53b026c7aafa763a5d1678b8f2f49a670a3bda64",
+        "sizes": [
+          32,
+          16,
+          24,
+          48,
+          64,
+          256
+        ]
+      }
+    ]
+  },
+  "baseline": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.7.2\nBuildVersion:\t\t25G332",
+    "webview": "21624.5.1.11.3"
+  },
+  "binaryInspection": {
+    "format": "Mach-O",
+    "architecture": "arm64",
+    "sha256": "33e54b9b1b462ae39e74151b2fea89aac650f9acb1a0955a6ffd1ce7678fdcd9",
+    "details": "Mach-O 64-bit executable arm64"
+  },
+  "runner": {
+    "image": "macos26",
+    "imageVersion": "20261117.0516.1"
+  },
+  "toolchain": {
+    "node": "v24.22.2",
+    "rust": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "tauriCli": "2.8.3"
+  },
+  "frontend": [
+    {
+      "path": "THIRD_PARTY_NOTICES.txt",
+      "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089"
+    },
+    {
+      "path": "assets/KaTeX-fonts-OFL-1.1-CNhWioSg.js",
+      "sha256": "39597c99895375fe3805ace5e10ced059cecb57833a61459b0ca00d6b3c17a62"
+    },
+    {
+      "path": "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2",
+      "sha256": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308"
+    },
+    {
+      "path": "assets/KaTeX_AMS-Regular-DMm9YOAa.woff",
+      "sha256": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251"
+    },
+    {
+      "path": "assets/KaTeX_AMS-Regular-DRggAlZN.ttf",
+      "sha256": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf",
+      "sha256": "07d8e303ce4fc12b4bb54f1004170dd190a1f3db45d400fe68060df3e0897268"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff",
+      "sha256": "1ae6bd7475590e97e7f145a89e09ccde322f7a6bc0b91607b1c8b8ee28290fed"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2",
+      "sha256": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff",
+      "sha256": "3398dd02302557a793f2863f88e02d96ce10df2abffa07c8e9fa90775116e65c"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2",
+      "sha256": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b"
+    },
+    {
+      "path": "assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf",
+      "sha256": "ed0b74372feefcbb9c0666b2e210da37b7e49fa7fbbf3eeb11db5f693dacfbb7"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf",
+      "sha256": "9163df9c7122432e6495b4229fa9071cf9ae86a758ae5efc4924ec2e1a6dbce1"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Bold-BsDP51OF.woff",
+      "sha256": "9be7ceb88004ab8ad124082246fbfcca4091e36385d4ec6ed1df67375dad50fb"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2",
+      "sha256": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Regular-CB_wures.ttf",
+      "sha256": "1e6f9579e90e2cac37f8f60a597c436e075c114385652b7cbeb0dec0421291b3"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2",
+      "sha256": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc"
+    },
+    {
+      "path": "assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff",
+      "sha256": "5e28753be717dac97f559f49bc10be9cf3c124ddcabda6659d11cb68febc6463"
+    },
+    {
+      "path": "assets/KaTeX_Main-Bold-Cx986IdX.woff2",
+      "sha256": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021"
+    },
+    {
+      "path": "assets/KaTeX_Main-Bold-Jm3AIy58.woff",
+      "sha256": "c76c5d696297d51b9cb1639c7da4334f0e7dec81b42b11213b5e25ef671bb822"
+    },
+    {
+      "path": "assets/KaTeX_Main-Bold-waoOVXN0.ttf",
+      "sha256": "138ac28d1663b3037e9c5f52371fa5c63d8324f4a38d22cd573e6ea3a3fd0cf8"
+    },
+    {
+      "path": "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2",
+      "sha256": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b"
+    },
+    {
+      "path": "assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf",
+      "sha256": "70ee1f64a20f2048c21940ef46d0144fd215baa953ca69afd1e31e98544f708f"
+    },
+    {
+      "path": "assets/KaTeX_Main-BoldItalic-SpSLRI95.woff",
+      "sha256": "a6f7ec0d846ac7ad975adb8959c37ed49b94acbc4ae436db9ce9e20287e4a64c"
+    },
+    {
+      "path": "assets/KaTeX_Main-Italic-3WenGoN9.ttf",
+      "sha256": "0d85ae7cc30f23790a7f1a58c4a112fdca8aae769b6ba11429af1d98b1b6cb3a"
+    },
+    {
+      "path": "assets/KaTeX_Main-Italic-BMLOBm91.woff",
+      "sha256": "f1d6ef86f3b11a528bd5185199bd2443ecb2b0dead96d88674b5a2c12be24bdf"
+    },
+    {
+      "path": "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2",
+      "sha256": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267"
+    },
+    {
+      "path": "assets/KaTeX_Main-Regular-B22Nviop.woff2",
+      "sha256": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+    },
+    {
+      "path": "assets/KaTeX_Main-Regular-Dr94JaBh.woff",
+      "sha256": "c6368d87e8a1a3a5d337623d83d8dc4b868f242a9ad476237d6f8d1e0f168cdc"
+    },
+    {
+      "path": "assets/KaTeX_Main-Regular-ypZvNtVU.ttf",
+      "sha256": "d0332f52868370fd83ae7fa46470f90c8f2eab2fcf12bc4f88080b340c95a830"
+    },
+    {
+      "path": "assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf",
+      "sha256": "f9377ab0271cda59af24bcffbd46a4d0c8a3572ffafdbb38de2ad5ea7b0d5ee5"
+    },
+    {
+      "path": "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2",
+      "sha256": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1"
+    },
+    {
+      "path": "assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff",
+      "sha256": "850c0af5c2238497febaf5e461d880bf458c341f42f4f330f1b1ab5698b1998e"
+    },
+    {
+      "path": "assets/KaTeX_Math-Italic-DA0__PXp.woff",
+      "sha256": "8a8d244581371912b8f3f5a23e2437cb2a59cd9bcaebb0346e722c05737a2571"
+    },
+    {
+      "path": "assets/KaTeX_Math-Italic-flOr_0UB.ttf",
+      "sha256": "08ce98e51b04d58945a301e639e02b6998af29fdfd61a7b8afdd07bbfc479d4a"
+    },
+    {
+      "path": "assets/KaTeX_Math-Italic-t53AETM-.woff2",
+      "sha256": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf",
+      "sha256": "1ece03f79f95277d57dc7f6b435a74e1379b0d46104a8530286b60ff49369ea0"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2",
+      "sha256": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff",
+      "sha256": "ece03cfd83e22c212cdef66feb8442d25a083beb988db3f1883f3f9738d750ba"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2",
+      "sha256": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Italic-DN2j7dab.woff",
+      "sha256": "91ee67500cc0129aa0ace3ac5c61ff1692102f0f31d02b69347fba35dcb75bf2"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf",
+      "sha256": "3931dd81faed86ba021bb2bbdc36f5bed9a38d6b4f4077aca59b265aa1b02083"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf",
+      "sha256": "f36ea897e19f4a2e571d1e900e4e3710e438deb05a842486045ba0a3e616a4ad"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff",
+      "sha256": "11e4dc8a6471ff6d6ee561d53d10fde8f7489e798257ff449c5d37c197435605"
+    },
+    {
+      "path": "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2",
+      "sha256": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342"
+    },
+    {
+      "path": "assets/KaTeX_Script-Regular-C5JkGWo-.ttf",
+      "sha256": "1c67f068fea8bb09bf099c088b1cf64bd27516a6e07f4684344873564bb66a67"
+    },
+    {
+      "path": "assets/KaTeX_Script-Regular-D3wIWfF6.woff2",
+      "sha256": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b"
+    },
+    {
+      "path": "assets/KaTeX_Script-Regular-D5yQViql.woff",
+      "sha256": "d96cdf2b3bdd4d64a8fd5f74a4c467f123a8a73931cd435889f08ffaf9bf947a"
+    },
+    {
+      "path": "assets/KaTeX_Size1-Regular-C195tn64.woff",
+      "sha256": "c943cc986384f59e86bea5fd7dc50a9c4dfe567a7c05eb40d6790720dead97c9"
+    },
+    {
+      "path": "assets/KaTeX_Size1-Regular-Dbsnue_I.ttf",
+      "sha256": "95b6d2f1a50173bfedb8c63e1d1c99b10427d0a4df4201cb44513b226951a22b"
+    },
+    {
+      "path": "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2",
+      "sha256": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe"
+    },
+    {
+      "path": "assets/KaTeX_Size2-Regular-B7gKUWhC.ttf",
+      "sha256": "a6b2099fb555c60e3a0db3a08842ebf1d732c6eb4e4bf44913613bed4fc4e39b"
+    },
+    {
+      "path": "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2",
+      "sha256": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd"
+    },
+    {
+      "path": "assets/KaTeX_Size2-Regular-oD1tc_U0.woff",
+      "sha256": "2014c523c3210bcc166648c4d4cc57f05b747df07a24277bf71c51e67dc79e3d"
+    },
+    {
+      "path": "assets/KaTeX_Size3-Regular-CTq5MqoE.woff",
+      "sha256": "6ab6b62e9b62dae2c00dd90f791bd10950be0ecc3490d7d6045f51c2e8fe0949"
+    },
+    {
+      "path": "assets/KaTeX_Size3-Regular-DgpXs0kz.ttf",
+      "sha256": "500e04d54f0d51666332c9d2089aa803be22aa878eca539e59fa53c6e522b082"
+    },
+    {
+      "path": "assets/KaTeX_Size3-Regular-gV2CO0n9.woff2",
+      "sha256": "73d591271b1604960cb10bb90fee021670af7297017e0e98480b332d11f51995"
+    },
+    {
+      "path": "assets/KaTeX_Size4-Regular-BF-4gkZK.woff",
+      "sha256": "99f9c6750b489c9462bf04900bd3f939df9b829339daaaaa99ef5495cdddea58"
+    },
+    {
+      "path": "assets/KaTeX_Size4-Regular-DWFBv043.ttf",
+      "sha256": "c647367d1dd4e162468717d020e1fc0f1dc5c26ebfdffbe55261713bf88c5877"
+    },
+    {
+      "path": "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2",
+      "sha256": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0"
+    },
+    {
+      "path": "assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff",
+      "sha256": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7"
+    },
+    {
+      "path": "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2",
+      "sha256": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b"
+    },
+    {
+      "path": "assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf",
+      "sha256": "f01f3e87d9c6a61c0c081ceb577abd864eb00a612f7ac1620dd6915fad2ef5aa"
+    },
+    {
+      "path": "assets/abnfDiagram-S7VZAUFO-U9_78yZl.js",
+      "sha256": "da6cd9dbc3327438030a4dae8046f8b8148dc772b4c35c2429ec70fae4d5a6f9"
+    },
+    {
+      "path": "assets/architecture-WOLXFQ4H-D6iVT_Vm.js",
+      "sha256": "c45294565f0aeed83893c9237c47a9837ac9ce1749e097a75b922ec0ee877e35"
+    },
+    {
+      "path": "assets/architectureDiagram-YGSQEFNW-D7X4eaeO.js",
+      "sha256": "42da66d4fb04d35eb24eaeaca653a915a41b20f191137e3169be0bd6a008300f"
+    },
+    {
+      "path": "assets/blockDiagram-APKKGZFW-CIiKr-XY.js",
+      "sha256": "1fc6bd6e685863345dcc812d8b2f4e6ee7363f99a2ed624504c2413f59d3fe78"
+    },
+    {
+      "path": "assets/bpmnIcons-APHXDYXF-C0jbCElo.js",
+      "sha256": "ee1b4edc7596a902c85ed89d5c7ae72eeb0939150ac15a0311352eadf921b4b9"
+    },
+    {
+      "path": "assets/c4Diagram-KJ2TOQU5-BmEmztXE.js",
+      "sha256": "e8b1993cfb2208aed62f5ac583bf29ec7c66f2231b86927b01a5fefc03845e14"
+    },
+    {
+      "path": "assets/chunk-2Q5K7J3B-DkgXkOxL.js",
+      "sha256": "1c4f37c1a6d29c59490fc569ed25f27f507629a3e15555a1acff3727914421b7"
+    },
+    {
+      "path": "assets/chunk-5VM5RSS4-ZNzvKenW.js",
+      "sha256": "cee7c98f98440b1fbf0548b756d421097642c784547b835515f1124b9cdd4351"
+    },
+    {
+      "path": "assets/chunk-6MUBBAK2-NqfQdwB9.js",
+      "sha256": "07f89bc8dfda200d95f4b70dec5f88ea8d672ef29790c4b633597a40f9c8ce5e"
+    },
+    {
+      "path": "assets/chunk-AXFCVDMN-DyjXbBaB.js",
+      "sha256": "71555e9766059bb25c2116694c2f5c16f87eb1b3e460c3be7be6981d56b4bfd4"
+    },
+    {
+      "path": "assets/chunk-BG4553SI-v4C-3s7i.js",
+      "sha256": "2b15d2c5beb3a22086449c6bf5137a329476f427abe64e7fb133486f64075807"
+    },
+    {
+      "path": "assets/chunk-HFQBQIA3-Q_KCnGwe.js",
+      "sha256": "8b5f0303d24ce6e495d49f87408035e69fe1331c25f5581b5b94d26b393d8a60"
+    },
+    {
+      "path": "assets/chunk-J5ZVWO5B-oDCd-gWO.js",
+      "sha256": "9ef2dc3eac1cfcec79acc9e2d21b546b3007482f6f67953492e76710abb2ba71"
+    },
+    {
+      "path": "assets/chunk-JWPE2WC7-CEzeTtJC.js",
+      "sha256": "60d252aca0308fa1844ff47a6e8f091d3c3f98c12104e1016b37c2f1c160121e"
+    },
+    {
+      "path": "assets/chunk-KQLB2F66-K014xSWv.js",
+      "sha256": "b77e8293cf794198182935ec42a61bca7bb710e805050c7fb027697fac63d65a"
+    },
+    {
+      "path": "assets/chunk-KS47KZWR-DeLmW26S.js",
+      "sha256": "320ded4fc748be101b9055c890e2419ab9b78650b48750967c11ea312ae1edbe"
+    },
+    {
+      "path": "assets/chunk-LEVMRMFU-Pwa6pf0G.js",
+      "sha256": "d3b4a45b6cb28d81638bd1fd132f3838d8db2e98106cb2041c733a2c86a71320"
+    },
+    {
+      "path": "assets/chunk-NGNAAXSQ-BTHyDOBK.js",
+      "sha256": "bb793e048fab9fece5a023ade6b3dc635a33a7a0d661fa8cf6c050c6d1937dad"
+    },
+    {
+      "path": "assets/chunk-OY52VR5R-CcpnrevL.js",
+      "sha256": "32010416ca64b929e9ea1c9bb28106a641a47891941f30db93989514e3dc7a33"
+    },
+    {
+      "path": "assets/chunk-QB3YPZ4I-Z6KaoVyC.js",
+      "sha256": "d979417a0bc752c964b83b46a5d52f0598a631c5b690ec8588cad2dab03e3091"
+    },
+    {
+      "path": "assets/chunk-R3KSYZAL-EqcKA9Ai.js",
+      "sha256": "e2409aa2171a483261f7e42277525613da3e1a2168bf3a7651c21e165e5be1f1"
+    },
+    {
+      "path": "assets/chunk-STOXU5M4-2Q0NEP60.js",
+      "sha256": "ca4d15a1dea43aff05a7590e51b4cc71f6b0779b65e079db7b87151483341594"
+    },
+    {
+      "path": "assets/chunk-TU62E6Q5-B_jL55wS.js",
+      "sha256": "abea6cfbdf6880e1b32b4ed99a287b0de281d360f9caed5dd9f8a6bc16a205d4"
+    },
+    {
+      "path": "assets/chunk-X4PVCEUW-BqIgXFsC.js",
+      "sha256": "4971200b6f7f21283e8da84418d826572378066a172e8ec12f561897b516e613"
+    },
+    {
+      "path": "assets/chunk-XXDRQBXY-D5UkGJF1.js",
+      "sha256": "f5d0997bccdd74b0520e4522d6e37164fe207a0193f9266f2dcfde5f8d8609fc"
+    },
+    {
+      "path": "assets/chunk-Y2CYZVJY-DsF7k-Jl.js",
+      "sha256": "a74e3669f356ad0d67cc5232f1e0f62ff4544fdb8e7057cf9a5001a0ea6fc2cc"
+    },
+    {
+      "path": "assets/classDiagram-v2-L25IHNXF-tYyiIeIJ.js",
+      "sha256": "3a462d550f43e830019e67654d011d7c4e3cd5c0128a9a20bf373fe95f460933"
+    },
+    {
+      "path": "assets/cose-bilkent-JH36ORCC-CUUpd-Rj.js",
+      "sha256": "2ed26e32cc2295e357053aa86bb635ee98c8d718c8487a4747ec93f9054e8dbe"
+    },
+    {
+      "path": "assets/cynefin-EF2NZ3EQ-C3ozWRrg.js",
+      "sha256": "0c5331fba6b946bde7f669916c756a0007332c6f2f66244d710bb0106608c344"
+    },
+    {
+      "path": "assets/cynefinDiagram-L36ESFBY-DvKS3ju_.js",
+      "sha256": "758badac4f91c9fda9d6ec44ce98e94b157ef4c964f51e4b9b0665bf606b2872"
+    },
+    {
+      "path": "assets/cytoscape.esm-aZd5tyA6.js",
+      "sha256": "2b8b3d03851f3a7547e139ef1153d9bd3bda62e18a716e0b1c62def385347745"
+    },
+    {
+      "path": "assets/d3-scale-CeUzoQUE.js",
+      "sha256": "382ad4ec20c93e73d3d96bc0f403792a9d7757c755ce12dff5f5c0cc499a03e6"
+    },
+    {
+      "path": "assets/d3-selection-CU2DOuos.js",
+      "sha256": "8eef043d071b7d74bc63b46b13ea243dd3ea166fc2546762ab85c6d1c2f7e6fc"
+    },
+    {
+      "path": "assets/d3-shape-Rea2Bl2a.js",
+      "sha256": "2ae7062bc534a2e5d5658ebbafb40c54b656d386b5c0e4560102c3d5c32f2e5b"
+    },
+    {
+      "path": "assets/dagre-SPEB5RXH-CCDjgPzW.js",
+      "sha256": "84ca7145a994f6e8fb6e32d8378d0b28e0b2c0e3f550bdffaaf594a2647b927a"
+    },
+    {
+      "path": "assets/dbmlWorker-Dhu3s0N0.js",
+      "sha256": "409c33e711519b5a63825d259e9baa9d9c0f1c5f688453cbb474a5d0b82db422"
+    },
+    {
+      "path": "assets/defineProperty-BbfpZ9Tg.js",
+      "sha256": "c2ae68c1ad7462e777ccd4e1e3f84b3bc07ab81458f0dd0ea042a9e1b4d23afb"
+    },
+    {
+      "path": "assets/diagram-3B7GL73J-F-Q9OTAn.js",
+      "sha256": "4511b871044cafb01ce081c816d42b22aeda24f73d31167d7d2b22b15d3a797a"
+    },
+    {
+      "path": "assets/diagram-DNEMPZML-DEe5pXiz.js",
+      "sha256": "c1e7bc51d151433b30a906214ee24e9e2a8a877287a78f4e5c4f49299bf5841e"
+    },
+    {
+      "path": "assets/diagram-L3MUGCDN-C0MDmqUy.js",
+      "sha256": "5a89a711112a7098e366a0060ab472b1a2641259b8b1e0db55662ce1499c3061"
+    },
+    {
+      "path": "assets/diagram-LA4NIPWU-DhvDer1D.js",
+      "sha256": "5bb1528aeb6c5ceb6fb9eb7d67e18d9299541c49021dbacaa88d75f3686e05a2"
+    },
+    {
+      "path": "assets/diagram-MHCOC4E2-YAIe05bv.js",
+      "sha256": "98307b5e37f35e7de24397b0e56611d4a2f0e7d1db4e5892de7e81cd68949222"
+    },
+    {
+      "path": "assets/diagram-XPFHEONP-CnC0jV5y.js",
+      "sha256": "83fb710007e2f48a8d65df70840808dce65c1635500da3f053e8c06a1612fb03"
+    },
+    {
+      "path": "assets/dotWorker-DgIYrlxA.js",
+      "sha256": "e57a20eb78520cea44f45bc7f9546b1c51046e5401f28661d745d86501a51f19"
+    },
+    {
+      "path": "assets/ebnfDiagram-UZSYDL2S-DnrPmH-U.js",
+      "sha256": "b9d9325fd0300bb47147dcf6b73279aa089dbf2b9c902805facedee68db585b4"
+    },
+    {
+      "path": "assets/elk-XV6XMXQE-s-WWoqIY.js",
+      "sha256": "66451a57ffc112ab8a775e34b1659e21d9a3cfa58e3900d526ee0640bd033f4c"
+    },
+    {
+      "path": "assets/erDiagram-EYBAPDEH-B2H6X63w.js",
+      "sha256": "38133e668fb2828c559333130b2cb476edd53494973059247401f1fb5cc7a8fc"
+    },
+    {
+      "path": "assets/eventmodeling-K75KTNOO-Lb9UfZhv.js",
+      "sha256": "139f39818319bbe0b282d1882e96928939929c68e68ac75f879a1c0cb3d522d1"
+    },
+    {
+      "path": "assets/flowDiagram-MALGAFMO-IGq4hXI3.js",
+      "sha256": "7579f9c25c98dc395e8aeaf84ebc2f18067a2ae4b3e25cf946c9485156662513"
+    },
+    {
+      "path": "assets/ganttDiagram-23REXITY-BSGLdG3L.js",
+      "sha256": "cd73ca9b8fe64c5180e1e469effe7b9a4cc1970e909cdeff7fbbdfaa9b7dd6c7"
+    },
+    {
+      "path": "assets/gitGraph-VSP46ZUC-BoqkKU2n.js",
+      "sha256": "53f63ecf8e18cddeb05ab5b9de321c1246260d9735330ea1dd5f8294d1404097"
+    },
+    {
+      "path": "assets/gitGraphDiagram-STJD7YCW-CshfESYN.js",
+      "sha256": "446d207fa9d4b5b10feaa098607bb0609825660e12c07fdd7523917afeff63f6"
+    },
+    {
+      "path": "assets/graphlib-U2qWOteH.js",
+      "sha256": "e94d3aaf2cd47e6e2a12764dfa4fe279a83e5a91e9039793b7b5434fe6c46138"
+    },
+    {
+      "path": "assets/index-BMsP7kRV.css",
+      "sha256": "975715a26ddc28784ebcb12cd403fa929435c1d528df566f8958f622531a121a"
+    },
+    {
+      "path": "assets/index-DZolPXVf.js",
+      "sha256": "b95c75e0c9b20d65816b1adb7fe9b4e6f90709136ead776598dee3fac477f750"
+    },
+    {
+      "path": "assets/info-OHQRW6UA-hBf0GPuN.js",
+      "sha256": "97aa2fbea4599f2d845c7f517dfe256bb406d8fb8d32e8b72c942e733da81bed"
+    },
+    {
+      "path": "assets/infoDiagram-KBXO4MBG-BpAUSVCF.js",
+      "sha256": "4371fb1182eca7841ef211f26c710876a4c5c36c5a806f0388b338a871d1f231"
+    },
+    {
+      "path": "assets/ishikawaDiagram-M35NCXHK-C89-Pc9I.js",
+      "sha256": "eb9187e22cd67bc7410a1613a94dee9639d6230442bdd952843f5b6233ed57bc"
+    },
+    {
+      "path": "assets/journeyDiagram-OPLOXDXO-B8pR3snU.js",
+      "sha256": "02b82bd1a711f41b6fb86c1a17abd626f8fa9dec946e5e2ae0e6776485223098"
+    },
+    {
+      "path": "assets/kanban-definition-BZKZHSQY-tCI0BkZI.js",
+      "sha256": "ed0c692565e71321f7522ec20615bc1439b8b0403d5398d9a84e82ab0b53f969"
+    },
+    {
+      "path": "assets/katex-Ba9U0MEk.js",
+      "sha256": "d5967615e07984def2c594bc899fcf347814e1bb0ea96b7b38cb97ed8aecac84"
+    },
+    {
+      "path": "assets/markwriter-icon-kEUqe6rx.svg",
+      "sha256": "63aee45f12fb72c7cd2689e34490904503459afbb98c0a73b7e68998b6930a4d"
+    },
+    {
+      "path": "assets/mathStyles-DNmj6ckY.js",
+      "sha256": "e77ca68d89ad3617e4f256e3a639d9bf78676927772cba098ef778d1fbe0ab82"
+    },
+    {
+      "path": "assets/mathWorker-C4v5DGq7.js",
+      "sha256": "f0ecb813daf65979228f4b5e7b79782fa8e24ee42cde655749be98ca896cff02"
+    },
+    {
+      "path": "assets/mermaid-parser.core-Dw82S65a.js",
+      "sha256": "5feff25e08759aedb563136ef0f5757b2705792c7f17a4e7dd41fb6f2eea740b"
+    },
+    {
+      "path": "assets/mindmap-definition-I2QAS2VK-5LTxrl3Z.js",
+      "sha256": "2f7a74ff55ed7489c342f18b7181199519119c3704f6983eacc0c3f4bc002a68"
+    },
+    {
+      "path": "assets/packet-JDAUHWVQ-DbxBCacD.js",
+      "sha256": "ca9ea0c46e9eac98118d71bf458a65919cb3c91cad44f9e3d5030dd9c6ecf23a"
+    },
+    {
+      "path": "assets/pegDiagram-FD4XPPHP-Iopz2HRi.js",
+      "sha256": "5b8c8112cc8589950a002c670e9057d91b3380dffdfd3e3b0bcc34ddc0194de2"
+    },
+    {
+      "path": "assets/pie-XZMESJXO-slxJCIVx.js",
+      "sha256": "51c87427ea9db585a4ac210f15dea057cb64523707714585fef5353afbdbc501"
+    },
+    {
+      "path": "assets/pieDiagram-J4AKIIQI-674Ec0Cr.js",
+      "sha256": "2137954f1da446e2012e7a7fe9bfe67ac1693be31db4d740e9896628589ccc39"
+    },
+    {
+      "path": "assets/plantUmlValidateWorker-cNWp55nD.js",
+      "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4"
+    },
+    {
+      "path": "assets/plantUmlWorker-sdgHgbmA.js",
+      "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf"
+    },
+    {
+      "path": "assets/quadrantDiagram-XTYBLID2-YThP05dO.js",
+      "sha256": "addd3d3ebe07702bc3a98fb1c03f7b2d501e3dff2e6b3b9af653209b251335ef"
+    },
+    {
+      "path": "assets/radar-ABXABTNO-CvO5hDZL.js",
+      "sha256": "22b85f24c9adfa3018c7c14af1cc40629e9a632a961d2b254d0633ddf256e89d"
+    },
+    {
+      "path": "assets/railroad-I3PHUGI6-CN1EPxlu.js",
+      "sha256": "543e97627e0a4d94f997aed98671495c0b407f5ecf730cfc340b7f1f6646f814"
+    },
+    {
+      "path": "assets/railroad-abnf-LNEFI6M7-DtF_07QB.js",
+      "sha256": "c3d2ca0f808b581476bba001fd6b23a916e26da403a3575845ec6e397d3b6170"
+    },
+    {
+      "path": "assets/railroad-ebnf-DWYD2UWJ-CwOAw0NG.js",
+      "sha256": "c9b05bed0027c2806ac6cafab3637c6e19c39529fb5610bb62f29c28e6487432"
+    },
+    {
+      "path": "assets/railroad-peg-JR7BVNR7-iIUmSk59.js",
+      "sha256": "27c22d22d2f2d26969c9b8d3da36ae87fdcb54101d68c970c5b3ac9e99f7e2fb"
+    },
+    {
+      "path": "assets/railroadDiagram-MRQ6NCDL-FgiIzvpb.js",
+      "sha256": "833f87e6753ca5114f86e66a34fb55265698380ea43628f53b406bcdce74721d"
+    },
+    {
+      "path": "assets/regexSearch.worker-BvLc-XBp.js",
+      "sha256": "bf8f6f0b829f85b7fd5e584ed4dd0c882907885e4c3680c2ae05cbfdd8bd164d"
+    },
+    {
+      "path": "assets/requirementDiagram-Y7LWUY3S-ccI5teDY.js",
+      "sha256": "d5fc712dbc58abd8cf9b2bdb19ff9f725c3a7f528cb1af6f70e5e6b1fe29dbe6"
+    },
+    {
+      "path": "assets/rolldown-runtime-COiEfhsA.js",
+      "sha256": "174e7e98105b02138bee9b4c62dfc8a01980db395f9e6c916db999c091115562"
+    },
+    {
+      "path": "assets/rough.esm-BdPdU-VR.js",
+      "sha256": "0ee24564ff681642227adc5107836b2aa4707687eaad837d69cec6004a3e444e"
+    },
+    {
+      "path": "assets/sankeyDiagram-WGJFYUXA-Byf-BLCa.js",
+      "sha256": "0c7a1a59cd115eaacfe810ab1a2ae20dcc28642058ffe0e220809fe61fdc8bc2"
+    },
+    {
+      "path": "assets/sequenceDiagram-5NDRBG5M-JCCgXwfv.js",
+      "sha256": "f7b6b7f976fa941c67db5b285e300126ca274661a44d5b7892aee60c4191378b"
+    },
+    {
+      "path": "assets/sizeCapture-INFHLROL-CxeXgsS9.js",
+      "sha256": "038c444091eba17ed400bc0c36ce139ae332f27765ed6b4b7991666cbbce640d"
+    },
+    {
+      "path": "assets/sqlDdlWorker-xaNppG6N.js",
+      "sha256": "4fa52d8e125c5f9fcfd3c8eb280c3650a041a6dc134cf72f94d5e73dc8f0da31"
+    },
+    {
+      "path": "assets/stateDiagram-v2-FJ4FJNEA-B1Lr8i5g.js",
+      "sha256": "d12e96c13bbc34758568be37a6be21ac7f443ec11fb3a05308eb3d271503603f"
+    },
+    {
+      "path": "assets/swimlanes-UMQ2AFYF-L8QJcNol.js",
+      "sha256": "b17e7a913afc132d5fec8369e94c4942285c29345acbe19996b65c32bba561cc"
+    },
+    {
+      "path": "assets/swimlanesDiagram-OMPLPG4O-gTB9rXZq.js",
+      "sha256": "91f1d1085dc126363c58f4e32dfc093052772717da8f0c885f7470a5647a5e0f"
+    },
+    {
+      "path": "assets/timeline-definition-SEUHKTQE-InFUJCmb.js",
+      "sha256": "ac1369d234a29fa17b27af5c61fa609e222905b98a242495756c77618399cdfa"
+    },
+    {
+      "path": "assets/treeView-D4JQ5SDB-DsBT2c0H.js",
+      "sha256": "9106cd93948503f698877f93d0f936f58b09e6aee60acb214fc57b2989734e22"
+    },
+    {
+      "path": "assets/treemap-SAJKECNS-DQm5M274.js",
+      "sha256": "7b71423480b4d39e7a2c038f715ad253178333cb1d0deb90cbb7201fdb5fe720"
+    },
+    {
+      "path": "assets/usecaseDiagram-AFA6YXN4-CkPz2iQ5.js",
+      "sha256": "45824f1760977d6ce480637e860c91b51e8aacc7e67e9a2f4a39500dbbd0fa80"
+    },
+    {
+      "path": "assets/vennDiagram-NNMJR3RB-D-aDOqpR.js",
+      "sha256": "c1dcc5386409b162ffd60aedda62b11c14ee5af9a48f317a689e06427a74129f"
+    },
+    {
+      "path": "assets/wardley-7MLQ67FV-Cii3DA9j.js",
+      "sha256": "36161fac127602b8450717f90b649bc91fcde874f2802ae264ac7245afda53e5"
+    },
+    {
+      "path": "assets/wardleyDiagram-S7YFUSEH-B_Tn3Ux1.js",
+      "sha256": "151bc958377358ccb8fb7d2b75120b8d118e3f9196340a5a913542cb27059709"
+    },
+    {
+      "path": "assets/xychartDiagram-GGNKY7IX-DEvbVHCr.js",
+      "sha256": "284f0f4aeb7c72f3cf2dea3a28b0ac0471900b2dc0d9b9092dc9a4969b6e2b66"
+    },
+    {
+      "path": "index.html",
+      "sha256": "1e3cff5d6047e472e752b85822a9f2509dd4f53b89af96b4af772bc1c5edf3f7"
+    }
+  ],
+  "acceptance": {
+    "passed": true,
+    "platform": "darwin",
+    "arch": "arm64",
+    "installed": "/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/markwriter-macos-package.9uiiCn/installed",
+    "packageSha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4",
+    "quickLookRegistrationObserved": true,
+    "cases": [
+      "Verified the final DMG and copied the app from its read-only mount",
+      "Verified arm64, bundle versions, and strict ad hoc seals for the app and Quick Look extension",
+      "Matched the installed icon bytes and Quick Look entitlements to repository sources",
+      "Matched the final app Mach-O text to the Tauri candidate",
+      "Launched the installed production app with outbound IP denied and an isolated profile",
+      "Opened synthetic Markdown through Launch Services and verified exact clean workspace and source bytes",
+      "Verified existing source-file defaults and recorded fixture content types and preview declaration matches",
+      "Observed the installed extension path in PlugInKit"
+    ],
+    "qualification": "Hosted macOS installed-package smoke test. Finder provider selection and interactive native file dialogs require desktop qualification."
+  }
+}

@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "platform": "macos-arm64",
+  "scope": "Direct WKWebView with the mounted production Finder script. No Finder, editor or VNC interaction.",
+  "target": [
+    "ProductName:\t\tmacOS",
+    "ProductVersion:\t\t27.2.1",
+    "BuildVersion:\t\t26B131",
+    "arm64"
+  ],
+  "version": "2.22.2",
+  "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "buildRun": "46133829847",
+  "tag": "v2.22.2",
+  "package": {
+    "name": "MarkWriter-2.22.2-macos-arm64.dmg",
+    "size": 15166859,
+    "sha256": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4"
+  },
+  "qualificationToolRevisions": {
+    "multiBlock": "e88075f3f23c18630c3a1f3ed21ef5b288898fe3",
+    "singleBlock": "84ba9135688a0ebed58c05fcf0a789ea7cff50ae"
+  },
+  "hashes": {
+    "dmg": "2361f0216f37dd2e94d56e6189245fc13ffad9c9d4f63a2e594b76ac6d8924f4",
+    "hostExecutable": "33e54b9b1b462ae39e74151b2fea89aac650f9acb1a0955a6ffd1ce7678fdcd9",
+    "extensionExecutable": "8296dccbc582df2b536118342eb7dc92783ac85a04f7eb5f89336fe8627176a3",
+    "finderJavaScript": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+    "exactSwiftRendererSource": "aeed475b505e7e85b74d93aa32945cea8bb2f273724d6afa10f26c9efc3fc129"
+  },
+  "strictAdHocSeals": {
+    "host": {
+      "strictSealPassed": true,
+      "signature": "ad-hoc",
+      "cdhash": "bba4f1a087c0bb88dd44bdb3d62d2a89904c9ecf",
+      "identifier": "com.markwriter.app"
+    },
+    "extension": {
+      "strictSealPassed": true,
+      "signature": "ad-hoc",
+      "cdhash": "8270c7b32ba400f971ae3266e6c2eff9aaf99542",
+      "identifier": "com.markwriter.app.quicklook"
+    }
+  },
+  "extensionMachOUuid": "25053F44-52CB-3F32-A138-8A3E9C49AE85",
+  "fixtureHashesSha256": "8472ca06edd8cb606dda3fdfe133de23a07d265f50ff6e023b2d0c40c003bcb2",
+  "fixtureSha256": {
+    "app/app-c222f120.md": "75ecc3301fc3abd60e727789ad4a992fc51306449ca551a8f1a8d2fb43849943",
+    "closed/closed-c222f120.md": "1fbe54e6df3bdd2b880482f7f4b73717e9998235ecf9bff0903a98d440b80bb5",
+    "open/open-c222f120.md": "4e95cf9d07f5eff5fc14c1fb321344a12cf9f518ae189b21df62d61ff75cc72b",
+    "legacy/legacy-c222f120.md": "7a9f1af0d17db54fbf3f45d2f569e41b41151b24f405d476a0ae9890e58576ee",
+    "negative/negative-c222f120.md": "4bd76f6320bf244617640eb33e5c23cec6e1d46035c0fe33ddd1bbf00bc1dd0c",
+    "oversized/oversized-c222f120.md": "432c4ef8a4ee54adb48044773f4080f8733e8e9da398cc6184535836cc77a30f",
+    "timeout/timeout-c222f120.md": "ee3226f84812d5c232a309eb96db4f25b48d991064deb8d0b8b1dede77f8ccc2",
+    "recovery/recovery-c222f120.md": "f20174204649fc7c6d1ecf3f7dcb3c65c7f87ea6a0754757cb2ceca90be57bb2"
+  },
+  "multiBlock": [
+    {
+      "case": "app",
+      "images": [
+        {
+          "alt": "PlantUML diagram",
+          "width": 162,
+          "height": 239,
+          "sha256": "819e46d77271478eb69d8426180ef06d042296579e8bcaf6247b6de6e081f5bb"
+        },
+        {
+          "alt": "PlantUML diagram",
+          "width": 84,
+          "height": 205,
+          "sha256": "79994212628f4510f65f0691003b0adeca51b2b107240048d3bd65d0db9669ff"
+        }
+      ],
+      "visibleSourceBlocks": 1,
+      "sourceBlocksMatched": 3,
+      "elapsedMs": 808,
+      "probeHighWaterRssBytes": 142065664
+    },
+    {
+      "case": "closed",
+      "images": [
+        {
+          "alt": "PlantUML diagram",
+          "width": 162,
+          "height": 239,
+          "sha256": "819e46d77271478eb69d8426180ef06d042296579e8bcaf6247b6de6e081f5bb"
+        },
+        {
+          "alt": "PlantUML diagram",
+          "width": 84,
+          "height": 205,
+          "sha256": "79994212628f4510f65f0691003b0adeca51b2b107240048d3bd65d0db9669ff"
+        }
+      ],
+      "visibleSourceBlocks": 3,
+      "sourceBlocksMatched": 5,
+      "elapsedMs": 611,
+      "probeHighWaterRssBytes": 142376960
+    },
+    {
+      "case": "open",
+      "images": [
+        {
+          "alt": "PlantUML diagram",
+          "width": 84,
+          "height": 205,
+          "sha256": "79994212628f4510f65f0691003b0adeca51b2b107240048d3bd65d0db9669ff"
+        },
+        {
+          "alt": "PlantUML diagram",
+          "width": 162,
+          "height": 239,
+          "sha256": "819e46d77271478eb69d8426180ef06d042296579e8bcaf6247b6de6e081f5bb"
+        },
+        {
+          "alt": "Mermaid diagram",
+          "width": 360,
+          "height": 56,
+          "sha256": "45f421e3f4bf774913e8d15a23f3fbba93b8f0d178204483de30b4c961967401"
+        },
+        {
+          "alt": "DOT diagram",
+          "width": 126,
+          "height": 116,
+          "sha256": "a43ae2931c2ab3c3199836634e7d7401fde86f2abb492d29275c38c096332052"
+        }
+      ],
+      "visibleSourceBlocks": 0,
+      "sourceBlocksMatched": 4,
+      "elapsedMs": 740,
+      "probeHighWaterRssBytes": 142245888
+    },
+    {
+      "case": "legacy",
+      "images": [
+        {
+          "alt": "Mermaid diagram",
+          "width": 360,
+          "height": 56,
+          "sha256": "45f421e3f4bf774913e8d15a23f3fbba93b8f0d178204483de30b4c961967401"
+        },
+        {
+          "alt": "DOT diagram",
+          "width": 126,
+          "height": 116,
+          "sha256": "a43ae2931c2ab3c3199836634e7d7401fde86f2abb492d29275c38c096332052"
+        },
+        {
+          "alt": "DBML diagram",
+          "width": 556,
+          "height": 66,
+          "sha256": "135ccb5320ed0150ae99eb189df4e1127bc363a256f940220b74baafb64beedf"
+        }
+      ],
+      "visibleSourceBlocks": 0,
+      "sourceBlocksMatched": 3,
+      "elapsedMs": 568,
+      "probeHighWaterRssBytes": 142458880
+    },
+    {
+      "case": "negative",
+      "images": [],
+      "visibleSourceBlocks": 4,
+      "sourceBlocksMatched": 4,
+      "elapsedMs": 444,
+      "probeHighWaterRssBytes": 141918208
+    },
+    {
+      "case": "oversized",
+      "images": [],
+      "visibleSourceBlocks": 1,
+      "sourceBlocksMatched": 1,
+      "elapsedMs": 424,
+      "probeHighWaterRssBytes": 142180352
+    },
+    {
+      "case": "recovery",
+      "images": [
+        {
+          "alt": "PlantUML diagram",
+          "width": 186,
+          "height": 239,
+          "sha256": "3276aaef6b4e40eda858231623b6192888e849bb6e021bb17c8611fbc116f29d"
+        }
+      ],
+      "visibleSourceBlocks": 0,
+      "sourceBlocksMatched": 1,
+      "elapsedMs": 556,
+      "probeHighWaterRssBytes": 142458880
+    }
+  ],
+  "singleBlock": [
+    {
+      "case": "sequence-first",
+      "elapsedMs": 626,
+      "expectedImage": true,
+      "image": true,
+      "matched": true,
+      "probePeakRssBytes": 142098432,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "sequence-warm",
+      "elapsedMs": 405,
+      "expectedImage": true,
+      "image": true,
+      "matched": true,
+      "probePeakRssBytes": 162578432,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "class",
+      "elapsedMs": 424,
+      "expectedImage": true,
+      "image": true,
+      "matched": true,
+      "probePeakRssBytes": 163102720,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "class-private-field",
+      "elapsedMs": 398,
+      "expectedImage": true,
+      "image": true,
+      "matched": true,
+      "probePeakRssBytes": 163102720,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "local-include",
+      "elapsedMs": 298,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163135488,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "network-include",
+      "elapsedMs": 293,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163201024,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "remote-image",
+      "elapsedMs": 279,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163250176,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "missing-theme",
+      "elapsedMs": 285,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163282944,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "malformed",
+      "elapsedMs": 285,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163364864,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "oversized",
+      "elapsedMs": 290,
+      "expectedImage": false,
+      "image": false,
+      "matched": true,
+      "probePeakRssBytes": 163446784,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    },
+    {
+      "case": "sequence-after-rejections",
+      "elapsedMs": 423,
+      "expectedImage": true,
+      "image": true,
+      "matched": true,
+      "probePeakRssBytes": 163512320,
+      "renderReturned": true,
+      "secretLeaked": false,
+      "sourcePreserved": true
+    }
+  ],
+  "canary": {
+    "positiveLoopbackControl": true,
+    "additionalRequests": 0,
+    "unchangedLocalFile": true
+  },
+  "soleOriginalProviderUuid": "FF502D44-CDFE-44E4-A24D-AB153C353712",
+  "originalBundleAndRegistrationMatched": true,
+  "caveats": "Renderer elapsed time excludes any Finder display overhead. Probe RSS excludes WebKit child memory."
+}
