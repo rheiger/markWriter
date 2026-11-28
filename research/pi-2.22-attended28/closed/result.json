@@ -1,0 +1,76 @@
+{
+  "case": "sequence",
+  "fixture": "closed-a831f905.md",
+  "fixtureSha256": "2576160357b6ade76904e4232a18ac0ab5ab143d184ab0d533dbe0389f72b648",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [],
+  "identities": {
+    "14185": {
+      "birth": "Sat Nov 28 10:08:22 2026",
+      "dynamicVerification": "14185: dynamically valid\n14185: valid on disk\n14185: satisfies its Designated Requirement\n14185: explicit requirement satisfied"
+    }
+  },
+  "suspension": null,
+  "extensionRssSamplesKiB": [
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 79264
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "completed",
+      "rssKiB": 113152
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 114128
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "completed",
+      "rssKiB": 104752
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 90928
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "completed",
+      "rssKiB": 67008
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 96224
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "start",
+      "rssKiB": 130160
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "completed",
+      "rssKiB": 121072
+    },
+    {
+      "pid": 14185,
+      "afterEvent": "completed",
+      "rssKiB": 111504
+    }
+  ],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": false,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-28T09:05:32.203581+00:00",
+  "error": "Expected start, completed once in order"
+}
