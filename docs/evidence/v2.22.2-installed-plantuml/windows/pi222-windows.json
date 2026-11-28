@@ -1,0 +1,217 @@
+{
+  "passed": true,
+  "sourceCommit": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+  "packageRun": "46133829847",
+  "asset": {
+    "name": "MarkWriter-2.22.2-windows-x64.exe",
+    "size": 8078000,
+    "sha256": "6b7bd48a56e7211fd79082c5c418458db00e82936e0e189e8039df40f627fd91"
+  },
+  "binary": {
+    "format": "PE",
+    "architecture": "x64",
+    "sha256": "3b2601f9d6d355c05e0692bd67c1bf92a65ce0c1f0af32d252127b249738ca36"
+  },
+  "testRun": "46135190341",
+  "harnessCommit": "3314e3660361dadaabb26d6119360239e811d43a",
+  "os": "win25-vs2026",
+  "image": "20261123.321.1",
+  "webviewRuntime": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\157.0.4341.60\\msedgewebview2.exe",
+  "openedSourceSHA256": "a35072a1970e004404b799f9009d9b37433c42394ed9746debd9cce992ad0944",
+  "sourceUnchanged": true,
+  "exportSHA256": "874866a227df808b3af11feb451f5dd325552990b01c4cdedc835521dae031c7",
+  "exportBytes": 7705,
+  "worker": {
+    "path": "assets/plantUmlWorker-sdgHgbmA.js",
+    "bytes": 2965743,
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "sha256": "9fbde91eed0fc747a9570daefd0a2b0bc622519a42bf3170788e1dd55fd6c8bf",
+    "status": 200,
+    "type": "text/javascript",
+    "url": "http://tauri.localhost/assets/plantUmlWorker-sdgHgbmA.js"
+  },
+  "validationWorker": {
+    "path": "assets/plantUmlValidateWorker-cNWp55nD.js",
+    "bytes": 106602,
+    "policy": "default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; worker-src 'none'; object-src 'none'",
+    "sha256": "7fe23cf46e89551ef80f6ef1517547a27d963d89f0ca629f6a5a7dcbc6325bd4",
+    "status": 200,
+    "type": "text/javascript",
+    "url": "http://tauri.localhost/assets/plantUmlValidateWorker-cNWp55nD.js"
+  },
+  "notices": {
+    "path": "THIRD_PARTY_NOTICES.txt",
+    "bytes": 5084463,
+    "policy": null,
+    "sha256": "2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089",
+    "status": 200,
+    "type": "text/plain",
+    "url": "http://tauri.localhost/THIRD_PARTY_NOTICES.txt"
+  },
+  "wysiwyg": [
+    {
+      "labels": [
+        "Alice",
+        "Bob",
+        "Alice",
+        "Bob",
+        "Request"
+      ],
+      "source": null
+    },
+    {
+      "labels": [
+        "C",
+        "User",
+        "id: int",
+        "C",
+        "Order",
+        "id: int",
+        "owns",
+        "*",
+        "1"
+      ],
+      "source": null
+    },
+    {
+      "labels": null,
+      "source": "@startuml\n!theme PI222Missing\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nclass {\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+    }
+  ],
+  "preview": [
+    {
+      "labels": [
+        "Alice",
+        "Bob",
+        "Alice",
+        "Bob",
+        "Request"
+      ],
+      "source": null
+    },
+    {
+      "labels": [
+        "C",
+        "User",
+        "id: int",
+        "C",
+        "Order",
+        "id: int",
+        "owns",
+        "*",
+        "1"
+      ],
+      "source": null
+    },
+    {
+      "labels": null,
+      "source": "@startuml\n!theme PI222Missing\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nclass {\n@enduml"
+    },
+    {
+      "labels": null,
+      "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+    }
+  ],
+  "exported": {
+    "activeElements": 0,
+    "blocks": [
+      {
+        "labels": [
+          "Alice",
+          "Bob",
+          "Alice",
+          "Bob",
+          "Request"
+        ],
+        "source": null
+      },
+      {
+        "labels": [
+          "C",
+          "User",
+          "id: int",
+          "C",
+          "Order",
+          "id: int",
+          "owns",
+          "*",
+          "1"
+        ],
+        "source": null
+      },
+      {
+        "labels": null,
+        "source": "@startuml\n!theme PI222Missing\n@enduml"
+      },
+      {
+        "labels": null,
+        "source": "@startuml\nclass {\n@enduml"
+      },
+      {
+        "labels": null,
+        "source": "@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml"
+      }
+    ],
+    "link": "https://example.invalid/",
+    "stylesWithExternalResources": false
+  },
+  "firstOpenThroughNativeDialogMs": 7976,
+  "previewSwitchMs": 1330,
+  "exportThroughNativeDialogMs": 3605,
+  "processWorkingSetSampleAfterPreview": [
+    {
+      "Id": 4900,
+      "ProcessName": "markwriter",
+      "WorkingSet64": 69795840,
+      "PeakWorkingSet64": 100368384
+    },
+    {
+      "Id": 2112,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 19505152,
+      "PeakWorkingSet64": 19505152
+    },
+    {
+      "Id": 2412,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 9621504,
+      "PeakWorkingSet64": 9621504
+    },
+    {
+      "Id": 6132,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 158007296,
+      "PeakWorkingSet64": 256335872
+    },
+    {
+      "Id": 7536,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 34598912,
+      "PeakWorkingSet64": 34598912
+    },
+    {
+      "Id": 7628,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 128491520,
+      "PeakWorkingSet64": 146321408
+    },
+    {
+      "Id": 8352,
+      "ProcessName": "msedgewebview2",
+      "WorkingSet64": 51445760,
+      "PeakWorkingSet64": 51445760
+    }
+  ]
+}

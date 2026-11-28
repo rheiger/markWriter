@@ -1,0 +1,29 @@
+{
+  "request": {
+    "version": "2.22.2",
+    "source": "582eb7114b9bcbf4a3179492011ef0a5be976311",
+    "buildRun": "46133829847"
+  },
+  "tag": "v2.22.2",
+  "producerWorkflow": ".github/workflows/tauri-prerelease.yml",
+  "runAttempt": 1,
+  "archive": {
+    "id": 15259395869,
+    "name": "package-ubuntu-26.04-x64",
+    "size_in_bytes": 10348291,
+    "digest": "sha256:bc953b23499c128b9d643da86bac19880cb993acd1f748ac28edb1d3b30e82d3"
+  },
+  "asset": {
+    "name": "MarkWriter-2.22.2-ubuntu-26.04-x64.deb",
+    "size": 10128644,
+    "sha256": "f8516f7e496205bb8bd73aac83d548e18d644a7ba870a1d0abf9cd2e60580635"
+  },
+  "binary": {
+    "format": "ELF",
+    "architecture": "x64",
+    "sha256": "881a302ee2722b59bf7ff7c8aca77ca5b548374c9418b0b7f2a6ce5fa0c1b145",
+    "details": "ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=b463a6ecb16ee5c5e1914196d851b4c5ce3c552b, not stripped"
+  },
+  "harnessCommit": "3314e3660361dadaabb26d6119360239e811d43a",
+  "qualificationRun": "46135190241"
+}
