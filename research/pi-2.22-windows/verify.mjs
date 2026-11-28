@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { processInventory, ownedDescendants } from '../../tools/owned-process.mjs'
-import { MATH_WORKER_POLICY } from '../../tools/worker-response-acceptance.mjs'
+import { verifyReleaseAssets } from '../pi-2.22-release/runtime-assets.mjs'
 
 const sequence = '@startuml\nactor Alice\nparticipant Bob\nAlice -> Bob: Request\n@enduml'
 const klass = '@startuml\nclass User {\n -id: int\n}\nclass Order {\n +id: int\n}\nUser "1" -- "*" Order : owns\n@enduml'
@@ -62,29 +62,7 @@ export async function verifyWindowsPlantUml({ root, artifacts, fixture, driver, 
   const pids = appProcesses.map(p => p.pid)
   assert.ok(pids.length > webviews.length && pids.every(Number.isSafeInteger))
   const memory = JSON.parse(execFileSync('pwsh', ['-NoProfile', '-Command', `Get-Process -Id ${pids.join(',')} -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,WorkingSet64,PeakWorkingSet64 | ConvertTo-Json -AsArray -Compress`], { encoding: 'utf8' }))
-  const fetchPackageAsset = async path => request('POST', `/session/${session}/execute/async`, {
-      script: `const done=arguments[arguments.length-1];fetch(arguments[0]).then(async r=>{ const bytes=await r.arrayBuffer(); const digest=await crypto.subtle.digest('SHA-256', bytes); done({status:r.status,policy:r.headers.get('content-security-policy'),type:r.headers.get('content-type'),bytes:bytes.byteLength,sha256:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')}); }).catch(e=>done({error:String(e)}))`,
-      args: ['/' + path],
-    })
-  const noticesPath = 'THIRD_PARTY_NOTICES.txt'
-  const expectedNotices = manifest.frontend.filter(asset => asset.path === noticesPath)
-  assert.equal(expectedNotices.length, 1)
-  const notices = await fetchPackageAsset(noticesPath)
-  assert.equal(notices.status, 200)
-  assert.equal(notices.sha256, expectedNotices[0].sha256)
-  assert.equal(notices.sha256, '2078cf4c5242dcf56eb16b9eef81a207513e7e09ff34272ea11f2dbcfd282089')
-  const workers = []
-  for (const name of ['plantUmlWorker-', 'plantUmlValidateWorker-']) {
-    const assets = manifest.frontend.filter(x => x.path.startsWith('assets/' + name) && x.path.endsWith('.js'))
-    assert.equal(assets.length, 1)
-    const expected = assets[0]
-    const response = await fetchPackageAsset(expected.path)
-    assert.equal(response.sha256, expected.sha256, JSON.stringify(response))
-    assert.equal(response.status, 200)
-    assert.match(response.type, /^(?:text|application)\/(?:java|ecma)script(?:;|$)/i)
-    assert.equal(response.policy, MATH_WORKER_POLICY)
-    workers.push({ filename: expected.path, ...response })
-  }
+  const runtimeAssets = await verifyReleaseAssets(request, session, manifest)
   const beginExport = performance.now()
   await menu('File', 'Export as HTML...')
   await dialog(exportPath)
@@ -112,7 +90,7 @@ export async function verifyWindowsPlantUml({ root, artifacts, fixture, driver, 
     testRun: process.env.GITHUB_RUN_ID, harnessCommit: process.env.GITHUB_SHA, os: process.env.ImageOS, image: process.env.ImageVersion,
     webviewRuntime: process.env.MARKWRITER_WEBVIEW_RUNTIME,
     openedSourceSHA256: sha256(source), sourceUnchanged: true, exportSHA256: sha256(html), exportBytes: Buffer.byteLength(html),
-    notices: { path: noticesPath, ...notices }, workers, wysiwyg, preview, exported, firstOpenThroughNativeDialogMs: firstOpenMs, previewSwitchMs, exportThroughNativeDialogMs: exportMs,
+    ...runtimeAssets, wysiwyg, preview, exported, firstOpenThroughNativeDialogMs: firstOpenMs, previewSwitchMs, exportThroughNativeDialogMs: exportMs,
     processWorkingSetSampleAfterPreview: memory,
   }, null, 2))
 }

@@ -7,7 +7,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
-import { verifyNativeWorkerResponse } from './worker-response-acceptance.mjs'
+import { verifyReleaseAssets } from '../research/pi-2.22-release/runtime-assets.mjs'
 import { samplePlantUmlProcessMemory } from './plantuml-memory-sample.mjs'
 
 const binary = resolve(process.env.MARKWRITER_BINARY ?? '')
@@ -42,8 +42,8 @@ try {
   const start=Date.now()
   session=(await request('POST','/session',{capabilities:{alwaysMatch:{'tauri:options':{application:wrapper}}}})).sessionId
   const run=(script,...args)=>request('POST',`/session/${session}/execute/sync`,{script,args})
-  const policy=await verifyNativeWorkerResponse(request, session, resolve('frontend/dist/assets'), 'plantUml')
-  const validationPolicy = await verifyNativeWorkerResponse(request, session, resolve('frontend/dist/assets'), 'plantUmlValidate')
+  const manifest = JSON.parse(await readFile('candidate/ubuntu-26.04-x64.manifest.json', 'utf8'))
+  const runtimeAssets = await verifyReleaseAssets(request, session, manifest)
   await wait(()=>run(`return document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml] svg').length===2`),'WYSIWYG diagrams')
   const coldMs=Date.now()-start
   const w=await run(`return [...document.querySelectorAll('[data-active=true] .tiptap [data-type=plantuml]')].map(e=>({svg:!!e.querySelector('svg'),text:e.querySelector('svg')?.textContent??'',source:e.querySelector('pre')?.textContent??null}))`)
@@ -87,7 +87,7 @@ try {
   }
   assert.equal(result.svgs,2); assert.equal(result.source?.trim(),bad); assert.equal(result.link,'https://example.com/'); assert.equal(result.active,0)
   assert.equal(await readFile(fixture,'utf8'),source)
-  console.log(JSON.stringify({result:'pass', target:'Ubuntu candidate installed from exact DEB', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, exportBytes:Buffer.byteLength(html), exportSha256:createHash('sha256').update(html).digest('hex'), renderedShapeCounts:saved.map(d=>d.shapes.length), shapeAndTextParity:true, export:'native application File → Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link', worker:policy, validationWorker:validationPolicy},null,2))
+  console.log(JSON.stringify({result:'pass', target:'Ubuntu candidate installed from exact DEB', binary, coldMs, warmMs, memory:await memory.stop(), fixtureUnchanged:true, exportBytes:Buffer.byteLength(html), exportSha256:createHash('sha256').update(html).digest('hex'), renderedShapeCounts:saved.map(d=>d.shapes.length), shapeAndTextParity:true, export:'native application File → Export as HTML and GTK Save File dialog; two static SVGs, readable failure source, active ordinary link', ...runtimeAssets},null,2))
 } finally {
   await memory.stop()
   if (session) await request('DELETE',`/session/${session}`).catch(()=>{})

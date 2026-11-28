@@ -1,12 +1,8 @@
-name: PI 2.22.2 installed Ubuntu PlantUML package
+name: PI 2.22 release installed Ubuntu PlantUML package
 on:
   push:
-    branches: [codex/pi-222-corrected-app-qa]
-    paths:
-      - .github/workflows/pi222-ubuntu-research.yml
-      - research/pi-2.22-ubuntu/**
-      - tools/plantuml-package-spike.mjs
-      - tools/plantuml-x11-export.py
+    branches: [codex/pi-222-release-installer-qa]
+    paths: [research/pi-2.22-release/request.json]
 permissions:
   contents: read
   actions: read
@@ -21,45 +17,27 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24.22.2'
-      - name: Prepare native drivers and comparison worker bytes
+      - name: Download the exact release package and verify its provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 research/pi-2.22-release/download.py ubuntu-26.04-x64 receipts
+      - name: Prepare native drivers
         run: |
           bash tools/setup-linux-packages.sh package
           sudo apt-get install -y --no-install-recommends x11-utils
           cargo install tauri-driver --version 2.1.0 --locked
-          npm ci --prefix frontend
-          npm --prefix frontend run build
-      - name: Download the exact installer and builder manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          run=45878938169
-          for attempt in $(seq 1 45); do
-            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/artifacts" --jq '.artifacts[].name' | grep -qx package-ubuntu-26.04-x64; then break; fi
-            sleep 25
-          done
-          mkdir receipts
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/artifacts" --jq '.artifacts[] | select(.name=="package-ubuntu-26.04-x64") | {id,name,size_in_bytes,digest}' > receipts/artifact.json
-          gh run download "$run" --repo "$GITHUB_REPOSITORY" --name package-ubuntu-26.04-x64 --dir candidate
       - name: Install and verify the exact Ubuntu binary
         run: |
           manifest=candidate/ubuntu-26.04-x64.manifest.json
-          jq -e '.source=="ce882d781441c8376f69f52da5b27bf3f3a5f83e" and .buildRun=="45878938169" and .platform=="ubuntu-26.04-x64" and .asset.name=="MarkWriter-2.21.1-ubuntu-26.04-x64.deb" and .signing.status=="unsigned"' "$manifest"
-          deb="candidate/$(jq -r .asset.name "$manifest")"
-          test "$(stat -c%s "$deb")" = "$(jq -r .asset.size "$manifest")"
-          printf '%s  %s\n' "$(jq -r .asset.sha256 "$manifest")" "$deb" | sha256sum -c -
+          deb="candidate/$(jq -er .asset.name "$manifest")"
+          version="$(jq -er .version "$manifest")"
+          test "$(dpkg-deb -f "$deb" Package)" = mark-writer
+          test "$(dpkg-deb -f "$deb" Version)" = "$version"
+          test "$(dpkg-deb -f "$deb" Architecture)" = amd64
           sudo dpkg -i "$deb"
-          printf '%s  %s\n' "$(jq -r .binaryInspection.sha256 "$manifest")" /usr/bin/markwriter | sha256sum -c -
-          python3 - "$manifest" <<'PYWORKERS'
-          import hashlib, json, pathlib, re, sys
-          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          workers = [asset for asset in manifest["frontend"] if re.fullmatch(r"assets/plantUml(?:Validate)?Worker-[^/]+[.]js", asset["path"])]
-          assert len(workers) == 2, workers
-          for asset in workers:
-              data = (pathlib.Path("frontend/dist") / asset["path"]).read_bytes()
-              assert hashlib.sha256(data).hexdigest() == asset["sha256"], asset["path"]
-          PYWORKERS
-          cp "$manifest" receipts/
-          dpkg-query -W "$(dpkg-deb -f "$deb" Package)" > receipts/installed-package.txt
+          test "$(dpkg-query -W -f='${Version}' mark-writer)" = "$version"
+          printf '%s  %s\n' "$(jq -er .binaryInspection.sha256 "$manifest")" /usr/bin/markwriter | sha256sum -c -
+          dpkg-query -W mark-writer > receipts/installed-package.txt
           pkg-config --modversion webkit2gtk-4.1 > receipts/webkit-version.txt
           cat /etc/os-release > receipts/os-release.txt
       - name: Exercise the installed package and save its native HTML export
@@ -69,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: pi222-ubuntu-plantuml-evidence
+          name: pi222-release-ubuntu-plantuml-evidence
           path: receipts/
           retention-days: 14
           if-no-files-found: warn
