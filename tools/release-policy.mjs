@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
-// PI 2.21 publication is authorized; staging still requires verified release inputs.
-export const releasePolicy = Object.freeze({ version: '2.21.1', publicationAuthorized: true, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.21.1.md' })
+// PI 2.22 publication is authorized; staging still requires verified release inputs.
+export const releasePolicy = Object.freeze({ version: '2.22.2', publicationAuthorized: true, prerelease: false, makeLatest: true, installationGuide: 'docs/install-2.22.2.md' })
 
 export function draftReleaseArgs(version, names) {
   assert.equal(releasePolicy.publicationAuthorized, true, 'Candidate publication requires a separate reviewed release instruction')

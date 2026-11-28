@@ -4,13 +4,13 @@ MarkWriter is a cross-platform Markdown editor built with Rust, Tauri 2, React a
 
 ## Download
 
-[MarkWriter 2.21.1](https://github.com/rheiger/markWriter/releases/tag/v2.21.1) adds offline DBML diagrams to Finder Quick Look. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.21.1.md) and [release notes](docs/releases/2.21.1.md).
+[MarkWriter 2.22.2](https://github.com/rheiger/markWriter/releases/tag/v2.22.2) renders a bounded set of offline PlantUML sequence and class diagrams in the editor, exported HTML and Finder Quick Look. Download the Apple silicon macOS DMG, Windows x64 installer or Ubuntu 26.04 x64 DEB and verify `SHA256SUMS`. See [installation, removal and rollback](docs/install-2.22.2.md) and [release notes](docs/releases/2.22.2.md).
 
 ## Features
 
 - Markdown and WYSIWYG editing, live Preview, independent windows, movable tabs, per-tab Undo/Redo, Find/Replace and tables.
 - Native file operations and HTML export, local session recovery, themes and independent editor fonts.
-- Offline syntax highlighting, Mermaid, [DOT](docs/dot-security.md), [DBML](docs/dbml-2.7.md), explicit math fences and [SQL DDL import preview](docs/sql-import-preview.md).
+- Offline syntax highlighting, Mermaid, [PlantUML sequence and class diagrams](docs/supported-markdown.md), [DOT](docs/dot-security.md), [DBML](docs/dbml-2.7.md), explicit math fences and [SQL DDL import preview](docs/sql-import-preview.md).
 - Searchable offline **Help → User Guide**.
 
 Markdown is canonical. Navigation and view changes preserve its bytes; actual WYSIWYG edits may normalize syntax. Rendering is bounded and falls back to source when limits are exceeded. See [editing conventions](docs/supported-markdown.md) and [regex search](docs/regex-search.md). Plugins, draw.io and PDF export are not implemented.
