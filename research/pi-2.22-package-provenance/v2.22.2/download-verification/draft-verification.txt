@@ -1,0 +1,21 @@
+FINDER-QUALIFICATION.zip: OK
+INSTALL-UPGRADE-ROLLBACK.md: OK
+MarkWriter-2.22.2-macos-arm64.dmg: OK
+MarkWriter-2.22.2-ubuntu-26.04-x64-dolphin-preview.deb: OK
+MarkWriter-2.22.2-ubuntu-26.04-x64-sushi-preview.zip: OK
+MarkWriter-2.22.2-ubuntu-26.04-x64.deb: OK
+MarkWriter-2.22.2-windows-x64.exe: OK
+PLANTUML-QUALIFICATION.zip: OK
+QUALIFICATION.json: OK
+RELEASE-NOTES.md: OK
+THIRD_PARTY_NOTICES.txt: OK
+dolphin.preview.json: OK
+explorer.preview.json: OK
+macos-arm64.manifest.json: OK
+release-manifest.json: OK
+sushi.preview.json: OK
+ubuntu-26.04-x64.manifest.json: OK
+uninstall-markwriter-macos.py: OK
+windows-x64.manifest.json: OK
+
+{"commit": "582eb7114b9bcbf4a3179492011ef0a5be976311", "matchedAssets": 20, "sha256sumsDigest": "14fa48f1fc4139a98510875ef666aed97152c31e0f64041d6432de5475bc0bc8", "visibility": "draft"}
