@@ -33,7 +33,22 @@ each request's start/completion sequence, the same dynamically verified PID
 The five native elapsed values were 1,487, 468, 1,680, 845 and 341 ms; these
 are request log durations, not times to visible output or measured cold starts.
 Multiple requests mean a displayed response cannot be attributed to any one
-request. The operator's visual observation must be recorded separately.
+request.
+
+The operator supplied a PNG screenshot of the actual Finder Quick Look window.
+The original was 1,624 × 1,700 pixels, SHA-256
+`225009bfd60ff3f9c82ec32c258072707407ccfafad69722b477eff2d14e7dd9`. The
+binary is not included here because it contains desktop edges. The visible
+window title was `closed-a831f905.md` and the document heading was
+`PI222 closed a831f905`. The displayed sequence diagram showed Client, Server,
+the rightward `NightRequest` and dashed leftward `NightReply`. The class diagram
+showed User and Order, their distinct private/public field markers, `owns`, and
+the `1`/`*` cardinalities. Both diagram-source disclosures were closed. The
+missing-theme fence was visible as source through `@enduml`; the following
+local-include fence was visible only through the include line at the bottom
+edge. This screenshot does not establish the rest of that fence or the fifth
+block; further scroll observation is pending. It also does not identify which
+of the five completed requests supplied the displayed result.
 
 A contemporaneous [read-only process observation](live-executable-inode.txt)
 found PID 14185's mapped executable and the installed file had the same device,
