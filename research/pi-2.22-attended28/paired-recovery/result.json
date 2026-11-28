@@ -1,0 +1,48 @@
+{
+  "case": "recovery",
+  "fixture": "recovery-28baf491.md",
+  "fixtureSha256": "b876a3e66172927a87cf5846e782aeae688a49208b5c2eb866a204fb5ff89516",
+  "extension": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex",
+  "cdhash": "a06fb7915b27f1959c58c0f6a6f06c2f018bdf4e",
+  "imageUuid": "25053f44-52cb-3f32-a138-8a3e9c49ae85",
+  "staticSeal": "/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: valid on disk\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: satisfies its Designated Requirement\n/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex: explicit requirement satisfied",
+  "executableSha256": "401eeecb1117048961103518a0ffa0720766457109c5566dcdde6e0bc950d7ab",
+  "scriptSha256": "ddb435c53c82e376588cad4f2e0a68b9f76f9bb858c708c669da8816613e96e3",
+  "initialExactPathPids": [
+    15947
+  ],
+  "identities": {
+    "15947": {
+      "birth": "Sat Nov 28 10:38:13 2026",
+      "dynamicVerification": "15947: dynamically valid\n15947: valid on disk\n15947: satisfies its Designated Requirement\n15947: explicit requirement satisfied"
+    }
+  },
+  "suspension": null,
+  "extensionRssSamplesKiB": [
+    {
+      "pid": 15947,
+      "afterEvent": "start",
+      "rssKiB": 113776
+    },
+    {
+      "pid": 15947,
+      "afterEvent": "completed",
+      "rssKiB": 107296
+    }
+  ],
+  "rssScope": "Live ps sample while processing an event; excludes WebKit children.",
+  "correlated": true,
+  "scope": "Operator must independently identify the visible Finder fixture and result.",
+  "readyUtc": "2026-11-28T09:38:24.922488+00:00",
+  "request": {
+    "requestId": "db7fb6d5-040e-418d-abbb-70fd796c280e",
+    "pid": 15947,
+    "states": [
+      "start",
+      "completed"
+    ],
+    "started": "2026-11-28 10:39:18.828343+0100",
+    "ended": "2026-11-28 10:39:19.525378+0100",
+    "elapsedMs": 697
+  }
+}

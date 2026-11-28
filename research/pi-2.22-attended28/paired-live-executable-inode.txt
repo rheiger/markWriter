@@ -1,0 +1,12 @@
+Read-only observation, 2026-11-28T09:38:26.342700+00:00
+
+Installed executable:
+/Applications/MarkWriter.app/Contents/PlugIns/MarkWriterQuickLook.appex/Contents/MacOS/QuickLookPrototype
+
+stat: device 16777233 (major 1, minor 17), inode 4240750, size 400048 bytes
+ps: PID 15947, PPID 1, state Ss, start Sat Nov 28 10:38:13 2026, executable path above
+lsof: PID 15947, txt mapping, REG device 1,17, size 400048 bytes, inode 4240750, executable path above
+
+The live process's text mapping and the on-disk executable had matching device,
+inode and size at observation time. This does not by itself attribute a visible
+Finder preview to any request. No process or remote file was modified.

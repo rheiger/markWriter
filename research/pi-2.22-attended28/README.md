@@ -152,3 +152,42 @@ does not alter the first exchange's historical receipt.
 The controlled timeout's visual fallback, next successful preview, other
 diagram limits and the eventual second-exchange restoration remain separate
 evidence requirements.
+
+## Paired timeout and recovery retry
+
+In the second exchange, candidate registration UUID was
+`FCE43904-7420-4A63-BBC0-15B01ED6EED5` at the same installed path and with
+the same package hashes/CDHash/image UUID. The fresh synthetic timeout and
+recovery fixtures used nonce `28baf491`.
+
+The stopped [paired timeout receipt](paired-timeout/result.json) and
+[strict replay](paired-timeout/replay.json) identify one request
+`1d1c63f3-18b4-4f09-8760-cd6fe22bed8d`, dynamically verified PID 15947,
+with start→timeout→fallback in order. The recorded suspension was
+8.263849625 seconds and native elapsed time 8,449 ms. Its 374,062-byte
+synthetic fixture has SHA-256
+`14de7cae76e45101d624a05fcff6599677002ba19a34d03f87f5375b5f98b3c6`;
+`generate-fixtures.py` reproduces it with nonce `28baf491`.
+
+The operator reported that the timeout preview showed the source marker
+`TimeoutSentinel` and `@enduml`. This is an operator observation, not a retained
+screenshot or proof that all 55,000 synthetic JSON lines were visible.
+The subsequently stopped [recovery receipt](paired-recovery/result.json) and
+[strict replay](paired-recovery/replay.json) identify one request
+`db7fb6d5-040e-418d-abbb-70fd796c280e`, same PID 15947, completed in 697 ms.
+The operator reported that the next preview showed a UML diagram like the
+earlier ones; the recovery arrow labels were not independently read.
+
+A [filtered unified-log query](paired-continuity-unified.ndjson) covering
+10:38:10–10:39:25 local returned exactly the timeout's three events followed
+by the recovery's two events, with no intervening renderer event in that
+query. The same path, process image UUID and PID appear throughout. As with
+the earlier query, retention/filtering limits apply and its timestamps differ
+slightly from the live stream. A [read-only live process inspection](paired-live-executable-inode.txt)
+at 09:38:26 UTC matched PID 15947's mapped executable device/inode to the
+installed executable. The captured RSS samples are point-in-time extension
+process values and exclude WebKit children. The suspension is a controlled
+scheduling delay, not a normal-load latency measurement.
+
+The second exchange's eventual restoration and additional Finder cases still
+require their own evidence.
