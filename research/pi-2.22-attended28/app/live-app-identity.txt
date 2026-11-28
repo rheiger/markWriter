@@ -1,0 +1,10 @@
+2026-11-28T09:44:28Z
+16172     1 S    Sat Nov 28 10:40:28 2026     /Applications/MarkWriter.app/Contents/MacOS/markwriter
+markwrite 16172 [redacted]  txt       REG               1,17  19064960             4240742 /Applications/MarkWriter.app/Contents/MacOS/markwriter
+dev=16777233 inode=4240742 size=19064960 path=/Applications/MarkWriter.app/Contents/MacOS/markwriter
+66020bdcb78f07a41b358f5302bf050862e32dc1995c1cd7f43e57876f0cbf5f  /Applications/MarkWriter.app/Contents/MacOS/markwriter
+16172: dynamically valid
+16172: valid on disk
+16172: satisfies its Designated Requirement
+16172: explicit requirement satisfied
+pid_environment_profile_visible=true matches_isolated_test_profile=true

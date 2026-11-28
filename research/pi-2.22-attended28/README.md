@@ -191,3 +191,39 @@ scheduling delay, not a normal-load latency measurement.
 
 The second exchange's eventual restoration and additional Finder cases still
 require their own evidence.
+
+## macOS app Preview and HTML export
+
+The operator opened synthetic [app-a831f905.md](app/app-a831f905.md) in the
+candidate app and supplied a PNG screenshot. Its SHA-256 was
+`b5eb1f4ff95aa8bd9e8a3d159ac73b972168381cf317a96b6906cc35a569809c`
+and dimensions were 2,498 × 2,130 pixels. The binary is not retained here.
+The screenshot shows the matching tab and heading, Markdown mode with the
+right Preview, the Client/Server sequence and its labeled arrow directions,
+the User/Order classes with field markers, `owns`, `1` and `*`, readable
+missing-theme source and an ordinary link. It does not by itself verify Undo,
+recovery, cross-document ownership or WYSIWYG editing.
+
+The [launch wrapper](app/launch-on-mac.sh) checks the candidate signature,
+the synthetic fixture hash and an isolated profile, and configures a sandbox
+to deny outbound IP network. A separate live inspection of PID 16172 found
+the same isolated-profile environment, verified its dynamic host CDHash, and
+matched its mapped executable device/inode to the installed candidate; the
+[redacted identity receipt](app/live-app-identity.txt) records the details.
+This establishes the observed process identity, not a separate network-egress
+canary. The source fixture had SHA-256
+`1d697256fa73c3d9ceff8d11091d8f9fdd077cbff19ddf4b73c302b0579c97c6`
+on the Mac during the observation.
+
+The operator saved a synthetic HTML export to a chosen Documents location; the
+file was read for qualification and left untouched. Its 7,770 bytes and
+SHA-256 `59c1b9a9d1d46fe4b42aa215c936d1d27afae30c99c67c2a6ca3e10c74ed0619`
+were independently verified on the Mac and match the retained
+[saved export](app/saved-mac.html). The [checker](app/check-export.py) was
+rerun locally against the copied source and export and reproduced its
+[receipt](app/export-receipt.json): two inline SVG diagrams with checked
+sequence direction/dashing, class association and field markers, exact
+missing-theme fallback source, one ordinary link with its `href`, and no
+unexpected active/resource elements or attributes. This checks the saved
+HTML structure; it is not a claim that the link was clicked, nor a substitute
+for separate platform or WYSIWYG acceptance.

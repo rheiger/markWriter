@@ -1,0 +1,31 @@
+{
+  "sourceSha256": "1d697256fa73c3d9ceff8d11091d8f9fdd077cbff19ddf4b73c302b0579c97c6",
+  "heading": "PI222 app a831f905",
+  "svgCount": 2,
+  "sequenceLabels": [
+    "Client",
+    "Server",
+    "Client",
+    "Server",
+    "NightRequest",
+    "NightReply"
+  ],
+  "classLabels": [
+    "C",
+    "User",
+    "id: int",
+    "C",
+    "Order",
+    "id: int",
+    "owns",
+    "*",
+    "1"
+  ],
+  "matchedArrowDirectionsAndDashes": true,
+  "checkedAssociationAndFieldMarkers": true,
+  "exactFallback": "@startuml\n!theme missing\n@enduml\n",
+  "ordinaryLink": "https://example.com/",
+  "staticElementsChecked": true,
+  "exportBytes": 7770,
+  "exportSha256": "59c1b9a9d1d46fe4b42aa215c936d1d27afae30c99c67c2a6ca3e10c74ed0619"
+}
