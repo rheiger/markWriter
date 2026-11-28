@@ -26,6 +26,9 @@ export function verifyDirectLogs(lines, executable, samePath = (a, b) => a === b
         requests.push({ ...current, outcome: state, elapsedMs: Number(elapsed) })
         current = null
       }
+    } else if (/^request=.* timeout$/.test(value.eventMessage)) {
+      if (!current || value.eventMessage !== `request=${current.id} timeout`) throw new Error('Unmatched renderer timeout')
+      current.reasons.push('Fallback: renderer timed out')
     } else if (value.eventMessage.startsWith('Fallback:')) {
       if (!current) throw new Error('Unattributed fallback reason')
       current.reasons.push(value.eventMessage)

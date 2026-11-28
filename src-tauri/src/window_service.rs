@@ -82,6 +82,7 @@ fn build_window(
                 || dot_policy::is_regex_worker(path)
                 || dot_policy::is_dbml_worker(path)
                 || dot_policy::is_sql_worker(path)
+                || dot_policy::is_plantuml_worker(path)
             {
                 Some(dot_policy::LOCAL_WORKER_CSP)
             } else {

@@ -6,6 +6,39 @@ MarkWriter supports common Markdown and GFM tables, tasks, fenced code, Mermaid 
 
 Find and Replace is scoped to the current document. Source mode searches Markdown, including folded content; rendered mode searches editable text and excludes opaque diagram interiors. See [regular-expression search](regex-search.md) for syntax, limits and replacement behavior. The source and rendered editor fonts are independent display settings.
 
+### Offline PlantUML sequence and class diagrams
+
+Put one diagram between `@startuml` and `@enduml` in a fenced `plantuml` block. Edit the source in Markdown. WYSIWYG and Preview render supported diagrams locally, and HTML export saves their static SVGs. If a diagram uses unsupported syntax or the renderer cannot validate its output within budget, its source stays readable.
+
+````markdown
+```plantuml
+@startuml
+actor Alice
+participant Bob
+Alice -> Bob: Request
+Bob --> Alice: Response
+@enduml
+```
+
+```plantuml
+@startuml
+class User {
+ -id: int
+}
+class Order {
+ +id: int
+}
+User "1" -- "*" Order: owns
+@enduml
+```
+````
+
+A sequence diagram needs at least one labeled message. Use `->` for a solid arrow and `-->` for a dashed arrow between two different declared actors or participants. Class diagrams accept named classes with optional public (`+`) or private (`-`) typed fields. Use a labeled `--` association between two different classes. Each end can have a quoted multiplicity of up to eight characters drawn from digits and `*`, such as `"1"` or `"*"`. A self-message, a self-association or a range such as `"0..*"` leaves the entire fence as readable source.
+
+Names and field types start with an ASCII letter or underscore and can contain letters, digits and underscores, up to 32 characters. Labels start with an ASCII letter or digit and can also contain spaces, periods, commas, parentheses, underscores and hyphens, up to 80 characters. Themes, includes, images, macros, other diagram families and mixed diagram types retain their source.
+
+Each PlantUML fence has an 8 KiB UTF-8 input limit and a 200-line limit. The app and HTML export render at most four PlantUML blocks totaling 16 KiB per document. The app checks the queue, render and SVG validation against a five-second job deadline. Finder shares its four diagram slots with Mermaid, DOT and DBML. Its native enrichment deadline is eight seconds, and its existing whole-file limits apply.
+
 ### Explicit Java, Perl, AWK and CMake fences
 
 Use `java`, `perl` (or `pl`), `awk` or `cmake` as the fence label to highlight these languages in both editors, Preview and offline HTML export. Labels are case-insensitive. The standard limit is 4,096 UTF-16 code units per fence and 2,048 per line, with a shared 16,384-unit budget for ordinary fences. `sed` and fences that exceed these limits remain readable as plain text.

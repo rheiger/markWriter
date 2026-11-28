@@ -4,7 +4,7 @@ import { codeFolding, foldGutter, foldService, foldKeymap, foldedRanges, unfoldE
 import { keymap, EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 
 const embeddedKinds = new Map([
-  ['mermaid', 'Mermaid'], ['dot', 'DOT'], ['graphviz', 'DOT'], ['dbml', 'DBML'], ['math', 'Math'],
+  ['mermaid', 'Mermaid'], ['dot', 'DOT'], ['graphviz', 'DOT'], ['dbml', 'DBML'], ['math', 'Math'], ['plantuml', 'PlantUML'],
 ])
 const cache = new WeakMap<EditorState, { from: number, to: number, kind: string }[]>()
 export const preserveEmbeddedFolds = Annotation.define<boolean>()

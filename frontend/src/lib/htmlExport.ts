@@ -3,6 +3,8 @@ import { renderMarkdownHtml } from './markdown'
 import { dotRenderer } from './dotRenderer'
 import { dbmlRenderer } from './dbmlRenderer'
 import { mathRenderer, createMathBudget } from './mathRenderer'
+import { plantumlRenderer } from './plantumlRenderer'
+import { addPlantUmlBytes, PLANTUML_DOCUMENT_LIMITS } from './plantumlBudget'
 import tokenCss from './codeHighlight.css?inline'
 
 // Use the same parser as Preview; diagrams become inline SVG for offline viewing.
@@ -17,6 +19,29 @@ export async function createHtmlExport(source: string, owner = `export:${crypto.
     element.innerHTML = await dotRenderer.render(element.getAttribute('data-chart') ?? '', owner)
     element.className = 'dot-diagram'
     for (const name of ['data-chart', 'data-source-fence', 'data-notation']) element.removeAttribute(name)
+  }
+  const plantuml = Array.from(doc.querySelectorAll<HTMLElement>('[data-type="plantuml"]'))
+  if (plantuml.length) {
+    const abort = new AbortController(), deadline = setTimeout(() => abort.abort(), 10_000)
+    let aggregateBytes = 0
+    try {
+      for (const [index, element] of plantuml.entries()) {
+        const source = element.getAttribute('data-chart') ?? ''
+        aggregateBytes = addPlantUmlBytes(aggregateBytes, source)
+        element.className = 'plantuml-diagram'
+        try {
+          if (abort.signal.aborted || index >= PLANTUML_DOCUMENT_LIMITS.blocks || aggregateBytes > PLANTUML_DOCUMENT_LIMITS.inputBytes) throw new Error('PlantUML export budget exceeded')
+          element.innerHTML = await plantumlRenderer.render(source, owner, abort.signal)
+        } catch (error) {
+          element.replaceChildren()
+          const status = doc.createElement('p'), fallback = doc.createElement('pre')
+          status.textContent = `PlantUML unavailable: ${error instanceof Error ? error.message : 'rendering failed'}`
+          fallback.className = 'plantuml-source'; fallback.textContent = source
+          element.append(status, fallback)
+        }
+        for (const name of ['data-chart', 'data-source-fence', 'data-notation']) element.removeAttribute(name)
+      }
+    } finally { clearTimeout(deadline); abort.abort() }
   }
   const dbml = Array.from(doc.querySelectorAll<HTMLElement>('[data-type="dbml"]'))
   if (dbml.length) {

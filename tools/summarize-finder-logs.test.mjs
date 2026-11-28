@@ -25,3 +25,18 @@ test('distinguishes fallback from completed output', () => {
   const fallback = event(`request=${id} fallback elapsed_ms=8000`, '2026-11-26T12:00:08Z')
   assert.equal(summarizeFinderLogs([start, fallback].join('\n'), path).outcome, 'fallback')
 })
+
+test('correlates the deadline to the exact request, PID and selection interval', () => {
+  const end = event(`request=${id} fallback elapsed_ms=8002`, '2026-11-26T12:00:08.002Z')
+  const time = '2026-11-26T12:00:08.001Z'
+  const verify = events => summarizeFinderLogs(events.join('\n'), path, undefined, true)
+  const timeout = event(`request=${id} timeout`, time)
+  assert.equal(verify([start, timeout, end]).timeout, time)
+  for (const events of [
+    [start, end], [start, end, timeout], [start, timeout, timeout, end],
+    [start, event(`request=${other} timeout`, time), end],
+    [start, event(`request=${id} timeout`, time, 8), end],
+    [start, event(`request=${id} timeout`, '2026-11-26T12:00:09Z'), end],
+    [start, timeout, complete],
+  ]) assert.throws(() => verify(events))
+})

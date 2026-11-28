@@ -29,6 +29,8 @@ import { appendDbmlFence, toWysiwygHtml, fromWysiwygHtml, renderMappedMarkdown }
 import { parseInlineCodeDocument, createInlineCodeClipboardParser } from '../lib/inlineCodeParser'
 import { TableTools } from './TableTools'
 import { dbmlRenderer } from '../lib/dbmlRenderer'
+import { plantumlRenderer } from '../lib/plantumlRenderer'
+import { addPlantUmlBytes, PLANTUML_DOCUMENT_LIMITS } from '../lib/plantumlBudget'
 import { dotRenderer } from '../lib/dotRenderer'
 import { mathRenderer, createMathBudget } from '../lib/mathRenderer'
 import { FindReplace } from './FindReplace'
@@ -418,7 +420,7 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     if (tiptap.isActive('codeBlock')) blockLabel = 'Code'
     if (tiptap.isActive('table')) blockLabel = 'Table'
     if (tiptap.isActive('taskItem') || tiptap.isActive('taskList')) blockLabel = 'Task'
-    if (tiptap.isActive('mermaid') || tiptap.isActive('dot') || tiptap.isActive('dbml') || tiptap.isActive('math')) blockLabel = 'Body'
+    if (tiptap.isActive('mermaid') || tiptap.isActive('dot') || tiptap.isActive('dbml') || tiptap.isActive('math') || tiptap.isActive('plantuml')) blockLabel = 'Body'
 
     return {
       blockLabel,
@@ -931,27 +933,35 @@ const DocumentEditor = forwardRef<EditorViewRef, DocumentEditorProps>(({ onModeC
     const blocks = elements.map((element, index) => ({
       id: `preview-${generation}-${index}`, chart: element.getAttribute('data-chart') ?? '', index,
     }))
-    const diagrams = Array.from(container.querySelectorAll<HTMLElement>('[data-type="dot"], [data-type="dbml"]'))
+    const diagrams = Array.from(container.querySelectorAll<HTMLElement>('[data-type="dot"], [data-type="dbml"], [data-type="plantuml"]'))
     setDiagramCount(elements.length + diagrams.length)
+    let plantUmlBlocks = 0, plantUmlBytes = 0
     for (const element of diagrams) {
       const chart = element.getAttribute('data-chart') ?? ''
       const isDbml = element.dataset.type === 'dbml'
-      const label = isDbml ? 'DBML' : 'DOT'
-      const renderer = isDbml ? dbmlRenderer : dotRenderer
+      const isPlantUml = element.dataset.type === 'plantuml'
+      const label = isPlantUml ? 'PlantUML' : isDbml ? 'DBML' : 'DOT'
+      const renderer = isPlantUml ? plantumlRenderer : isDbml ? dbmlRenderer : dotRenderer
+      if (isPlantUml) { plantUmlBlocks++; plantUmlBytes = addPlantUmlBytes(plantUmlBytes, chart) }
       element.textContent = `Rendering ${label}…`
+      if (isPlantUml) { const source = document.createElement('pre'); source.textContent = chart; element.append(source) }
       const owner = `${documentId}:${doc?.revision ?? 0}:${generation}`
       const ownsPreview = () => {
         const current = useAppStore.getState().currentDocument
         return !abort.signal.aborted && generation === previewGeneration.current && element.isConnected &&
           current?.id === documentId && (current?.revision ?? 0) === map.owner.revision
       }
-      renderer.render(chart, owner, abort.signal).then(svg => {
+      const rendered = isPlantUml && (plantUmlBlocks > PLANTUML_DOCUMENT_LIMITS.blocks || plantUmlBytes > PLANTUML_DOCUMENT_LIMITS.inputBytes)
+        ? Promise.reject(new Error('PlantUML document budget exceeded'))
+        : renderer.render(chart, owner, abort.signal)
+      rendered.then(svg => {
         if (!ownsPreview()) return
         element.innerHTML = svg
         syncRef.current?.invalidate()
       }).catch(error => {
         if (!ownsPreview()) return
         element.textContent = `${label} error: ${error instanceof Error ? error.message : String(error)}`
+        if (isPlantUml) { const source = document.createElement('pre'); source.textContent = chart; element.append(source) }
         element.setAttribute('role', 'status')
         syncRef.current?.invalidate()
       })

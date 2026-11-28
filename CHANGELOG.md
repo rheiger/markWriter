@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.22.2
+
+- Render supported PlantUML sequence and class diagrams offline in WYSIWYG, Preview and static HTML export (2.22.1).
+- Preview the same subset in Finder Quick Look with the editor open or closed (2.22.2). Unsupported or over-budget diagrams remain readable as source.
+
+[Release notes](docs/releases/2.22.2.md) · [Installation and rollback](docs/install-2.22.2.md)
+
 ## 2.21.1
 
 - Render the supported DBML subset offline in Finder Quick Look, with source fallback and shared diagram limits.
